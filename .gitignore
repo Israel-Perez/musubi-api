@@ -1,0 +1,60 @@
+## .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+## Secretos y overrides locales (nunca en Git; usar user-secrets o estos archivos)
+appsettings.Local.json
+appsettings.*.Local.json
+*.secrets.json
+secrets.json
+
+## Archivos de entorno (deploy/.env.example si se versiona)
+.env
+.env.*
+!.env.example
+
+## Certificados y llaves
+*.pfx
+*.pem
+*.key
+*.p12
+*.crt
+*.cer
+*.jks
+
+## Perfiles de publicacion
+*.publishsettings
+PublishProfiles/
+
+## Artefactos de pruebas, cobertura y reportes
+TestResults/
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+*.cobertura.xml
+coverage.json
+reports/
+StrykerOutput/
+
+## Logs
+logs/
+*.log
+
+## Bases de datos locales
+*.db
+*.sqlite
+*.mdf
+*.ldf
+
+## Residuos de SO / editor
+.DS_Store
+Thumbs.db
+*.orig
+*.bak
+*.swp

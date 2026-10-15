@@ -1,0 +1,121 @@
+name: ci-pr
+
+# Orden logico (01-05): build -> unit/integration/security/contract -> critic/endpoints/semgrep/docker-build.
+# Actions fijadas por SHA (00-04, regla 11); Dependabot las actualiza.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Musubi.slnx
+      - run: dotnet build Musubi.slnx -c Release --no-restore
+
+  unit:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Musubi.slnx
+      - run: dotnet build Musubi.slnx -c Release --no-restore
+      - run: dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build
+
+  integration:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Musubi.slnx
+      - run: dotnet build Musubi.slnx -c Release --no-restore
+      - run: dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build
+
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Musubi.slnx
+      - run: dotnet build Musubi.slnx -c Release --no-restore
+      - run: dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build
+
+  contract:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Musubi.slnx
+      - run: dotnet build Musubi.slnx -c Release --no-restore
+      - run: dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build
+
+  critic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - shell: pwsh
+        run: ./scripts/critic-guardrails.ps1
+
+  endpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - shell: pwsh
+        run: ./scripts/check_endpoints.ps1
+
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install semgrep==1.181.0
+      - run: semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error
+
+  docker-build:
+    # Verifica el Dockerfile sin publicar nada (sin login ni push).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build --pull -t musubi-api:ci .
