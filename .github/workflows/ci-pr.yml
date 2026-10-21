@@ -85,10 +85,13 @@ jobs:
 
   database:
     # MongoDB real con Testcontainers (Docker del runner): aplica db/*.js y prueba los repositorios (02-01).
+    # ubuntu-22.04 y no -latest: mongod 8.0 se niega a arrancar en kernels Linux >= 6.19 (SERVER-121912),
+    # que ya llegan a algunos runners -latest. Atlas y WSL2 no se ven afectados. Revisar al subir mongo.
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
+      - run: uname -r
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

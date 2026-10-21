@@ -30,6 +30,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 **Errores a evitar**
 - CA2007 aplica a los métodos auxiliares de las pruebas (los `[Fact]` están exentos): `ConfigureAwait(false)` fuera de los métodos de prueba.
 - DatabaseTest no corre sin Docker: en esta máquina solo compila; la evidencia es el job `database` del CI.
+- `mongod` 8.0 se niega a arrancar en kernels Linux >= 6.19 ("known incompatibility", SERVER-121912) y algunos runners `ubuntu-latest` ya los traen: el job `database` corre en `ubuntu-22.04` e imprime `uname -r`. No afecta a Atlas ni a WSL2. Revisarlo al subir la imagen de `mongo`.
 - En `mongosh`, `db._meta` da `undefined` (los nombres con `_` no se resuelven como propiedad): usar `db.getCollection('_meta')`. Lo detectó el job `database` en su primera corrida; el script de entrega habría fallado en Atlas.
 
 ## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
