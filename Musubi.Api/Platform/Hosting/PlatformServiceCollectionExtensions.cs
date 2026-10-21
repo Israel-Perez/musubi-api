@@ -2,11 +2,16 @@ using System;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Data;
+using Musubi.Api.Platform.Email;
+using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Platform.Hosting;
 
@@ -45,8 +50,18 @@ internal static class PlatformServiceCollectionExtensions
             // NOTE (02-05): registrar KnownNetworks/KnownProxies del balanceador de AWS al definir el despliegue.
         });
 
-        services.AddProblemDetails();
+        // Contrato de errores (02-03): cada error sale como problem+json con code, titulo en espanol y traceId.
+        services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+            ApiErrors.Decorate(context.ProblemDetails, context.HttpContext));
         services.AddControllers();
+        services.Configure<ApiBehaviorOptions>(options => options.InvalidModelStateResponseFactory = context =>
+        {
+            var factory = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>();
+            var problem = factory.CreateValidationProblemDetails(context.HttpContext, context.ModelState, ApiErrors.ValidationFailed.Status);
+            problem.Extensions[ApiErrors.CodeExtension] = ApiErrors.ValidationFailed.Code;
+            problem.Title = ApiErrors.ValidationFailed.Message;
+            return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
+        });
         services.AddApiVersioning(options =>
         {
             options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -75,8 +90,8 @@ internal static class PlatformServiceCollectionExtensions
             options.IncludeSubDomains = true;
         });
 
-        // NOTE (HU-02): FallbackPolicy RequireAuthenticatedUser cuando exista el esquema JWT; hoy la auth es explicita por controller.
-        services.AddAuthorization();
+        services.AddMusubiAuth();
+        services.AddMusubiEmail();
 
         services.AddMusubiMongo(ReadyTag);
     }

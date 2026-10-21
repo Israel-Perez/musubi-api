@@ -30,22 +30,27 @@ internal static class PlatformPipelineExtensions
             app.UseHsts();
         }
 
+        // 401, 403, 404, 405 y 429 sin cuerpo salen como problem+json con code (02-03).
+        app.UseStatusCodePages();
         app.UseHttpsRedirection();
         app.UseCors(PlatformServiceCollectionExtensions.CorsPolicyName);
 
         if (app.Environment.IsDevelopment())
         {
-            app.MapOpenApi().WithDocumentPerVersion();
-            app.MapScalarApiReference();
+            app.MapOpenApi().WithDocumentPerVersion().AllowAnonymous();
+            app.MapScalarApiReference().AllowAnonymous();
         }
 
+        app.UseAuthentication();
+        app.UseRateLimiter();
         app.UseAuthorization();
 
         app.MapControllers();
-        app.MapHealthChecks(HealthPath, new HealthCheckOptions { Predicate = _ => false });
+        // Las sondas del balanceador no llevan token (la politica de respaldo exige sesion en lo demas).
+        app.MapHealthChecks(HealthPath, new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
         app.MapHealthChecks(ReadyPath, new HealthCheckOptions
         {
             Predicate = check => check.Tags.Contains(PlatformServiceCollectionExtensions.ReadyTag),
-        });
+        }).AllowAnonymous();
     }
 }

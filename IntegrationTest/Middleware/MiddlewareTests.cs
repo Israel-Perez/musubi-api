@@ -1,5 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using IntegrationTest.Common;
+using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Platform.Auth;
 
 namespace IntegrationTest.Middleware;
 
@@ -28,12 +32,27 @@ public sealed class MiddlewareTests(MusubiApiFactory factory) : IClassFixture<Mu
     }
 
     [Fact]
-    public async Task UnknownRoute_Returns404()
+    public async Task UnknownRoute_Anonymous_Returns401SoRoutesCannotBeEnumerated()
     {
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync(new Uri("/no-existe", UriKind.Relative), TestContext.Current.CancellationToken);
 
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UnknownRoute_WithSession_Returns404ProblemWithCode()
+    {
+        using var client = factory.CreateClient();
+        var token = factory.Services.GetRequiredService<AccessTokenIssuer>().Issue("6716a0000000000000000001", "000000000000000000000001", ["student"]);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+
+        var response = await client.GetAsync(new Uri("/no-existe", UriKind.Relative), TestContext.Current.CancellationToken);
+
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("resource.not_found", doc.RootElement.GetProperty("code").GetString());
     }
 }

@@ -49,13 +49,14 @@ public sealed class ExplicitAuthTests(ProductionApiFactory production) : IClassF
     [Fact]
     public async Task Production_DoesNotExposeOpenApiOrScalar()
     {
+        // 02-03: sin sesion, una ruta inexistente responde 401 (la politica de respaldo no deja enumerar rutas).
         using var client = production.CreateClient();
 
         var openApi = await client.GetAsync(new Uri("/openapi/v1.json", UriKind.Relative), TestContext.Current.CancellationToken);
         var scalar = await client.GetAsync(new Uri("/scalar", UriKind.Relative), TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.NotFound, openApi.StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, scalar.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, openApi.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, scalar.StatusCode);
     }
 
     private static bool HasAuthDeclaration(MemberInfo member) =>

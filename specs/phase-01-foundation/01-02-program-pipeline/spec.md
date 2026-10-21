@@ -20,12 +20,15 @@ Registro DI y pipeline HTTP de la plataforma, en un orden fijo y explícito, sob
 | 1 | `UseForwardedHeaders` (X-Forwarded-For/Proto) | ✅ | `NOTE (02-05)`: KnownNetworks del balanceador de AWS |
 | 2 | `UseExceptionHandler` + `ProblemDetails` (fuera de Dev) | ✅ | 01-03 |
 | 3 | `UseHsts` (fuera de Dev) | ✅ | `AddHsts`: 365 d + subdominios |
-| 4 | `UseHttpsRedirection` | ✅ | RNF-02 |
-| 5 | `UseCors("MusubiCors")` | ✅ | Orígenes desde la configuración |
-| 6 | `MapOpenApi().WithDocumentPerVersion()` + `MapScalarApiReference()` (solo Dev) | ✅ | `/openapi/v1.json`, `/scalar` |
-| 7 | `UseAuthorization` | ✅ | `NOTE (HU-02)`: esquema JWT y FallbackPolicy |
-| 8 | `MapControllers` + `MapHealthChecks` | ✅ | 01-03 |
-| — | Headers de seguridad, rate limiting | Pendiente | `02-04` |
+| 4 | `UseStatusCodePages` | ✅ | 02-03: 401/403/404/405/429 sin cuerpo → problem+json con `code` |
+| 5 | `UseHttpsRedirection` | ✅ | RNF-02 |
+| 6 | `UseCors("MusubiCors")` | ✅ | Orígenes desde la configuración |
+| 7 | `MapOpenApi().WithDocumentPerVersion()` + `MapScalarApiReference()` (solo Dev, `AllowAnonymous`) | ✅ | `/openapi/v1.json`, `/scalar` |
+| 8 | `UseAuthentication` | ✅ | 02-03: JWT Bearer HS256 |
+| 9 | `UseRateLimiter` | ✅ | 02-03: política `auth` (429 + `Retry-After`) |
+| 10 | `UseAuthorization` | ✅ | 02-03: FallbackPolicy = sesión obligatoria |
+| 11 | `MapControllers` + `MapHealthChecks` (`AllowAnonymous`) | ✅ | 01-03 |
+| — | Headers de seguridad, rate limit global, compresión | Pendiente | `02-04` |
 | — | Logs estructurados, correlación | Pendiente | `02-06` |
 | — | Hub de SignalR | Pendiente | `NOTE (HU-20)` |
 
@@ -55,5 +58,5 @@ No hay autenticación (HU-02), headers de seguridad ni rate limiting (02-04), ni
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 15-Oct-2026
-- **Detalle:** Desviación respecto de la referencia: integración oficial `Asp.Versioning.OpenApi` en lugar de suprimir AV0029/AV0030.
+- **Fecha:** 21-Oct-2026
+- **Detalle:** Desviación respecto de la referencia: integración oficial `Asp.Versioning.OpenApi` en lugar de suprimir AV0029/AV0030. 21-Oct-2026 (SCRUM-77): pipeline con StatusCodePages, Authentication y RateLimiter (02-03).
