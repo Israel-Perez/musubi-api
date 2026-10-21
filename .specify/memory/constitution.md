@@ -67,6 +67,8 @@
 | Runtime / API | .NET 10, ASP.NET Core (controllers), API versionada `api/v1/...` (Asp.Versioning) |
 | Datos | **MongoDB** (NoSQL, lineamiento 14): Atlas M0 en la nube, `mongo` 8.0 en local; `MongoDB.Driver`. `UseInMemoryDatabase=true` solo en local y pruebas (sin MongoDB). Script de la base con `mongosh` — `NOTE (02-01)` |
 | Caché | Redis/Valkey junto a las instancias (cache-aside) — `NOTE (02-02)` |
+| Autenticación | JWT Bearer HS256 de 15 min + refresh token opaco y rotativo con detección de reutilización; contraseñas con PBKDF2-SHA512 de 210 000 iteraciones; sesión obligatoria por defecto (02-03) |
+| Correo | Amazon SES (AWSSDK.SimpleEmailV2); en Development, en el log (02-03) |
 | Tiempo real | SignalR (hub de chat y avisos dentro de la app) — `NOTE (HU-20)` |
 | Notificaciones | Firebase Cloud Messaging; el back envía con credenciales de Firebase Admin — `NOTE (HU-31)` |
 | IA generativa | API de un modelo de lenguaje detrás de una interfaz; proveedor intercambiable — `NOTE (HU-32)` |
@@ -116,6 +118,7 @@ Regla de excepción: ver `specs/phase-00-constitution/00-01-principles-stack/spe
 
 - HSTS de 365 días solo fuera de Development; HTTPS obligatorio (RNF-02).
 - CORS restringido por configuración (sin comodín; SonarAnalyzer S5122 lo bloquea en el build).
-- Fuera de Development, los errores son `ProblemDetails` genéricos sin detalle interno.
+- Errores: `problem+json` con `code` estable, título en español y `traceId`, sin detalle interno (catálogo `docs/errores.md`, 02-03).
+- Rechazar por defecto: la política de respaldo exige sesión en cada endpoint salvo `[AllowAnonymous]`; JWT solo HS256 del emisor y la audiencia propios; rate limit en `/auth/*`.
 - Secretos solo en user-secrets, archivos ignorados o variables/secretos del despliegue. Los appsettings versionados solo llevan placeholders (pruebas en `UnitTest/Common/AppSettingsTests.cs`).
 - Las llaves privadas (IA, Firebase Admin, cifrado de la CLABE) viven **solo** en el back.

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -12,6 +13,12 @@ public abstract class SecurityApiFactory(string environment) : WebApplicationFac
     /// <summary>Origen que la configuracion de prueba permite en CORS.</summary>
     public const string AllowedOrigin = "https://admin.musubi.example";
 
+    /// <summary>Intentos por ventana del rate limit de /auth en las pruebas.</summary>
+    public const int AuthPermitLimit = 3;
+
+    /// <summary>Llave de firma de 64 bytes generada al vuelo (nunca un literal en el repo); admite probar HS512.</summary>
+    public static readonly string SigningKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -20,6 +27,9 @@ public abstract class SecurityApiFactory(string environment) : WebApplicationFac
         {
             ["UseInMemoryDatabase"] = "true",
             ["Cors:AllowedOrigins:0"] = AllowedOrigin,
+            ["Jwt:SigningKey"] = SigningKey,
+            ["Email:From"] = "Musubi <no-reply@musubi.example>",
+            ["RateLimiting:Auth:PermitLimit"] = AuthPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
         }));
         builder.ConfigureTestServices(services =>
             services.AddControllers().AddApplicationPart(typeof(ThrowingProbeController).Assembly));

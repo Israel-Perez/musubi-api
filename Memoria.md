@@ -4,9 +4,35 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (21-Oct-2026)
 
-- **SCRUM-76** (02-01, rama `feature/SCRUM-76-modelo-datos`, apilada sobre SCRUM-75): modelo de datos e identidad.
-- Build Release 0/0 · Unit 43/43 · Integration 8/8 · Security 11/11 · Contract 2/2 · Database 18 (job del CI) · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0.
-- Siguiente: `02-03` (errores + JWT/refresh/logout + correo) y después HU-01/03/47 y HU-02.
+- **SCRUM-77** (02-03, rama `feature/SCRUM-77-errores-auth`): errores, autenticación y correo. 02-01 (SCRUM-76) ya está en `main`.
+- Build Release 0/0 · Unit 80/80 · Integration 9/9 · Security 25/25 · Contract 3/3 · Database 18 (CI) · critic PASS · endpoints OK (3) · Semgrep 0.
+- Siguiente: app `02-01` (tema de la maqueta, navegación, sesión segura) y después HU-01/03/47 y HU-02.
+
+## T6 — 02-03 Contrato de errores, autenticación y correo (21-Oct-2026, SCRUM-77)
+
+**Qué se hizo**
+- Errores: `problem+json` con `code`, título en español y `traceId` en cualquier error (validación, 401/403/404/405/429 vía `UseStatusCodePages`, 500). Catálogo canónico `docs/errores.md`; los controllers usan `this.Problem(AuthErrors.X)`.
+- Sesión: JWT HS256 de 15 min (`AccessTokenIssuer`, claims mínimos) + refresh opaco y rotativo de 60 días (`RefreshTokenService`: solo hash, consumo atómico, la reutilización revoca la familia, el logout revoca la familia del dispositivo).
+- Política de respaldo (sesión obligatoria por defecto), rate limit `auth` por IP (10/min, 429 + `Retry-After`) y salud/ping/OpenAPI anónimos.
+- Contraseñas: `PasswordHasher<T>` de Identity (PBKDF2-SHA512, 210 000 iteraciones) y la política de la maqueta.
+- Correo: `IEmailSender` → `LogEmailSender` (solo Development) o `SesEmailSender` (AWSSDK.SimpleEmailV2 4.0.106.4) sobre `ISesClient`; `EmailOptionsValidator` impide Log fuera de Development.
+
+**Decisiones (con su porqué)**
+- **Refresh opaco en la base** (no JWT): permite logout real y detectar robo por reutilización.
+- **HS256 compartida en SSM** (no RS256): solo esta API emite y valida.
+- **Errores como valores** (`ApiError`), no excepciones: sin `try/catch` en los controllers y con el mismo comportamiento en todos los ambientes.
+- **Ruta inexistente sin sesión → 401** (la política de respaldo cubre las peticiones sin endpoint): no se pueden enumerar rutas. Se ajustaron las pruebas de 01-02 y 01-03 que esperaban 404.
+- **Fail-fast fuera de Development** sin `Jwt:SigningKey` y sin SES/`Email:From`. Las factories de SecurityTest pasan una llave de 64 bytes generada al vuelo.
+
+**Self-tests**
+- Aceptar HS512 + política de respaldo permisiva → 4 pruebas en rojo (JWT, respaldo, OpenAPI anónimo e integración).
+
+**Errores a evitar**
+- La palabra "todo" en comentarios ("todo endpoint", "todo error") vuelve a romper el build (S1135): escribir "cada".
+- `AddRateLimiter` vive en `Microsoft.AspNetCore.Builder` (no en `Microsoft.Extensions.DependencyInjection`).
+- HS512 con `JsonWebTokenHandler` exige una llave de 64 bytes o más: la llave de pruebas es de 64 para poder probar la confusión de algoritmos.
+- Un restore en paralelo puede fallar con "No se puede crear un archivo que ya existe": reintentar con `--disable-parallel`.
+- Una mutación con un `using` sobrante no compila (IDE0005) y deja binarios viejos: mutar sin cambiar las dependencias.
 
 ## T5 — 02-01 Modelo de datos MongoDB e identidad (21-Oct-2026, SCRUM-76)
 

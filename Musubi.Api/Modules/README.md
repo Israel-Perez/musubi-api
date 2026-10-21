@@ -4,7 +4,8 @@ Cada módulo de [`docs/modulos.md`](../../docs/modulos.md) vive en su carpeta `M
 
 ```
 Modules/<Modulo>/
-├── <Recurso>Controller.cs      # [ApiController] + [ApiVersion("1.0")] + auth explícita; sin lógica ni try/catch
+├── <Recurso>Controller.cs      # [ApiController] + [ApiVersion("1.0")] + auth explícita; sin lógica ni try/catch; errores con this.Problem(<Modulo>Errors.X)
+├── <Modulo>Errors.cs           # ApiError del módulo (código, HTTP, mensaje); fila en docs/errores.md
 ├── <Recurso>Dtos.cs            # records de request/response (camelCase en el wire); sin secretos en las respuestas
 ├── <Recurso>Validators.cs      # validación de entrada en la frontera
 ├── I<Recurso>Service.cs        # interfaz pública del módulo (otros módulos solo usan esto)

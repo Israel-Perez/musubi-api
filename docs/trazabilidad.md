@@ -84,6 +84,7 @@ Total: 55 HU (S1: 4 · S2: 11 · S3: 17 · S4: 5 · S5: 8 · Post-MVP: 1 · Por 
 | 01-04 | Referencia de configuración | 🚧 Borrador con evidencia | `UnitTest/Common/AppSettingsTests.cs` |
 | 01-05 | Estructura del repo, calidad y CI | 🚧 Borrador con evidencia | `scripts/`, `.github/workflows/ci-pr.yml`, `SecurityTest/Auth/ExplicitAuthTests.cs` |
 | 02-01 | Modelo de datos MongoDB e identidad (SCRUM-76) | 🚧 Borrador con evidencia | `db/001-identidad.js`, `UnitTest/Data/`, `DatabaseTest/`, `TestShared/Auth/` |
+| 02-03 | Contrato de errores, autenticación y correo (SCRUM-77) | 🚧 Borrador con evidencia | `SecurityTest/{Auth,Errors}/`, `UnitTest/Auth/`, `ContractTest/ProblemContractTests.cs`, `docs/errores.md` |
 
 ## Tareas transversales
 

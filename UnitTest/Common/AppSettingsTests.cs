@@ -50,6 +50,20 @@ public sealed partial class AppSettingsTests
         Assert.True(root.GetProperty("Kestrel").GetProperty("Limits").TryGetProperty("MaxRequestBodySize", out _));
         Assert.True(root.GetProperty("Kestrel").GetProperty("Limits").TryGetProperty("KeepAliveTimeout", out _));
         Assert.True(root.GetProperty("Cors").GetProperty("AllowedOrigins").GetArrayLength() > 0);
+        Assert.True(root.GetProperty("Jwt").TryGetProperty("Issuer", out _));
+        Assert.True(root.GetProperty("Jwt").TryGetProperty("AccessTokenMinutes", out _));
+        Assert.True(root.GetProperty("Email").TryGetProperty("Provider", out _));
+        Assert.True(root.GetProperty("RateLimiting").GetProperty("Auth").TryGetProperty("PermitLimit", out _));
+    }
+
+    [Theory]
+    [MemberData(nameof(TrackedSettingsFiles))]
+    public void TrackedSettings_NeverCarryTheJwtSigningKey(string fileName)
+    {
+        // 02-03: la llave vive en user-secrets o en el secreto del despliegue (Jwt__SigningKey).
+        var raw = File.ReadAllText(RepoPaths.ApiFile(fileName));
+
+        Assert.DoesNotContain("SigningKey", raw, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -58,7 +72,6 @@ public sealed partial class AppSettingsTests
         var raw = File.ReadAllText(RepoPaths.ApiFile("appsettings.Example.json"));
 
         // Las claves futuras solo se documentan en la tabla de 01-04 hasta que haya codigo que las lea.
-        Assert.DoesNotContain("\"Jwt\"", raw, StringComparison.Ordinal);
         Assert.DoesNotContain("MercadoPago", raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Firebase", raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("GenAi", raw, StringComparison.OrdinalIgnoreCase);

@@ -12,7 +12,8 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 - Base versionada `api/v1/...` (`api/v{version:apiVersion}/...` + `UrlSegmentApiVersionReader`; las respuestas incluyen el header `api-supported-versions`).
 - JSON en **camelCase** (serializador por defecto de ASP.NET Core), con códigos en inglés y mensajes al usuario en español (RNF-18).
 - Auth **explícita** en cada controller: `[Authorize]` / `[Authorize(Policy = ...)]` / `[AllowAnonymous]` (bloqueante B3 del critic + `SecurityTest/Auth/ExplicitAuthTests.cs`).
-- Errores fuera de Development: `application/problem+json` genérico, sin detalle interno (01-03). El contrato de errores de negocio se define en `02-03`.
+- Errores: `application/problem+json` con `code` estable, título en español y `traceId`, sin detalle interno. Catálogo canónico: [`docs/errores.md`](errores.md) (02-03).
+- Sesión obligatoria por defecto: un endpoint sin `[AllowAnonymous]` exige `Authorization: Bearer <access token>` (02-03). Una ruta inexistente sin sesión responde 401.
 - Solo en Development (no se cuentan como filas porque no son endpoints de la API): `/openapi/v1.json` (OpenAPI) y `/scalar` (referencia interactiva).
 
 ## Plataforma

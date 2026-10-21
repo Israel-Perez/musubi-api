@@ -9,7 +9,7 @@ namespace Musubi.Api.Modules.Auth;
 /// <summary>Registro DI del modulo M-01 (Autenticacion y usuarios).</summary>
 internal static class AuthModuleServiceCollectionExtensions
 {
-    /// <summary>Registra los repositorios de identidad: Mongo o en memoria segun <c>UseInMemoryDatabase</c> (lazy).</summary>
+    /// <summary>Registra los repositorios de identidad (Mongo o en memoria segun <c>UseInMemoryDatabase</c>, lazy) y los servicios de sesion.</summary>
     /// <param name="services">La coleccion de servicios.</param>
     public static void AddAuthModule(this IServiceCollection services)
     {
@@ -33,5 +33,9 @@ internal static class AuthModuleServiceCollectionExtensions
         services.AddSingleton<IRefreshTokenRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? tokens
             : new MongoRefreshTokenRepository(provider.GetRequiredService<IMongoDatabase>()));
+
+        // Servicios de dominio (02-03); los endpoints nacen con HU-01, HU-02 y HU-03.
+        services.AddSingleton<PasswordHashing>();
+        services.AddSingleton<RefreshTokenService>();
     }
 }

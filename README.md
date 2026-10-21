@@ -14,7 +14,8 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps: cada cambio nac
 Plantilla inicial lista. Fases 00 (constitución) y 01 (fundación) implementadas en "🚧 Borrador con evidencia", en espera de designar revisores:
 
 - Build Release: 0 errores / 0 advertencias.
-- Pruebas: Unit 43/43 · Integration 8/8 · Security 11/11 · Contract 2/2 · Database 18 (CI).
+- Pruebas: Unit 80/80 · Integration 9/9 · Security 25/25 · Contract 3/3 · Database 18 (CI).
+- Seguridad (02-03): errores con `code` (`docs/errores.md`), JWT + refresh rotativo, sesión obligatoria por defecto, rate limit en `/auth/*`, correo por SES.
 - Datos: MongoDB (`MongoDB.Driver` 3.12.0); `/health/ready` hace `ping` a la base (SCRUM-66).
 - `critic-guardrails` PASS · `check_endpoints` OK (3 rutas) · Semgrep 0 hallazgos · actionlint sin hallazgos.
 - Endpoints: `GET /health`, `GET /health/ready`, `GET /api/v1/ping`.
@@ -43,6 +44,8 @@ docker compose -f deploy/docker-compose.local.yml --env-file deploy/.env up -d
 dotnet user-secrets --project Musubi.Api set "UseInMemoryDatabase" "false"
 dotnet user-secrets --project Musubi.Api set "ConnectionStrings:Mongo" "mongodb://musubi:<tu contraseña>@localhost:27017/?authSource=admin"
 ```
+
+**Llave JWT:** en Development se genera una efímera (los tokens mueren al reiniciar). Para una fija: `dotnet user-secrets --project Musubi.Api set "Jwt:SigningKey" "<base64 de 32+ bytes>"` (por ejemplo, `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`). Fuera de Development la API no arranca sin ella.
 
 **Secretos:** nunca en appsettings versionados (las pruebas y el critic lo impiden). Van en user-secrets, en `appsettings.Local.json` (ignorado, solo en Development) o en las variables/secretos del despliegue. La tabla de claves está en `specs/phase-01-foundation/01-04-config-reference/spec.md`.
 

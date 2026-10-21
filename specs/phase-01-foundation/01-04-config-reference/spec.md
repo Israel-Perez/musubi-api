@@ -24,8 +24,13 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `AllowedHosts` | `*` | [01-02 / Implementado] | Restringir al dominio real en `02-05` |
 | `ASPNETCORE_ENVIRONMENT` (env) | `Production` | [01-02 / Implementado] | `Development` habilita OpenAPI, Scalar y `appsettings.Local.json` |
 | `ASPNETCORE_HTTP_PORTS` (env) | `8080` (contenedor) | [01-05 / Implementado] | Puerto del contenedor (`Dockerfile`) |
+| `Jwt:Issuer` / `Jwt:Audience` | `musubi-api` / `musubi-app` | [02-03 / Implementado] | `iss` y `aud` de los access tokens |
+| `Jwt:AccessTokenMinutes` / `Jwt:RefreshTokenDays` | `15` / `60` | [02-03 / Implementado] | Vida del access token y del refresh token (desde su última rotación) |
+| `Jwt:SigningKey` | — (Development: llave efímera) | [02-03 / Implementado] | **Secreto**: base64 de al menos 32 bytes; user-secrets en local, `Jwt__SigningKey` en SSM. Sin ella la API no arranca fuera de Development |
+| `Email:Provider` | `Ses` (base) / `Log` (Development) | [02-03 / Implementado] | `Log` solo en Development (escribe el correo en el log) |
+| `Email:From` / `Email:Region` | `""` / `us-east-1` | [02-03 / Implementado] | Remitente verificado en SES; obligatorio fuera de Development |
+| `RateLimiting:Auth:PermitLimit` / `RateLimiting:Auth:WindowSeconds` | `10` / `60` | [02-03 / Implementado] | Intentos por IP en `/auth/*` |
 | `Redis:*` | — | [02-02 / Pendiente] | Cadena de Redis/Valkey (secreto si lleva clave) |
-| `Jwt:*` | — | [HU-02 / Pendiente] | Emisor, audiencia y llave (secreto) |
 | `Firebase:*` | — | [HU-31 / Pendiente] | Credenciales de Firebase Admin (secreto, solo back) |
 | `GenAi:*` | — | [HU-32 / Pendiente] | Proveedor, modelo y llave del LLM (secreto) |
 | `Payments:*` | — | [HU-55 / Pendiente] | Llave para cifrar la CLABE del vendedor (secreto). `MercadoPago:*` ya no aplica (HU-43 fuera de alcance, D-01) |
@@ -51,10 +56,10 @@ Claves de la tabla. Las variables de entorno siguen la convención de .NET (`Con
 - `semgrep scan --config .semgrep/semgrep.yaml` → 0 hallazgos de `musubi-connection-string-with-password`.
 
 ## Límites
-`AllowedHosts=*` hasta que exista el dominio (02-05). Las claves de HU-02, HU-31, HU-32 y HU-55 entran a `appsettings.Example.json` solo cuando haya código que las lea.
+`AllowedHosts=*` hasta que exista el dominio (02-05). Las claves de HU-31, HU-32 y HU-55 entran a `appsettings.Example.json` solo cuando haya código que las lea.
 
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 20-Oct-2026
-- **Detalle:** Tabla inicial con 8 claves implementadas y 4 familias pendientes con su HU dueña. 20-Oct-2026 (SCRUM-66): `ConnectionStrings:Default` (PostgreSQL) → `ConnectionStrings:Mongo` + `Mongo:DatabaseName`; se agrega `Redis:*` como pendiente de 02-02.
+- **Fecha:** 21-Oct-2026
+- **Detalle:** Tabla inicial con 8 claves implementadas y 4 familias pendientes con su HU dueña. 20-Oct-2026 (SCRUM-66): `ConnectionStrings:Default` (PostgreSQL) → `ConnectionStrings:Mongo` + `Mongo:DatabaseName`; se agrega `Redis:*` como pendiente de 02-02. 21-Oct-2026 (SCRUM-77): `Jwt:*`, `Email:*` y `RateLimiting:Auth:*` implementados (02-03); `AppSettingsTests` impide versionar `SigningKey`.

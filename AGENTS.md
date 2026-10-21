@@ -70,12 +70,14 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Datos: MongoDB (`IMongoClient`/`IMongoDatabase` lazy en `Platform/Data/MongoServiceCollectionExtensions.cs`; sin MongoDB con `UseInMemoryDatabase=true`). Modelo y reglas R1–R14 en `docs/modelo-datos.md` (02-01); esquema en `db/NNN-*.js` + `MongoSchema.ExpectedVersion`; cada repositorio tiene un `Mongo*` y un `InMemory*` que pasan la misma batería de `TestShared/`.
 - Versión: `<Version>` de `Musubi.Api.csproj`, alineada con `docs/versionado.md` (lo verifica `UnitTest/Common/VersioningTests.cs`).
 - Lineamientos de la materia (criterios de evaluación): `docs/bitacora/lineamientos-materia.md`.
-- Pendientes con dueño: autenticación JWT → HU-02; SignalR → HU-20; FCM → HU-31; IA → HU-32; ML → HU-35; pagos por transferencia/efectivo → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
+- Errores: `return this.Problem(<Modulo>Errors.X)` con un código del catálogo `docs/errores.md` (nunca `try/catch`). Sesión: JWT (`AccessTokenIssuer`) + `RefreshTokenService` (02-03); cada endpoint exige sesión salvo `[AllowAnonymous]`; los de `/auth/*` llevan `[EnableRateLimiting(AuthPlatformServiceCollectionExtensions.AuthRateLimit)]`.
+- Pendientes con dueño: endpoints de registro, login, refresh y logout → HU-01/02/03; SignalR → HU-20; FCM → HU-31; IA → HU-32; ML → HU-35; pagos por transferencia/efectivo → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
 
 ## 6. Seguridad y DevSecOps
 
 - HSTS de 365 días solo fuera de Dev; HTTPS obligatorio; CORS restringido por configuración (S5122 lo impone en el build).
-- Errores fuera de Dev: `ProblemDetails` genérico sin detalle interno.
+- Errores: `problem+json` con `code`, título en español y `traceId`, sin detalle interno (`docs/errores.md`).
+- Sesión obligatoria por defecto (FallbackPolicy), JWT solo HS256, llave fuera del repo (fail-fast sin `Jwt:SigningKey` fuera de Development); contraseñas PBKDF2-SHA512 de 210 000 iteraciones.
 - Auth explícita por controller (critic B3 + `SecurityTest/Auth/ExplicitAuthTests.cs`). Referencia: OWASP API Security Top 10 – 2023 (checks del agente `security-reviewer`).
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
 - Contenedor: multi-stage con usuario no root; Trivy y ZAP llegan en `02-05`; SonarCloud en `02-06`.

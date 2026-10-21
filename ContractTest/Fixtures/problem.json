@@ -1,0 +1,7 @@
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+  "title": "Inicia sesión para continuar.",
+  "status": 401,
+  "code": "auth.unauthorized",
+  "traceId": "0HN7Q:00000001"
+}

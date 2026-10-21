@@ -16,7 +16,7 @@ Umbrales medibles de los RNF del MVP que aplican al back, más los NFR técnicos
 
 | NFR | Categoría | Aplica | Métrica / Umbral | Estado del umbral | Herramienta | Comando / verificación |
 |---|---|---|---|---|---|---|
-| RNF-01 Credenciales cifradas | Seguridad | Ambos | Contraseñas con hash adaptativo (nunca reversible); 0 credenciales en claro en la BD, los logs o las respuestas | 🎯 Objetivo (Por medir) — HU-01/HU-02 | UnitTest + SecurityTest | Pruebas de seguridad de HU-01 |
+| RNF-01 Credenciales cifradas | Seguridad | Ambos | Contraseñas con hash adaptativo (nunca reversible); 0 credenciales en claro en la BD, los logs o las respuestas | 📈 Medido real (hash PBKDF2-SHA512, 210 000 iteraciones, 21-Oct-2026) / 🎯 respuestas — HU-01/HU-02 | UnitTest + SecurityTest | `UnitTest/Auth/PasswordTests.cs`; pruebas de HU-01 |
 | RNF-02 Comunicación cifrada | Seguridad | Ambos | HTTPS obligatorio; HSTS de 365 días fuera de Dev | 📈 Medido real (configuración) | HSTS + HttpsRedirection | `SecurityTest/Hsts/HstsTests.cs` (3 pruebas) |
 | RNF-03 Solo el dueño modifica; solo el admin modera | Seguridad | Back | 403 para quien no es dueño en cada endpoint de escritura | 🎯 Objetivo (Por medir) — HU-07, HU-14, HU-39 | SecurityTest | Pruebas de autorización por HU |
 | RNF-04 Moderación registrada | Seguridad | Back | 100 % de las acciones de moderación con registro (quién, qué, cuándo) | 🎯 Objetivo (Por medir) — HU-39/HU-40 | IntegrationTest | Pruebas de HU-39 |
@@ -31,7 +31,7 @@ Umbrales medibles de los RNF del MVP que aplican al back, más los NFR técnicos
 | RNF-14 Disponibilidad en el piloto | Disponibilidad | Back | ≥ N % (por definir) | 🎯 Objetivo (Por definir con el PO) | `/health` y `/health/ready` + monitoreo | `NOTE (02-05)` |
 | RNF-15 Degradación de IA/ML | Disponibilidad | Ambos | Con la IA o el ML caídos, búsqueda, chat y pedidos responden 2xx | 🎯 Objetivo (Por medir) — HU-32, HU-35 | IntegrationTest con un fake que falla | Pruebas de HU-32/HU-35 |
 | RNF-16 Respaldos de la BD | Disponibilidad | Back | Respaldo exportable con `mongodump` y script de recreación con `mongosh` (Atlas M0 no ofrece respaldos automáticos) | 🎯 Objetivo (Por definir con el PO) | `mongodump` + script `mongosh` | `NOTE (02-05)` |
-| RNF-18 Errores claros en español | Usabilidad | Ambos | Errores de validación con un mensaje entendible y sin detalle interno | 📈 Medido real (errores genéricos) / 🎯 mensajes — 02-03 | ProblemDetails | `SecurityTest/Errors/ExceptionHandlingTests.cs` |
+| RNF-18 Errores claros en español | Usabilidad | Ambos | Errores de validación con un mensaje entendible y sin detalle interno; `code` estable para traducir | 📈 Medido real (21-Oct-2026) | ProblemDetails + `docs/errores.md` | `SecurityTest/Errors/*`, `ContractTest/ProblemContractTests.cs` |
 | RNF-21 Más universidades sin rediseño | Escalabilidad | Ambos | La comunidad es un dato del modelo | 🎯 Objetivo (Por medir) — 02-01 | Revisión del modelo + DatabaseTest | `NOTE (02-01)` |
 | RNF-22 Carga del piloto | Escalabilidad | Back | N usuarios concurrentes (por definir) | 🎯 Objetivo (Por definir con el PO) | Prueba de carga (pendiente) | `NOTE (02-06)` |
 | RNF-23 Organización por módulos; IA/ML desacoplados | Mantenibilidad | Ambos | 14 módulos con carpeta propia; IA y ML detrás de una interfaz | 📈 Medido real (estructura) | `docs/modulos.md` + `Musubi.Api/Modules/README.md` | Revisión de la estructura en cada PR |
@@ -67,7 +67,7 @@ Checklist completo en [`docs/bitacora/lineamientos-materia.md`](../../../docs/bi
 |---|---|---|---|---|---|
 | L-15a Escalabilidad horizontal | Disponibilidad | ≥ 2 instancias sanas detrás del ALB | 🎯 Objetivo (Por medir) — 02-05 | Auto Scaling Group + health check del ALB contra `/health/ready` | `NOTE (02-05)` |
 | L-15b Costo cero | Costo | 0 USD fuera de los créditos de AWS; Atlas M0 | 🎯 Objetivo (Por medir) — 02-05 | AWS Budgets (alerta) | `NOTE (02-05)` |
-| L-15i Rate limit | Seguridad | 429 al superar N peticiones por minuto por cliente (N por medir) | 🎯 Objetivo (Por medir) — 02-04 | `Microsoft.AspNetCore.RateLimiting` | `NOTE (02-04)` |
+| L-15i Rate limit | Seguridad | 429 + `Retry-After` al superar N peticiones por minuto por IP: `/auth/*` con N = 10 (02-03); global por medir | 📈 Medido real en `/auth/*` (`SecurityTest/Auth/RateLimitTests.cs`) / 🎯 global — 02-04 | `Microsoft.AspNetCore.RateLimiting` | `NOTE (02-04)` |
 | L-15i Compresión | Rendimiento | Respuestas JSON comprimidas (Brotli/Gzip) sobre HTTPS | 🎯 Objetivo (Por medir) — 02-04 | Response Compression | `NOTE (02-04)` |
 | L-15i Paginación | Rendimiento | Listados con tamaño de página máximo (por medir) | 🎯 Objetivo (Por medir) — 02-02 | Contrato de `docs/endpoints.md` | `NOTE (02-02)` |
 | L-09 Caché de BD | Rendimiento | Hit ratio de Redis/Valkey en las lecturas calientes (por medir) | 🎯 Objetivo (Por medir) — 02-02 | Redis/Valkey | `NOTE (02-02)` |

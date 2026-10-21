@@ -39,7 +39,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-07 | Pruebas unitarias, de seguridad y de integración (back y móvil) | Back: `UnitTest`, `SecurityTest`, `IntegrationTest`. App: unit + widget; seguridad e `integration_test` por completar | app:02-01 | 🟡 |
 | L-08 | CI/CD back y móvil | CI en los dos repos; CD a AWS y a Google Play pendientes | 02-05 · app:02-02 | 🟡 |
 | L-09 | Caché en BD, back y front | Redis/Valkey (cache-aside), caché de salida HTTP, caché local en la app | 02-02 · app:02-01 | ⏳ |
-| L-10 | Logout en back y móvil | Revocación del refresh token en el back y borrado del almacenamiento seguro en la app | HU-02 | ⏳ |
+| L-10 | Logout en back y móvil | Revocación de la familia del refresh token (`RefreshTokenService.RevokeAsync`, 02-03) y borrado del almacenamiento seguro en la app | HU-02 | 🟡 |
 | L-11 | Matriz de versionamiento antes del desarrollo, aplicada en cada despliegue | `docs/versionado.md` (sección compartida) + `VersioningTests` / `versioning_test.dart` | SCRUM-66 | ✅ (aplicación automática: 02-05 · app:02-02) |
 | L-12 | MCP | MCP de Atlassian (Jira y Confluence) | — | ✅ |
 | L-13a | Servicios en la nube; BD externa permitida | AWS (créditos del plan gratuito) + MongoDB Atlas M0 | 02-05 | ⏳ |
@@ -54,7 +54,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-15e | API o microservicios | Monolito modular (constitución §7) | 00-01 | ✅ |
 | L-15f | Imágenes en el CDN | S3 + CloudFront | 02-05 · HU-06 | ⏳ |
 | L-15g | Observabilidad en la nube | CloudWatch Logs (eventos y errores) | 02-06 | ⏳ |
-| L-15h | JWT | Access token + refresh token | HU-02 · 02-03 | ⏳ |
+| L-15h | JWT | Access token HS256 de 15 min + refresh rotativo; sesión obligatoria por defecto (02-03; `SecurityTest/Auth/JwtTests.cs`) | HU-02 | 🟡 |
 | L-15i | Caching, rate limit, middleware, paginación, índices, serializadores, compresión | Middleware y JSON camelCase listos (01-02); el resto en su spec | 02-02 · 02-04 | 🟡 |
 | L-15j | Patrones de integración | Adaptadores detrás de interfaces (constitución §7) | Por HU | 🟡 |
 | L-15k | Paso automatizado para crear/desplegar y para eliminar | Workflows de GitHub `infra-up` / `infra-down` con Terraform | 02-05 | ⏳ |
@@ -64,7 +64,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-16d | Aviso de privacidad en la app y en la landing | Pantallas de la maqueta + página de la landing | HU-47 | ⏳ |
 | L-16e | Eliminar cuenta | Flujo de la maqueta | HU-46 | ⏳ |
 | L-16f | Permisos del móvil | Cámara/galería y notificaciones, pedidos en contexto | app:02-01 | ⏳ |
-| L-16g | Sesión siempre viva salvo logout | Refresh token rotativo en almacenamiento seguro | HU-02 | ⏳ |
+| L-16g | Sesión siempre viva salvo logout | Refresh token rotativo de 60 días que se desliza con cada uso (02-03); en la app, almacenamiento seguro e interceptor | HU-02 · app:02-01 | 🟡 |
 | L-16h | SQLite + sincronización (si aplica) | Por decidir en app:02-01 (borradores y caché de consulta) | app:02-01 | ⏳ |
 | L-16i | Al menos una función de ML y una de IA generativa | ML: recomendaciones (HU-35). IA: resumen del acuerdo (HU-32/33/34) | HU-32 · HU-35 | ⏳ |
 | L-17 | Landing con enlace a la tienda y aviso de privacidad | Repo propio de la landing | Por crear | ⏳ |
