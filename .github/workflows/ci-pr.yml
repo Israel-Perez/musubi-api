@@ -1,6 +1,6 @@
 name: ci-pr
 
-# Orden logico (01-05): build -> unit/integration/security/contract -> critic/endpoints/semgrep/docker-build.
+# Orden logico (01-05): build -> unit/integration/security/contract/database -> critic/endpoints/semgrep/docker-build.
 # Actions fijadas por SHA (00-04, regla 11); Dependabot las actualiza.
 on:
   pull_request:
@@ -82,6 +82,20 @@ jobs:
       - run: dotnet restore Musubi.slnx
       - run: dotnet build Musubi.slnx -c Release --no-restore
       - run: dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build
+
+  database:
+    # MongoDB real con Testcontainers (Docker del runner): aplica db/*.js y prueba los repositorios (02-01).
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Musubi.slnx
+      - run: dotnet build Musubi.slnx -c Release --no-restore
+      - run: dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release --no-build
 
   critic:
     runs-on: ubuntu-latest

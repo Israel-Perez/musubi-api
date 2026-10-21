@@ -2,11 +2,34 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (20-Oct-2026)
+## Estado actual (21-Oct-2026)
 
-- **SCRUM-66** (rama `feature/SCRUM-66-stack-nosql`, PR abierto): stack NoSQL (MongoDB), matriz de versionamiento y lineamientos de la materia. Fases 00 y 01 siguen en "🚧 Borrador con evidencia".
-- Build Release 0/0 · Unit 23/23 · Integration 8/8 · Security 11/11 · Contract 2/2 · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0 · shared OK (5 bloques).
-- Siguiente: `02-01` (modelo de documentos, índices, script `mongosh`, Testcontainers MongoDB) antes de HU-01; luego `02-03` (errores + JWT/refresh/logout).
+- **SCRUM-76** (02-01, rama `feature/SCRUM-76-modelo-datos`, apilada sobre SCRUM-75): modelo de datos e identidad.
+- Build Release 0/0 · Unit 43/43 · Integration 8/8 · Security 11/11 · Contract 2/2 · Database 18 (job del CI) · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0.
+- Siguiente: `02-03` (errores + JWT/refresh/logout + correo) y después HU-01/03/47 y HU-02.
+
+## T5 — 02-01 Modelo de datos MongoDB e identidad (21-Oct-2026, SCRUM-76)
+
+**Qué se hizo**
+- `docs/modelo-datos.md`: catálogo canónico con las reglas R1–R14 (escalabilidad) y las 27 colecciones de las 55 HU (📐 Diseño, salvo las de identidad).
+- `db/001-identidad.js` (script de entrega, idempotente): `communities` (+ UTTT), `users`, `verificationCodes`, `refreshTokens` y `_meta`, con `$jsonSchema` estricto, índices con nombre (únicos y TTL) y `_meta.version = 1`.
+- `Platform/Data/{MongoConventions,MongoSchema}.cs`; `MongoHealthCheck` lee `_meta`: la readiness da Unhealthy si la base tiene una versión menor que `ExpectedVersion`.
+- `Modules/Auth/Data/`: documentos, contratos, `Mongo*` e `InMemory*`; `AddAuthModule()` elige la implementación de forma lazy.
+- `TestShared/Auth/AuthRepositoryContract.cs` (13 pruebas) enlazado en UnitTest (fakes) y DatabaseTest (Mongo real). DatabaseTest ya no es un esqueleto: Testcontainers.MongoDb 4.16.0 y job `database` en el CI.
+
+**Decisiones (con su porqué)**
+- **El script es la fuente del esquema** (no la API al arrancar): dos instancias no compiten por crear índices, y el script es el entregable. La API solo verifica la versión.
+- **Atomicidad de un documento** (`findOneAndUpdate` con condición) en lugar de transacciones: igual en Atlas M0 y con N instancias. Ejemplo: el refresh token se consume una sola vez aunque lleguen 10 peticiones a la vez (probado).
+- **`users` separado de `profiles`**: las credenciales nunca viajan con los datos públicos (R10).
+- **Estados como `string` en camelCase**, no enums de C#: coinciden con el `enum` del validador.
+- **Contraseña según la maqueta:** al menos 8 caracteres, una letra y un número (la maqueta manda sobre D-02).
+
+**Self-tests**
+- Fake que permite consumir dos veces un refresh token → 2 pruebas de contrato en rojo.
+
+**Errores a evitar**
+- CA2007 aplica a los métodos auxiliares de las pruebas (los `[Fact]` están exentos): `ConfigureAwait(false)` fuera de los métodos de prueba.
+- DatabaseTest no corre sin Docker: en esta máquina solo compila; la evidencia es el job `database` del CI.
 
 ## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
 

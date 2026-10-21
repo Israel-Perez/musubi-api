@@ -7,7 +7,7 @@ using MongoDB.Driver;
 namespace Musubi.Api.Platform.Data;
 
 /// <summary>Registro de MongoDB (Atlas M0 en la nube, contenedor <c>mongo</c> en local) y su readiness.</summary>
-/// <remarks>NOTE (02-01): convenciones BSON (camelCase), colecciones, indices y repositorios nacen en la spec 02-01.</remarks>
+/// <remarks>Convenciones en <see cref="MongoConventions"/>; colecciones, indices y validaciones en los scripts de db/ (02-01).</remarks>
 internal static class MongoServiceCollectionExtensions
 {
     /// <summary>Clave de la cadena de conexion (secreto: user-secrets o variable de entorno).</summary>
@@ -28,6 +28,7 @@ internal static class MongoServiceCollectionExtensions
     public static void AddMusubiMongo(this IServiceCollection services, string readyTag)
     {
         ArgumentNullException.ThrowIfNull(services);
+        MongoConventions.Register();
 
         // Lectura lazy (no eager en el registro): respeta los overrides de WebApplicationFactory (00-04, regla 3).
         services.AddSingleton<IMongoClient>(provider =>
@@ -51,11 +52,17 @@ internal static class MongoServiceCollectionExtensions
 
         services.AddHealthChecks().Add(new HealthCheckRegistration(
             HealthCheckName,
-            provider => provider.GetRequiredService<IConfiguration>().GetValue("UseInMemoryDatabase", false)
+            provider => UseInMemory(provider)
                 ? new InMemoryDatabaseHealthCheck()
                 : new MongoHealthCheck(provider.GetRequiredService<IMongoDatabase>()),
             HealthStatus.Unhealthy,
             [readyTag],
             HealthCheckTimeout));
     }
+
+    /// <summary>Lee la bandera <c>UseInMemoryDatabase</c> al resolver (lazy, 00-04 regla 3).</summary>
+    /// <param name="provider">El proveedor de servicios.</param>
+    /// <returns><c>true</c> si la app corre sin MongoDB (local y pruebas).</returns>
+    public static bool UseInMemory(IServiceProvider provider) =>
+        provider.GetRequiredService<IConfiguration>().GetValue("UseInMemoryDatabase", false);
 }

@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Pruebas compartidas (contratos de repositorios, 02-01): misma bateria en UnitTest y DatabaseTest. -->
+    <Compile Include="..\TestShared\**\*.cs" Link="TestShared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Musubi.Api\Musubi.Api.csproj" />
   </ItemGroup>
 
