@@ -14,7 +14,7 @@ En cada HU que agregue o cambie endpoints, y al revisar si un PR está completo.
 - Módulo y carpeta definidos en `docs/modulos.md`.
 
 ## Pasos
-1. **Entidad** en `Modules/<Modulo>/Entities/` + su configuración en `AppDbContext` (comunidad/universidad como dato: RNF-21).
+1. **Documento** en `Modules/<Modulo>/Documents/` + su repositorio sobre `IMongoDatabase` con sus índices (comunidad/universidad como dato: RNF-21) y un fake en memoria para las suites WAF.
 2. **DTOs** (records) de request/response; las respuestas nunca exponen hashes, tokens ni PII de terceros (critic B2, OWASP API3).
 3. **Validadores** de frontera (longitudes, rangos, formatos; correo institucional en HU-03).
 4. **Servicio** detrás de `I<Recurso>Service`; verifica la propiedad del recurso (RNF-03, OWASP API1); el trabajo pesado va en segundo plano (RNF-11).

@@ -37,7 +37,7 @@ Archivos: `Musubi.Api/Program.cs`, `Musubi.Api/Platform/Hosting/PlatformServiceC
 - `Asp.Versioning`: `DefaultApiVersion=1.0`, `UrlSegmentApiVersionReader`, header `api-supported-versions`.
 
 ## Tests
-- `UnitTest/DI/ServiceRegistrationTests.cs` (6): CORS sin orígenes por defecto; CORS solo con el origen configurado y sin comodines; DbContext InMemory/Npgsql según la bandera; fail-fast sin connection string; límites de Kestrel enlazados.
+- `UnitTest/DI/ServiceRegistrationTests.cs` (6): CORS sin orígenes por defecto; CORS solo con el origen configurado y sin comodines; `IMongoDatabase` con el nombre configurado y con el default `musubi`; fail-fast sin `ConnectionStrings:Mongo`; límites de Kestrel enlazados.
 - `IntegrationTest/Middleware/MiddlewareTests.cs` (3): sin HSTS en Dev; OpenAPI v1 expuesto en Dev; 404 en una ruta desconocida.
 - `SecurityTest/Hsts/HstsTests.cs` (3): opciones de 365 días en Production; header HSTS en el wire en Production; sin HSTS en Dev.
 - `SecurityTest/Cors/CorsTests.cs` (3): preflight de un origen desconocido rechazado; origen configurado reflejado exacto; sin header en una petición simple desconocida.

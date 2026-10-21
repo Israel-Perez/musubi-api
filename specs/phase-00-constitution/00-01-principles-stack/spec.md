@@ -48,5 +48,5 @@ No fija versiones exactas de paquetes (viven en los `.csproj` y en Memoria.md) n
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 15-Oct-2026
-- **Detalle:** Adaptada de la referencia WebAPIDevSecOpsScallingSDD (00-01) al stack y principios de MUSUBI.
+- **Fecha:** 20-Oct-2026
+- **Detalle:** Adaptada de la referencia WebAPIDevSecOpsScallingSDD (00-01) al stack y principios de MUSUBI. 20-Oct-2026 (SCRUM-66): datos PostgreSQL/EF Core → MongoDB por el lineamiento 14 (NoSQL); se agregan caché (Redis/Valkey) y moderación (Rekognition/Comprehend) a la constitución §6; los lineamientos de la materia mandan sobre la constitución (§1).

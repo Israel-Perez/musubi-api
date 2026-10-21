@@ -18,13 +18,13 @@ Build Release 0/0 (`dotnet build Musubi.slnx -c Release`).
 | Suite | Cubre | Herramientas |
 |---|---|---|
 | `UnitTest/` | Reglas de servicios y validadores, registro DI, configuración sin secretos | xUnit v3 |
-| `IntegrationTest/` | Flujos HTTP completos con WebApplicationFactory + InMemory | `Microsoft.AspNetCore.Mvc.Testing` |
+| `IntegrationTest/` | Flujos HTTP completos con WebApplicationFactory + `UseInMemoryDatabase=true` (sin MongoDB) | `Microsoft.AspNetCore.Mvc.Testing` |
 | `SecurityTest/` | 401/403, BOLA (RNF-03), HSTS, CORS, errores sin detalle, auth explícita | WebApplicationFactory por ambiente (`ProductionApiFactory`, `DevelopmentApiFactory`) |
 | `ContractTest/` | Forma JSON (camelCase + tipos) contra `Fixtures/*.json`: lo que consume `musubi-app` | WebApplicationFactory |
-| `DatabaseTest/` | Migraciones, restricciones e índices contra PostgreSQL real | Testcontainers — `NOTE (02-01)` |
+| `DatabaseTest/` | Índices, validación de esquema y consultas contra MongoDB real | Testcontainers (MongoDB) — `NOTE (02-01)` |
 
 2. **Comandos:** `dotnet test --project <Suite>/<Suite>.csproj -c Release --no-build` (en modo MTP no se acepta la ruta posicional).
-3. **Anti-flakiness:** `xunit.runner.json` con `parallelizeTestCollections: false` en las suites WAF (comparten la base InMemory `musubi`); datos únicos por prueba (`Guid`); nada de `TotalCount == 1` exacto en stores compartidos.
+3. **Anti-flakiness:** `xunit.runner.json` con `parallelizeTestCollections: false` en las suites WAF (comparten los fakes en memoria del host); datos únicos por prueba (`Guid`); nada de `TotalCount == 1` exacto en stores compartidos.
 4. **Cancelación:** pasar `TestContext.Current.CancellationToken` a las llamadas async (analizador xUnit1051).
 5. **Frontera exacta:** probar `>=`/`<`, los mensajes y ambas ramas (00-04 #6).
 6. **Grupo de control:** cuando una prueba asegura una ausencia (p. ej. sin detalle de error en Production), otra prueba confirma la presencia en el caso contrario (Development).
@@ -38,7 +38,7 @@ Matriz respetada · runner en serie en las suites WAF · CancellationToken · co
 Las 4 suites en verde con `--no-build`; conteos citados en la spec y en el título del PR.
 
 ## Límites/trampas
-- No subir el paralelismo sin aislar la base InMemory.
+- No subir el paralelismo sin aislar los fakes en memoria.
 - Cobertura: `coverlet.MTP` está instalado, pero el umbral es "🎯 Por medir" (`02-06`); no usar la cobertura de línea como único gate.
 
 ## Referencias

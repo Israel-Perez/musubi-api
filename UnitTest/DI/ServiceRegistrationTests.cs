@@ -1,15 +1,15 @@
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Hosting;
 
 namespace UnitTest.DI;
 
-/// <summary>01-02: registro DI de la plataforma (CORS restringido, datos, Kestrel).</summary>
+/// <summary>01-02: registro DI de la plataforma (CORS restringido, MongoDB, Kestrel).</summary>
 public sealed class ServiceRegistrationTests
 {
     private static ServiceProvider BuildProvider(Dictionary<string, string?> settings)
@@ -54,40 +54,38 @@ public sealed class ServiceRegistrationTests
     }
 
     [Fact]
-    public void DbContext_WithInMemoryFlag_UsesInMemoryProvider()
-    {
-        using var provider = BuildProvider(new() { ["UseInMemoryDatabase"] = "true" });
-        using var scope = provider.CreateScope();
-
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        Assert.Equal("Microsoft.EntityFrameworkCore.InMemory", context.Database.ProviderName);
-    }
-
-    [Fact]
-    public void DbContext_WithPostgresConnectionString_UsesNpgsqlProvider()
+    public void Mongo_WithConnectionString_UsesConfiguredDatabaseName()
     {
         using var provider = BuildProvider(new()
         {
             ["UseInMemoryDatabase"] = "false",
-            ["ConnectionStrings:Default"] = "Host=localhost;Port=5432;Database=musubi;Username=musubi",
+            ["ConnectionStrings:Mongo"] = "mongodb://localhost:27017",
+            ["Mongo:DatabaseName"] = "musubi-test",
         });
-        using var scope = provider.CreateScope();
 
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var database = provider.GetRequiredService<IMongoDatabase>();
 
-        Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", context.Database.ProviderName);
+        Assert.Equal("musubi-test", database.DatabaseNamespace.DatabaseName);
     }
 
     [Fact]
-    public void DbContext_WithoutConnectionString_FailsFastWithClearMessage()
+    public void Mongo_WithoutDatabaseName_UsesDefaultDatabase()
+    {
+        using var provider = BuildProvider(new() { ["ConnectionStrings:Mongo"] = "mongodb://localhost:27017" });
+
+        var database = provider.GetRequiredService<IMongoDatabase>();
+
+        Assert.Equal(MongoServiceCollectionExtensions.DefaultDatabaseName, database.DatabaseNamespace.DatabaseName);
+    }
+
+    [Fact]
+    public void Mongo_WithoutConnectionString_FailsFastWithClearMessage()
     {
         using var provider = BuildProvider(new() { ["UseInMemoryDatabase"] = "false" });
-        using var scope = provider.CreateScope();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<AppDbContext>());
+        var ex = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IMongoClient>());
 
-        Assert.Contains("ConnectionStrings:Default", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("ConnectionStrings:Mongo", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -75,3 +75,13 @@ Total: 47 HU (S1: 4 · S2: 11 · S3: 17 · S4: 6 · S5: 8 · Post-MVP: 1).
 | 01-03 | Arranque, health y ping | 🚧 Borrador con evidencia | `IntegrationTest/{Health,Ping}/`, `SecurityTest/Errors/`, `ContractTest/PingContractTests.cs` |
 | 01-04 | Referencia de configuración | 🚧 Borrador con evidencia | `UnitTest/Common/AppSettingsTests.cs` |
 | 01-05 | Estructura del repo, calidad y CI | 🚧 Borrador con evidencia | `scripts/`, `.github/workflows/ci-pr.yml`, `SecurityTest/Auth/ExplicitAuthTests.cs` |
+
+## Tareas transversales
+
+| Jira | Qué | Specs tocadas | Evidencia | Estado |
+|---|---|---|---|---|
+| SCRUM-66 | Stack NoSQL (MongoDB), matriz de versionamiento, lineamientos y maqueta | 00-01, 00-03, 01-01, 01-02, 01-03, 01-04, 01-05 | `UnitTest/Data/DatabaseHealthCheckTests.cs`, `UnitTest/Common/VersioningTests.cs`, `UnitTest/Common/AppSettingsTests.cs` | En revisión (PR) |
+
+## Lineamientos de la materia
+
+Checklist canónico (L-01…L-19, con dueño y estado) en [`docs/bitacora/lineamientos-materia.md`](bitacora/lineamientos-materia.md). Al cerrar una spec o una HU que cumpla un lineamiento, actualizar su fila ahí.

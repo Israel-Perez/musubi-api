@@ -3,7 +3,7 @@ using IntegrationTest.Common;
 
 namespace IntegrationTest.Health;
 
-/// <summary>01-03: liveness y readiness (readiness incluye el check de AppDbContext).</summary>
+/// <summary>01-03: liveness y readiness (readiness incluye el check "database"; aqui en modo en memoria).</summary>
 public sealed class HealthTests(MusubiApiFactory factory) : IClassFixture<MusubiApiFactory>
 {
     [Fact]

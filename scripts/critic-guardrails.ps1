@@ -6,7 +6,7 @@
   Bloqueantes (exit 1):
     B1 marcador TODO en codigo/config (usar NOTE (NN-NN) o NOTE (HU-NN)).
     B2 secretos: password|secret en DTOs (waiver por linea "critic-allow: input-credential (HU-NN)")
-       y connection strings con password en appsettings versionados.
+       y connection strings con password (o URI mongodb:// con usuario:clave) en appsettings versionados.
     B3 *Controller.cs sin [Authorize...] ni [AllowAnonymous].
     B4 catch en *Controller.cs (el manejo de errores vive en el pipeline, 01-03).
   Avisos (no bloquean): NOTE sin ID, waivers usados.
@@ -109,7 +109,7 @@ foreach ($f in $files) {
     # B2b: connection string con password en appsettings versionados.
     if ($path -match '(?i)appsettings[^/]*\.json$' -and $path -notmatch '(?i)\.Local\.json$') {
         for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match '(?i)(password|pwd)\s*=\s*[^;"\s]+') {
+            if ($lines[$i] -match '(?i)(password|pwd)\s*=\s*[^;"\s]+' -or $lines[$i] -match '(?i)mongodb(\+srv)?://[^/\s:@"]+:[^@\s"]+@') {
                 $failures.Add("${path}:$($i + 1) B2 connection string con password en archivo versionado")
             }
         }

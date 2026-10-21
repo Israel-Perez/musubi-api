@@ -9,13 +9,13 @@ Modules/<Modulo>/
 ├── <Recurso>Validators.cs      # validación de entrada en la frontera
 ├── I<Recurso>Service.cs        # interfaz pública del módulo (otros módulos solo usan esto)
 ├── <Recurso>Service.cs         # reglas de negocio
-├── Entities/                   # entidades EF Core del módulo (configuración en el DbContext, 02-01)
+├── Documents/                  # documentos MongoDB del módulo y su repositorio (convenciones e índices en 02-01)
 └── <Modulo>ServiceCollectionExtensions.cs   # services.Add<Modulo>Module(configuration)
 ```
 
 Reglas:
 
 - Cada endpoint nuevo lleva su fila en `docs/endpoints.md` (lo verifica `scripts/check_endpoints.ps1`).
-- Un módulo no lee las tablas de otro: usa su `I<Recurso>Service` o un evento.
+- Un módulo no lee las colecciones de otro: usa su `I<Recurso>Service` o un evento.
 - Los proveedores externos (IA, ML, Mercado Pago, FCM) van detrás de una interfaz del módulo, con un fake para pruebas y degradación controlada (constitución §2, principio 3).
 - Se registra en `Program.cs` mediante su método de extensión, sin tocar el orden del pipeline (01-02).

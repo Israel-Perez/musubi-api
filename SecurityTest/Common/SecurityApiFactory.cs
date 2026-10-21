@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace SecurityTest.Common;
 
-/// <summary>Factory WAF por ambiente: siempre InMemory, un origen CORS permitido y el probe de excepciones de prueba.</summary>
+/// <summary>Factory WAF por ambiente: siempre UseInMemoryDatabase (sin MongoDB), un origen CORS permitido y el probe de excepciones de prueba.</summary>
 public abstract class SecurityApiFactory(string environment) : WebApplicationFactory<Program>
 {
     /// <summary>Origen que la configuracion de prueba permite en CORS.</summary>

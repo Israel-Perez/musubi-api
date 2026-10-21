@@ -6,7 +6,7 @@
 
 ## 1. Forma de trabajo
 
-- **Setup:** `dotnet restore Musubi.slnx` → `dotnet run --project Musubi.Api` (Development usa InMemory; API en `http://localhost:5080`, Scalar en `/scalar`). Para usar PostgreSQL, ver `deploy/README.md`.
+- **Setup:** `dotnet restore Musubi.slnx` → `dotnet run --project Musubi.Api` (Development usa `UseInMemoryDatabase=true`, sin MongoDB; API en `http://localhost:5080`, Scalar en `/scalar`). Para usar MongoDB local o Atlas, ver `deploy/README.md`.
 - **Comandos:**
   - `dotnet build Musubi.slnx -c Release` (0 errores / 0 advertencias)
   - `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` (igual para `IntegrationTest`, `SecurityTest` y `ContractTest`)
@@ -34,7 +34,7 @@
 ## 3. Límites
 
 - No uses la palabra española "todo" en comentarios C#: S1135 rompe el build.
-- No leas configuración de forma eager en el registro DI si las pruebas la sobrescriben: usa la sobrecarga con `IServiceProvider` (ver `AddDbContext` en `Platform/Hosting`).
+- No leas configuración de forma eager en el registro DI si las pruebas la sobrescriben: usa la sobrecarga con `IServiceProvider` (ver `AddMusubiMongo` en `Platform/Data`).
 - No reordenes el pipeline de `UseMusubiPipeline` sin actualizar la spec `01-02`.
 - No pongas `try/catch` en controllers (critic B4).
 - No hardcodees connection strings, llaves ni credenciales; tampoco en appsettings versionados.
@@ -67,7 +67,9 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
-- Datos: `AppDbContext` (PostgreSQL / InMemory por bandera); el modelo nace en `02-01`.
+- Datos: MongoDB (`IMongoClient`/`IMongoDatabase` lazy en `Platform/Data/MongoServiceCollectionExtensions.cs`; sin MongoDB con `UseInMemoryDatabase=true`); el modelo de documentos nace en `02-01`.
+- Versión: `<Version>` de `Musubi.Api.csproj`, alineada con `docs/versionado.md` (lo verifica `UnitTest/Common/VersioningTests.cs`).
+- Lineamientos de la materia (criterios de evaluación): `docs/bitacora/lineamientos-materia.md`.
 - Pendientes con dueño: autenticación JWT → HU-02; SignalR → HU-20; FCM → HU-31; IA → HU-32; ML → HU-35; Mercado Pago → HU-43.
 
 ## 6. Seguridad y DevSecOps
@@ -82,7 +84,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 ## 7. Testing
 
 - xUnit v3 sobre Microsoft.Testing.Platform (`global.json` → `test.runner`): el comando es `dotnet test --project <csproj>`.
-- WebApplicationFactory con InMemory en Integration, Security y Contract; las suites WAF corren en serie (`xunit.runner.json`).
+- WebApplicationFactory con `UseInMemoryDatabase=true` (sin MongoDB) en Integration, Security y Contract; las suites WAF corren en serie (`xunit.runner.json`).
 - SecurityTest usa factories por ambiente (`ProductionApiFactory`, `DevelopmentApiFactory`) y un controller de prueba (`ThrowingProbeController`) que solo existe en ese ensamblado.
 - Matriz completa: skill `testing-strategy`.
 
@@ -92,7 +94,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 9. Despliegue y operación
 
-> 🚧 Pendiente (`02-05`): AWS (API en contenedor, base PostgreSQL administrada, almacenamiento de imágenes), ForwardedHeaders con el proxy real, `AllowedHosts` y respaldos (RNF-16).
+> 🚧 Pendiente (`02-05`): AWS con Terraform (ALB + 2 EC2 en Auto Scaling Group + CloudFront; imágenes en S3), MongoDB Atlas M0, ForwardedHeaders con el proxy real, `AllowedHosts`, respaldos (RNF-16) y los workflows para crear y eliminar la infraestructura.
 
 ## 10. Reglas basadas en lecciones aprendidas
 
@@ -119,10 +121,10 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `IntegrationTest` | `IntegrationTest/` | xUnit v3 + WebApplicationFactory |
 | `SecurityTest` | `SecurityTest/` | xUnit v3 + WebApplicationFactory por ambiente |
 | `ContractTest` | `ContractTest/` | Forma JSON contra `Fixtures/` |
-| `DatabaseTest` | `DatabaseTest/` | Esqueleto (Testcontainers en `02-01`) |
-| `docs/` | `docs/` | `endpoints.md` (3 filas), `trazabilidad.md` (47 HU), `modulos.md` (14 módulos), `bitacora/` |
+| `DatabaseTest` | `DatabaseTest/` | Esqueleto (Testcontainers MongoDB en `02-01`) |
+| `docs/` | `docs/` | `endpoints.md` (3 filas), `trazabilidad.md` (47 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
-| `deploy/` | `deploy/` | Compose de PostgreSQL local |
+| `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |
 | `.github/` | `.github/` | CI, Dependabot, plantilla de PR |
 | `.semgrep/` | `.semgrep/` | Reglas SAST propias |

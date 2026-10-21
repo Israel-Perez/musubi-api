@@ -3,7 +3,6 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,9 +15,6 @@ internal static class PlatformServiceCollectionExtensions
 {
     /// <summary>Nombre de la politica CORS restringida por configuracion.</summary>
     public const string CorsPolicyName = "MusubiCors";
-
-    /// <summary>Nombre de la base InMemory usada en local y pruebas.</summary>
-    public const string InMemoryDatabaseName = "musubi";
 
     /// <summary>Tag de los health checks que forman parte de la readiness.</summary>
     public const string ReadyTag = "ready";
@@ -82,27 +78,6 @@ internal static class PlatformServiceCollectionExtensions
         // NOTE (HU-02): FallbackPolicy RequireAuthenticatedUser cuando exista el esquema JWT; hoy la auth es explicita por controller.
         services.AddAuthorization();
 
-        services.AddDbContext<AppDbContext>((provider, options) =>
-        {
-            // Lectura lazy (no eager en el registro): respeta los overrides de WebApplicationFactory (00-04, regla 3).
-            var config = provider.GetRequiredService<IConfiguration>();
-            if (config.GetValue("UseInMemoryDatabase", false))
-            {
-                options.UseInMemoryDatabase(InMemoryDatabaseName);
-                return;
-            }
-
-            var connectionString = config.GetConnectionString("Default");
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException(
-                    "ConnectionStrings:Default es obligatorio cuando UseInMemoryDatabase=false (usar user-secrets o variable de entorno).");
-            }
-
-            options.UseNpgsql(connectionString);
-        });
-
-        services.AddHealthChecks()
-            .AddDbContextCheck<AppDbContext>("database", tags: [ReadyTag]);
+        services.AddMusubiMongo(ReadyTag);
     }
 }

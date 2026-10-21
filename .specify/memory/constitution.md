@@ -11,7 +11,8 @@
 - **Repos hermanos:** `musubi-api` (back, ASP.NET Core / .NET 10) y `musubi-app` (front, Flutter). Cada uno es autosuficiente: constitución, plantilla, specs, `AGENTS.md`, `Memoria.md`, CI y guardarraíles propios.
 - **Contrato entre repos:** el contrato HTTP es canónico en `musubi-api/docs/endpoints.md` (más el OpenAPI que la API expone en Development). El front **enlaza** sus filas y nunca lo duplica.
 - **Metodología:** Spec Driven Development. Cada funcionalidad nace de una spec en `specs/`; esta constitución gobierna su forma, su implementación y su verificación.
-- **Calendario del MVP:** 5 sprints de 2 semanas (28-Sep-2026 a 04-Dic-2026). Prueba cerrada en Google Play desde el 09-Nov-2026; publicación y entrega final el 04-Dic-2026.
+- **Calendario del MVP:** sprints de 2 semanas desde el 28-Sep-2026. **Evaluación el 02-Dic-2026**: empieza descargando la app desde Google Play. Prueba cerrada en Google Play desde el 09-Nov-2026; la versión `1.0.0` se publica antes de la evaluación (matriz en `docs/versionado.md`).
+- **Lineamientos de la materia:** son criterios de evaluación y mandan sobre este documento. Texto y checklist (L-NN) en `musubi-api/docs/bitacora/lineamientos-materia.md`. Si una sección de esta constitución o una spec los contradice, se corrige ese artefacto. La app se construye a la imagen de la maqueta (`musubi-app/docs/maqueta/`) y nunca se le quitan funciones.
 - **Equipo:** Start-Up 10IDGS-G3 (4 integrantes; nombres y roles en Jira y Confluence, no en el repo público). Roles Scrum (PO/SM) por definir.
 
 ## 2. Principios no negociables
@@ -64,15 +65,17 @@
 | Capa | Tecnología |
 |---|---|
 | Runtime / API | .NET 10, ASP.NET Core (controllers), API versionada `api/v1/...` (Asp.Versioning) |
-| Datos | PostgreSQL + EF Core (Npgsql); InMemory solo para local y pruebas |
+| Datos | **MongoDB** (NoSQL, lineamiento 14): Atlas M0 en la nube, `mongo` 8.0 en local; `MongoDB.Driver`. `UseInMemoryDatabase=true` solo en local y pruebas (sin MongoDB). Script de la base con `mongosh` — `NOTE (02-01)` |
+| Caché | Redis/Valkey junto a las instancias (cache-aside) — `NOTE (02-02)` |
 | Tiempo real | SignalR (hub de chat y avisos dentro de la app) — `NOTE (HU-20)` |
 | Notificaciones | Firebase Cloud Messaging; el back envía con credenciales de Firebase Admin — `NOTE (HU-31)` |
 | IA generativa | API de un modelo de lenguaje detrás de una interfaz; proveedor intercambiable — `NOTE (HU-32)` |
 | Machine Learning | ML.NET (recomendaciones) — `NOTE (HU-35)` |
 | Pagos | Mercado Pago en modo de pruebas — `NOTE (HU-43)` |
 | Documentación de API | OpenAPI + Scalar, solo en Development |
-| Contenedores y nube | Docker (multi-stage, usuario no root); AWS para la API, la base administrada y las imágenes — `NOTE (02-05)` |
-| Pruebas | xUnit v3 (Microsoft.Testing.Platform), WebApplicationFactory, coverlet; Testcontainers (PostgreSQL) — `NOTE (02-01)` |
+| Contenedores y nube | Docker (multi-stage, usuario no root); AWS con Terraform: ALB + 2 EC2 (Auto Scaling Group) + CloudFront, imágenes en S3 + CloudFront — `NOTE (02-05)` |
+| Moderación de contenido | APIs de AWS (Rekognition para imágenes, Comprehend para texto) antes de guardar — `NOTE (02-07)` |
+| Pruebas | xUnit v3 (Microsoft.Testing.Platform), WebApplicationFactory, coverlet; Testcontainers (MongoDB) — `NOTE (02-01)` |
 | Calidad y seguridad | Analizadores .NET (AnalysisMode=All) + SonarAnalyzer.CSharp, NuGetAudit, Semgrep, critic-guardrails; SonarCloud, Trivy y OWASP ZAP en fases posteriores |
 | CI | GitHub Actions (actions fijadas por SHA) + Dependabot |
 
@@ -85,7 +88,7 @@ Regla de excepción: ver `specs/phase-00-constitution/00-01-principles-stack/spe
   - `Modules/<Modulo>/`: uno por módulo, creado con su primera HU (convención en `Musubi.Api/Modules/README.md`).
 - Rutas `api/v{version:apiVersion}/<recurso>`; JSON camelCase; contrato canónico en `docs/endpoints.md`.
 - Pipeline en orden fijo (spec `01-02`): ForwardedHeaders → ExceptionHandler + HSTS (fuera de Dev) → HttpsRedirection → CORS → OpenAPI/Scalar (solo Dev) → Authorization → Controllers → Health.
-- Health: `/health` (liveness) y `/health/ready` (readiness, incluye la base de datos).
+- Health: `/health` (liveness) y `/health/ready` (readiness, incluye el `ping` a MongoDB).
 - La IA, el ML, Mercado Pago y FCM son **adaptadores** detrás de una interfaz del módulo; su falla degrada solo esa funcionalidad (principio 3).
 
 ## 8. Estándares de código y API
@@ -99,7 +102,7 @@ Regla de excepción: ver `specs/phase-00-constitution/00-01-principles-stack/spe
 
 ## 9. Testing y QA
 
-- Suites separadas: `UnitTest`, `IntegrationTest` (WebApplicationFactory), `SecurityTest`, `ContractTest` (forma JSON contra fixtures) y `DatabaseTest` (PostgreSQL real, esqueleto hasta `02-01`).
+- Suites separadas: `UnitTest`, `IntegrationTest` (WebApplicationFactory), `SecurityTest`, `ContractTest` (forma JSON contra fixtures) y `DatabaseTest` (MongoDB real, esqueleto hasta `02-01`).
 - Las pruebas se ejecutan con `dotnet test --project <csproj> -c Release --no-build` después de un build Release 0/0.
 - RNF-25: pruebas automatizadas obligatorias en coincidencias, pedidos y autenticación.
 - Cobertura y mutation testing: umbrales "🎯 Objetivo (Por medir)" en `00-03`.

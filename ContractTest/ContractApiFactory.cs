@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace ContractTest;
 
-/// <summary>Factory del contrato: Development + InMemory.</summary>
+/// <summary>Factory del contrato: Development + UseInMemoryDatabase (sin MongoDB).</summary>
 public sealed class ContractApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
