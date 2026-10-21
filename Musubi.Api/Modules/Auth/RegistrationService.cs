@@ -3,8 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Musubi.Api.Modules.Auth.Data;
-using Musubi.Api.Platform.Auth;
-using Musubi.Api.Platform.Email;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Auth;
@@ -30,11 +28,9 @@ internal sealed class LegalOptions
 internal sealed class RegistrationService(
     ICommunityRepository communities,
     IUserRepository users,
-    IVerificationCodeRepository codes,
-    IEmailSender email,
+    VerificationCodeService codes,
+    SessionIssuer sessions,
     PasswordHashing passwords,
-    AccessTokenIssuer accessTokens,
-    RefreshTokenService refreshTokens,
     IOptions<LegalOptions> legal,
     TimeProvider time)
 {
@@ -83,7 +79,7 @@ internal sealed class RegistrationService(
             return AuthErrors.EmailNotInstitutional;
         }
 
-        var now = Now();
+        var now = time.GetUtcNow().UtcDateTime;
         var versions = legal.Value;
         var user = new UserDocument
         {
@@ -106,7 +102,7 @@ internal sealed class RegistrationService(
             return AuthErrors.EmailAlreadyRegistered;
         }
 
-        var expiresAt = await SendCodeAsync(user, now, cancellationToken).ConfigureAwait(false);
+        var expiresAt = await codes.SendAsync(user, VerificationPurposes.EmailVerification, cancellationToken).ConfigureAwait(false);
         return Result<RegisterResponse>.Ok(new RegisterResponse(user.EmailNormalized, expiresAt, now + VerificationCodes.ResendCooldown));
     }
 
@@ -116,8 +112,7 @@ internal sealed class RegistrationService(
     /// <returns>Desde cuando se puede volver a pedir, o <c>auth.resend_too_soon</c>.</returns>
     public async Task<Result<ResendCodeResponse>> ResendAsync(string rawEmail, CancellationToken cancellationToken)
     {
-        var now = Now();
-        var generic = Result<ResendCodeResponse>.Ok(new ResendCodeResponse(now + VerificationCodes.ResendCooldown));
+        var generic = Result<ResendCodeResponse>.Ok(new ResendCodeResponse(time.GetUtcNow().UtcDateTime + VerificationCodes.ResendCooldown));
         if (!EmailAddresses.TryNormalize(rawEmail, out var normalized))
         {
             return generic;
@@ -129,13 +124,12 @@ internal sealed class RegistrationService(
             return generic;
         }
 
-        var current = await codes.FindActiveAsync(user.Id, VerificationPurposes.EmailVerification, now, cancellationToken).ConfigureAwait(false);
-        if (current is not null && now < current.LastSentAt + VerificationCodes.ResendCooldown)
+        if (!await codes.CanSendAsync(user.Id, VerificationPurposes.EmailVerification, cancellationToken).ConfigureAwait(false))
         {
             return AuthErrors.ResendTooSoon;
         }
 
-        await SendCodeAsync(user, now, cancellationToken).ConfigureAwait(false);
+        await codes.SendAsync(user, VerificationPurposes.EmailVerification, cancellationToken).ConfigureAwait(false);
         return generic;
     }
 
@@ -147,7 +141,6 @@ internal sealed class RegistrationService(
     public async Task<Result<SessionResponse>> ConfirmAsync(ConfirmCodeRequest request, string? userAgent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var now = Now();
         if (!EmailAddresses.TryNormalize(request.Email, out var normalized))
         {
             return AuthErrors.InvalidCode;
@@ -159,70 +152,24 @@ internal sealed class RegistrationService(
             return AuthErrors.InvalidCode;
         }
 
-        var code = await codes.FindActiveAsync(user.Id, VerificationPurposes.EmailVerification, now, cancellationToken).ConfigureAwait(false);
-        if (code is null)
+        if (await codes.VerifyAsync(user.Id, VerificationPurposes.EmailVerification, request.Code, cancellationToken).ConfigureAwait(false) is { } error)
         {
-            return AuthErrors.InvalidCode;
+            return error;
         }
 
-        if (code.Attempts >= VerificationCodes.MaxAttempts)
-        {
-            return AuthErrors.TooManyCodeAttempts;
-        }
-
-        if (!VerificationCodes.Matches(code.CodeHash, user.Id, request.Code))
-        {
-            var attempts = await codes.IncrementAttemptsAsync(code.Id, cancellationToken).ConfigureAwait(false);
-            return attempts >= VerificationCodes.MaxAttempts ? AuthErrors.TooManyCodeAttempts : AuthErrors.InvalidCode;
-        }
-
-        await codes.DeleteAsync(code.Id, cancellationToken).ConfigureAwait(false);
+        var now = time.GetUtcNow().UtcDateTime;
         if (!await users.MarkEmailVerifiedAsync(user.Id, now, cancellationToken).ConfigureAwait(false))
         {
             return AuthErrors.InvalidCode;
         }
 
-        var community = await communities.FindByIdAsync(user.CommunityId, cancellationToken).ConfigureAwait(false);
-        var access = accessTokens.Issue(user.Id, user.CommunityId, user.Roles);
-        var refresh = await refreshTokens.IssueAsync(user.Id, familyId: null, userAgent, cancellationToken).ConfigureAwait(false);
-        return Result<SessionResponse>.Ok(new SessionResponse(
-            access.Token,
-            access.ExpiresAt,
-            refresh.Token,
-            refresh.ExpiresAt,
-            new UserSummary(
-                user.Id,
-                user.FullName,
-                user.EmailNormalized,
-                EmailVerified: true,
-                new CampusResponse(community?.ShortName ?? string.Empty, community?.Name ?? string.Empty))));
+        var verified = await users.FindByIdAsync(user.Id, cancellationToken).ConfigureAwait(false);
+        return Result<SessionResponse>.Ok(await sessions.StartAsync(verified ?? user, userAgent, cancellationToken).ConfigureAwait(false));
     }
-
-    private DateTime Now() => time.GetUtcNow().UtcDateTime;
 
     private async Task<CommunityDocument?> FindActiveCommunityAsync(string domain, CancellationToken cancellationToken)
     {
         var community = await communities.FindByEmailDomainAsync(domain, cancellationToken).ConfigureAwait(false);
         return community?.Status == CommunityStatuses.Active ? community : null;
-    }
-
-    private async Task<DateTime> SendCodeAsync(UserDocument user, DateTime now, CancellationToken cancellationToken)
-    {
-        var plain = VerificationCodes.Generate();
-        var expiresAt = now + VerificationCodes.Lifetime;
-        await codes.UpsertAsync(
-            new VerificationCodeDocument
-            {
-                Id = AuthIds.New(),
-                UserId = user.Id,
-                Purpose = VerificationPurposes.EmailVerification,
-                CodeHash = VerificationCodes.Hash(user.Id, plain),
-                LastSentAt = now,
-                ExpiresAt = expiresAt,
-                CreatedAt = now,
-            },
-            cancellationToken).ConfigureAwait(false);
-        await email.SendAsync(AuthEmails.VerificationCode(user.EmailNormalized, user.FullName, plain), cancellationToken).ConfigureAwait(false);
-        return expiresAt;
     }
 }
