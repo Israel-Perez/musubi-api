@@ -4,9 +4,30 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (21-Oct-2026)
 
-- **SCRUM-77** (02-03, rama `feature/SCRUM-77-errores-auth`): errores, autenticación y correo. 02-01 (SCRUM-76) ya está en `main`.
-- Build Release 0/0 · Unit 80/80 · Integration 9/9 · Security 25/25 · Contract 3/3 · Database 18 (CI) · critic PASS · endpoints OK (3) · Semgrep 0.
-- Siguiente: app `02-01` (tema de la maqueta, navegación, sesión segura) y después HU-01/03/47 y HU-02.
+- **HU-01/03/47** (rama `feature/SCRUM-19-registro-verificacion`): registro, verificación y consentimientos. 02-01 y 02-03 ya están en `main`.
+- Build Release 0/0 · Unit 90/90 · Integration 28/28 · Security 26/26 · Contract 4/4 · Database 18 (CI) · critic PASS · endpoints OK (7) · Semgrep 0.
+- Siguiente: lado app de HU-01/03/47 y luego HU-02 + HU-56 (back y app).
+
+## T7 — HU-01/03/47 Registro, verificación y consentimientos (21-Oct-2026, SCRUM-19/21/33)
+
+**Qué se hizo**
+- `AuthController` (`/api/v1/auth`): `campus`, `register`, `verification/resend` y `verification/confirm`; anónimo y con rate limit `auth`. Filas en `docs/endpoints.md` (7 rutas en total).
+- `RegistrationService` con `Result<T>`: campus por dominio (solo comunidades activas), registro `pendingVerification` con consentimientos versionados (`Legal:*`), código de 6 dígitos (10 min, 5 intentos, reenvío cada 60 s) y confirmación que abre la sesión (access + refresh de 02-03).
+- `EmailAddresses` (normalización), `VerificationCodes` (CSPRNG, hash ligado al usuario, comparación en tiempo constante) y `AuthEmails` (nombre codificado en el HTML).
+- Pruebas: `IntegrationTest/Auth/` con `AuthApiFactory` (reloj y correo controlados vía `TestShared/`), `UnitTest/Auth/RegistrationTests.cs` y `ContractTest/AuthContractTests.cs` (fixtures `campus`, `register` y `session`).
+
+**Decisiones (con su porqué)**
+- **Sin sesión hasta verificar** (RN-01): el registro no da tokens; la confirmación sí.
+- **El controller resuelve el servicio de `RequestServices`**: los servicios del módulo son `internal` y MVC exige un controller público (CS0051 con un constructor público).
+- **Consentimientos `bool?` + `[Required]`** (S6964): omitirlos es un 400 de validación y no se toman como "falso".
+- **El 409 de registro revela si un correo existe** (la UX de la maqueta lo pide); el reenvío y la confirmación no revelan nada.
+
+**Self-tests**
+- Sin el bloqueo de 5 intentos → `Confirm_WrongCode_FailsAndLocksAfterFiveAttempts` en rojo.
+
+**Errores a evitar**
+- En los tests de integración que pegan muchas veces a `/auth`, subir `RateLimiting:Auth:PermitLimit` en la factory: el limitador comparte la "IP" de TestServer entre pruebas.
+- Una línea de documentación con la palabra de la contraseña en `*Dtos.cs` también necesita `critic-allow: input-credential (HU-NN)` (B2a revisa cada línea).
 
 ## T6 — 02-03 Contrato de errores, autenticación y correo (21-Oct-2026, SCRUM-77)
 

@@ -25,3 +25,14 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
 
 Total: 3 filas (3 de plataforma, 0 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+
+## M-01 · Autenticación y usuarios
+
+Públicos (aún no hay sesión) y con rate limit `auth` por IP (429 + `Retry-After`). Errores del catálogo [`docs/errores.md`](errores.md). Las respuestas nunca llevan hashes ni códigos.
+
+| Método | Ruta | Auth | Spec | Request | Response | Códigos | Consumidor |
+|---|---|---|---|---|---|---|---|
+| POST | /api/v1/auth/campus | `[AllowAnonymous]` + rate limit | HU-01 | `CampusRequest { email }` | `CampusResponse { shortName, name }` | 200 / 400 `validation.failed` / 422 `auth.email_not_institutional` / 429 | `musubi-app` HU-01 ("Campus detectado" mientras se escribe) |
+| POST | /api/v1/auth/register | `[AllowAnonymous]` + rate limit | HU-01, HU-47 | `RegisterRequest { email, fullName, password, acceptTerms, acceptPrivacy }` | `RegisterResponse { email, codeExpiresAt, resendAvailableAt }` | 201 / 400 `validation.failed` · `auth.consent_required` · `auth.weak_password` / 409 `auth.email_already_registered` / 422 `auth.email_not_institutional` / 429 | `musubi-app` HU-01 (pantalla `Registro`) |
+| POST | /api/v1/auth/verification/resend | `[AllowAnonymous]` + rate limit | HU-03 | `ResendCodeRequest { email }` | `ResendCodeResponse { resendAvailableAt }` (igual exista o no la cuenta) | 202 / 429 `auth.resend_too_soon` · `rate_limit.exceeded` | `musubi-app` HU-03 ("Reenviar código") |
+| POST | /api/v1/auth/verification/confirm | `[AllowAnonymous]` + rate limit | HU-03 | `ConfirmCodeRequest { email, code }` | `SessionResponse { accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user { id, fullName, email, emailVerified, campus { shortName, name } } }` | 200 / 400 `auth.invalid_code` · `validation.failed` / 429 `auth.code_attempts_exceeded` | `musubi-app` HU-03 (`Verificacion` → `Verificacion-lista`) |

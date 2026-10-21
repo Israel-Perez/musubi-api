@@ -21,6 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Pruebas compartidas (reloj controlable, correo capturado). -->
+    <Compile Include="..\TestShared\**\*.cs" Link="TestShared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Musubi.Api\Musubi.Api.csproj" />
   </ItemGroup>
 
