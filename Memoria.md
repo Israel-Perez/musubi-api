@@ -8,6 +8,13 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Build Release 0/0 · Unit 23/23 · Integration 8/8 · Security 11/11 · Contract 2/2 · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0 · shared OK (5 bloques).
 - Siguiente: `02-01` (modelo de documentos, índices, script `mongosh`, Testcontainers MongoDB) antes de HU-01; luego `02-03` (errores + JWT/refresh/logout).
 
+## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
+
+- **D-01 decidido por el usuario:** el pago es solo el de la maqueta (transferencia a la CLABE del vendedor o efectivo con código de entrega, sin comisión). HU-43 (Mercado Pago, SCRUM-55) queda fuera de alcance (etiqueta `fuera-de-alcance` + comentario en Jira) y la reemplaza **HU-55** (SCRUM-72). Constitución §1 (compartida) y §6/§11, 01-04 (`Payments:*` en lugar de `MercadoPago:*`), AGENTS, skills y Semgrep actualizados.
+- **HU nuevas de la maqueta** (Historias en SCRUM con épica y etiqueta `maqueta`, sin sprint): HU-48 visitante (SCRUM-73), HU-49 populares (SCRUM-69), HU-50 inventario (SCRUM-67), HU-51 comparar/Avísame (SCRUM-70), HU-52 apartados QR (SCRUM-74), HU-53 favoritos (SCRUM-68), HU-54 modo noche (SCRUM-71), HU-55 pago (SCRUM-72). `docs/trazabilidad.md` pasa a 55 HU.
+- Dependabot: `mongo` solo recibe parches de la línea 8.0 (`ignore` de minor/major); se cerró el PR que subía a 8.3.11.
+- **Error a evitar:** el MCP de Atlassian da timeout en `createJiraIssue`/`editJiraIssue` aunque la operación sí se aplique. Antes de reintentar, buscar con JQL (`key > SCRUM-NN`): un reintento ciego duplicó HU-48 (la copia SCRUM-74 se reutilizó para HU-52).
+
 ## T3 — Lineamientos de la materia y stack NoSQL (20-Oct-2026, SCRUM-66)
 
 **Qué se hizo**

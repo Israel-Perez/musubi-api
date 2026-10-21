@@ -31,3 +31,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    # mongo: solo parches de la linea 8.0 (la de Atlas M0); 8.x rapidas y 9.x no.
+    ignore:
+      - dependency-name: "mongo"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

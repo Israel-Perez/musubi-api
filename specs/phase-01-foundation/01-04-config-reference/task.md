@@ -6,4 +6,4 @@
 - **Estado:** ✅ Hecho (15-Oct-2026).
 
 ## Pendientes
-- Claves `Jwt:*` → HU-02; `Firebase:*` → HU-31; `GenAi:*` → HU-32; `MercadoPago:*` → HU-43; `AllowedHosts` real → 02-05.
+- Claves `Jwt:*` → HU-02; `Firebase:*` → HU-31; `GenAi:*` → HU-32; `Payments:*` → HU-55 (HU-43 fuera de alcance); `AllowedHosts` real → 02-05.

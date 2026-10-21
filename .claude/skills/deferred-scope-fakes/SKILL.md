@@ -1,13 +1,13 @@
 ---
 name: deferred-scope-fakes
-description: Avanzar una HU sin esperar infraestructura futura (JWT, FCM, SignalR, IA, Mercado Pago, ML) usando una interfaz con un fake reemplazable y NOTE (ID) trazables. Úsala cuando el alcance completo de una HU depende de otra spec aún no ejecutada.
+description: Avanzar una HU sin esperar infraestructura futura (JWT, FCM, SignalR, IA, moderación, ML) usando una interfaz con un fake reemplazable y NOTE (ID) trazables. Úsala cuando el alcance completo de una HU depende de otra spec aún no ejecutada.
 ---
 
 ## Propósito
 Que ningún slice se bloquee por una dependencia pesada y que ningún pendiente se pierda.
 
 ## Cuándo usarla
-- La HU necesita un proveedor externo que llega después (IA → HU-32, pagos → HU-43, push → HU-31, chat en tiempo real → HU-20).
+- La HU necesita un proveedor externo que llega después (IA → HU-32, moderación → 02-07, push → HU-31, chat en tiempo real → HU-20).
 - La infraestructura transversal aún no existe (JWT → HU-02, modelo de datos → 02-01).
 
 ## Precondiciones

@@ -28,7 +28,7 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `Jwt:*` | — | [HU-02 / Pendiente] | Emisor, audiencia y llave (secreto) |
 | `Firebase:*` | — | [HU-31 / Pendiente] | Credenciales de Firebase Admin (secreto, solo back) |
 | `GenAi:*` | — | [HU-32 / Pendiente] | Proveedor, modelo y llave del LLM (secreto) |
-| `MercadoPago:*` | — | [HU-43 / Pendiente] | Access token de pruebas (secreto) y webhook |
+| `Payments:*` | — | [HU-55 / Pendiente] | Llave para cifrar la CLABE del vendedor (secreto). `MercadoPago:*` ya no aplica (HU-43 fuera de alcance, D-01) |
 
 Archivos:
 
@@ -51,7 +51,7 @@ Claves de la tabla. Las variables de entorno siguen la convención de .NET (`Con
 - `semgrep scan --config .semgrep/semgrep.yaml` → 0 hallazgos de `musubi-connection-string-with-password`.
 
 ## Límites
-`AllowedHosts=*` hasta que exista el dominio (02-05). Las claves de HU-02, HU-31, HU-32 y HU-43 entran a `appsettings.Example.json` solo cuando haya código que las lea.
+`AllowedHosts=*` hasta que exista el dominio (02-05). Las claves de HU-02, HU-31, HU-32 y HU-55 entran a `appsettings.Example.json` solo cuando haya código que las lea.
 
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia
