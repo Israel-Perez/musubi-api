@@ -129,6 +129,21 @@ public abstract class AuthRepositoryContract
     }
 
     [Fact]
+    public async Task Users_UpdatePasswordHash_ReplacesOnlyTheHash()
+    {
+        var user = await NewUserAsync();
+        await Users.TryInsertAsync(user, Ct);
+
+        Assert.True(await Users.UpdatePasswordHashAsync(user.Id, "AQAAAAIAAYagAAAAEHashNuevoNoReal==", Now.AddDays(1), Ct));
+        Assert.False(await Users.UpdatePasswordHashAsync(AuthIds.New(), "AQAAAAIAAYagAAAAEHashNuevoNoReal==", Now, Ct));
+
+        var stored = await Users.FindByIdAsync(user.Id, Ct);
+        Assert.Equal("AQAAAAIAAYagAAAAEHashNuevoNoReal==", stored?.PasswordHash);
+        Assert.Equal(Now.AddDays(1), stored?.UpdatedAt);
+        Assert.Equal(user.FullName, stored?.FullName);
+    }
+
+    [Fact]
     public async Task Users_Delete_RemovesTheUser()
     {
         var user = await NewUserAsync();
