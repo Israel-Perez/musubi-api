@@ -30,6 +30,7 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `Email:Provider` | `Ses` (base) / `Log` (Development) | [02-03 / Implementado] | `Log` solo en Development (escribe el correo en el log) |
 | `Email:From` / `Email:Region` | `""` / `us-east-1` | [02-03 / Implementado] | Remitente verificado en SES; obligatorio fuera de Development |
 | `RateLimiting:Auth:PermitLimit` / `RateLimiting:Auth:WindowSeconds` | `10` / `60` | [02-03 / Implementado] | Intentos por IP en `/auth/*` |
+| `Legal:TermsVersion` / `Legal:PrivacyVersion` | `2026-10` / `2026-10` | [HU-47 / Implementado] | Versiones vigentes que se guardan en `users.consents` al registrarse |
 | `Redis:*` | — | [02-02 / Pendiente] | Cadena de Redis/Valkey (secreto si lleva clave) |
 | `Firebase:*` | — | [HU-31 / Pendiente] | Credenciales de Firebase Admin (secreto, solo back) |
 | `GenAi:*` | — | [HU-32 / Pendiente] | Proveedor, modelo y llave del LLM (secreto) |

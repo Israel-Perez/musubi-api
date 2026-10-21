@@ -37,5 +37,7 @@ internal static class AuthModuleServiceCollectionExtensions
         // Servicios de dominio (02-03); los endpoints nacen con HU-01, HU-02 y HU-03.
         services.AddSingleton<PasswordHashing>();
         services.AddSingleton<RefreshTokenService>();
+        services.AddOptions<LegalOptions>().BindConfiguration(LegalOptions.Section);
+        services.AddSingleton<RegistrationService>();
     }
 }
