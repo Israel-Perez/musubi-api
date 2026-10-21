@@ -7,7 +7,7 @@
 <!-- Sección compartida con musubi-app/musubi-api: si cambia, cámbiala en ambos repos y regístralo en las dos Memoria.md -->
 ## 1. Propósito y alcance
 
-- **Producto:** MUSUBI, app Android de compra-venta entre estudiantes de la UTTT (Universidad Tecnológica de Tula-Tepeji). Conecta la **oferta** (productos publicados) con la **demanda** (solicitudes "busco…"), con coincidencias automáticas, chat, pedidos con pago contra entrega y Mercado Pago en modo de pruebas, reputación, IA generativa para resumir acuerdos y recomendaciones con ML.
+- **Producto:** MUSUBI, app Android de compra-venta entre estudiantes de la UTTT (Universidad Tecnológica de Tula-Tepeji). Conecta la **oferta** (productos publicados) con la **demanda** (solicitudes "busco…"), con coincidencias automáticas, chat, pedidos pagados por transferencia a la cuenta del vendedor o en efectivo (sin comisión; Musubi no procesa el dinero), reputación, IA generativa para resumir acuerdos y recomendaciones con ML.
 - **Repos hermanos:** `musubi-api` (back, ASP.NET Core / .NET 10) y `musubi-app` (front, Flutter). Cada uno es autosuficiente: constitución, plantilla, specs, `AGENTS.md`, `Memoria.md`, CI y guardarraíles propios.
 - **Contrato entre repos:** el contrato HTTP es canónico en `musubi-api/docs/endpoints.md` (más el OpenAPI que la API expone en Development). El front **enlaza** sus filas y nunca lo duplica.
 - **Metodología:** Spec Driven Development. Cada funcionalidad nace de una spec en `specs/`; esta constitución gobierna su forma, su implementación y su verificación.
@@ -71,7 +71,7 @@
 | Notificaciones | Firebase Cloud Messaging; el back envía con credenciales de Firebase Admin — `NOTE (HU-31)` |
 | IA generativa | API de un modelo de lenguaje detrás de una interfaz; proveedor intercambiable — `NOTE (HU-32)` |
 | Machine Learning | ML.NET (recomendaciones) — `NOTE (HU-35)` |
-| Pagos | Mercado Pago en modo de pruebas — `NOTE (HU-43)` |
+| Pagos | Sin pasarela (decisión D-01): transferencia a la CLABE del vendedor, guardada cifrada, o efectivo con código de entrega — `NOTE (HU-55)` |
 | Documentación de API | OpenAPI + Scalar, solo en Development |
 | Contenedores y nube | Docker (multi-stage, usuario no root); AWS con Terraform: ALB + 2 EC2 (Auto Scaling Group) + CloudFront, imágenes en S3 + CloudFront — `NOTE (02-05)` |
 | Moderación de contenido | APIs de AWS (Rekognition para imágenes, Comprehend para texto) antes de guardar — `NOTE (02-07)` |
@@ -89,7 +89,7 @@ Regla de excepción: ver `specs/phase-00-constitution/00-01-principles-stack/spe
 - Rutas `api/v{version:apiVersion}/<recurso>`; JSON camelCase; contrato canónico en `docs/endpoints.md`.
 - Pipeline en orden fijo (spec `01-02`): ForwardedHeaders → ExceptionHandler + HSTS (fuera de Dev) → HttpsRedirection → CORS → OpenAPI/Scalar (solo Dev) → Authorization → Controllers → Health.
 - Health: `/health` (liveness) y `/health/ready` (readiness, incluye el `ping` a MongoDB).
-- La IA, el ML, Mercado Pago y FCM son **adaptadores** detrás de una interfaz del módulo; su falla degrada solo esa funcionalidad (principio 3).
+- La IA, el ML, la moderación de contenido y FCM son **adaptadores** detrás de una interfaz del módulo; su falla degrada solo esa funcionalidad (principio 3).
 
 ## 8. Estándares de código y API
 
@@ -118,4 +118,4 @@ Regla de excepción: ver `specs/phase-00-constitution/00-01-principles-stack/spe
 - CORS restringido por configuración (sin comodín; SonarAnalyzer S5122 lo bloquea en el build).
 - Fuera de Development, los errores son `ProblemDetails` genéricos sin detalle interno.
 - Secretos solo en user-secrets, archivos ignorados o variables/secretos del despliegue. Los appsettings versionados solo llevan placeholders (pruebas en `UnitTest/Common/AppSettingsTests.cs`).
-- Las llaves privadas (IA, Mercado Pago, Firebase Admin) viven **solo** en el back.
+- Las llaves privadas (IA, Firebase Admin, cifrado de la CLABE) viven **solo** en el back.

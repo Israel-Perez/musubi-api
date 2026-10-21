@@ -16,7 +16,7 @@ rules:
     severity: ERROR
     message: >-
       Se desactiva la validacion de certificados TLS (RNF-02 comunicacion cifrada).
-      Nunca aceptar cualquier certificado, tampoco en clientes HTTP hacia IA o Mercado Pago.
+      Nunca aceptar cualquier certificado, tampoco en clientes HTTP hacia la IA o la moderacion.
     pattern-either:
       - pattern: HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
       - pattern: |
@@ -28,7 +28,7 @@ rules:
     languages: [csharp]
     severity: ERROR
     message: >-
-      Llave de firma escrita en el codigo. Las llaves (JWT, IA, Mercado Pago, Firebase Admin)
+      Llave de firma escrita en el codigo. Las llaves (JWT, IA, Firebase Admin, cifrado de la CLABE)
       llegan por configuracion: user-secrets en local, variables/secretos en el despliegue (00-04).
     pattern-either:
       - pattern: new SymmetricSecurityKey(Encoding.UTF8.GetBytes("..."))

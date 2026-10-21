@@ -17,5 +17,5 @@ Reglas:
 
 - Cada endpoint nuevo lleva su fila en `docs/endpoints.md` (lo verifica `scripts/check_endpoints.ps1`).
 - Un módulo no lee las colecciones de otro: usa su `I<Recurso>Service` o un evento.
-- Los proveedores externos (IA, ML, Mercado Pago, FCM) van detrás de una interfaz del módulo, con un fake para pruebas y degradación controlada (constitución §2, principio 3).
+- Los proveedores externos (IA, ML, moderación, FCM) van detrás de una interfaz del módulo, con un fake para pruebas y degradación controlada (constitución §2, principio 3).
 - Se registra en `Program.cs` mediante su método de extensión, sin tocar el orden del pipeline (01-02).

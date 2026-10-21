@@ -1,6 +1,6 @@
 # Trazabilidad HU ↔ specs ↔ tests — musubi-api
 
-Matriz viva de las 47 historias de usuario del MVP. **La fuente de verdad del backlog es Jira** (proyecto `SCRUM`): sprint, prioridad y estado de gestión se consultan ahí. Esta tabla registra el lado técnico **de este repo**.
+Matriz viva de las historias de usuario del MVP (55; HU-43 fuera de alcance). **La fuente de verdad del backlog es Jira** (proyecto `SCRUM`): sprint, prioridad y estado de gestión se consultan ahí. Esta tabla registra el lado técnico **de este repo**.
 
 Reglas de mantenimiento (skill `traceability`; las verifica el sub-agente `traceability-clerk`):
 
@@ -54,13 +54,21 @@ Reglas de mantenimiento (skill `traceability`; las verifica el sub-agente `trace
 | HU-40 | SCRUM-63 | S5 | M-14 | Suspender y reactivar cuentas | — | — | — | Por iniciar |
 | HU-41 | SCRUM-64 | S5 | M-14 | Gestionar categorías | — | — | — | Por iniciar |
 | HU-42 | SCRUM-65 | Post-MVP | M-14 | Consultar indicadores de uso | — | — | — | Por iniciar |
-| HU-43 | SCRUM-55 | S4 | M-08 | Pagar un pedido con Mercado Pago | — | — | — | Por iniciar |
+| HU-43 | SCRUM-55 | — | M-08 | ~~Pagar un pedido con Mercado Pago~~ (reemplazada por HU-55) | — | — | — | Fuera de alcance (D-01) |
 | HU-44 | SCRUM-56 | S4 | M-08 | Coordinar la entrega en un punto del campus | — | — | — | Por iniciar |
 | HU-45 | SCRUM-50 | S3 | M-13 | Calificar al comprador al terminar un pedido | — | — | — | Por iniciar |
 | HU-46 | SCRUM-32 | S2 | M-01 | Eliminar mi cuenta y mis datos | — | — | — | Por iniciar |
 | HU-47 | SCRUM-33 | S2 | M-01 | Aceptar aviso de privacidad y términos de uso | — | — | — | Por iniciar |
+| HU-48 | SCRUM-73 | Por asignar | M-04 | Explorar la app como visitante | — | — | — | Por iniciar |
+| HU-49 | SCRUM-69 | Por asignar | M-04 | Ver populares y recién publicados | — | — | — | Por iniciar |
+| HU-50 | SCRUM-67 | Por asignar | M-03 | Manejar la cantidad disponible de un producto | — | — | — | Por iniciar |
+| HU-51 | SCRUM-70 | Por asignar | M-04 | Comparar opciones y pedir aviso de disponibilidad | — | — | — | Por iniciar |
+| HU-52 | SCRUM-74 | Por asignar | M-08 | Apartar un producto y verificar la entrega con QR o código | — | — | — | Por iniciar |
+| HU-53 | SCRUM-68 | Por asignar | M-04 | Guardar productos en favoritos | — | — | — | Por iniciar |
+| HU-54 | SCRUM-71 | Por asignar | M-02 | Elegir modo noche y preferencias | — | — | — | Por iniciar |
+| HU-55 | SCRUM-72 | Por asignar | M-08 | Pagar un pedido por transferencia o en efectivo | — | — | — | Por iniciar |
 
-Total: 47 HU (S1: 4 · S2: 11 · S3: 17 · S4: 6 · S5: 8 · Post-MVP: 1).
+Total: 55 HU (S1: 4 · S2: 11 · S3: 17 · S4: 5 · S5: 8 · Post-MVP: 1 · Por asignar: 8 · Fuera de alcance: 1). HU-48…HU-55 nacen de la maqueta (21-Oct-2026, SCRUM-75); HU-43 sale por la decisión D-01.
 
 ## Specs técnicas (sin HU)
 

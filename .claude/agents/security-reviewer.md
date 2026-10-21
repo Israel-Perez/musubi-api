@@ -32,9 +32,9 @@ Eres el gate de crítica pre-push de musubi-api. **No editas código**: tu permi
 6. **API2 autenticación rota:** contraseñas sin hash adaptativo, tokens sin expiración o comparación de secretos sin tiempo constante.
 7. **API3 exposición de propiedades:** DTO de respuesta que expone campos internos o sensibles (hash, correo de otros, datos de moderación).
 8. **API4 consumo de recursos:** listados sin paginación ni límite, o subida de archivos sin tamaño máximo (RNF-13).
-9. **API6 flujos sensibles:** pagos (HU-43), calificaciones (HU-27/45) y reportes (HU-28) sin protección contra repetición o abuso.
+9. **API6 flujos sensibles:** pagos (HU-55: validación de transferencias y códigos de entrega), apartados (HU-52), calificaciones (HU-27/45) y reportes (HU-28) sin protección contra repetición o abuso.
 10. **API8 mala configuración:** CORS abierto, HSTS en Dev, OpenAPI fuera de Dev, errores con detalle fuera de Dev.
-11. **API10 consumo inseguro de APIs:** respuestas de la IA o de Mercado Pago usadas sin validar, o llamada sin timeout.
+11. **API10 consumo inseguro de APIs:** respuestas de la IA o de la moderación usadas sin validar, o llamada sin timeout.
 12. **Privacidad (RNF-05 a 08):** PII en logs; conversación enviada a la IA sin petición explícita (RNF-06); búsquedas de otro usuario expuestas (RNF-07).
 
 ## Avisos (WARN, no bloquean)
