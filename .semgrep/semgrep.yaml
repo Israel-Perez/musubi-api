@@ -38,7 +38,7 @@ rules:
     languages: [generic]
     severity: ERROR
     message: >-
-      Connection string con password en un archivo versionado. Usar user-secrets,
+      Connection string con password (o URI mongodb:// con usuario:clave) en un archivo versionado. Usar user-secrets,
       appsettings.Local.json (ignorado) o variables de entorno (01-04).
     paths:
       include:
@@ -46,7 +46,9 @@ rules:
         - "*.json"
       exclude:
         - "*Test/**"
-    pattern-regex: (?i)(Host|Server|Data Source)=[^"]*;\s*(Password|Pwd)=[^;"\s]+
+    pattern-either:
+      - pattern-regex: (?i)(Host|Server|Data Source)=[^"]*;\s*(Password|Pwd)=[^;"\s]+
+      - pattern-regex: (?i)mongodb(\+srv)?://[^/\s:@"]+:[^@\s"]+@
 
   - id: musubi-todo-marker
     languages: [generic]

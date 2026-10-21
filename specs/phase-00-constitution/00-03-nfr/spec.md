@@ -30,7 +30,7 @@ Umbrales medibles de los RNF del MVP que aplican al back, más los NFR técnicos
 | RNF-13 Fotos optimizadas | Rendimiento | Ambos | El back rechaza cuerpos de más de 10 MB (Kestrel); el tamaño final de la foto está por definir | 📈 Medido real (límite) / 🎯 tamaño por definir | Límites de Kestrel | `UnitTest/DI/ServiceRegistrationTests.cs` (`Kestrel_LimitsAreBoundFromConfiguration`) |
 | RNF-14 Disponibilidad en el piloto | Disponibilidad | Back | ≥ N % (por definir) | 🎯 Objetivo (Por definir con el PO) | `/health` y `/health/ready` + monitoreo | `NOTE (02-05)` |
 | RNF-15 Degradación de IA/ML | Disponibilidad | Ambos | Con la IA o el ML caídos, búsqueda, chat y pedidos responden 2xx | 🎯 Objetivo (Por medir) — HU-32, HU-35 | IntegrationTest con un fake que falla | Pruebas de HU-32/HU-35 |
-| RNF-16 Respaldos de la BD | Disponibilidad | Back | Respaldos automáticos diarios con retención (por definir) | 🎯 Objetivo (Por definir con el PO) | Base administrada en AWS | `NOTE (02-05)` |
+| RNF-16 Respaldos de la BD | Disponibilidad | Back | Respaldo exportable con `mongodump` y script de recreación con `mongosh` (Atlas M0 no ofrece respaldos automáticos) | 🎯 Objetivo (Por definir con el PO) | `mongodump` + script `mongosh` | `NOTE (02-05)` |
 | RNF-18 Errores claros en español | Usabilidad | Ambos | Errores de validación con un mensaje entendible y sin detalle interno | 📈 Medido real (errores genéricos) / 🎯 mensajes — 02-03 | ProblemDetails | `SecurityTest/Errors/ExceptionHandlingTests.cs` |
 | RNF-21 Más universidades sin rediseño | Escalabilidad | Ambos | La comunidad es un dato del modelo | 🎯 Objetivo (Por medir) — 02-01 | Revisión del modelo + DatabaseTest | `NOTE (02-01)` |
 | RNF-22 Carga del piloto | Escalabilidad | Back | N usuarios concurrentes (por definir) | 🎯 Objetivo (Por definir con el PO) | Prueba de carga (pendiente) | `NOTE (02-06)` |
@@ -55,7 +55,23 @@ No aplican al back (viven en `musubi-app:00-03`): RNF-12, RNF-17, RNF-19, RNF-20
 | Imagen de contenedor | Seguridad | Multi-stage, usuario no root; 0 hallazgos HIGH/CRITICAL | 📈 Build en CI / 🎯 escaneo — 02-05 | Docker + Trivy (pendiente) | Job `docker-build` |
 | DAST | Seguridad | 0 alertas altas | 🎯 Objetivo (Por medir) — 02-05 | OWASP ZAP (pendiente) | Pendiente |
 | Límites de Kestrel | Rendimiento | Cuerpo ≤ 10 MB; keep-alive de 2 min | 📈 Medido real (configuración) | Kestrel | `appsettings.json` + `ServiceRegistrationTests` |
-| Salud del servicio | Salud | `/health` y `/health/ready` → 200 | 📈 Medido real | ASP.NET Health Checks | `IntegrationTest/Health/HealthTests.cs` |
+| Salud del servicio | Salud | `/health` y `/health/ready` → 200; con MongoDB inalcanzable, `database` → Unhealthy (ping con timeout de 5 s) | 📈 Medido real | ASP.NET Health Checks + `ping` de MongoDB | `IntegrationTest/Health/HealthTests.cs`, `UnitTest/Data/DatabaseHealthCheckTests.cs` |
+| Versionamiento | Mantenibilidad | La versión del csproj es SemVer y coincide con la última fila de `docs/versionado.md` | 📈 Medido real (20-Oct-2026) | xUnit | `UnitTest/Common/VersioningTests.cs` |
+
+### NFR de los lineamientos de la materia
+
+Checklist completo en [`docs/bitacora/lineamientos-materia.md`](../../../docs/bitacora/lineamientos-materia.md); aquí solo los que tienen umbral medible en el back.
+
+| NFR | Categoría | Métrica / Umbral | Estado del umbral | Herramienta | Comando / verificación |
+|---|---|---|---|---|---|
+| L-15a Escalabilidad horizontal | Disponibilidad | ≥ 2 instancias sanas detrás del ALB | 🎯 Objetivo (Por medir) — 02-05 | Auto Scaling Group + health check del ALB contra `/health/ready` | `NOTE (02-05)` |
+| L-15b Costo cero | Costo | 0 USD fuera de los créditos de AWS; Atlas M0 | 🎯 Objetivo (Por medir) — 02-05 | AWS Budgets (alerta) | `NOTE (02-05)` |
+| L-15i Rate limit | Seguridad | 429 al superar N peticiones por minuto por cliente (N por medir) | 🎯 Objetivo (Por medir) — 02-04 | `Microsoft.AspNetCore.RateLimiting` | `NOTE (02-04)` |
+| L-15i Compresión | Rendimiento | Respuestas JSON comprimidas (Brotli/Gzip) sobre HTTPS | 🎯 Objetivo (Por medir) — 02-04 | Response Compression | `NOTE (02-04)` |
+| L-15i Paginación | Rendimiento | Listados con tamaño de página máximo (por medir) | 🎯 Objetivo (Por medir) — 02-02 | Contrato de `docs/endpoints.md` | `NOTE (02-02)` |
+| L-09 Caché de BD | Rendimiento | Hit ratio de Redis/Valkey en las lecturas calientes (por medir) | 🎯 Objetivo (Por medir) — 02-02 | Redis/Valkey | `NOTE (02-02)` |
+| L-15g Observabilidad | Operación | 100 % de los errores 5xx en CloudWatch Logs con id de correlación | 🎯 Objetivo (Por medir) — 02-06 | CloudWatch Logs | `NOTE (02-06)` |
+| L-16b Moderación | Seguridad | 0 imágenes o textos marcados como inapropiados persistidos | 🎯 Objetivo (Por medir) — 02-07 | Rekognition + Comprehend | `NOTE (02-07)` |
 
 Pendientes que no se instalan ahora (decisión de la plantilla inicial): Stryker, NBomber (carga), Pact, RESTler y chaos.
 
@@ -76,5 +92,5 @@ Los umbrales "Por definir con el PO" esperan a que se designe el Product Owner. 
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 15-Oct-2026
-- **Detalle:** RNF-01…RNF-27 del MVP filtrados al back, más los NFR técnicos; los pendientes llevan su fase dueña.
+- **Fecha:** 20-Oct-2026
+- **Detalle:** RNF-01…RNF-27 del MVP filtrados al back, más los NFR técnicos; los pendientes llevan su fase dueña. 20-Oct-2026 (SCRUM-66): readiness contra MongoDB, versionamiento medido y NFR de los lineamientos de la materia con su spec dueña.

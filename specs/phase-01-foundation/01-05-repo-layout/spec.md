@@ -12,7 +12,7 @@
 4. Semgrep con al menos 2 reglas propias reales.
 5. CI en GitHub Actions con actions fijadas por SHA, en `pull_request` y `push` a `main`.
 6. Dependabot (nuget, github-actions, docker) con `cooldown`.
-7. `Dockerfile` multi-stage con usuario no root y `deploy/docker-compose.local.yml` con PostgreSQL.
+7. `Dockerfile` multi-stage con usuario no root y `deploy/docker-compose.local.yml` con MongoDB 8.0.
 8. Sub-agentes y skills de Claude Code, con solo lectura forzada en los agentes revisores.
 
 ## Diseño

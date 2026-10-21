@@ -23,7 +23,7 @@ Generas el esqueleto **compilable** de la parte back de una HU (Fase A) dentro d
 
 ## Genera (en este orden)
 
-1. `Modules/<Modulo>/Entities/<Entidad>.cs` + su configuración en `AppDbContext` (con `NOTE (02-01)` si el modelo base aún no existe).
+1. `Modules/<Modulo>/Documents/<Documento>.cs` + su repositorio sobre `IMongoDatabase` (colección e índices según `02-01`; con `NOTE (02-01)` si las convenciones base aún no existen) y un fake en memoria para `UseInMemoryDatabase=true`.
 2. `Modules/<Modulo>/<Recurso>Dtos.cs`: records de request y response; nada sensible en las respuestas (critic B2). Si un request lleva credenciales, cada línea lleva `// critic-allow: input-credential (HU-NN)`.
 3. `Modules/<Modulo>/<Recurso>Validators.cs`: reglas de frontera.
 4. `Modules/<Modulo>/I<Recurso>Service.cs` + `<Recurso>Service.cs`: lo diferido se marca con `throw new NotImplementedException("NOTE (ID)")`.

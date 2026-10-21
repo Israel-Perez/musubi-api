@@ -2,12 +2,41 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (15-Oct-2026)
+## Estado actual (20-Oct-2026)
 
-- Plantilla inicial completa: fases 00 y 01 en "🚧 Borrador con evidencia" (sin revisores designados).
-- Build Release 0/0 · Unit 19/19 · Integration 8/8 · Security 11/11 · Contract 2/2 · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0.
-- Repo hermano `musubi-app` creado el mismo día con su plantilla (consume `GET /api/v1/ping`; secciones compartidas idénticas: `pwsh scripts/check_shared_sections.ps1` → OK, 4 bloques).
-- Siguiente: redactar `02-01` (modelo de datos + PostgreSQL + Testcontainers) antes de HU-01 (S1).
+- **SCRUM-66** (rama `feature/SCRUM-66-stack-nosql`, PR abierto): stack NoSQL (MongoDB), matriz de versionamiento y lineamientos de la materia. Fases 00 y 01 siguen en "🚧 Borrador con evidencia".
+- Build Release 0/0 · Unit 23/23 · Integration 8/8 · Security 11/11 · Contract 2/2 · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0 · shared OK (5 bloques).
+- Siguiente: `02-01` (modelo de documentos, índices, script `mongosh`, Testcontainers MongoDB) antes de HU-01; luego `02-03` (errores + JWT/refresh/logout).
+
+## T3 — Lineamientos de la materia y stack NoSQL (20-Oct-2026, SCRUM-66)
+
+**Qué se hizo**
+- Lineamientos del docente (PDF del 20-Oct-2026) transcritos en `docs/bitacora/lineamientos-materia.md` con el checklist L-01…L-19 (canónico; el front lo enlaza). La constitución §1 (compartida) dice que **mandan sobre la constitución** y fija la evaluación el **02-Dic-2026**.
+- PostgreSQL/EF Core → **MongoDB** (lineamiento 14): `MongoDB.Driver` 3.12.0 (Apache-2.0, publicado el 17-Sep-2026); `Platform/Data/MongoServiceCollectionExtensions.cs` (cliente y base lazy, fail-fast sin `ConnectionStrings:Mongo`), `MongoHealthCheck` (`ping`, timeout de 5 s) e `InMemoryDatabaseHealthCheck` (con `UseInMemoryDatabase=true`). Se borró `AppDbContext`.
+- Claves: `ConnectionStrings:Default` → `ConnectionStrings:Mongo` + `Mongo:DatabaseName` (default `musubi`). Compose local con `mongo:8.0.32` (`MONGO_PASSWORD` en `deploy/.env`).
+- Source Mapping: se quitaron `Npgsql*`; entran `MongoDB.*`, `DnsClient`, `SharpCompress`, `Snappier`, `ZstdSharp.Port` (transitivos del driver, leídos de su nuspec). Verificado con caché vacía: 64 paquetes, sin NU1100 (20-Oct-2026).
+- critic B2b, Semgrep (`musubi-connection-string-with-password`) y `AppSettingsTests` detectan URIs `mongodb(+srv)://usuario:clave@`.
+- Matriz de versionamiento `docs/versionado.md` (sección compartida, idéntica en el front) + `<Version>0.1.0</Version>` en `Musubi.Api.csproj` + `UnitTest/Common/VersioningTests.cs` (la versión debe coincidir con la última fila de la matriz).
+- Dependabot: ecosistema `docker-compose` para `/deploy`.
+- Roadmap de la fase 02 rehecho en `specs/README.md`: 02-01 documentos e índices + `mongosh` · 02-02 caché y paginación · 02-03 errores + JWT/refresh/logout · 02-04 rate limit y compresión · 02-05 AWS con Terraform · 02-06 CloudWatch · 02-07 moderación (Rekognition/Comprehend).
+
+**Decisiones (con su porqué)**
+- **MongoDB Atlas M0** (decisión del usuario): NoSQL obligatorio, gratis y externo permitido. DynamoDB descartado (filtros combinados de HU-10 y script portable para la entrega).
+- **`UseInMemoryDatabase` se conserva** como "sin MongoDB": `dotnet run` y las suites WAF no necesitan una base. Los repositorios de 02-01 tendrán un fake en memoria.
+- **Health check por factory** (`HealthCheckRegistration` con `IServiceProvider`): la bandera se lee lazy (00-04, regla 3).
+- **`mongo:8.0.32` y no 8.0.34**: misma línea que Atlas y respeta el `cooldown` de 7 días (8.0.34 salió el 17-Oct).
+- **Matriz como sección compartida + prueba** en cada repo: el lineamiento 11 pide aplicarla en cada despliegue; la prueba evita que la matriz y el código se desalineen. La automatización del tag queda en `NOTE (02-05)` / `NOTE (musubi-app:02-02)`.
+
+**Self-tests**
+- `MongoHealthCheck` mutado para devolver Healthy al fallar → `Readiness_WithUnreachableMongo_IsUnhealthy` en rojo.
+- URI `mongodb+srv://u:p@…` en `appsettings.Production.json` → `TrackedSettings_ContainNoSecrets` en rojo; en un appsettings de prueba → critic FAIL (B2) y Semgrep FAIL.
+- Matriz con otra versión → `ApiVersion_MatchesLatestRowOfCompatibilityMatrix` en rojo.
+
+**Errores a evitar**
+- Una mutación que no compila (los analizadores la rechazan) deja binarios viejos: `--no-build` da un falso verde. Mutar de forma que compile.
+- `HealthCheckResult.Healthy(desc, ex)` no existe (el 2.º parámetro es `data`).
+- El restore con caché vacía puede fallar por timeouts de nuget.org (no es NU1100): reintentar antes de concluir.
+- Heredocs muy largos en el Bash de la herramienta pueden fallar al parsear: escribir el script a un archivo del scratchpad.
 
 ## T2 — Publicación en GitHub (15-Oct-2026)
 
@@ -64,7 +93,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Regla: las páginas resumen y **enlazan** al repo; nunca copian tablas vivas. Los enlaces a GitHub funcionan después del primer push. Al cerrar una fase o HU relevante, actualizar el resumen de la página correspondiente.
 
 **Pendientes con dueño**
-- `02-01` modelo de datos, migraciones, readiness contra PostgreSQL real, Testcontainers (`NOTE (02-01)`).
+- `02-01` modelo de documentos, índices, script `mongosh`, readiness contra MongoDB real, Testcontainers (`NOTE (02-01)`).
 - `HU-02` JWT + FallbackPolicy (`NOTE (HU-02)`). `HU-20` SignalR. `HU-31` FCM. `HU-32` IA. `HU-35` ML. `HU-43` Mercado Pago.
-- `02-04` headers de seguridad y rate limiting. `02-05` AWS, ForwardedHeaders (`NOTE (02-05)`), `AllowedHosts`, Trivy, ZAP y respaldos. `02-06` observabilidad, cobertura y SonarCloud.
+- `02-02` caché (Redis/Valkey) y paginación. `02-04` headers, rate limit y compresión. `02-05` AWS con Terraform (ALB + 2 EC2 + CloudFront), Atlas, ForwardedHeaders (`NOTE (02-05)`), `AllowedHosts`, Trivy, ZAP, respaldos y tags de versión. `02-06` CloudWatch, cobertura y SonarCloud. `02-07` moderación. Landing page (repo propio).
 - Equipo: roles PO/SM, revisores de las specs, umbrales "Por definir con el PO" (RNF-09, 10, 14, 16, 22), protección de `main` en GitHub y la clave Jira de la tarea de plantilla (commit `SCRUM-XX`).

@@ -1,26 +1,26 @@
-# Infraestructura local de musubi-api: PostgreSQL 18 (mismo major objetivo que la base administrada en AWS).
+# Infraestructura local de musubi-api: MongoDB 8.0 (mismo major que el cluster Atlas M0 de la nube).
 # Uso: copiar deploy/.env.example -> deploy/.env (ignorado), poner una contrasena local y ejecutar
 #   docker compose -f deploy/docker-compose.local.yml --env-file deploy/.env up -d
 name: musubi-local
 
 services:
-  postgres:
-    image: postgres:18.6-alpine
-    container_name: musubi-postgres
+  mongo:
+    image: mongo:8.0.32
+    container_name: musubi-mongo
     environment:
-      POSTGRES_DB: musubi
-      POSTGRES_USER: musubi
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en deploy/.env}
+      MONGO_INITDB_ROOT_USERNAME: musubi
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Define MONGO_PASSWORD en deploy/.env}
+      MONGO_INITDB_DATABASE: musubi
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:27017:27017"
     volumes:
-      - musubi-pgdata:/var/lib/postgresql
+      - musubi-mongodata:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U musubi -d musubi"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
       timeout: 3s
       retries: 10
     restart: unless-stopped
 
 volumes:
-  musubi-pgdata:
+  musubi-mongodata:

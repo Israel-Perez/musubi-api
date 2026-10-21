@@ -32,6 +32,7 @@ public sealed partial class AppSettingsTests
         var raw = File.ReadAllText(RepoPaths.ApiFile(fileName));
 
         Assert.DoesNotMatch(PasswordInConnectionString(), raw);
+        Assert.DoesNotMatch(CredentialsInMongoUri(), raw);
         Assert.DoesNotMatch(PasswordProperty(), raw);
         Assert.DoesNotContain("-----BEGIN", raw, StringComparison.Ordinal);
         Assert.DoesNotMatch(LongHexOrBase64(), raw);
@@ -44,7 +45,8 @@ public sealed partial class AppSettingsTests
         var root = doc.RootElement;
 
         Assert.True(root.TryGetProperty("UseInMemoryDatabase", out _));
-        Assert.True(root.GetProperty("ConnectionStrings").TryGetProperty("Default", out _));
+        Assert.True(root.GetProperty("ConnectionStrings").TryGetProperty("Mongo", out _));
+        Assert.True(root.GetProperty("Mongo").TryGetProperty("DatabaseName", out _));
         Assert.True(root.GetProperty("Kestrel").GetProperty("Limits").TryGetProperty("MaxRequestBodySize", out _));
         Assert.True(root.GetProperty("Kestrel").GetProperty("Limits").TryGetProperty("KeepAliveTimeout", out _));
         Assert.True(root.GetProperty("Cors").GetProperty("AllowedOrigins").GetArrayLength() > 0);
@@ -72,6 +74,9 @@ public sealed partial class AppSettingsTests
 
     [GeneratedRegex(@"(?i)(password|pwd)\s*=\s*[^;""\s]+")]
     private static partial Regex PasswordInConnectionString();
+
+    [GeneratedRegex(@"(?i)mongodb(\+srv)?://[^/\s:@""]+:[^@\s""]+@")]
+    private static partial Regex CredentialsInMongoUri();
 
     [GeneratedRegex(@"(?i)""(password|secret|apikey|api_key|token)""\s*:\s*""[^""]+""")]
     private static partial Regex PasswordProperty();

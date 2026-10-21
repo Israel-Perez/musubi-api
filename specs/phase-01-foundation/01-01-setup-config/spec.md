@@ -20,7 +20,7 @@ Deja compilando la solución base de musubi-api con análisis estricto y restaur
 
 ## Contratos
 - `global.json`: `sdk.version=10.0.400`, `rollForward=latestFeature`, `test.runner=Microsoft.Testing.Platform`.
-- Patrones de `nuget.config`: `Asp.Versioning.*`, `coverlet.*`, `Microsoft.*`, `Npgsql`, `Npgsql.*`, `Scalar.*`, `SonarAnalyzer.*`, `System.*`, `xunit.*`.
+- Patrones de `nuget.config`: `Asp.Versioning.*`, `coverlet.*`, `DnsClient`, `Microsoft.*`, `MongoDB.*`, `Scalar.*`, `SharpCompress`, `Snappier`, `SonarAnalyzer.*`, `System.*`, `xunit.*`, `ZstdSharp.Port` (`DnsClient`, `SharpCompress`, `Snappier` y `ZstdSharp.Port` son transitivos de `MongoDB.Driver`; 20-Oct-2026).
 
 ## Tests
 - `UnitTest/Common/BuildSmokeTests.cs` (2): el ensamblado carga sin errores de tipo y contiene `Program`.

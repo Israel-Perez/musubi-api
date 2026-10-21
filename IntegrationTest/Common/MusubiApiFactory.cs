@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace IntegrationTest.Common;
 
-/// <summary>Factory WAF en Development con base InMemory (sin PostgreSQL).</summary>
+/// <summary>Factory WAF en Development con UseInMemoryDatabase (sin MongoDB).</summary>
 public sealed class MusubiApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)

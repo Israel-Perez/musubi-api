@@ -18,7 +18,7 @@ Reglas operativas derivadas de fallos reales: las de la referencia que aplican a
 |---|---|---|---|
 | 1 | Verificar empíricamente antes de escribir (versiones, rutas, nombres, formatos). | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | skill `empirical-verification` |
 | 2 | Medir los runtimes reales antes de fijar timeouts o umbrales. | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | `00-03` |
-| 3 | Leer la configuración de forma lazy en el registro DI cuando las pruebas la sobrescriben (`WebApplicationFactory`). | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | `Platform/Hosting/PlatformServiceCollectionExtensions.cs` (`AddDbContext((provider, options) => …)`) |
+| 3 | Leer la configuración de forma lazy en el registro DI cuando las pruebas la sobrescriben (`WebApplicationFactory`). | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | `Platform/Data/MongoServiceCollectionExtensions.cs` (`AddSingleton<IMongoClient>(provider => …)`) |
 | 4 | Revisar el estado de publicación de los paquetes y verificar el Package Source Mapping con caché vacía (una caché caliente oculta un NU1100). | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | `nuget.config`, `00-01` |
 | 5 | Documentar los límites conocidos en vez de hacer hacks (`NOTE (ID)` en 4 capas). | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | skill `traceability` |
 | 6 | Pruebas de frontera exactas (`>=`/`<`, mensajes y ambas ramas). | Referencia WebAPIDevSecOpsScallingSDD, oct 2026 | skill `testing-strategy` |

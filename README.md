@@ -1,19 +1,21 @@
 # musubi-api
 
-API de **MUSUBI**, la app de compra-venta entre estudiantes de la UTTT. Hecha con **ASP.NET Core / .NET 10**, PostgreSQL y EF Core, versionada en `api/v1`.
+API de **MUSUBI**, la app de compra-venta entre estudiantes de la UTTT. Hecha con **ASP.NET Core / .NET 10** y **MongoDB** (Atlas M0 en la nube), versionada en `api/v1`.
 
 Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps: cada cambio nace de una spec en `specs/` (plantilla `specs/_template.md`) y se verifica con comandos y pruebas. Las reglas no negociables están en `.specify/memory/constitution.md`.
 
 - Repo hermano (front Flutter): <https://github.com/Israel-Perez/musubi-app>
 - Contrato entre repos: [`docs/endpoints.md`](docs/endpoints.md) (canónico; el front lo enlaza y no lo copia)
 - Backlog: Jira, proyecto `SCRUM` · Documentación funcional: Confluence
+- Lineamientos de la materia (criterios de evaluación, 02-Dic-2026): [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) · Versiones: [`docs/versionado.md`](docs/versionado.md)
 
-## Estado (15-Oct-2026)
+## Estado (20-Oct-2026)
 
 Plantilla inicial lista. Fases 00 (constitución) y 01 (fundación) implementadas en "🚧 Borrador con evidencia", en espera de designar revisores:
 
 - Build Release: 0 errores / 0 advertencias.
-- Pruebas: Unit 19/19 · Integration 8/8 · Security 11/11 · Contract 2/2.
+- Pruebas: Unit 23/23 · Integration 8/8 · Security 11/11 · Contract 2/2.
+- Datos: MongoDB (`MongoDB.Driver` 3.12.0); `/health/ready` hace `ping` a la base (SCRUM-66).
 - `critic-guardrails` PASS · `check_endpoints` OK (3 rutas) · Semgrep 0 hallazgos · actionlint sin hallazgos.
 - Endpoints: `GET /health`, `GET /health/ready`, `GET /api/v1/ping`.
 
@@ -23,23 +25,23 @@ El modelo de datos (`02-01`) y las 47 HU del MVP siguen pendientes (ver [`docs/t
 
 - .NET SDK 10.0.4xx (`global.json`)
 - PowerShell 7 (`pwsh`) para los guardarraíles (también funcionan en Windows PowerShell 5.1)
-- Opcional: Docker (PostgreSQL local), Python 3 + PyYAML, actionlint y Semgrep para validar en local lo mismo que el CI
+- Opcional: Docker (MongoDB local), Python 3 + PyYAML, actionlint y Semgrep para validar en local lo mismo que el CI
 
 ## Puesta en marcha
 
 ```powershell
 dotnet restore Musubi.slnx
-dotnet run --project Musubi.Api          # Development: InMemory, http://localhost:5080
+dotnet run --project Musubi.Api          # Development: sin MongoDB (UseInMemoryDatabase=true), http://localhost:5080
 # http://localhost:5080/api/v1/ping  ·  /health  ·  /health/ready  ·  /scalar (solo Dev)
 ```
 
-Con PostgreSQL local (detalles en [`deploy/README.md`](deploy/README.md)):
+Con MongoDB local (detalles y Atlas en [`deploy/README.md`](deploy/README.md)):
 
 ```powershell
-Copy-Item deploy/.env.example deploy/.env      # cambia POSTGRES_PASSWORD
+Copy-Item deploy/.env.example deploy/.env      # cambia MONGO_PASSWORD
 docker compose -f deploy/docker-compose.local.yml --env-file deploy/.env up -d
 dotnet user-secrets --project Musubi.Api set "UseInMemoryDatabase" "false"
-dotnet user-secrets --project Musubi.Api set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=musubi;Username=musubi;Password=<tu contraseña>"
+dotnet user-secrets --project Musubi.Api set "ConnectionStrings:Mongo" "mongodb://musubi:<tu contraseña>@localhost:27017/?authSource=admin"
 ```
 
 **Secretos:** nunca en appsettings versionados (las pruebas y el critic lo impiden). Van en user-secrets, en `appsettings.Local.json` (ignorado, solo en Development) o en las variables/secretos del despliegue. La tabla de claves está en `specs/phase-01-foundation/01-04-config-reference/spec.md`.
@@ -65,9 +67,9 @@ semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error
 Musubi.Api/            API: Program.cs, Platform/ (hosting, datos, ping), Modules/ (M-01…M-14, uno por HU)
 UnitTest/ IntegrationTest/ SecurityTest/ ContractTest/ DatabaseTest/
 specs/                 SDD: _template.md, phase-00-constitution/, phase-01-foundation/, mNN-<modulo>/HU-NN-*/
-docs/                  endpoints.md (contrato), trazabilidad.md (47 HU), modulos.md (14 módulos), bitacora/
+docs/                  endpoints.md (contrato), trazabilidad.md (47 HU), modulos.md (14 módulos), versionado.md, bitacora/ (lineamientos)
 scripts/               critic-guardrails.ps1, check_endpoints.ps1, check_shared_sections.ps1
-deploy/                docker-compose.local.yml (PostgreSQL 18.6)
+deploy/                docker-compose.local.yml (MongoDB 8.0.32)
 .claude/               sub-agentes, skills y hooks de Claude Code
 .github/               CI, Dependabot, plantilla de PR
 .semgrep/              reglas SAST propias
