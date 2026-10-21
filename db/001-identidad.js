@@ -136,7 +136,9 @@ db.communities.updateOne(
   { upsert: true },
 );
 
-db._meta.updateOne(
+// _meta empieza con guion bajo: mongosh no la resuelve como db._meta, se usa getCollection.
+const meta = db.getCollection('_meta');
+meta.updateOne(
   { _id: 'schema' },
   {
     $max: { version: NumberInt(SCHEMA_VERSION) },
@@ -146,4 +148,4 @@ db._meta.updateOne(
   { upsert: true },
 );
 
-print(SCRIPT_ID + ': OK (schema version ' + db._meta.findOne({ _id: 'schema' }).version + ')');
+print(SCRIPT_ID + ': OK (schema version ' + meta.findOne({ _id: 'schema' }).version + ')');
