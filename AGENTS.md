@@ -11,7 +11,7 @@
   - `dotnet build Musubi.slnx -c Release` (0 errores / 0 advertencias)
   - `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` (igual para `IntegrationTest`, `SecurityTest` y `ContractTest`)
   - `pwsh scripts/critic-guardrails.ps1` · `pwsh scripts/check_endpoints.ps1`
-- **Orden del CI (`ci-pr.yml`):** `build` → `unit` / `integration` / `security` / `contract`; en paralelo `critic`, `endpoints`, `semgrep` y `docker-build`.
+- **Orden del CI (`ci-pr.yml`):** `build` → `unit` / `integration` / `security` / `contract` / `database` (MongoDB real; requiere Docker); en paralelo `critic`, `endpoints`, `semgrep` y `docker-build`.
 - **Flujo SDD por HU:** spec (`specs/mNN-<modulo>/HU-NN-<slug>/`, skill `spec-first-writing`) → `slice-scaffolder` (Fase A) → implementación y pruebas (skill `vertical-slice`) → `security-reviewer` → `traceability-clerk` → PR.
 - **Ramas y PR:** `feature/SCRUM-NN-slug` / `fix/SCRUM-NN-slug`; un PR = una HU o un fix; título con la clave Jira; checklist de `.github/pull_request_template.md` obligatorio.
 - **Naming:** código en inglés, JSON camelCase, documentos y specs en español.
@@ -67,7 +67,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
-- Datos: MongoDB (`IMongoClient`/`IMongoDatabase` lazy en `Platform/Data/MongoServiceCollectionExtensions.cs`; sin MongoDB con `UseInMemoryDatabase=true`); el modelo de documentos nace en `02-01`.
+- Datos: MongoDB (`IMongoClient`/`IMongoDatabase` lazy en `Platform/Data/MongoServiceCollectionExtensions.cs`; sin MongoDB con `UseInMemoryDatabase=true`). Modelo y reglas R1–R14 en `docs/modelo-datos.md` (02-01); esquema en `db/NNN-*.js` + `MongoSchema.ExpectedVersion`; cada repositorio tiene un `Mongo*` y un `InMemory*` que pasan la misma batería de `TestShared/`.
 - Versión: `<Version>` de `Musubi.Api.csproj`, alineada con `docs/versionado.md` (lo verifica `UnitTest/Common/VersioningTests.cs`).
 - Lineamientos de la materia (criterios de evaluación): `docs/bitacora/lineamientos-materia.md`.
 - Pendientes con dueño: autenticación JWT → HU-02; SignalR → HU-20; FCM → HU-31; IA → HU-32; ML → HU-35; pagos por transferencia/efectivo → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
@@ -121,7 +121,9 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `IntegrationTest` | `IntegrationTest/` | xUnit v3 + WebApplicationFactory |
 | `SecurityTest` | `SecurityTest/` | xUnit v3 + WebApplicationFactory por ambiente |
 | `ContractTest` | `ContractTest/` | Forma JSON contra `Fixtures/` |
-| `DatabaseTest` | `DatabaseTest/` | Esqueleto (Testcontainers MongoDB en `02-01`) |
+| `DatabaseTest` | `DatabaseTest/` | MongoDB real (Testcontainers) con `db/` aplicado; solo en el CI si no hay Docker local |
+| `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
+| `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
 | `docs/` | `docs/` | `endpoints.md` (3 filas), `trazabilidad.md` (47 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |

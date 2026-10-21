@@ -75,7 +75,7 @@
 | Documentación de API | OpenAPI + Scalar, solo en Development |
 | Contenedores y nube | Docker (multi-stage, usuario no root); AWS con Terraform: ALB + 2 EC2 (Auto Scaling Group) + CloudFront, imágenes en S3 + CloudFront — `NOTE (02-05)` |
 | Moderación de contenido | APIs de AWS (Rekognition para imágenes, Comprehend para texto) antes de guardar — `NOTE (02-07)` |
-| Pruebas | xUnit v3 (Microsoft.Testing.Platform), WebApplicationFactory, coverlet; Testcontainers (MongoDB) — `NOTE (02-01)` |
+| Pruebas | xUnit v3 (Microsoft.Testing.Platform), WebApplicationFactory, coverlet; Testcontainers.MongoDb (`DatabaseTest`, job `database`) |
 | Calidad y seguridad | Analizadores .NET (AnalysisMode=All) + SonarAnalyzer.CSharp, NuGetAudit, Semgrep, critic-guardrails; SonarCloud, Trivy y OWASP ZAP en fases posteriores |
 | CI | GitHub Actions (actions fijadas por SHA) + Dependabot |
 
@@ -102,14 +102,14 @@ Regla de excepción: ver `specs/phase-00-constitution/00-01-principles-stack/spe
 
 ## 9. Testing y QA
 
-- Suites separadas: `UnitTest`, `IntegrationTest` (WebApplicationFactory), `SecurityTest`, `ContractTest` (forma JSON contra fixtures) y `DatabaseTest` (MongoDB real, esqueleto hasta `02-01`).
+- Suites separadas: `UnitTest`, `IntegrationTest` (WebApplicationFactory), `SecurityTest`, `ContractTest` (forma JSON contra fixtures) y `DatabaseTest` (MongoDB real con Testcontainers y los scripts de `db/` aplicados). Los fakes en memoria y MongoDB comparten una batería de contrato (`TestShared/`).
 - Las pruebas se ejecutan con `dotnet test --project <csproj> -c Release --no-build` después de un build Release 0/0.
 - RNF-25: pruebas automatizadas obligatorias en coincidencias, pedidos y autenticación.
 - Cobertura y mutation testing: umbrales "🎯 Objetivo (Por medir)" en `00-03`.
 
 ## 10. CI/CD
 
-- `.github/workflows/ci-pr.yml` en `pull_request` y `push` a `main`, con los jobs `build`, `unit`, `integration`, `security`, `contract`, `critic`, `endpoints`, `semgrep` y `docker-build`.
+- `.github/workflows/ci-pr.yml` en `pull_request` y `push` a `main`, con los jobs `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep` y `docker-build`.
 - Actions fijadas por SHA con comentario de versión; YAML validado en local con PyYAML y actionlint.
 
 ## 11. Seguridad (DevSecOps)

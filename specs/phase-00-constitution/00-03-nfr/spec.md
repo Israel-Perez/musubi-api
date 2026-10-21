@@ -57,6 +57,7 @@ No aplican al back (viven en `musubi-app:00-03`): RNF-12, RNF-17, RNF-19, RNF-20
 | Límites de Kestrel | Rendimiento | Cuerpo ≤ 10 MB; keep-alive de 2 min | 📈 Medido real (configuración) | Kestrel | `appsettings.json` + `ServiceRegistrationTests` |
 | Salud del servicio | Salud | `/health` y `/health/ready` → 200; con MongoDB inalcanzable, `database` → Unhealthy (ping con timeout de 5 s) | 📈 Medido real | ASP.NET Health Checks + `ping` de MongoDB | `IntegrationTest/Health/HealthTests.cs`, `UnitTest/Data/DatabaseHealthCheckTests.cs` |
 | Versionamiento | Mantenibilidad | La versión del csproj es SemVer y coincide con la última fila de `docs/versionado.md` | 📈 Medido real (20-Oct-2026) | xUnit | `UnitTest/Common/VersioningTests.cs` |
+| Integridad de datos | Datos | Esquema validado en el servidor; correo único y consumo de refresh token atómicos con concurrencia; fakes con el mismo comportamiento que MongoDB | 📈 Medido real (21-Oct-2026) | Testcontainers + batería de contrato | Job `database` (`DatabaseTest/`) y `UnitTest/Data/InMemoryAuthRepositoryTests.cs` |
 
 ### NFR de los lineamientos de la materia
 

@@ -12,11 +12,17 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.MTP" Version="10.1.0" />
+    <PackageReference Include="Testcontainers.MongoDb" Version="4.16.0" />
     <PackageReference Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pruebas compartidas (contratos de repositorios, 02-01): misma bateria en UnitTest y DatabaseTest. -->
+    <Compile Include="..\TestShared\**\*.cs" Link="TestShared\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

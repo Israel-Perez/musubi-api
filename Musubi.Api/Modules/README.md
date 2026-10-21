@@ -9,7 +9,7 @@ Modules/<Modulo>/
 ├── <Recurso>Validators.cs      # validación de entrada en la frontera
 ├── I<Recurso>Service.cs        # interfaz pública del módulo (otros módulos solo usan esto)
 ├── <Recurso>Service.cs         # reglas de negocio
-├── Documents/                  # documentos MongoDB del módulo y su repositorio (convenciones e índices en 02-01)
+├── Data/                       # documentos, contratos de repositorio, Mongo* e InMemory* (misma batería en TestShared/)
 └── <Modulo>ServiceCollectionExtensions.cs   # services.Add<Modulo>Module(configuration)
 ```
 

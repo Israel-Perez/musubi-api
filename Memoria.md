@@ -2,11 +2,43 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (20-Oct-2026)
+## Estado actual (21-Oct-2026)
 
-- **SCRUM-66** (rama `feature/SCRUM-66-stack-nosql`, PR abierto): stack NoSQL (MongoDB), matriz de versionamiento y lineamientos de la materia. Fases 00 y 01 siguen en "🚧 Borrador con evidencia".
-- Build Release 0/0 · Unit 23/23 · Integration 8/8 · Security 11/11 · Contract 2/2 · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0 · shared OK (5 bloques).
-- Siguiente: `02-01` (modelo de documentos, índices, script `mongosh`, Testcontainers MongoDB) antes de HU-01; luego `02-03` (errores + JWT/refresh/logout).
+- **SCRUM-76** (02-01, rama `feature/SCRUM-76-modelo-datos`, apilada sobre SCRUM-75): modelo de datos e identidad.
+- Build Release 0/0 · Unit 43/43 · Integration 8/8 · Security 11/11 · Contract 2/2 · Database 18 (job del CI) · critic PASS · endpoints OK (3) · Semgrep 0 · actionlint 0.
+- Siguiente: `02-03` (errores + JWT/refresh/logout + correo) y después HU-01/03/47 y HU-02.
+
+## T5 — 02-01 Modelo de datos MongoDB e identidad (21-Oct-2026, SCRUM-76)
+
+**Qué se hizo**
+- `docs/modelo-datos.md`: catálogo canónico con las reglas R1–R14 (escalabilidad) y las 27 colecciones de las 55 HU (📐 Diseño, salvo las de identidad).
+- `db/001-identidad.js` (script de entrega, idempotente): `communities` (+ UTTT), `users`, `verificationCodes`, `refreshTokens` y `_meta`, con `$jsonSchema` estricto, índices con nombre (únicos y TTL) y `_meta.version = 1`.
+- `Platform/Data/{MongoConventions,MongoSchema}.cs`; `MongoHealthCheck` lee `_meta`: la readiness da Unhealthy si la base tiene una versión menor que `ExpectedVersion`.
+- `Modules/Auth/Data/`: documentos, contratos, `Mongo*` e `InMemory*`; `AddAuthModule()` elige la implementación de forma lazy.
+- `TestShared/Auth/AuthRepositoryContract.cs` (13 pruebas) enlazado en UnitTest (fakes) y DatabaseTest (Mongo real). DatabaseTest ya no es un esqueleto: Testcontainers.MongoDb 4.16.0 y job `database` en el CI.
+
+**Decisiones (con su porqué)**
+- **El script es la fuente del esquema** (no la API al arrancar): dos instancias no compiten por crear índices, y el script es el entregable. La API solo verifica la versión.
+- **Atomicidad de un documento** (`findOneAndUpdate` con condición) en lugar de transacciones: igual en Atlas M0 y con N instancias. Ejemplo: el refresh token se consume una sola vez aunque lleguen 10 peticiones a la vez (probado).
+- **`users` separado de `profiles`**: las credenciales nunca viajan con los datos públicos (R10).
+- **Estados como `string` en camelCase**, no enums de C#: coinciden con el `enum` del validador.
+- **Contraseña según la maqueta:** al menos 8 caracteres, una letra y un número (la maqueta manda sobre D-02).
+
+**Self-tests**
+- Fake que permite consumir dos veces un refresh token → 2 pruebas de contrato en rojo.
+
+**Errores a evitar**
+- CA2007 aplica a los métodos auxiliares de las pruebas (los `[Fact]` están exentos): `ConfigureAwait(false)` fuera de los métodos de prueba.
+- DatabaseTest no corre sin Docker: en esta máquina solo compila; la evidencia es el job `database` del CI.
+- `mongod` 8.0 se niega a arrancar en kernels Linux >= 6.19 ("known incompatibility", SERVER-121912) y algunos runners `ubuntu-latest` ya los traen: el job `database` corre en `ubuntu-22.04` e imprime `uname -r`. No afecta a Atlas ni a WSL2. Revisarlo al subir la imagen de `mongo`.
+- En `mongosh`, `db._meta` da `undefined` (los nombres con `_` no se resuelven como propiedad): usar `db.getCollection('_meta')`. Lo detectó el job `database` en su primera corrida; el script de entrega habría fallado en Atlas.
+
+## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
+
+- **D-01 decidido por el usuario:** el pago es solo el de la maqueta (transferencia a la CLABE del vendedor o efectivo con código de entrega, sin comisión). HU-43 (Mercado Pago, SCRUM-55) queda fuera de alcance (etiqueta `fuera-de-alcance` + comentario en Jira) y la reemplaza **HU-55** (SCRUM-72). Constitución §1 (compartida) y §6/§11, 01-04 (`Payments:*` en lugar de `MercadoPago:*`), AGENTS, skills y Semgrep actualizados.
+- **HU nuevas de la maqueta** (Historias en SCRUM con épica y etiqueta `maqueta`, sin sprint): HU-48 visitante (SCRUM-73), HU-49 populares (SCRUM-69), HU-50 inventario (SCRUM-67), HU-51 comparar/Avísame (SCRUM-70), HU-52 apartados QR (SCRUM-74), HU-53 favoritos (SCRUM-68), HU-54 modo noche (SCRUM-71), HU-55 pago (SCRUM-72). `docs/trazabilidad.md` pasa a 55 HU.
+- Dependabot: `mongo` solo recibe parches de la línea 8.0 (`ignore` de minor/major); se cerró el PR que subía a 8.3.11.
+- **Error a evitar:** el MCP de Atlassian da timeout en `createJiraIssue`/`editJiraIssue` aunque la operación sí se aplique. Antes de reintentar, buscar con JQL (`key > SCRUM-NN`): un reintento ciego duplicó HU-48 (la copia SCRUM-74 se reutilizó para HU-52).
 
 ## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
 

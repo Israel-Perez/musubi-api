@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Hosting;
 
@@ -19,6 +21,7 @@ public sealed class ServiceRegistrationTests
         services.AddSingleton<IConfiguration>(configuration);
         services.AddLogging();
         services.AddMusubiPlatform(configuration);
+        services.AddAuthModule();
         return services.BuildServiceProvider();
     }
 
@@ -86,6 +89,28 @@ public sealed class ServiceRegistrationTests
         var ex = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IMongoClient>());
 
         Assert.Contains("ConnectionStrings:Mongo", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AuthRepositories_WithInMemoryFlag_UseFakesWithoutMongo()
+    {
+        using var provider = BuildProvider(new() { ["UseInMemoryDatabase"] = "true" });
+
+        Assert.IsType<InMemoryUserRepository>(provider.GetRequiredService<IUserRepository>());
+        Assert.IsType<InMemoryCommunityRepository>(provider.GetRequiredService<ICommunityRepository>());
+        Assert.IsType<InMemoryVerificationCodeRepository>(provider.GetRequiredService<IVerificationCodeRepository>());
+        Assert.IsType<InMemoryRefreshTokenRepository>(provider.GetRequiredService<IRefreshTokenRepository>());
+    }
+
+    [Fact]
+    public void AuthRepositories_WithMongo_UseMongoImplementations()
+    {
+        using var provider = BuildProvider(new() { ["ConnectionStrings:Mongo"] = "mongodb://localhost:27017" });
+
+        Assert.IsType<MongoUserRepository>(provider.GetRequiredService<IUserRepository>());
+        Assert.IsType<MongoCommunityRepository>(provider.GetRequiredService<ICommunityRepository>());
+        Assert.IsType<MongoVerificationCodeRepository>(provider.GetRequiredService<IVerificationCodeRepository>());
+        Assert.IsType<MongoRefreshTokenRepository>(provider.GetRequiredService<IRefreshTokenRepository>());
     }
 
     [Fact]

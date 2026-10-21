@@ -14,7 +14,7 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps: cada cambio nac
 Plantilla inicial lista. Fases 00 (constitución) y 01 (fundación) implementadas en "🚧 Borrador con evidencia", en espera de designar revisores:
 
 - Build Release: 0 errores / 0 advertencias.
-- Pruebas: Unit 23/23 · Integration 8/8 · Security 11/11 · Contract 2/2.
+- Pruebas: Unit 43/43 · Integration 8/8 · Security 11/11 · Contract 2/2 · Database 18 (CI).
 - Datos: MongoDB (`MongoDB.Driver` 3.12.0); `/health/ready` hace `ping` a la base (SCRUM-66).
 - `critic-guardrails` PASS · `check_endpoints` OK (3 rutas) · Semgrep 0 hallazgos · actionlint sin hallazgos.
 - Endpoints: `GET /health`, `GET /health/ready`, `GET /api/v1/ping`.
@@ -65,9 +65,11 @@ semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error
 
 ```
 Musubi.Api/            API: Program.cs, Platform/ (hosting, datos, ping), Modules/ (M-01…M-14, uno por HU)
-UnitTest/ IntegrationTest/ SecurityTest/ ContractTest/ DatabaseTest/
+UnitTest/ IntegrationTest/ SecurityTest/ ContractTest/ DatabaseTest/ (MongoDB real, Testcontainers)
+TestShared/            baterías de contrato compartidas (fakes ↔ MongoDB)
+db/                    scripts mongosh numerados e idempotentes (script de la base de la entrega)
 specs/                 SDD: _template.md, phase-00-constitution/, phase-01-foundation/, mNN-<modulo>/HU-NN-*/
-docs/                  endpoints.md (contrato), trazabilidad.md (47 HU), modulos.md (14 módulos), versionado.md, bitacora/ (lineamientos)
+docs/                  endpoints.md (contrato), modelo-datos.md (colecciones y reglas), trazabilidad.md (55 HU), modulos.md (14 módulos), versionado.md, bitacora/ (lineamientos)
 scripts/               critic-guardrails.ps1, check_endpoints.ps1, check_shared_sections.ps1
 deploy/                docker-compose.local.yml (MongoDB 8.0.32)
 .claude/               sub-agentes, skills y hooks de Claude Code
@@ -96,6 +98,7 @@ Las specs quedan en "🚧 Borrador con evidencia" hasta que el usuario indique u
 |---|---|
 | `build` | restore + build Release (0/0) |
 | `unit`, `integration`, `security`, `contract` | Suites con `--no-build` |
+| `database` | `DatabaseTest` contra `mongo:8.0.32` (Testcontainers): aplica `db/*.js` y prueba los repositorios |
 | `critic` | `scripts/critic-guardrails.ps1` (4 bloqueantes) |
 | `endpoints` | `scripts/check_endpoints.ps1` (catálogo ↔ código) |
 | `semgrep` | SAST (`--config=auto` + reglas propias) |
@@ -108,7 +111,7 @@ Las actions están fijadas por SHA; Dependabot (nuget, github-actions y docker, 
 En GitHub → Settings → Branches (o Rulesets) → regla para `main`:
 
 - Requerir un pull request con **1 aprobación** (de un integrante distinto del autor).
-- Requerir que pasen los checks: `build`, `unit`, `integration`, `security`, `contract`, `critic`, `endpoints`, `semgrep` y `docker-build`.
+- Requerir que pasen los checks: `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep` y `docker-build`.
 - Requerir que la rama esté actualizada antes del merge y bloquear los force push.
 
 > En GitHub gratuito, la protección de rama (y los rulesets) solo se aplica en **repos públicos**. Para un repo **privado** se necesita GitHub Pro (cuenta personal) o GitHub Team (organización).
