@@ -8,7 +8,7 @@
    - **ECR y no GHCR:** imagen privada, el rol de la instancia la descarga sin credenciales y el costo es casi cero.
    - **Parameter Store y no Secrets Manager:** el nivel estándar es gratis; Secrets Manager cuesta 0.40 USD por secreto al mes.
    - **Sin NAT Gateway:** costaría ~32 USD al mes. Las instancias tienen IP pública, pero su grupo de seguridad solo acepta tráfico del ALB.
-   - **Créditos de CPU `standard`:** sin cargos por ráfagas.
+   - **Créditos de CPU `unlimited`** (el modo por defecto): en `standard` una `t3` arranca sin créditos y queda al 10 % de CPU. Solo hay cargo si el promedio de 24 horas pasa del 10 %.
 3. **Guardarraíles:**
    - el rol OIDC solo confía en el entorno `produccion`, restringido a `main`;
    - tags de imagen inmutables y versión obligatoria;

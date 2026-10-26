@@ -6,7 +6,7 @@
 Lineamientos 13 y 15 ([checklist](../../../docs/bitacora/lineamientos-materia.md)): la API corre en AWS con HTTPS, al menos 2 instancias detrás de un balanceador, infraestructura como código, costo cero (créditos del plan gratuito) y un paso automatizado para crear y otro para eliminar. Base de datos externa: MongoDB Atlas M0. **Depende de**: `02-01` (esquema `db/`), `02-03` (secretos JWT y correo).
 
 ## Requisitos
-1. **Cómputo:** Application Load Balancer y un Auto Scaling Group con **2 EC2** (`t3.micro`, créditos `standard`) en 2 zonas. La revisión de salud del balanceador es `/health/ready`.
+1. **Cómputo:** Application Load Balancer y un Auto Scaling Group con **2 EC2** (`t3.micro`, créditos `unlimited`) en 2 zonas. La revisión de salud del balanceador es `/health/ready`, con 10 minutos de margen de arranque.
 2. **HTTPS sin dominio propio:** CloudFront con su certificado `*.cloudfront.net` (solo HTTPS, `SecurityHeadersPolicy` con HSTS).
    - El balanceador solo acepta tráfico de CloudFront: prefix list `origin-facing` y la cabecera secreta `X-Origin-Verify`; sin ella responde 403.
    - Las instancias solo aceptan tráfico del balanceador.
@@ -17,7 +17,7 @@ Lineamientos 13 y 15 ([checklist](../../../docs/bitacora/lineamientos-materia.md
 7. **Automatización (lineamiento 15):**
    - `infra-up`: versión → imagen en ECR → `db/*.js` en Atlas → `terraform apply` → espera del reemplazo → prueba de humo → tags `api-vX.Y.Z` e `infra-vX.Y.Z`.
    - `infra-down`: `terraform destroy`, con la confirmación `DESTRUIR`.
-8. **Versión (lineamiento 11):** si el tag `api-vX.Y.Z` ya existe en otro commit, falla; la imagen se publica con tag inmutable.
+8. **Versión (lineamiento 11):** si la API (`Musubi.Api`, `Dockerfile`, `db/`) cambió desde el tag `api-vX.Y.Z`, falla hasta que se suba `<Version>`. Un cambio solo de infraestructura reutiliza la imagen y sube `infra/VERSION`. La imagen se publica con tag inmutable.
 9. **Costo:** sin NAT Gateway, sin base administrada de AWS, sin dominio. Alertas de gasto a 10, 25 y 50 USD sin contar créditos.
 
 ## Diseño

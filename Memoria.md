@@ -19,6 +19,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 **Decisiones (con su porqué)**
 - **Sin Identity Center ni Organizations:** una cuenta del plan gratuito que entra a Organizations pasa al plan de pago y pierde los créditos. Se usa un usuario IAM con MFA + `aws login`.
 - **IP real de `CloudFront-Viewer-Address`:** el `X-Forwarded-For` del ALB termina en la IP de CloudFront, y sin esto el rate limit de `/auth` sería uno solo para todos.
+- **Desplegado el 26-Oct-2026:** `api-v0.2.0-alpha.1` + `infra-v0.1.0`; 2 instancias sanas, HTTPS por CloudFront, el ALB directo y el HTTP plano rechazados.
 - **Sin NAT, sin Secrets Manager, sin ECS:** costo (ver `infra/README.md`, ~50 USD/mes encendido).
 - **Presupuesto sin créditos:** si los contara, el gasto neto sería 0 y las alertas nunca sonarían.
 
@@ -28,6 +29,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 **Errores a evitar**
 - En una plantilla de Terraform (`.tftpl`), un `${` en un comentario también se interpreta: escribir `$${` o no usarlo.
 - El clasificador de permisos bloquea `terraform apply` desde el agente: lo autoriza el administrador.
+- **Primer `infra-up` (26-Oct-2026):** el primer Auto Scaling Group de la cuenta crea `AWSServiceRoleForAutoScaling` y el primer intento falla por propagación (se resuelve solo; volver a correr `infra-up`).
+- **`t3` en créditos `standard` arranca sin créditos** (10 % de CPU): el arranque pasaba de 5 minutos y el ALB reemplazaba la instancia. Se usa `unlimited` y 10 minutos de margen.
 - **GitHub usa sujetos OIDC inmutables** en este repo (`repo:Owner@id/repo@id:...`). Un rol que confía en `repo:Owner/repo:...` falla con "Not authorized to perform sts:AssumeRoleWithWebIdentity". Ver el formato real con `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`.
 - Probar las actions por SHA del commit, no del tag anotado (`git ls-remote ... refs/tags/vX^{}`).
 

@@ -51,7 +51,7 @@ aws sesv2 create-email-identity --email-identity "<correo>"
 | Recurso | USD/mes |
 |---|---|
 | ALB (horas + LCU mínimas) | ~18 |
-| 2 × `t3.micro` (créditos `standard`) | ~15 |
+| 2 × `t3.micro` (créditos `unlimited`; sin cargo extra si el promedio de CPU queda bajo el 10 %) | ~15 |
 | IPv4 públicas (2 instancias + ALB) | ~15 |
 | 2 discos gp3 de 10 GB | ~2 |
 | CloudFront, S3, CloudWatch, Parameter Store, ECR | ~0–1 (capas gratuitas) |

@@ -37,11 +37,15 @@ jobs:
           version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Musubi.Api/Musubi.Api.csproj)
           tag="api-v$version"
           infra="infra-v$(tr -d '[:space:]' < infra/VERSION)"
+          # Lo que entra en la imagen: si cambio desde el tag, la API necesita version nueva.
+          api_paths="Musubi.Api Dockerfile db global.json nuget.config Directory.Build.props"
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-            if [ "$(git rev-list -n 1 "$tag")" != "$GITHUB_SHA" ]; then
-              echo "::error::$tag ya existe en otro commit. Sube <Version> en Musubi.Api.csproj y agrega la fila en docs/versionado.md."
+            # shellcheck disable=SC2086
+            if ! git diff --quiet "$tag" HEAD -- $api_paths; then
+              echo "::error::La API cambio desde $tag. Sube <Version> en Musubi.Api.csproj y agrega la fila en docs/versionado.md."
               exit 1
             fi
+            echo "La API no cambio desde $tag: se reutiliza su imagen (cambio de infraestructura o documentacion)."
           fi
           {
             echo "version=$version"
@@ -61,16 +65,18 @@ jobs:
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/musubi-api:${{ steps.version.outputs.version }}
           VERSION: ${{ steps.version.outputs.version }}
+          API_PATHS: Musubi.Api Dockerfile db global.json nuget.config Directory.Build.props
         run: |
           if aws ecr describe-images --repository-name musubi-api --image-ids "imageTag=$VERSION" >/dev/null 2>&1; then
-            # Tags inmutables: si ya existe, debe ser de este mismo commit.
+            # Tags inmutables: si ya existe, debe venir de un commit con la misma API que este.
             docker pull -q "$IMAGE"
             revision=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE")
-            if [ "$revision" != "$GITHUB_SHA" ]; then
+            # shellcheck disable=SC2086
+            if ! git diff --quiet "$revision" HEAD -- $API_PATHS; then
               echo "::error::La imagen $VERSION ya existe con otro codigo ($revision). Sube <Version>."
               exit 1
             fi
-            echo "Imagen ya publicada para este commit"
+            echo "Imagen $VERSION reutilizada (publicada desde $revision)"
           else
             docker build --pull \
               --label "org.opencontainers.image.revision=$GITHUB_SHA" \

@@ -101,9 +101,11 @@ resource "aws_launch_template" "api" {
 
   vpc_security_group_ids = [aws_security_group.api.id]
 
-  # Sin cargos por rafagas de CPU por encima del credito (t3 es "unlimited" por defecto).
+  # "unlimited" (el modo por defecto de t3): en "standard" una t3 arranca SIN creditos y queda al 10 % de CPU
+  # mientras instala Docker y descarga la imagen; tardaba mas que el margen y el ALB la reemplazaba.
+  # Solo hay cargo si el promedio de 24 h supera el 10 % de CPU; la API en reposo no llega (presupuesto con alertas).
   credit_specification {
-    cpu_credits = "standard"
+    cpu_credits = "unlimited"
   }
 
   # IMDSv2 obligatorio; 2 saltos para que el SDK dentro del contenedor obtenga credenciales del rol.
@@ -146,7 +148,7 @@ resource "aws_autoscaling_group" "api" {
   vpc_zone_identifier       = aws_subnet.public[*].id
   target_group_arns         = [aws_lb_target_group.api.arn]
   health_check_type         = "ELB"
-  health_check_grace_period = 300
+  health_check_grace_period = 600
 
   launch_template {
     id      = aws_launch_template.api.id
