@@ -69,31 +69,3 @@ public sealed record SessionResponse(
 /// <param name="EmailVerified">Pertenencia validada (HU-03).</param>
 /// <param name="Campus">Campus.</param>
 public sealed record UserSummary(string Id, string FullName, string Email, bool EmailVerified, CampusResponse Campus);
-
-/// <summary>Iniciar sesion (HU-02, maqueta "Iniciar sesion").</summary>
-/// <param name="Email">Correo institucional.</param>
-/// <param name="Password">Contrasena en claro (solo entrada).</param> <!-- critic-allow: input-credential (HU-02) -->
-public sealed record LoginRequest(
-    [Required, MaxLength(254)] string Email,
-    [Required, MaxLength(128)] string Password); // critic-allow: input-credential (HU-02)
-
-/// <summary>Renovar la sesion con el refresh token (02-03, L-16g).</summary>
-/// <param name="RefreshToken">Token opaco vigente.</param>
-public sealed record RefreshRequest([Required, MaxLength(200)] string RefreshToken);
-
-/// <summary>Cerrar la sesion de este dispositivo (HU-02, L-10).</summary>
-/// <param name="RefreshToken">Token opaco de la sesion.</param>
-public sealed record LogoutRequest([Required, MaxLength(200)] string RefreshToken);
-
-/// <summary>Pedir el codigo para recuperar la cuenta (HU-56).</summary>
-/// <param name="Email">Correo institucional.</param>
-public sealed record RecoveryRequest([Required, MaxLength(254)] string Email);
-
-/// <summary>Definir la contrasena nueva con el codigo (HU-56).</summary>
-/// <param name="Email">Correo institucional.</param>
-/// <param name="Code">Codigo de 6 digitos.</param>
-/// <param name="NewPassword">Contrasena nueva en claro (solo entrada).</param> <!-- critic-allow: input-credential (HU-56) -->
-public sealed record RecoveryResetRequest(
-    [Required, MaxLength(254)] string Email,
-    [Required, RegularExpression("^[0-9]{6}$", ErrorMessage = "El código tiene 6 dígitos.")] string Code,
-    [Required, MaxLength(128)] string NewPassword); // critic-allow: input-credential (HU-56)

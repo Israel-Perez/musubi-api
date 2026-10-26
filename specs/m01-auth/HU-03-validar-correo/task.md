@@ -7,3 +7,4 @@
 
 ## Pendientes
 - `NOTE (02-05)`: dominio propio y acceso de producción de SES (entrega a Google Workspace).
+- `NOTE (HU-02)`: un usuario pendiente que intenta iniciar sesión recibe `auth.email_not_verified` y la app lo lleva a verificar.

@@ -15,7 +15,7 @@ Para validar la pertenencia, un código de 6 dígitos llega al correo institucio
 
 ## Diseño
 - `VerificationCodes` (`Generate`, `Hash` = SHA-256 de `userId:código`, `Matches` en tiempo constante).
-- `RegistrationService.ResendAsync` / `ConfirmAsync`, sobre `VerificationCodeService` (códigos por propósito, compartido con HU-56).
+- `RegistrationService.ResendAsync` / `ConfirmAsync`.
 - La atomicidad del conteo de intentos es la de `IncrementAttemptsAsync` (02-01, R7).
 - El correo lo arma `AuthEmails.VerificationCode` (texto + HTML con el nombre codificado) y lo envía `IEmailSender`: log en Development, SES en la nube.
 

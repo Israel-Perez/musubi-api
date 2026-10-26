@@ -38,10 +38,6 @@ internal static class AuthModuleServiceCollectionExtensions
         services.AddSingleton<PasswordHashing>();
         services.AddSingleton<RefreshTokenService>();
         services.AddOptions<LegalOptions>().BindConfiguration(LegalOptions.Section);
-        services.AddSingleton<SessionIssuer>();
-        services.AddSingleton<VerificationCodeService>();
         services.AddSingleton<RegistrationService>();
-        services.AddSingleton<LoginService>();
-        services.AddSingleton<PasswordRecoveryService>();
     }
 }

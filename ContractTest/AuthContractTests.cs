@@ -8,7 +8,7 @@ using Musubi.TestShared;
 namespace ContractTest;
 
 /// <summary>
-/// HU-01 / HU-02 / HU-03: formas JSON de /api/v1/auth que consume musubi-app (fixtures en Fixtures/).
+/// HU-01 / HU-03: formas JSON de /api/v1/auth que consume musubi-app (fixtures en Fixtures/).
 /// Cambiar un fixture = cambio de contrato: actualizar docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class AuthContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
@@ -56,29 +56,5 @@ public sealed class AuthContractTests(ContractApiFactory factory) : IClassFixtur
         Assert.Equal(Shape(await FixtureAsync("campus.json")), Shape(await BodyAsync(campus)));
         Assert.Equal(Shape(await FixtureAsync("register.json")), Shape(await BodyAsync(register)));
         Assert.Equal(Shape(await FixtureAsync("session.json")), Shape(await BodyAsync(confirm)));
-    }
-
-    [Fact]
-    public async Task LoginAndRefresh_ReturnTheSameSessionShape()
-    {
-        var emails = new RecordingEmailSender();
-        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
-        using var client = app.CreateClient();
-        var email = $"ana.{Guid.NewGuid():N}@uttt.edu.mx";
-        await client.PostAsJsonAsync(
-            new Uri("/api/v1/auth/register", UriKind.Relative),
-            new { email, fullName = "Ana Sofía Ramírez", password = "musubi2026", acceptTerms = true, acceptPrivacy = true },
-            Ct);
-        await client.PostAsJsonAsync(new Uri("/api/v1/auth/verification/confirm", UriKind.Relative), new { email, code = emails.LastCodeFor(email) }, Ct);
-
-        var login = await BodyAsync(await client.PostAsJsonAsync(new Uri("/api/v1/auth/login", UriKind.Relative), new { email, password = "musubi2026" }, Ct));
-        var refresh = await BodyAsync(await client.PostAsJsonAsync(
-            new Uri("/api/v1/auth/refresh", UriKind.Relative),
-            new { refreshToken = login.GetProperty("refreshToken").GetString() },
-            Ct));
-
-        var expected = Shape(await FixtureAsync("session.json"));
-        Assert.Equal(expected, Shape(login));
-        Assert.Equal(expected, Shape(refresh));
     }
 }

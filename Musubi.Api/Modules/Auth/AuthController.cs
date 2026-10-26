@@ -35,7 +35,7 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType<CampusResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Campus(CampusRequest request, CancellationToken cancellationToken) =>
-        this.Respond(await registration.ResolveCampusAsync(request?.Email ?? string.Empty, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+        Respond(await registration.ResolveCampusAsync(request?.Email ?? string.Empty, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
     /// <summary>Crea la cuenta y envia el codigo de verificacion (HU-01, HU-47).</summary>
     /// <param name="request">Datos del registro.</param>
@@ -47,7 +47,7 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken) =>
-        this.Respond(await registration.RegisterAsync(request, cancellationToken).ConfigureAwait(false), StatusCodes.Status201Created);
+        Respond(await registration.RegisterAsync(request, cancellationToken).ConfigureAwait(false), StatusCodes.Status201Created);
 
     /// <summary>Reenvia el codigo (HU-03).</summary>
     /// <param name="request">Correo.</param>
@@ -57,7 +57,7 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType<ResendCodeResponse>(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Resend(ResendCodeRequest request, CancellationToken cancellationToken) =>
-        this.Respond(await registration.ResendAsync(request?.Email ?? string.Empty, cancellationToken).ConfigureAwait(false), StatusCodes.Status202Accepted);
+        Respond(await registration.ResendAsync(request?.Email ?? string.Empty, cancellationToken).ConfigureAwait(false), StatusCodes.Status202Accepted);
 
     /// <summary>Verifica el correo y abre la sesion (HU-03).</summary>
     /// <param name="request">Correo y codigo.</param>
@@ -68,7 +68,10 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Confirm(ConfirmCodeRequest request, CancellationToken cancellationToken) =>
-        this.Respond(
+        Respond(
             await registration.ConfirmAsync(request, Request.Headers.UserAgent.ToString(), cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
+
+    private ObjectResult Respond<T>(Result<T> result, int successStatus) =>
+        result.Error is { } error ? this.Problem(error) : StatusCode(successStatus, result.Value);
 }
