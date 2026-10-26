@@ -4,9 +4,33 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (21-Oct-2026)
 
-- **HU-01/03/47** (rama `feature/SCRUM-19-registro-verificacion`): registro, verificación y consentimientos. 02-01 y 02-03 ya están en `main`.
-- Build Release 0/0 · Unit 90/90 · Integration 28/28 · Security 26/26 · Contract 4/4 · Database 18 (CI) · critic PASS · endpoints OK (7) · Semgrep 0.
-- Siguiente: lado app de HU-01/03/47 y luego HU-02 + HU-56 (back y app).
+- **HU-02 + HU-56** (rama `feature/SCRUM-20-login-recuperar`, sobre la de HU-01/03/47): login, refresh, logout y recuperar la contraseña. HU-01/03/47 espera su merge (PR #6).
+- Build Release 0/0 · Unit 91/91 · Integration 46/46 · Security 28/28 · Contract 5/5 · Database (CI) · critic PASS · endpoints OK (12) · Semgrep 0.
+- Siguiente: lado app de HU-02 + HU-56.
+
+## T8 — HU-02 + HU-56 Sesión y recuperación de contraseña (21-Oct-2026, SCRUM-20/78)
+
+**Qué se hizo**
+- `SessionController` (`login`, `refresh`, `logout`) y `PasswordController` (`password/forgot`, `password/reset`); 5 filas nuevas en `docs/endpoints.md` (12 en total).
+- `LoginService` (señuelo para correo inexistente, estado revelado solo con la contraseña correcta, rehash), `PasswordRecoveryService` (respuesta genérica, cambio de hash y revocación de todas las sesiones).
+- Extraídos de `RegistrationService`: `SessionIssuer` (una sola forma de `SessionResponse`) y `VerificationCodeService` (códigos por propósito para HU-03 y HU-56).
+- `IUserRepository.UpdatePasswordHashAsync` en Mongo e InMemory + su prueba en la batería de `TestShared/`.
+- Pruebas: `IntegrationTest/Auth/SessionFlowTests.cs` (9), `PasswordRecoveryFlowTests.cs` (9), helper `AuthFlow.cs`, y el contrato de login/refresh contra `session.json`.
+
+**Decisiones (con su porqué)**
+- **Tres controllers en `/auth`**: S6960 (SonarAnalyzer) marca un controller con varias responsabilidades y el build es TWAE. `this.Respond(result, status)` pasó a `ApiProblemExtensions` para no duplicarlo.
+- **Logout idempotente** (204 aunque el token no exista): la app limpia su sesión local de todos modos.
+- **El pedido de recuperación nunca reporta la espera de 60 s**, a diferencia del reenvío de HU-03: allí la cuenta pendiente ya se conoce, aquí no se debe revelar.
+
+**Self-tests**
+- Sin `RevokeAllForUserAsync` en el reset → `ForgotThenReset_ChangesThePasswordAndClosesEverySession` en rojo.
+- Revelar `email_not_verified` con la contraseña equivocada → `Login_PendingUser_IsAskedToVerifyOnlyWithTheRightPassword` en rojo.
+
+**Errores a evitar**
+- **PR apilados: fusionar en orden (padre → hijo).** El #7 (que ya incluía el #6) se fusionó antes que el #6; al fusionar después el #6, la resolución tomó su versión y `main` perdió parte de HU-02 en 12 archivos (build rojo). Se restauró con `fix/SCRUM-20-restaurar-hu02` (árbol idéntico al merge del #7). Después de fusionar un padre con squash, rebasar el hijo sobre `main` para que solo lleve su commit.
+- Una mutación que deja un parámetro del constructor primario sin usar no compila: las pruebas corren sobre binarios viejos y salen verdes. Mutar con `_ = campo;` y revisar que el build diga 0 errores.
+- `ArgumentNullException.ThrowIfNull` sobre un `struct` (`Result<T>`) es CA2264.
+- La salida de `dotnet test` está en español: el resumen dice `error: N`, no `failed`.
 
 ## T7 — HU-01/03/47 Registro, verificación y consentimientos (21-Oct-2026, SCRUM-19/21/33)
 
