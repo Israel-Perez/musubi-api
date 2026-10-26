@@ -63,6 +63,16 @@ internal sealed class MongoUserRepository(IMongoDatabase database) : IUserReposi
     }
 
     /// <inheritdoc />
+    public async Task<bool> UpdatePasswordHashAsync(string id, string passwordHash, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        var result = await users.UpdateOneAsync(
+            u => u.Id == id,
+            Builders<UserDocument>.Update.Set(u => u.PasswordHash, passwordHash).Set(u => u.UpdatedAt, updatedAt),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.MatchedCount == 1;
+    }
+
+    /// <inheritdoc />
     public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken)
     {
         var result = await users.DeleteOneAsync(u => u.Id == id, cancellationToken).ConfigureAwait(false);

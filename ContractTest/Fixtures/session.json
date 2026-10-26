@@ -1,0 +1,13 @@
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9.e30.firma",
+  "accessTokenExpiresAt": "2026-10-21T18:15:00Z",
+  "refreshToken": "opaco",
+  "refreshTokenExpiresAt": "2026-12-20T18:00:00Z",
+  "user": {
+    "id": "6716a0000000000000000001",
+    "fullName": "Ana Sofía Ramírez",
+    "email": "ana.ramirez@uttt.edu.mx",
+    "emailVerified": true,
+    "campus": { "shortName": "UTTT", "name": "Universidad Tecnológica de Tula-Tepeji" }
+  }
+}

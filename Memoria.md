@@ -4,9 +4,53 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (21-Oct-2026)
 
-- **SCRUM-77** (02-03, rama `feature/SCRUM-77-errores-auth`): errores, autenticación y correo. 02-01 (SCRUM-76) ya está en `main`.
-- Build Release 0/0 · Unit 80/80 · Integration 9/9 · Security 25/25 · Contract 3/3 · Database 18 (CI) · critic PASS · endpoints OK (3) · Semgrep 0.
-- Siguiente: app `02-01` (tema de la maqueta, navegación, sesión segura) y después HU-01/03/47 y HU-02.
+- **HU-02 + HU-56** (rama `feature/SCRUM-20-login-recuperar`, sobre la de HU-01/03/47): login, refresh, logout y recuperar la contraseña. HU-01/03/47 espera su merge (PR #6).
+- Build Release 0/0 · Unit 91/91 · Integration 46/46 · Security 28/28 · Contract 5/5 · Database (CI) · critic PASS · endpoints OK (12) · Semgrep 0.
+- Siguiente: lado app de HU-02 + HU-56.
+
+## T8 — HU-02 + HU-56 Sesión y recuperación de contraseña (21-Oct-2026, SCRUM-20/78)
+
+**Qué se hizo**
+- `SessionController` (`login`, `refresh`, `logout`) y `PasswordController` (`password/forgot`, `password/reset`); 5 filas nuevas en `docs/endpoints.md` (12 en total).
+- `LoginService` (señuelo para correo inexistente, estado revelado solo con la contraseña correcta, rehash), `PasswordRecoveryService` (respuesta genérica, cambio de hash y revocación de todas las sesiones).
+- Extraídos de `RegistrationService`: `SessionIssuer` (una sola forma de `SessionResponse`) y `VerificationCodeService` (códigos por propósito para HU-03 y HU-56).
+- `IUserRepository.UpdatePasswordHashAsync` en Mongo e InMemory + su prueba en la batería de `TestShared/`.
+- Pruebas: `IntegrationTest/Auth/SessionFlowTests.cs` (9), `PasswordRecoveryFlowTests.cs` (9), helper `AuthFlow.cs`, y el contrato de login/refresh contra `session.json`.
+
+**Decisiones (con su porqué)**
+- **Tres controllers en `/auth`**: S6960 (SonarAnalyzer) marca un controller con varias responsabilidades y el build es TWAE. `this.Respond(result, status)` pasó a `ApiProblemExtensions` para no duplicarlo.
+- **Logout idempotente** (204 aunque el token no exista): la app limpia su sesión local de todos modos.
+- **El pedido de recuperación nunca reporta la espera de 60 s**, a diferencia del reenvío de HU-03: allí la cuenta pendiente ya se conoce, aquí no se debe revelar.
+
+**Self-tests**
+- Sin `RevokeAllForUserAsync` en el reset → `ForgotThenReset_ChangesThePasswordAndClosesEverySession` en rojo.
+- Revelar `email_not_verified` con la contraseña equivocada → `Login_PendingUser_IsAskedToVerifyOnlyWithTheRightPassword` en rojo.
+
+**Errores a evitar**
+- Una mutación que deja un parámetro del constructor primario sin usar no compila: las pruebas corren sobre binarios viejos y salen verdes. Mutar con `_ = campo;` y revisar que el build diga 0 errores.
+- `ArgumentNullException.ThrowIfNull` sobre un `struct` (`Result<T>`) es CA2264.
+- La salida de `dotnet test` está en español: el resumen dice `error: N`, no `failed`.
+
+## T7 — HU-01/03/47 Registro, verificación y consentimientos (21-Oct-2026, SCRUM-19/21/33)
+
+**Qué se hizo**
+- `AuthController` (`/api/v1/auth`): `campus`, `register`, `verification/resend` y `verification/confirm`; anónimo y con rate limit `auth`. Filas en `docs/endpoints.md` (7 rutas en total).
+- `RegistrationService` con `Result<T>`: campus por dominio (solo comunidades activas), registro `pendingVerification` con consentimientos versionados (`Legal:*`), código de 6 dígitos (10 min, 5 intentos, reenvío cada 60 s) y confirmación que abre la sesión (access + refresh de 02-03).
+- `EmailAddresses` (normalización), `VerificationCodes` (CSPRNG, hash ligado al usuario, comparación en tiempo constante) y `AuthEmails` (nombre codificado en el HTML).
+- Pruebas: `IntegrationTest/Auth/` con `AuthApiFactory` (reloj y correo controlados vía `TestShared/`), `UnitTest/Auth/RegistrationTests.cs` y `ContractTest/AuthContractTests.cs` (fixtures `campus`, `register` y `session`).
+
+**Decisiones (con su porqué)**
+- **Sin sesión hasta verificar** (RN-01): el registro no da tokens; la confirmación sí.
+- **El controller resuelve el servicio de `RequestServices`**: los servicios del módulo son `internal` y MVC exige un controller público (CS0051 con un constructor público).
+- **Consentimientos `bool?` + `[Required]`** (S6964): omitirlos es un 400 de validación y no se toman como "falso".
+- **El 409 de registro revela si un correo existe** (la UX de la maqueta lo pide); el reenvío y la confirmación no revelan nada.
+
+**Self-tests**
+- Sin el bloqueo de 5 intentos → `Confirm_WrongCode_FailsAndLocksAfterFiveAttempts` en rojo.
+
+**Errores a evitar**
+- En los tests de integración que pegan muchas veces a `/auth`, subir `RateLimiting:Auth:PermitLimit` en la factory: el limitador comparte la "IP" de TestServer entre pruebas.
+- Una línea de documentación con la palabra de la contraseña en `*Dtos.cs` también necesita `critic-allow: input-credential (HU-NN)` (B2a revisa cada línea).
 
 ## T6 — 02-03 Contrato de errores, autenticación y correo (21-Oct-2026, SCRUM-77)
 
@@ -58,13 +102,6 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - DatabaseTest no corre sin Docker: en esta máquina solo compila; la evidencia es el job `database` del CI.
 - `mongod` 8.0 se niega a arrancar en kernels Linux >= 6.19 ("known incompatibility", SERVER-121912) y algunos runners `ubuntu-latest` ya los traen: el job `database` corre en `ubuntu-22.04` e imprime `uname -r`. No afecta a Atlas ni a WSL2. Revisarlo al subir la imagen de `mongo`.
 - En `mongosh`, `db._meta` da `undefined` (los nombres con `_` no se resuelven como propiedad): usar `db.getCollection('_meta')`. Lo detectó el job `database` en su primera corrida; el script de entrega habría fallado en Atlas.
-
-## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
-
-- **D-01 decidido por el usuario:** el pago es solo el de la maqueta (transferencia a la CLABE del vendedor o efectivo con código de entrega, sin comisión). HU-43 (Mercado Pago, SCRUM-55) queda fuera de alcance (etiqueta `fuera-de-alcance` + comentario en Jira) y la reemplaza **HU-55** (SCRUM-72). Constitución §1 (compartida) y §6/§11, 01-04 (`Payments:*` en lugar de `MercadoPago:*`), AGENTS, skills y Semgrep actualizados.
-- **HU nuevas de la maqueta** (Historias en SCRUM con épica y etiqueta `maqueta`, sin sprint): HU-48 visitante (SCRUM-73), HU-49 populares (SCRUM-69), HU-50 inventario (SCRUM-67), HU-51 comparar/Avísame (SCRUM-70), HU-52 apartados QR (SCRUM-74), HU-53 favoritos (SCRUM-68), HU-54 modo noche (SCRUM-71), HU-55 pago (SCRUM-72). `docs/trazabilidad.md` pasa a 55 HU.
-- Dependabot: `mongo` solo recibe parches de la línea 8.0 (`ignore` de minor/major); se cerró el PR que subía a 8.3.11.
-- **Error a evitar:** el MCP de Atlassian da timeout en `createJiraIssue`/`editJiraIssue` aunque la operación sí se aplique. Antes de reintentar, buscar con JQL (`key > SCRUM-NN`): un reintento ciego duplicó HU-48 (la copia SCRUM-74 se reutilizó para HU-52).
 
 ## T4 — Backlog alineado con la maqueta (21-Oct-2026, SCRUM-75)
 

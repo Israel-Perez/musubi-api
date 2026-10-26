@@ -52,6 +52,14 @@ internal interface IUserRepository
     /// <returns><c>true</c> si cambio el estado; <c>false</c> si no existia o ya estaba verificado.</returns>
     Task<bool> MarkEmailVerifiedAsync(string id, DateTime verifiedAt, CancellationToken cancellationToken);
 
+    /// <summary>Reemplaza el hash de la contrasena (HU-56 o rehash al iniciar sesion).</summary>
+    /// <param name="id">Id del usuario.</param>
+    /// <param name="passwordHash">Hash nuevo.</param>
+    /// <param name="updatedAt">Momento del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si el usuario existia.</returns>
+    Task<bool> UpdatePasswordHashAsync(string id, string passwordHash, DateTime updatedAt, CancellationToken cancellationToken);
+
     /// <summary>Borrado real (HU-46, R11).</summary>
     /// <param name="id">Id del usuario.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
