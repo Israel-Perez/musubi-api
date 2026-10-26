@@ -80,7 +80,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Sesión obligatoria por defecto (FallbackPolicy), JWT solo HS256, llave fuera del repo (fail-fast sin `Jwt:SigningKey` fuera de Development); contraseñas PBKDF2-SHA512 de 210 000 iteraciones.
 - Auth explícita por controller (critic B3 + `SecurityTest/Auth/ExplicitAuthTests.cs`). Referencia: OWASP API Security Top 10 – 2023 (checks del agente `security-reviewer`).
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
-- Contenedor: multi-stage con usuario no root; Trivy y ZAP llegan en `02-05`; SonarCloud en `02-06`.
+- Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy, ZAP y SonarCloud en `02-06`.
 - Las llaves privadas (IA, Firebase Admin, cifrado de la CLABE) viven solo en el back, nunca en el front.
 
 ## 7. Testing
@@ -96,7 +96,11 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 9. Despliegue y operación
 
-> 🚧 Pendiente (`02-05`): AWS con Terraform (ALB + 2 EC2 en Auto Scaling Group + CloudFront; imágenes en S3), MongoDB Atlas M0, ForwardedHeaders con el proxy real, `AllowedHosts`, respaldos (RNF-16) y los workflows para crear y eliminar la infraestructura.
+- **02-05 (Borrador con evidencia):** `infra/` (Terraform) + workflows `infra-up` / `infra-down` (OIDC, entorno `produccion` solo para `main`). Guía, secretos y costo en [`infra/README.md`](infra/README.md).
+- CloudFront (HTTPS) → ALB → Auto Scaling Group de 2 EC2 con Docker; secretos en Parameter Store `/musubi/prod/*`; logs en CloudWatch `/musubi/prod/api`.
+- Para desplegar: subir `<Version>` y agregar su fila en `docs/versionado.md`, fusionar y correr `infra-up`. Si el tag `api-vX.Y.Z` ya existe en otro commit, falla.
+- No guardes secretos en Terraform: viven en Parameter Store y entran como variables de entorno.
+- 🚧 Pendiente: dominio propio (`NOTE (02-05)`) y respaldos (RNF-16).
 
 ## 10. Reglas basadas en lecciones aprendidas
 

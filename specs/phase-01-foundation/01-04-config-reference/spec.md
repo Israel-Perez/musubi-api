@@ -21,7 +21,8 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `Kestrel:Limits:MaxRequestBodySize` | `10485760` | [01-02 / Implementado] | Cuerpo máximo (10 MB) |
 | `Kestrel:Limits:KeepAliveTimeout` | `00:02:00` | [01-02 / Implementado] | Keep-alive defensivo |
 | `Cors:AllowedOrigins` | `[]` | [01-02 / Implementado] | Orígenes permitidos (la app Android no usa CORS; aplica a un panel web futuro) |
-| `AllowedHosts` | `*` | [01-02 / Implementado] | Restringir al dominio real en `02-05` |
+| `AllowedHosts` | `*` | [01-02 / Implementado] | Se queda en `*`: el ALB solo acepta tráfico de CloudFront y las sondas del balanceador llegan con la IP de la instancia. Restringir con dominio propio (`NOTE (02-05)`) |
+| `Proxy:TrustCloudFrontHeaders` | `false` | [02-05 / Implementado] | `true` solo en AWS (lo pone el arranque de la instancia): IP del cliente de `CloudFront-Viewer-Address` y esquema de `CloudFront-Forwarded-Proto` |
 | `ASPNETCORE_ENVIRONMENT` (env) | `Production` | [01-02 / Implementado] | `Development` habilita OpenAPI, Scalar y `appsettings.Local.json` |
 | `ASPNETCORE_HTTP_PORTS` (env) | `8080` (contenedor) | [01-05 / Implementado] | Puerto del contenedor (`Dockerfile`) |
 | `Jwt:Issuer` / `Jwt:Audience` | `musubi-api` / `musubi-app` | [02-03 / Implementado] | `iss` y `aud` de los access tokens |

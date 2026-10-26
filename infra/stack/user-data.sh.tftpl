@@ -1,0 +1,34 @@
+#!/bin/bash
+# Arranque de una instancia de la API (02-05). Plantilla de Terraform: las llaves con doble signo de pesos son de bash.
+set -euo pipefail
+
+dnf install -y docker
+systemctl enable --now docker
+
+# Configuracion secreta: cada parametro de ${ssm_prefix}/A/B se vuelve la variable de entorno A__B
+# (convencion de .NET para A:B). El archivo solo lo lee root.
+install -d -m 700 /etc/musubi
+umask 077
+aws ssm get-parameters-by-path --region "${region}" --path "${ssm_prefix}" --recursive --with-decryption \
+  --query 'Parameters[].[Name,Value]' --output text |
+  while IFS=$'\t' read -r name value; do
+    key="$${name#${ssm_prefix}/}"
+    printf '%s=%s\n' "$${key//\//__}" "$value"
+  done > /etc/musubi/api.env
+
+aws ecr get-login-password --region "${region}" | docker login --username AWS --password-stdin "${registry}"
+docker pull "${image}"
+
+TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+
+docker run -d --name musubi-api --restart always -p 8080:8080 \
+  --env-file /etc/musubi/api.env \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e Proxy__TrustCloudFrontHeaders=true \
+  -e Email__Region="${region}" \
+  --log-driver awslogs \
+  --log-opt awslogs-region="${region}" \
+  --log-opt awslogs-group="${log_group}" \
+  --log-opt awslogs-stream="$INSTANCE_ID" \
+  "${image}"

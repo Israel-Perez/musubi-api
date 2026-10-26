@@ -17,7 +17,7 @@ Registro DI y pipeline HTTP de la plataforma, en un orden fijo y explícito, sob
 
 | Orden | Componente | Estado | Nota |
 |---|---|---|---|
-| 1 | `UseForwardedHeaders` (X-Forwarded-For/Proto) | ✅ | `NOTE (02-05)`: KnownNetworks del balanceador de AWS |
+| 1 | `UseForwardedHeaders` (X-Forwarded-For/Proto) + `UseCloudFrontForwardedHeaders` | ✅ | En AWS, la IP y el esquema vienen de CloudFront (02-05, solo con `Proxy:TrustCloudFrontHeaders`) |
 | 2 | `UseExceptionHandler` + `ProblemDetails` (fuera de Dev) | ✅ | 01-03 |
 | 3 | `UseHsts` (fuera de Dev) | ✅ | `AddHsts`: 365 d + subdominios |
 | 4 | `UseStatusCodePages` | ✅ | 02-03: 401/403/404/405/429 sin cuerpo → problem+json con `code` |
@@ -53,7 +53,7 @@ Archivos: `Musubi.Api/Program.cs`, `Musubi.Api/Platform/Hosting/PlatformServiceC
 - Self-test: quitar `UseHsts` hace fallar `Production_HttpsResponse_CarriesHstsHeader` (medido el 15-Oct-2026).
 
 ## Límites
-No hay autenticación (HU-02), headers de seguridad ni rate limiting (02-04), ni hub de SignalR (HU-20). En AWS falta registrar el proxy en ForwardedHeaders (02-05).
+No hay autenticación (HU-02), headers de seguridad ni rate limiting (02-04), ni hub de SignalR (HU-20). Detrás de CloudFront, ver 02-05.
 
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia

@@ -46,8 +46,9 @@ internal static class PlatformServiceCollectionExtensions
         services.Configure<KestrelServerOptions>(configuration.GetSection("Kestrel"));
         services.Configure<ForwardedHeadersOptions>(options =>
         {
+            // Solo proxies locales. En AWS la IP del cliente y el esquema vienen de las cabeceras de CloudFront
+            // (CloudFrontForwardedHeaders, 02-05): el X-Forwarded-For que arma el ALB termina en la IP de CloudFront.
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            // NOTE (02-05): registrar KnownNetworks/KnownProxies del balanceador de AWS al definir el despliegue.
         });
 
         // Contrato de errores (02-03): cada error sale como problem+json con code, titulo en espanol y traceId.

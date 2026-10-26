@@ -28,3 +28,7 @@ coverage/
 **/*.pfx
 **/*.pem
 **/*.key
+
+# Terraform y workflows no van en la imagen
+infra/
+.github/

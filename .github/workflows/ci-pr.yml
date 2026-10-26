@@ -1,6 +1,6 @@
 name: ci-pr
 
-# Orden logico (01-05): build -> unit/integration/security/contract/database -> critic/endpoints/semgrep/docker-build.
+# Orden logico (01-05): build -> unit/integration/security/contract/database -> critic/endpoints/semgrep/docker-build/terraform.
 # Actions fijadas por SHA (00-04, regla 11); Dependabot las actualiza.
 on:
   pull_request:
@@ -136,3 +136,21 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build --pull -t musubi-api:ci .
+
+  terraform:
+    # 02-05: formato y validacion de infra/ (sin credenciales ni estado remoto).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.6
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive infra
+      - name: terraform validate
+        run: |
+          for dir in infra/bootstrap infra/stack; do
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+          done

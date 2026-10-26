@@ -22,6 +22,8 @@ internal static class PlatformPipelineExtensions
         ArgumentNullException.ThrowIfNull(app);
 
         app.UseForwardedHeaders();
+        // En AWS (02-05): IP real del cliente y esquema que vio CloudFront.
+        app.UseCloudFrontForwardedHeaders();
 
         if (!app.Environment.IsDevelopment())
         {
