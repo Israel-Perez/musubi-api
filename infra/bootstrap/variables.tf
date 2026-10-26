@@ -4,10 +4,10 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "github_repository" {
-  description = "Repositorio que puede asumir el rol de despliegue (owner/nombre)."
+variable "github_oidc_subject_prefix" {
+  description = "Prefijo del claim sub de GitHub. El repo usa sujetos inmutables (owner@id/repo@id): gh api repos/<owner>/<repo>/actions/oidc/customization/sub."
   type        = string
-  default     = "Israel-Perez/musubi-api"
+  default     = "repo:Israel-Perez@234276594/musubi-api@1421377783"
 }
 
 variable "github_environment" {
