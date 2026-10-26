@@ -2,11 +2,33 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (21-Oct-2026)
+## Estado actual (25-Oct-2026)
 
-- **HU-02 + HU-56** (rama `feature/SCRUM-20-login-recuperar`, sobre la de HU-01/03/47): login, refresh, logout y recuperar la contraseña. HU-01/03/47 espera su merge (PR #6).
-- Build Release 0/0 · Unit 91/91 · Integration 46/46 · Security 28/28 · Contract 5/5 · Database (CI) · critic PASS · endpoints OK (12) · Semgrep 0.
-- Siguiente: lado app de HU-02 + HU-56.
+- **02-05 Despliegue en AWS** (rama `feature/SCRUM-80-despliegue-aws`): Terraform (`infra/`), workflows `infra-up` / `infra-down`, middleware de CloudFront. Versión `0.2.0-alpha.1`.
+- Build Release 0/0 · Unit 91/91 · Integration 46/46 · Security 39/39 · Contract 5/5 · `terraform validate` OK · actionlint OK.
+- Siguiente: aplicar `infra/bootstrap` (autorización del administrador), fusionar y correr `infra-up`; después la URL de CloudFront va en `config/prod.json` de la app.
+
+## T9 — 02-05 Despliegue en AWS (25-Oct-2026, SCRUM-80)
+
+**Qué se hizo**
+- `scripts/bootstrap-state.ps1` creó `musubi-tfstate-<cuenta>` (versionado, cifrado, sin acceso público). `infra/bootstrap` (ECR, OIDC, rol, presupuesto) quedó con `plan` de 6 recursos.
+- `infra/stack`: VPC con 2 subredes públicas, ALB (solo CloudFront + cabecera secreta), ASG de 2 `t3.micro`, CloudFront (HTTPS, SecurityHeadersPolicy), S3 de imágenes con OAC, IAM mínimo de las instancias y CloudWatch.
+- Parámetros SSM `/musubi/prod/{ConnectionStrings/Mongo, Jwt/SigningKey, Email/From}`; identidad de SES pendiente de confirmar; entorno `produccion` de GitHub (solo `main`) con `AWS_DEPLOY_ROLE_ARN`.
+- `CloudFrontForwardedHeaders` + `SecurityTest/Hosting/CloudFrontHeadersTests.cs` (11). Job `terraform` en el CI.
+
+**Decisiones (con su porqué)**
+- **Sin Identity Center ni Organizations:** una cuenta del plan gratuito que entra a Organizations pasa al plan de pago y pierde los créditos. Se usa un usuario IAM con MFA + `aws login`.
+- **IP real de `CloudFront-Viewer-Address`:** el `X-Forwarded-For` del ALB termina en la IP de CloudFront, y sin esto el rate limit de `/auth` sería uno solo para todos.
+- **Sin NAT, sin Secrets Manager, sin ECS:** costo (ver `infra/README.md`, ~50 USD/mes encendido).
+- **Presupuesto sin créditos:** si los contara, el gasto neto sería 0 y las alertas nunca sonarían.
+
+**Self-tests**
+- Si el middleware no se registra → `BehindCloudFront_EachViewerHasItsOwnRateLimit` en rojo.
+
+**Errores a evitar**
+- En una plantilla de Terraform (`.tftpl`), un `${` en un comentario también se interpreta: escribir `$${` o no usarlo.
+- El clasificador de permisos bloquea `terraform apply` desde el agente: lo autoriza el administrador.
+- Probar las actions por SHA del commit, no del tag anotado (`git ls-remote ... refs/tags/vX^{}`).
 
 ## T8 — HU-02 + HU-56 Sesión y recuperación de contraseña (21-Oct-2026, SCRUM-20/78)
 

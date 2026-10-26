@@ -58,3 +58,11 @@ Thumbs.db
 *.orig
 *.bak
 *.swp
+
+# Terraform (02-05): estado remoto en S3; nunca estado, planes ni variables locales en el repo
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+crash.log

@@ -14,9 +14,10 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps: cada cambio nac
 Plantilla inicial lista. Fases 00 (constitución) y 01 (fundación) implementadas en "🚧 Borrador con evidencia", en espera de designar revisores:
 
 - Build Release: 0 errores / 0 advertencias.
-- Pruebas: Unit 91/91 · Integration 46/46 · Security 28/28 · Contract 5/5 · Database (CI).
+- Pruebas: Unit 91/91 · Integration 46/46 · Security 39/39 · Contract 5/5 · Database (CI).
 - HU-01/03/47 (lado back): registro con correo institucional, código de verificación por correo y consentimientos versionados (`POST /api/v1/auth/{campus,register,verification/resend,verification/confirm}`).
 - HU-02 + HU-56 (lado back): login, refresh rotativo, logout y recuperar la contraseña con un código (`POST /api/v1/auth/{login,refresh,logout,password/forgot,password/reset}`).
+- Nube (02-05): Terraform en `infra/` (CloudFront → ALB → 2 EC2) y workflows `infra-up` / `infra-down`; guía en [`infra/README.md`](infra/README.md).
 - Seguridad (02-03): errores con `code` (`docs/errores.md`), JWT + refresh rotativo, sesión obligatoria por defecto, rate limit en `/auth/*`, correo por SES.
 - Datos: MongoDB (`MongoDB.Driver` 3.12.0); `/health/ready` hace `ping` a la base (SCRUM-66).
 - `critic-guardrails` PASS · `check_endpoints` OK (3 rutas) · Semgrep 0 hallazgos · actionlint sin hallazgos.

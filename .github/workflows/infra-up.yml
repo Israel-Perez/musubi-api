@@ -1,0 +1,167 @@
+name: infra-up
+
+# 02-05 / lineamiento 15: un paso automatizado crea la infraestructura y despliega la API.
+# Imagen versionada (docs/versionado.md) -> scripts de la base -> Terraform -> prueba de humo -> tags.
+# Se lanza a mano (Actions -> infra-up -> Run workflow) desde main; el entorno "produccion" solo acepta main.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # crear los tags api-vX.Y.Z / infra-vX.Y.Z
+  id-token: write # OIDC hacia AWS (sin llaves guardadas)
+
+concurrency:
+  group: infra
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.16.6
+  MONGO_IMAGE: mongo:8.0.34
+  SSM_PREFIX: /musubi/prod
+  DATABASE_NAME: musubi
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: produccion
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Version (lineamiento 11)
+        id: version
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Musubi.Api/Musubi.Api.csproj)
+          tag="api-v$version"
+          infra="infra-v$(tr -d '[:space:]' < infra/VERSION)"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            if [ "$(git rev-list -n 1 "$tag")" != "$GITHUB_SHA" ]; then
+              echo "::error::$tag ya existe en otro commit. Sube <Version> en Musubi.Api.csproj y agrega la fila en docs/versionado.md."
+              exit 1
+            fi
+          fi
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "infra_tag=$infra"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Imagen musubi-api:${{ steps.version.outputs.version }}
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/musubi-api:${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if aws ecr describe-images --repository-name musubi-api --image-ids "imageTag=$VERSION" >/dev/null 2>&1; then
+            # Tags inmutables: si ya existe, debe ser de este mismo commit.
+            docker pull -q "$IMAGE"
+            revision=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE")
+            if [ "$revision" != "$GITHUB_SHA" ]; then
+              echo "::error::La imagen $VERSION ya existe con otro codigo ($revision). Sube <Version>."
+              exit 1
+            fi
+            echo "Imagen ya publicada para este commit"
+          else
+            docker build --pull \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "org.opencontainers.image.version=$VERSION" \
+              -t "$IMAGE" .
+            docker push "$IMAGE"
+          fi
+
+      - name: Esquema de la base (db/*.js, idempotentes)
+        run: |
+          conn=$(aws ssm get-parameter --name "$SSM_PREFIX/ConnectionStrings/Mongo" --with-decryption --query Parameter.Value --output text)
+          password=$(printf '%s' "$conn" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#')
+          echo "::add-mask::$password"
+          echo "::add-mask::$conn"
+          base="${conn%%\?*}"
+          query=""
+          case "$conn" in *\?*) query="?${conn#*\?}" ;; esac
+          uri="${base%/}/$DATABASE_NAME$query"
+          echo "::add-mask::$uri"
+          for script in $(find db -maxdepth 1 -name '*.js' | sort); do
+            echo "Aplicando $script"
+            docker run --rm -v "$PWD/db:/db:ro" "$MONGO_IMAGE" mongosh "$uri" --quiet --file "/db/$(basename "$script")"
+          done
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform apply
+        id: terraform
+        working-directory: infra/stack
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          terraform init -input=false \
+            -backend-config="bucket=musubi-tfstate-$account" \
+            -backend-config="key=stack/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="use_lockfile=true"
+          terraform apply -input=false -auto-approve -var "image_tag=$VERSION"
+          {
+            echo "api_url=$(terraform output -raw api_url)"
+            echo "asg=$(terraform output -raw autoscaling_group)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Esperar el reemplazo de instancias
+        env:
+          ASG: ${{ steps.terraform.outputs.asg }}
+        run: |
+          for _ in $(seq 1 60); do
+            status=$(aws autoscaling describe-instance-refreshes --auto-scaling-group-name "$ASG" --max-records 1 \
+              --query 'InstanceRefreshes[0].Status' --output text)
+            echo "Instance refresh: $status"
+            case "$status" in
+              None|Successful) exit 0 ;;
+              Failed|Cancelled|RollbackSuccessful|RollbackFailed) exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::El reemplazo de instancias no termino en 20 minutos"
+          exit 1
+
+      - name: Prueba de humo
+        env:
+          API_URL: ${{ steps.terraform.outputs.api_url }}
+        run: |
+          for _ in $(seq 1 60); do
+            ready=$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/health/ready" || true)
+            ping=$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/api/v1/ping" || true)
+            echo "health/ready=$ready ping=$ping"
+            if [ "$ready" = "200" ] && [ "$ping" = "200" ]; then
+              echo "### API desplegada: $API_URL" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::La API no respondio sana en 20 minutos"
+          exit 1
+
+      - name: Tags de version
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          INFRA_TAG: ${{ steps.version.outputs.infra_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for t in "$TAG" "$INFRA_TAG"; do
+            if ! git rev-parse -q --verify "refs/tags/$t" >/dev/null; then
+              git tag -a "$t" -m "Despliegue $t"
+              git push origin "$t"
+            fi
+          done

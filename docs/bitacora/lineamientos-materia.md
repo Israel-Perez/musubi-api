@@ -42,22 +42,22 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-10 | Logout en back y móvil | Revocación de la familia del refresh token (`RefreshTokenService.RevokeAsync`, 02-03) y borrado del almacenamiento seguro en la app | HU-02 | 🟡 |
 | L-11 | Matriz de versionamiento antes del desarrollo, aplicada en cada despliegue | `docs/versionado.md` (sección compartida) + `VersioningTests` / `versioning_test.dart` | SCRUM-66 | ✅ (aplicación automática: 02-05 · app:02-02) |
 | L-12 | MCP | MCP de Atlassian (Jira y Confluence) | — | ✅ |
-| L-13a | Servicios en la nube; BD externa permitida | AWS (créditos del plan gratuito) + MongoDB Atlas M0 | 02-05 | ⏳ |
-| L-13b | Load balancer | Application Load Balancer | 02-05 | ⏳ |
-| L-13c | IaC con Terraform (crear y eliminar) | `infra/` con Terraform | 02-05 | ⏳ |
-| L-13d | Salida con SSL/HTTPS | HSTS y HttpsRedirection en el código (01-02); certificado en CloudFront/ALB | 02-05 | 🟡 |
+| L-13a | Servicios en la nube; BD externa permitida | AWS (créditos del plan gratuito) + MongoDB Atlas M0 (`infra/`, parámetros en SSM) | 02-05 | 🟡 |
+| L-13b | Load balancer | Application Load Balancer (`infra/stack/compute.tf`) | 02-05 | 🟡 |
+| L-13c | IaC con Terraform (crear y eliminar) | `infra/bootstrap` + `infra/stack` | 02-05 | 🟡 |
+| L-13d | Salida con SSL/HTTPS | CloudFront solo HTTPS (certificado `*.cloudfront.net`, HSTS); sin dominio, CloudFront → ALB va en HTTP dentro de AWS | 02-05 | 🟡 |
 | L-14 | Base de datos NoSQL | MongoDB: driver, readiness y compose local (SCRUM-66); modelo e índices en 02-01 | 02-01 | 🟡 |
-| L-15a | Al menos 2 instancias | Auto Scaling Group con 2 EC2 detrás del ALB | 02-05 | ⏳ |
-| L-15b | AWS/Azure/GCP con costo cero | AWS (créditos de 100 USD, vencen el 20-Abr-2027) + Atlas M0 gratis; costo estimado antes de crear | 02-05 | ⏳ |
+| L-15a | Al menos 2 instancias | Auto Scaling Group con 2 EC2 en 2 zonas (validación en Terraform: mínimo 2) | 02-05 | 🟡 |
+| L-15b | AWS/Azure/GCP con costo cero | AWS (créditos de 100 USD, vencen el 20-Abr-2027) + Atlas M0 gratis; ~50 USD/mes encendido (`infra/README.md`) y alertas sin créditos | 02-05 | 🟡 |
 | L-15c | Todas las funciones de la API en la nube | Monolito modular desplegado completo en AWS | 02-05 | ⏳ |
 | L-15d | Endpoints eficientes | Índices (02-01), paginación y compresión (02-04) | 02-04 | ⏳ |
 | L-15e | API o microservicios | Monolito modular (constitución §7) | 00-01 | ✅ |
-| L-15f | Imágenes en el CDN | S3 + CloudFront | 02-05 · HU-06 | ⏳ |
+| L-15f | Imágenes en el CDN | S3 privado + CloudFront (`/media/*`, OAC); la subida llega con HU-06 | 02-05 · HU-06 | 🟡 |
 | L-15g | Observabilidad en la nube | CloudWatch Logs (eventos y errores) | 02-06 | ⏳ |
 | L-15h | JWT | Access token HS256 de 15 min + refresh rotativo; sesión obligatoria por defecto (02-03; `SecurityTest/Auth/JwtTests.cs`) | HU-02 | 🟡 |
 | L-15i | Caching, rate limit, middleware, paginación, índices, serializadores, compresión | Middleware y JSON camelCase listos (01-02); el resto en su spec | 02-02 · 02-04 | 🟡 |
 | L-15j | Patrones de integración | Adaptadores detrás de interfaces (constitución §7) | Por HU | 🟡 |
-| L-15k | Paso automatizado para crear/desplegar y para eliminar | Workflows de GitHub `infra-up` / `infra-down` con Terraform | 02-05 | ⏳ |
+| L-15k | Paso automatizado para crear/desplegar y para eliminar | Workflows `infra-up` / `infra-down` (OIDC, entorno `produccion`) | 02-05 | 🟡 |
 | L-16a | Despliegue de GitHub a Google Play | Workflow con la API de Google Play | app:02-02 | ⏳ |
 | L-16b | Moderación de texto, imágenes y video antes de guardar | Amazon Rekognition (imágenes) y Comprehend (texto) en el back antes de persistir | 02-07 · HU-06/13/20 | ⏳ |
 | L-16c | Push en los procesos principales | FCM | HU-31 | ⏳ |
