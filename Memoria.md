@@ -28,6 +28,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 **Errores a evitar**
 - En una plantilla de Terraform (`.tftpl`), un `${` en un comentario también se interpreta: escribir `$${` o no usarlo.
 - El clasificador de permisos bloquea `terraform apply` desde el agente: lo autoriza el administrador.
+- **GitHub usa sujetos OIDC inmutables** en este repo (`repo:Owner@id/repo@id:...`). Un rol que confía en `repo:Owner/repo:...` falla con "Not authorized to perform sts:AssumeRoleWithWebIdentity". Ver el formato real con `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`.
 - Probar las actions por SHA del commit, no del tag anotado (`git ls-remote ... refs/tags/vX^{}`).
 
 ## T8 — HU-02 + HU-56 Sesión y recuperación de contraseña (21-Oct-2026, SCRUM-20/78)

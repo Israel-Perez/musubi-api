@@ -22,7 +22,7 @@ Lineamientos 13 y 15 ([checklist](../../../docs/bitacora/lineamientos-materia.md
 
 ## Diseño
 - `infra/bootstrap/` (se aplica una vez): ECR, proveedor OIDC de GitHub, rol `musubi-github-deploy` y presupuesto. Detalle en [`infra/README.md`](../../../infra/README.md).
-  - El rol confía solo en `repo:Israel-Perez/musubi-api:environment:produccion`.
+  - El rol confía solo en el sujeto inmutable `repo:Israel-Perez@<id>/musubi-api@<id>:environment:produccion`, el formato que usa GitHub en este repo.
   - El entorno `produccion` de GitHub solo acepta `main`.
 - `scripts/bootstrap-state.ps1`: bucket del estado (`musubi-tfstate-<cuenta>`, versionado y cifrado; bloqueo nativo de S3 con `use_lockfile`).
 - `infra/stack/`: red, ALB, ASG, CloudFront, S3 de imágenes, IAM de las instancias y CloudWatch. `user-data.sh.tftpl` instala Docker, lee los parámetros y arranca la imagen.
