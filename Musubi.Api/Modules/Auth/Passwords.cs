@@ -60,6 +60,17 @@ internal sealed class PasswordHashing
         return hasher.HashPassword(Owner, password);
     }
 
+    // Hash de una contrasena aleatoria: se verifica contra el cuando el correo no existe, para igualar el tiempo.
+    private readonly Lazy<string> decoy = new(() => new PasswordHasher<UserDocument>(Options.Create(new PasswordHasherOptions
+    {
+        CompatibilityMode = PasswordHasherCompatibilityMode.IdentityV3,
+        IterationCount = Iterations,
+    })).HashPassword(Owner, Guid.NewGuid().ToString("N")));
+
+    /// <summary>Gasta el mismo tiempo que una verificacion real (login con correo inexistente, OWASP API2).</summary>
+    /// <param name="password">Contrasena presentada.</param>
+    public void VerifyAgainstDecoy(string? password) => _ = Verify(decoy.Value, password ?? string.Empty);
+
     /// <summary>Verifica una contrasena contra su hash (comparacion en tiempo constante).</summary>
     /// <param name="hash">Hash guardado.</param>
     /// <param name="password">Contrasena en claro.</param>

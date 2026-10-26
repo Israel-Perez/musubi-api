@@ -112,6 +112,36 @@ internal sealed class InMemoryUserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public Task<bool> UpdatePasswordHashAsync(string id, string passwordHash, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            if (!users.TryGetValue(id, out var user))
+            {
+                return Task.FromResult(false);
+            }
+
+            users[id] = new UserDocument
+            {
+                Id = user.Id,
+                CommunityId = user.CommunityId,
+                Email = user.Email,
+                EmailNormalized = user.EmailNormalized,
+                PasswordHash = passwordHash,
+                FullName = user.FullName,
+                Status = user.Status,
+                EmailVerifiedAt = user.EmailVerifiedAt,
+                Consents = user.Consents,
+                Roles = user.Roles,
+                SchemaVersion = user.SchemaVersion,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = updatedAt,
+            };
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<bool> DeleteAsync(string id, CancellationToken cancellationToken)
     {
         lock (gate)

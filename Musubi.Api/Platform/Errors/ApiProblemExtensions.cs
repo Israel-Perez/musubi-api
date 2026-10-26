@@ -20,4 +20,16 @@ internal static class ApiProblemExtensions
         problem.Extensions[ApiErrors.CodeExtension] = error.Code;
         return new ObjectResult(problem) { StatusCode = error.Status, ContentTypes = { "application/problem+json" } };
     }
+
+    /// <summary>El valor con el estado de exito, o el problem+json del error.</summary>
+    /// <typeparam name="T">Tipo del valor.</typeparam>
+    /// <param name="controller">El controller.</param>
+    /// <param name="result">Resultado del servicio.</param>
+    /// <param name="successStatus">Estado HTTP de exito.</param>
+    /// <returns>El resultado HTTP.</returns>
+    public static ObjectResult Respond<T>(this ControllerBase controller, Result<T> result, int successStatus)
+    {
+        ArgumentNullException.ThrowIfNull(controller);
+        return result.Error is { } error ? controller.Problem(error) : controller.StatusCode(successStatus, result.Value);
+    }
 }

@@ -50,8 +50,8 @@ Cada error es `application/problem+json` (RFC 9457):
 | `auth.account_suspended` | 403 | Tu cuenta está suspendida. Escríbenos si crees que es un error. | HU-40 |
 | `auth.email_not_institutional` | 422 | Usa el correo que te dio tu universidad, por ejemplo tu.nombre@uttt.edu.mx. | HU-01 (maqueta `Registro-error`) |
 | `auth.email_already_registered` | 409 | Ese correo ya tiene una cuenta. Inicia sesión. | HU-01 |
-| `auth.weak_password` | 400 | La contraseña debe tener al menos 8 caracteres, una letra y un número. | HU-01 (política de la maqueta) |
+| `auth.weak_password` | 400 | La contraseña debe tener al menos 8 caracteres, una letra y un número. | HU-01 / HU-56 (política de la maqueta) |
 | `auth.consent_required` | 400 | Acepta los Términos y condiciones y el Aviso de privacidad para continuar. | HU-01 / HU-47 |
-| `auth.invalid_code` | 400 | El código no es válido o ya venció. Pide uno nuevo. | HU-03 |
-| `auth.code_attempts_exceeded` | 429 | Demasiados intentos con este código. Pide uno nuevo. | HU-03 |
+| `auth.invalid_code` | 400 | El código no es válido o ya venció. Pide uno nuevo. | HU-03 / HU-56 |
+| `auth.code_attempts_exceeded` | 429 | Demasiados intentos con este código. Pide uno nuevo. | HU-03 / HU-56 |
 | `auth.resend_too_soon` | 429 | Espera un momento antes de pedir otro código. | HU-03 |

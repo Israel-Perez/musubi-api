@@ -9,7 +9,7 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps: cada cambio nac
 - Backlog: Jira, proyecto `SCRUM` · Documentación funcional: Confluence
 - Lineamientos de la materia (criterios de evaluación, 02-Dic-2026): [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) · Versiones: [`docs/versionado.md`](docs/versionado.md)
 
-## Estado (20-Oct-2026)
+## Estado (21-Oct-2026)
 
 Plantilla inicial lista. Fases 00 (constitución) y 01 (fundación) implementadas en "🚧 Borrador con evidencia", en espera de designar revisores:
 
