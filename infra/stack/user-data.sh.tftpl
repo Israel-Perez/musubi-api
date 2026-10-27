@@ -27,6 +27,9 @@ docker run -d --name musubi-api --restart always -p 8080:8080 \
   -e ASPNETCORE_ENVIRONMENT=Production \
   -e Proxy__TrustCloudFrontHeaders=true \
   -e Email__Region="${region}" \
+  -e Media__Provider=S3 \
+  -e Media__Bucket="${media_bucket}" \
+  -e Media__Region="${region}" \
   --log-driver awslogs \
   --log-opt awslogs-region="${region}" \
   --log-opt awslogs-group="${log_group}" \

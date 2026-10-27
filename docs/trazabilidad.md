@@ -17,7 +17,7 @@ Reglas de mantenimiento (skill `traceability`; las verifica el sub-agente `trace
 | HU-03 | SCRUM-21 | S2 | M-01 | Validar pertenencia con correo institucional | `specs/m01-auth/HU-03-validar-correo/` | [musubi-app:HU-03](https://github.com/Israel-Perez/musubi-app/tree/main/specs/m01-auth/HU-03-validar-correo) | `IntegrationTest/Auth/RegistrationFlowTests.cs`, `UnitTest/Auth/RegistrationTests.cs` | Borrador con evidencia |
 | HU-04 | SCRUM-22 | S1 | M-02 | Editar mi perfil | — | — | — | Por iniciar |
 | HU-05 | SCRUM-34 | S3 | M-02 | Consultar perfil y reputación de otro usuario | — | — | — | Por iniciar |
-| HU-06 | SCRUM-23 | S2 | M-03 | Publicar un producto | — | — | — | Por iniciar |
+| HU-06 | SCRUM-23 | S2 | M-03 | Publicar un producto | `specs/m03-listings/HU-06-publicar-producto/` | [musubi-app:HU-06](https://github.com/Israel-Perez/musubi-app/tree/main/specs/m03-listings/HU-06-publicar-producto) | `IntegrationTest/Listings/ListingFlowTests.cs`, `UnitTest/Listings/PhotoProcessorTests.cs`, `TestShared/Listings/`, `SecurityTest/Auth/ListingsAuthTests.cs`, `ContractTest/ListingsContractTests.cs` | Borrador con evidencia |
 | HU-07 | SCRUM-24 | S2 | M-03 | Editar o eliminar mis publicaciones | — | — | — | Por iniciar |
 | HU-08 | SCRUM-25 | S2 | M-03 | Consultar el estado de mis productos | — | — | — | Por iniciar |
 | HU-09 | SCRUM-26 | S2 | M-04 | Buscar productos por palabra clave | — | — | — | Por iniciar |

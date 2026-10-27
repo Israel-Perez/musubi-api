@@ -79,6 +79,15 @@ public abstract class AuthRepositoryContract
     }
 
     [Fact]
+    public async Task Communities_FindBySlug_ReturnsSeededCampus()
+    {
+        var bySlug = await Communities.FindBySlugAsync("uttt", Ct);
+
+        Assert.Equal("UTTT", bySlug?.ShortName);
+        Assert.Null(await Communities.FindBySlugAsync("otra", Ct));
+    }
+
+    [Fact]
     public async Task Communities_FindByPersonalDomain_ReturnsNull()
     {
         Assert.Null(await Communities.FindByEmailDomainAsync("gmail.com", Ct));

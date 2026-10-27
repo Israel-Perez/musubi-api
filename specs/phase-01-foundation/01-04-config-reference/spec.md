@@ -30,6 +30,10 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `Jwt:SigningKey` | — (Development: llave efímera) | [02-03 / Implementado] | **Secreto**: base64 de al menos 32 bytes; user-secrets en local, `Jwt__SigningKey` en SSM. Sin ella la API no arranca fuera de Development |
 | `Email:Provider` | `Ses` (base) / `Log` (Development) | [02-03 / Implementado] | `Log` solo en Development (escribe el correo en el log) |
 | `Email:From` / `Email:Region` | `""` / `us-east-1` | [02-03 / Implementado] | Remitente verificado en SES; obligatorio fuera de Development |
+| `Media:Provider` | `S3` (base) / `InMemory` (Development) | [HU-06 / Implementado] | `InMemory` solo en Development (la API sirve `/media/*`); fuera, S3 detrás de CloudFront |
+| `Media:Bucket` / `Media:Region` | `""` / `us-east-1` | [HU-06 / Implementado] | Bucket privado de imágenes (salida `media_bucket` de Terraform; llega como `Media__Bucket` en `user-data`); obligatorio con S3 |
+| `Catalog:DefaultCampus` | `uttt` | [HU-06 / Implementado] | Campus de la vitrina para visitantes que no piden otro (HU-48) |
+| `RateLimiting:Uploads:PermitLimit` / `RateLimiting:Uploads:WindowSeconds` | `30` / `60` | [HU-06 / Implementado] | Fotos por usuario por ventana (`POST /api/v1/products/photos`) |
 | `RateLimiting:Auth:PermitLimit` / `RateLimiting:Auth:WindowSeconds` | `10` / `60` | [02-03 / Implementado] | Intentos por IP en `/auth/*` |
 | `Legal:TermsVersion` / `Legal:PrivacyVersion` | `2026-10` / `2026-10` | [HU-47 / Implementado] | Versiones vigentes que se guardan en `users.consents` al registrarse |
 | `Redis:*` | — | [02-02 / Pendiente] | Cadena de Redis/Valkey (secreto si lleva clave) |
@@ -64,4 +68,4 @@ Claves de la tabla. Las variables de entorno siguen la convención de .NET (`Con
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 21-Oct-2026
-- **Detalle:** Tabla inicial con 8 claves implementadas y 4 familias pendientes con su HU dueña. 20-Oct-2026 (SCRUM-66): `ConnectionStrings:Default` (PostgreSQL) → `ConnectionStrings:Mongo` + `Mongo:DatabaseName`; se agrega `Redis:*` como pendiente de 02-02. 21-Oct-2026 (SCRUM-77): `Jwt:*`, `Email:*` y `RateLimiting:Auth:*` implementados (02-03); `AppSettingsTests` impide versionar `SigningKey`.
+- **Detalle:** Tabla inicial con 8 claves implementadas y 4 familias pendientes con su HU dueña. 20-Oct-2026 (SCRUM-66): `ConnectionStrings:Default` (PostgreSQL) → `ConnectionStrings:Mongo` + `Mongo:DatabaseName`; se agrega `Redis:*` como pendiente de 02-02. 21-Oct-2026 (SCRUM-77): `Jwt:*`, `Email:*` y `RateLimiting:Auth:*` implementados (02-03); `AppSettingsTests` impide versionar `SigningKey`. 27-Oct-2026 (SCRUM-23): `Media:*`, `Catalog:DefaultCampus` y `RateLimiting:Uploads:*` (HU-06).

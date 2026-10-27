@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Listings;
 using Musubi.Api.Platform.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddMusubiLocalConfiguration();
 builder.Services.AddMusubiPlatform(builder.Configuration);
 builder.Services.AddAuthModule();
+builder.Services.AddListingsModule();
 
 var app = builder.Build();
 

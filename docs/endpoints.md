@@ -23,8 +23,9 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /health | Anónimo (health check, fuera de MVC) | 01-03 | — | `Healthy` (texto) | 200/503 | Balanceador / orquestador (liveness) |
 | GET | /health/ready | Anónimo (health check, fuera de MVC) | 01-03 | — | `Healthy` / `Unhealthy` (texto); incluye el check `database` | 200/503 | Balanceador / orquestador (readiness) |
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
+| GET | /media/{**path} | `[AllowAnonymous]` | HU-06 | — | La imagen (`image/webp`) guardada en memoria | 200 / 404 `resource.not_found` | Solo Development (`Media:Provider=InMemory`). En la nube CloudFront sirve `/media/*` desde S3 y la API responde 404 |
 
-Total: 12 filas (3 de plataforma, 9 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+Total: 19 filas (4 de plataforma, 15 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
 
 ## M-01 · Autenticación y usuarios
 
@@ -41,3 +42,16 @@ Públicos (aún no hay sesión) y con rate limit `auth` por IP (429 + `Retry-Aft
 | POST | /api/v1/auth/logout | `[AllowAnonymous]` + rate limit | HU-02 | `LogoutRequest { refreshToken }` | — (idempotente: un token desconocido también responde 204) | 204 / 400 `validation.failed` / 429 | `musubi-app` HU-02 (Perfil → "Cerrar sesión") |
 | POST | /api/v1/auth/password/forgot | `[AllowAnonymous]` + rate limit | HU-56 | `RecoveryRequest { email }` | `ResendCodeResponse { resendAvailableAt }` (igual exista o no la cuenta; solo se envía a cuentas activas) | 202 / 400 `validation.failed` / 429 | `musubi-app` HU-56 ("¿Olvidaste tu contraseña?") |
 | POST | /api/v1/auth/password/reset | `[AllowAnonymous]` + rate limit | HU-56 | `RecoveryResetRequest { email, code, newPassword }` | — (cierra todas las sesiones abiertas de la cuenta) | 204 / 400 `auth.invalid_code` · `auth.weak_password` · `validation.failed` / 429 `auth.code_attempts_exceeded` · `rate_limit.exceeded` | `musubi-app` HU-56 (código + contraseña nueva) |
+
+## M-03 · Publicaciones
+
+Con sesión salvo la vitrina y las categorías, que son públicas (HU-48). Las fotos se suben primero y la publicación lleva sus llaves; solo se aceptan llaves que subió el mismo usuario (OWASP API1). Las rutas de imagen (`/media/...`) son relativas a la URL base de la API. Errores del catálogo [`docs/errores.md`](errores.md).
+
+| Método | Ruta | Auth | Spec | Request | Response | Códigos | Consumidor |
+|---|---|---|---|---|---|---|---|
+| GET | /api/v1/categories | `[AllowAnonymous]` | HU-06 | `?campus=` (visitante; por defecto `uttt`) | `CategoryResponse[] { slug, name }` (del campus del token si hay sesión) | 200 / 404 `listings.unknown_campus` | `musubi-app` HU-06 (`Vender-3`) y "Filtrar" |
+| GET | /api/v1/products | `[AllowAnonymous]` | HU-48 fase 2 | `?campus=&category=&hideSoldOut=&cursor=&limit=` (1 a 50; 20 por defecto) | `ProductPage { items: ProductResponse[], nextCursor, total }`; de la más nueva a la más vieja; `seller` es `null` sin sesión (RNF-05) | 200 / 400 `listings.invalid_cursor` / 404 `listings.unknown_campus` | `musubi-app` HU-48 (`Inicio-visitante`, `Inicio`, "Filtrar") |
+| GET | /api/v1/products/mine | `[Authorize]` | HU-06 | — | `ProductPage` (las del usuario, también pausadas y agotadas; hasta 50) | 200 / 401 | `musubi-app` HU-06 ("Ver mis productos") |
+| GET | /api/v1/products/price-range | `[Authorize]` | HU-06 | `?category=` | `PriceRangeResponse { lowCents, highCents, count }` (percentiles 25 y 75 de las activas de la categoría) | 200 / 204 (menos de 3 publicaciones) / 401 | `musubi-app` HU-06 (`Vender-3`: "Productos parecidos se venden entre…") |
+| POST | /api/v1/products | `[Authorize]` | HU-06, HU-50 | `CreateProductRequest { title, description, category, priceCents, condition, conditionDetail, stock, photos[] }` | `ProductResponse { id, title, description, category, priceCents, condition, conditionDetail, stock, status, photos[], seller { name }, publishedAt }` | 201 / 400 `listings.invalid_photos` · `listings.invalid_title` · `listings.invalid_description` · `listings.invalid_price` · `listings.invalid_category` · `listings.invalid_condition` · `listings.invalid_stock` · `validation.failed` / 401 / 403 `auth.forbidden` | `musubi-app` HU-06 (`Vender-4` → `Vender-listo`) |
+| POST | /api/v1/products/photos | `[Authorize]` + rate limit `uploads` (30/min por usuario) | HU-06 | `multipart/form-data` con `photo` (JPG, PNG o WebP; hasta 10 MB) | `PhotoResponse { key, path }`; la foto se guarda en WebP de 1600 px como máximo y sin metadatos | 201 / 401 / 413 `listings.photo_too_large` · `request.too_large` / 415 `listings.photo_unsupported` / 422 `listings.photo_too_small` / 429 | `musubi-app` HU-06 (`Vender-1`: "Tomar foto" y "Galería") |

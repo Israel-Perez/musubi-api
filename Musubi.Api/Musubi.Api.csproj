@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Musubi.Api</RootNamespace>
     <!-- Matriz de versionamiento: docs/versionado.md (unica fuente de la version de la API). -->
-    <Version>0.2.0-alpha.1</Version>
+    <Version>0.3.0-alpha.1</Version>
     <UserSecretsId>musubi-api-dev</UserSecretsId>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- CA1515: MVC solo descubre controllers publicos y System.Text.Json serializa los DTOs publicos. -->
@@ -15,11 +15,15 @@
     <PackageReference Include="Asp.Versioning.Mvc" Version="10.2.1" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
     <PackageReference Include="Asp.Versioning.OpenApi" Version="10.2.3" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.104.4" />
     <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.106.4" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
     <PackageReference Include="MongoDB.Driver" Version="3.12.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.18.0" />
+    <!-- Fotos de HU-06: decodificar, enderezar, reducir y volver a codificar a WebP sin metadatos (MIT; excepcion 00-01). -->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -29,6 +29,7 @@ public abstract class SecurityApiFactory(string environment) : WebApplicationFac
             ["Cors:AllowedOrigins:0"] = AllowedOrigin,
             ["Jwt:SigningKey"] = SigningKey,
             ["Email:From"] = "Musubi <no-reply@musubi.example>",
+            ["Media:Bucket"] = "musubi-media-pruebas",
             ["RateLimiting:Auth:PermitLimit"] = AuthPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
         }));
         builder.ConfigureTestServices(services =>
