@@ -4,9 +4,21 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (27-Oct-2026)
 
-- **HU-06 Publicar un producto + vitrina pública** (rama `feature/SCRUM-23-publicar-producto`): fotos en S3 (SkiaSharp las deja en WebP sin metadatos), `categories` y `products` (`db/002-publicaciones.js`, esquema 2), 6 endpoints nuevos. Versión `0.3.0-alpha.1`, infra `0.2.0`.
-- Build Release 0/0 · Unit 104/104 · Integration 53/53 · Security 49/49 · Contract 6/6 · endpoints OK (19) · critic PASS.
-- Siguiente: fusionar, aplicar `002` en Atlas y correr `infra-up` (con autorización del usuario); después la app (HU-06 front).
+- **HU-06 fusionada y desplegada** (`api-v0.3.0-alpha.1`, `infra-v0.2.0`, esquema 2 en Atlas); verificada en la nube (health, categorías, vitrina y 401 al subir sin sesión).
+- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`): spec, plan y tareas en `specs/m02-profile/HU-04-editar-perfil/` (🚧 Borrador). Siguiente: T1 (datos y `db/003-perfiles.js`).
+
+## T11 — HU-04 Editar mi perfil: spec (27-Oct-2026, SCRUM-22)
+
+**Qué se hizo**
+- Se concilió Jira con la maqueta: `Perfil`, `Ajustes` ("Datos personales", "Correo institucional", "Cambiar contraseña") y `Privacidad` ("Quién te ve"). Los "campos visibles [POR DEFINIR]" de Jira quedaron resueltos por la maqueta.
+- Spec con 8 rutas nuevas (7 de M-02 y `POST /auth/password/change`), las colecciones `profiles` y `careers` y `communities.academicTerm`. El diseño de `profiles` y `careers` ya está en `docs/modelo-datos.md` (📐).
+
+**Decisiones (con su porqué)**
+- **Cuatrimestre configurable por campus** (usuario): la UTTT cursa 11 (TSU del 1 al 6, ingeniería y licenciatura del 7 al 11) y otra universidad podría usar semestres (RNF-21).
+- **Carrera de una lista del campus** (usuario): datos uniformes, y el periodo se valida contra la carrera. Semilla propuesta desde el sitio oficial de la UTTT (38 carreras), **a validar con el equipo**.
+- **Alcance completo de la maqueta más la foto de perfil** (usuario). La foto reutiliza `PhotoProcessor` (cuadrada, 512 px, sin metadatos) y borra la anterior de S3.
+- **La visibilidad se aplica en la API**, no solo en la app (OWASP API3). El perfil público solo existe dentro del campus y responde 404 fuera de él.
+- **`auth.wrong_password` responde 400 y no 401**, porque la app trata un 401 como sesión vencida.
 
 ## T14 — Specs en borrador de todo el backlog (29-Oct-2026, SCRUM-86)
 
