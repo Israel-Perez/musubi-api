@@ -19,6 +19,10 @@ internal sealed class MongoCommunityRepository(IMongoDatabase database) : ICommu
     /// <inheritdoc />
     public async Task<CommunityDocument?> FindByIdAsync(string id, CancellationToken cancellationToken) =>
         await communities.Find(c => c.Id == id).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<CommunityDocument?> FindBySlugAsync(string slug, CancellationToken cancellationToken) =>
+        await communities.Find(c => c.Slug == slug).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 }
 
 /// <summary>Usuarios en MongoDB (indice unico <c>ux_emailNormalized</c>).</summary>

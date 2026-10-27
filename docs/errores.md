@@ -55,3 +55,20 @@ Cada error es `application/problem+json` (RFC 9457):
 | `auth.invalid_code` | 400 | El código no es válido o ya venció. Pide uno nuevo. | HU-03 / HU-56 |
 | `auth.code_attempts_exceeded` | 429 | Demasiados intentos con este código. Pide uno nuevo. | HU-03 / HU-56 |
 | `auth.resend_too_soon` | 429 | Espera un momento antes de pedir otro código. | HU-03 |
+
+## M-03 · Publicaciones (`Modules/Listings/ListingsErrors.cs`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `listings.invalid_photos` | 400 | Agrega de 1 a 8 fotos tuyas para continuar. | HU-06 (RN-03; solo llaves subidas por quien publica, OWASP API1) |
+| `listings.invalid_title` | 400 | Escribe el nombre del producto. | HU-06 (3 a 80 caracteres) |
+| `listings.invalid_description` | 400 | La descripción puede tener hasta 500 caracteres. | HU-06 |
+| `listings.invalid_price` | 400 | Ponle un precio a tu producto. | HU-06 (RN-04: mayor que cero; hasta $999,999) |
+| `listings.invalid_category` | 400 | Elige una categoría. | HU-06 |
+| `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle) |
+| `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
+| `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 (cursor que no emitió la API) |
+| `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
+| `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
+| `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
+| `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |

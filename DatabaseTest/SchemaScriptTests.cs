@@ -29,6 +29,8 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         var meta = await db.GetCollection<BsonDocument>(MongoSchema.Meta).Find(new BsonDocument("_id", "schema")).SingleAsync(Ct);
         Assert.Equal(MongoSchema.ExpectedVersion, meta["version"].AsInt32);
         Assert.Single(meta["applied"].AsBsonArray, v => v == "001-identidad");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "002-publicaciones");
+        Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
         Assert.Equal(1, await db.GetCollection<BsonDocument>(MongoSchema.Communities).CountDocumentsAsync(new BsonDocument("slug", "uttt"), cancellationToken: Ct));
     }
@@ -46,6 +48,30 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(codes, i => i["name"] == "ttl_expiresAt" && i["expireAfterSeconds"].ToInt32() == 0);
         Assert.Contains(tokens, i => i["name"] == "ux_tokenHash" && i.GetValue("unique", false).ToBoolean());
         Assert.Contains(tokens, i => i["name"] == "ttl_expiresAt");
+    }
+
+    [Fact]
+    public async Task Products_HaveTheShowcaseIndexes_AndRejectAFreeProduct()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_productos");
+        var indexes = await IndexesAsync(db, MongoSchema.Products);
+        var products = db.GetCollection<BsonDocument>(MongoSchema.Products);
+        var seller = ObjectId.GenerateNewId();
+        var free = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "sellerId", seller },
+            { "seller", new BsonDocument("name", "Ana R.") }, { "title", "Calculadora" }, { "description", string.Empty },
+            { "categorySlug", "calculadoras" }, { "priceCents", 0L }, { "condition", "new" }, { "stock", 1 },
+            { "status", "active" }, { "photos", new BsonArray { $"media/products/{seller}/{Guid.NewGuid():N}.webp" } },
+            { "schemaVersion", 1 }, { "createdAt", DateTime.UtcNow }, { "updatedAt", DateTime.UtcNow },
+        };
+
+        var ex = await Assert.ThrowsAsync<MongoWriteException>(() => products.InsertOneAsync(free, cancellationToken: Ct));
+
+        Assert.Equal(121, ex.WriteError.Code);
+        Assert.Contains(indexes, i => i["name"] == "ix_community_status_id");
+        Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_id");
+        Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
     }
 
     [Fact]

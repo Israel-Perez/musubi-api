@@ -126,12 +126,14 @@ resource "aws_launch_template" "api" {
     }
   }
 
+  # media_bucket: fotos de HU-06; el rol de la instancia ya puede escribir en ese bucket (iam.tf).
   user_data = base64encode(templatefile("${path.module}/user-data.sh.tftpl", {
-    region     = var.region
-    registry   = split("/", data.aws_ecr_repository.api.repository_url)[0]
-    image      = local.image
-    ssm_prefix = var.ssm_prefix
-    log_group  = aws_cloudwatch_log_group.api.name
+    region       = var.region
+    registry     = split("/", data.aws_ecr_repository.api.repository_url)[0]
+    image        = local.image
+    ssm_prefix   = var.ssm_prefix
+    log_group    = aws_cloudwatch_log_group.api.name
+    media_bucket = aws_s3_bucket.media.bucket
   }))
 
   tag_specifications {

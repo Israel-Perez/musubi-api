@@ -2,11 +2,29 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (25-Oct-2026)
+## Estado actual (27-Oct-2026)
 
-- **02-05 Despliegue en AWS** (rama `feature/SCRUM-80-despliegue-aws`): Terraform (`infra/`), workflows `infra-up` / `infra-down`, middleware de CloudFront. Versión `0.2.0-alpha.1`.
-- Build Release 0/0 · Unit 91/91 · Integration 46/46 · Security 39/39 · Contract 5/5 · `terraform validate` OK · actionlint OK.
-- Siguiente: aplicar `infra/bootstrap` (autorización del administrador), fusionar y correr `infra-up`; después la URL de CloudFront va en `config/prod.json` de la app.
+- **HU-06 Publicar un producto + vitrina pública** (rama `feature/SCRUM-23-publicar-producto`): fotos en S3 (SkiaSharp las deja en WebP sin metadatos), `categories` y `products` (`db/002-publicaciones.js`, esquema 2), 6 endpoints nuevos. Versión `0.3.0-alpha.1`, infra `0.2.0`.
+- Build Release 0/0 · Unit 104/104 · Integration 53/53 · Security 49/49 · Contract 6/6 · endpoints OK (19) · critic PASS.
+- Siguiente: fusionar, aplicar `002` en Atlas y correr `infra-up` (con autorización del usuario); después la app (HU-06 front).
+
+## T10 — HU-06 Publicar un producto y vitrina pública (27-Oct-2026, SCRUM-23)
+
+**Qué se hizo**
+- `Platform/Media/`: `IMediaStorage` (S3 o en memoria), `PhotoProcessor` (SkiaSharp: endereza por EXIF, ≤ 1600 px, WebP sin metadatos) y `MediaController` (solo Development).
+- `Modules/Listings/`: publicar, vitrina pública con cursor y filtros, "mis productos", rango de precios y categorías. M-01 expone `IMemberDirectory`.
+- `db/002-publicaciones.js`; `user-data` recibe `Media__*`; filas en `endpoints`, `errores`, `modelo-datos`, `versionado` y `01-04`.
+
+**Decisiones (con su porqué)**
+- **Excepción al stack (aprobada por el usuario):** SkiaSharp (MIT) y AWSSDK.S3. Sin reprocesar, la ubicación GPS de la cámara llegaba a S3 y las fotos verticales salían giradas. Ver el `plan.md` de HU-06.
+- **Rutas de imagen relativas (`/media/...`):** CloudFront sirve la API y las imágenes en el mismo dominio, y en Development la misma ruta la sirve la API.
+- **"Populares" queda fuera** hasta HU-11 (vistas), por decisión del usuario.
+
+**Errores a evitar**
+- `scripts/check_endpoints.ps1` lee **una ruta por archivo**: un segundo controller en el mismo archivo no se detecta. Un controller por archivo.
+- `AuthApiFactory` emite el JWT con su reloj manual (21-oct), pero JwtBearer lo valida con la hora real: alinear el reloj antes de llamar endpoints con sesión.
+- En `.tftpl`, editar con Python una línea que termina en `\` puede comerse el salto: revisar el `git diff`.
+- `SKCodec.Create(SKData)` no tiene la sobrecarga con `out SKCodecResult`: usar la de `Stream`. `SKCanvas.DrawBitmap` está obsoleto (`DrawImage` con `SKSamplingOptions`).
 
 ## T9 — 02-05 Despliegue en AWS (25-Oct-2026, SCRUM-80)
 

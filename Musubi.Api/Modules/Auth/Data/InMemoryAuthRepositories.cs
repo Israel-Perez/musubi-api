@@ -39,6 +39,10 @@ internal sealed class InMemoryCommunityRepository : ICommunityRepository
     /// <inheritdoc />
     public Task<CommunityDocument?> FindByIdAsync(string id, CancellationToken cancellationToken) =>
         Task.FromResult(communities.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.Ordinal)));
+
+    /// <inheritdoc />
+    public Task<CommunityDocument?> FindBySlugAsync(string slug, CancellationToken cancellationToken) =>
+        Task.FromResult(communities.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.Ordinal)));
 }
 
 /// <summary>Usuarios en memoria (correo normalizado unico).</summary>

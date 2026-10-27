@@ -5,6 +5,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | Script | Qué crea | Versión del esquema |
 |---|---|---|
 | `001-identidad.js` | `communities` (+ UTTT), `users`, `verificationCodes`, `refreshTokens`, `_meta` | 1 |
+| `002-publicaciones.js` | `categories` (+ 6 de la UTTT), `products` | 2 |
 
 ## Aplicar
 

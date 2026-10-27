@@ -22,6 +22,12 @@ internal interface ICommunityRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La comunidad o <c>null</c>.</returns>
     Task<CommunityDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>Busca por identificador legible (<c>uttt</c>): la vitrina del visitante (HU-48).</summary>
+    /// <param name="slug">Identificador en minusculas.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La comunidad o <c>null</c>.</returns>
+    Task<CommunityDocument?> FindBySlugAsync(string slug, CancellationToken cancellationToken);
 }
 
 /// <summary>Usuarios (identidad y credenciales).</summary>
