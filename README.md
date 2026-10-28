@@ -87,6 +87,8 @@ Arquitectura: monolito modular en un proyecto (constitución §7). Los 14 módul
 
 ## Flujo SDD
 
+**¿Eres nuevo en el equipo?** Lee [`docs/guia-equipo.md`](docs/guia-equipo.md): accesos, herramientas, el flujo de una HU paso a paso con Claude Code u OpenCode, prompts listos para copiar y lo que choca al trabajar varias personas a la vez.
+
 1. Al iniciar el sprint de una HU: crear `specs/mNN-<modulo>/HU-NN-<slug>/{spec,plan,task}.md` (skill `spec-first-writing`).
 2. Rama `feature/SCRUM-NN-slug`.
 3. Esqueleto con el agente `slice-scaffolder` → implementación y pruebas (skill `vertical-slice`).

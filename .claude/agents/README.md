@@ -23,3 +23,7 @@ Portados de `.opencode/agents/` del repo de referencia a Claude Code:
 - Self-test (15-Oct-2026): 12 payloads → 3 `git` permitidos, 8 bloqueados y 1 herramienta que no es shell ignorada (ver Memoria.md).
 - Requisito: los hooks de un agente de proyecto solo se ejecutan **después de aceptar el diálogo de confianza del workspace** en Claude Code.
 - Usa `shell: powershell` y `powershell -ExecutionPolicy Bypass -File`, así que funciona con la política de ejecución por defecto de Windows.
+
+## OpenCode
+
+`.opencode/agents/` tiene los mismos tres agentes para OpenCode. Su cuerpo solo remite a `.claude/agents/<nombre>.md`, que sigue siendo la fuente única. En OpenCode no corren los hooks de Claude Code: la solo lectura de `security-reviewer` y `traceability-clerk` la imponen sus `permission` (`edit: deny` y bash solo para `git diff`, `git log` y `git show`). Si cambias la descripción de un agente aquí, cámbiala también allá.

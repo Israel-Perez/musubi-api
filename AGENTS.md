@@ -113,6 +113,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 - `traceability-clerk`: spec ↔ código ↔ test ↔ Jira; solo lectura forzada.
 - Invocación manual en desarrollo; en el CI solo corren los scripts (`critic`, `endpoints`).
 - Fuente de reglas: `.claude/skills/` (10 skills); los agentes las enlazan, nunca las copian. Convención: `.claude/agents/README.md`.
+- OpenCode: lee este `AGENTS.md` y las skills de `.claude/skills/`; sus agentes están en `.opencode/agents/` y remiten a `.claude/agents/` (solo lectura por `permission`). Flujo del equipo: `docs/guia-equipo.md`.
 
 ---
 
