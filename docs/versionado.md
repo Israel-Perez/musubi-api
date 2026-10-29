@@ -40,7 +40,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 20-Oct-2026 | 0.1.0 | `v1` | — | 0.1.0+1 | — (sin publicar) | — | Fundación + stack NoSQL (SCRUM-66). Sin despliegue todavía |
 | 25-Oct-2026 | 0.2.0-alpha.1 | `v1` | 1 | 0.1.0+1 | — (sin publicar) | 0.1.0 | Primer despliegue en AWS (SCRUM-80): registro, verificación, sesión y recuperación de contraseña (HU-01/02/03/47/56) |
 | 27-Oct-2026 | 0.3.0-alpha.1 | `v1` | 2 | 0.2.0+2 | — (sin publicar) | 0.2.0 | Publicar productos y vitrina pública (SCRUM-23, HU-06/50 y HU-48 fase 2): fotos en S3 + CloudFront, categorías y productos (`db/002-publicaciones.js`) |
-| 29-Oct-2026 | 0.3.0-alpha.1 | `v1` | 2 | 0.2.0+2 | — (sin publicar) | 0.3.0 | Dominio propio (SCRUM-85): `api.musubiapp.com.mx` con certificado ACM y TLS 1.2 como mínimo; sin cambios en la API |
+| 29-Oct-2026 | 0.3.0-alpha.2 | `v1` | 2 | 0.2.0+2 | — (sin publicar) | 0.3.0 | Dominio propio (SCRUM-85): `api.musubiapp.com.mx` con certificado ACM y TLS 1.2 como mínimo, y correo desde `no-reply@musubiapp.com.mx`. API sin cambios funcionales: dependencias de Dependabot (Scalar 2.18.2, AWSSDK.S3 4.0.104.6, AWSSDK.SimpleEmailV2 4.0.106.6, imágenes .NET 10.0.14 / SDK 10.0.403) |
 
 ## 4. Plan hacia la evaluación
 
