@@ -2,10 +2,11 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (27-Oct-2026)
+## Estado actual (29-Oct-2026)
 
-- **HU-06 fusionada y desplegada** (`api-v0.3.0-alpha.1`, `infra-v0.2.0`, esquema 2 en Atlas); verificada en la nube (health, categorías, vitrina y 401 al subir sin sesión).
-- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`): spec, plan y tareas en `specs/m02-profile/HU-04-editar-perfil/` (🚧 Borrador). Siguiente: T1 (datos y `db/003-perfiles.js`).
+- **En producción:** API `0.3.0-alpha.2` e infra `0.3.0` en `https://api.musubiapp.com.mx` (dominio propio, certificado ACM y TLS 1.2 como mínimo). SES está en producción y envía desde `no-reply@musubiapp.com.mx`. El sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
+- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`): spec, plan y tareas en `specs/m02-profile/HU-04-editar-perfil/` (🚧 Borrador). Siguiente: T1 (datos y `db/003-perfiles.js`). La lista de carreras de la UTTT está pendiente de validar con el equipo.
+- **Guía del equipo** (SCRUM-83, PR #22): `docs/guia-equipo.md` y los agentes de OpenCode.
 
 ## T11 — HU-04 Editar mi perfil: spec (27-Oct-2026, SCRUM-22)
 
