@@ -24,6 +24,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 **Errores a evitar**
 - **Git Bash convierte `/musubi/prod/...` en una ruta de Windows** y la CLI de AWS responde `ParameterNotFound`. Usa `MSYS_NO_PATHCONV=1`.
+- **`data.aws_acm_certificate` solo busca llaves RSA_2048 por defecto** (igual que `aws acm list-certificates`). Un certificado EC (`EC_prime256v1`) necesita `key_types`; sin eso falla con "empty result" (infra-up del 29-Oct).
 - **La sesión de `aws login` dura poco:** un vigilante largo falla con `ExpiredTokenException`, que no es un error del recurso.
 
 ## T10 — HU-06 Publicar un producto y vitrina pública (27-Oct-2026, SCRUM-23)
