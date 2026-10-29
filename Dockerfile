@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build multi-stage reproducible (skill docker-multistage). Versiones fijadas; Dependabot (docker) las actualiza.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.402 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
 WORKDIR /src
 COPY global.json nuget.config Directory.Build.props ./
 COPY Musubi.Api/Musubi.Api.csproj Musubi.Api/
