@@ -66,6 +66,7 @@ data "aws_acm_certificate" "api" {
   count       = var.api_domain == "" ? 0 : 1
   domain      = var.api_domain
   statuses    = ["ISSUED"]
+  key_types   = ["EC_prime256v1"] # Sin esto el data source solo busca RSA_2048 y no lo encuentra.
   most_recent = true
 }
 

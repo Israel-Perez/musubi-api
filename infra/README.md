@@ -47,7 +47,7 @@ Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-
 | `contacto@musubiapp.com.mx` | Contacto del aviso de privacidad y de Google Play | Cloudflare Email Routing → reenvío a un buzón del equipo |
 | `<token>._domainkey` (3), MX y TXT de `mail`, TXT `_dmarc` | Correo de SES con DKIM, SPF y DMARC | DNS de Cloudflare |
 
-**Certificado de la API.** Se pide **una vez**, fuera de Terraform, porque su validación es un registro en Cloudflare. ACM lo renueva solo mientras el CNAME de validación exista. Terraform lo busca por nombre (`data.aws_acm_certificate`), y el apply falla si no está emitido:
+**Certificado de la API.** Se pide **una vez**, fuera de Terraform, porque su validación es un registro en Cloudflare. ACM lo renueva solo mientras el CNAME de validación exista. Terraform lo busca por nombre y tipo de llave (`data.aws_acm_certificate`, `key_types = ["EC_prime256v1"]`), y el apply falla si no está emitido:
 
 ```powershell
 aws acm request-certificate --region us-east-1 --domain-name api.musubiapp.com.mx --validation-method DNS --key-algorithm EC_prime256v1
