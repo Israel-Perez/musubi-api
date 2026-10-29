@@ -8,6 +8,24 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Build Release 0/0 · Unit 104/104 · Integration 53/53 · Security 49/49 · Contract 6/6 · endpoints OK (19) · critic PASS.
 - Siguiente: fusionar, aplicar `002` en Atlas y correr `infra-up` (con autorización del usuario); después la app (HU-06 front).
 
+## T12 — Dominio propio musubiapp.com.mx (29-Oct-2026, SCRUM-84/85)
+
+**Qué se hizo**
+- **DNS en Cloudflare:**
+  - `contacto@` con Email Routing;
+  - SES verificado con DKIM, más MAIL FROM `mail.` y DMARC;
+  - sitio `musubi-landing` en la raíz.
+- **Remitente:** `/musubi/prod/Email/From` = `Musubi <no-reply@musubiapp.com.mx>`. Se aplica al reemplazar las instancias.
+- **API:** certificado ACM para `api.musubiapp.com.mx` (pedido con la CLI). Terraform usa la variable `api_domain`, alias de CloudFront, `sni-only`, `TLSv1.2_2021` y la salida `cloudfront_domain`. Infra `0.3.0`.
+
+**Decisiones (con su porqué)**
+- **Certificado fuera de Terraform y buscado por nombre:** su validación es un CNAME en Cloudflare, que no maneja Terraform. Si el apply lo creara, se quedaría esperando la validación.
+- **CNAME de `api` en modo DNS only:** CloudFront ya da TLS, caché e IPv6. Con el proxy de Cloudflare habría doble CDN y el SNI no coincidiría con el certificado.
+
+**Errores a evitar**
+- **Git Bash convierte `/musubi/prod/...` en una ruta de Windows** y la CLI de AWS responde `ParameterNotFound`. Usa `MSYS_NO_PATHCONV=1`.
+- **La sesión de `aws login` dura poco:** un vigilante largo falla con `ExpiredTokenException`, que no es un error del recurso.
+
 ## T10 — HU-06 Publicar un producto y vitrina pública (27-Oct-2026, SCRUM-23)
 
 **Qué se hizo**

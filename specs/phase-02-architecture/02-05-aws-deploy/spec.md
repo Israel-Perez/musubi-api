@@ -45,10 +45,12 @@ Sin endpoints nuevos. La URL pública es la salida `api_url` de Terraform, que v
 - Despliegue: `infra-up` en verde y `https://<distribución>.cloudfront.net/health/ready` → 200 con 2 instancias sanas.
 
 ## Límites
-- **Sin dominio propio:**
-  - el tramo CloudFront → ALB va en HTTP dentro de AWS (protegido por la prefix list y la cabecera secreta);
-  - la URL cambia si se destruye y se vuelve a crear la infraestructura;
-  - SES queda en sandbox: solo envía a direcciones verificadas (`aws sesv2 create-email-identity`). `NOTE (02-05)`: dominio propio, certificado ACM en el ALB y acceso de producción de SES.
+- **Dominio propio (SCRUM-85, 29-Oct-2026):**
+  - `api.musubiapp.com.mx` en CloudFront, con certificado ACM y TLS 1.2 como mínimo (`TLSv1.2_2021`);
+  - si se recrea la distribución, solo cambia el CNAME en Cloudflare, no la app;
+  - correo desde `no-reply@musubiapp.com.mx` con DKIM, SPF y DMARC;
+  - SES sigue en sandbox hasta que AWS apruebe el acceso de producción.
+- **El tramo CloudFront → ALB va en HTTP** dentro de AWS, protegido por la prefix list y la cabecera secreta. `NOTE (02-06)`: certificado en el ALB y HTTPS de punta a punta.
 - El rol de GitHub tiene `AdministratorAccess` (Terraform crea IAM, VPC y CloudFront). La protección está en la confianza (un repo, un entorno, solo `main`).
 - `infra-up` se lanza a mano. Un despliegue automático en cada push a `main` necesita subir `<Version>` en cada PR.
 
@@ -56,4 +58,4 @@ Sin endpoints nuevos. La URL pública es la salida `api_url` de Terraform, que v
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 25-Oct-2026
-- **Detalle:** Sin dominio propio por decisión del usuario (25-Oct-2026).
+- **Detalle:** Sin dominio propio por decisión del usuario (25-Oct-2026). Dominio `musubiapp.com.mx` agregado el 29-Oct-2026 (SCRUM-85; infra `0.3.0`).

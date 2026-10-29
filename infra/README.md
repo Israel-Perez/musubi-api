@@ -38,13 +38,38 @@ aws ssm put-parameter --name "/musubi/prod/<Clave>" --type SecureString --overwr
 
 Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-up` otra vez, o iniciar un *instance refresh* del grupo `musubi-api`.
 
-## Correo (SES en sandbox, sin dominio)
+## Dominio (`musubiapp.com.mx`, DNS en Cloudflare)
 
-Solo envía a direcciones verificadas. Para agregar un correo de prueba (le llega un enlace de confirmación):
+| Nombre | Para qué | Dónde se configura |
+|---|---|---|
+| `musubiapp.com.mx` y `www` | Sitio público con avisos legales (`musubi-landing`); `www` redirige a la raíz | Cloudflare Workers (dominios personalizados) |
+| `api.musubiapp.com.mx` | La API (`API_BASE_URL` de la app). Es fija aunque se recree la infraestructura | CNAME en Cloudflare → salida `cloudfront_domain`, **DNS only** (nube gris) |
+| `contacto@musubiapp.com.mx` | Contacto del aviso de privacidad y de Google Play | Cloudflare Email Routing → reenvío a un buzón del equipo |
+| `<token>._domainkey` (3), MX y TXT de `mail`, TXT `_dmarc` | Correo de SES con DKIM, SPF y DMARC | DNS de Cloudflare |
+
+**Certificado de la API.** Se pide **una vez**, fuera de Terraform, porque su validación es un registro en Cloudflare. ACM lo renueva solo mientras el CNAME de validación exista. Terraform lo busca por nombre (`data.aws_acm_certificate`), y el apply falla si no está emitido:
 
 ```powershell
-aws sesv2 create-email-identity --email-identity "<correo>"
+aws acm request-certificate --region us-east-1 --domain-name api.musubiapp.com.mx --validation-method DNS --key-algorithm EC_prime256v1
+aws acm describe-certificate --region us-east-1 --certificate-arn <arn> --query "Certificate.DomainValidationOptions[0].ResourceRecord"
+# Ese CNAME va en Cloudflare (DNS only). Espera a que el estado sea ISSUED antes de correr infra-up.
 ```
+
+**Si se recrea la distribución** (`infra-down` + `infra-up`), actualiza el CNAME de `api` en Cloudflare con la nueva salida `cloudfront_domain`. La app no cambia.
+
+## Correo (SES)
+
+- **Remitente:** `Musubi <no-reply@musubiapp.com.mx>`, en `/musubi/prod/Email/From`. El dominio está verificado con DKIM y MAIL FROM `mail.musubiapp.com.mx`. Cambiar el remitente requiere reemplazar las instancias:
+
+  ```powershell
+  aws autoscaling start-instance-refresh --auto-scaling-group-name <asg> --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":180}'
+  ```
+
+- **Sandbox:** mientras AWS no apruebe el acceso de producción, SES solo envía a direcciones verificadas. Para agregar un correo de prueba (le llega un enlace de confirmación):
+
+  ```powershell
+  aws sesv2 create-email-identity --email-identity "<correo>"
+  ```
 
 ## Costo estimado (us-east-1, encendido 24/7)
 
@@ -57,4 +82,4 @@ aws sesv2 create-email-identity --email-identity "<correo>"
 | CloudFront, S3, CloudWatch, Parameter Store, ECR | ~0–1 (capas gratuitas) |
 | **Total** | **~50** |
 
-Con 100 USD de créditos conviene encenderlo solo en las ventanas de prueba y evaluación, y apagarlo con `infra-down`. Al volver a crear la infraestructura la URL de CloudFront cambia, porque no hay dominio propio.
+Con 100 USD de créditos conviene encenderlo solo en las ventanas de prueba y evaluación, y apagarlo con `infra-down`. Al volver a crear la infraestructura cambia la URL de CloudFront: hay que actualizar el CNAME de `api` en Cloudflare (sección "Dominio").
