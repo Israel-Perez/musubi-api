@@ -26,6 +26,19 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Git Bash convierte `/musubi/prod/...` en una ruta de Windows** y la CLI de AWS responde `ParameterNotFound`. Usa `MSYS_NO_PATHCONV=1`.
 - **`data.aws_acm_certificate` solo busca llaves RSA_2048 por defecto** (igual que `aws acm list-certificates`). Un certificado EC (`EC_prime256v1`) necesita `key_types`; sin eso falla con "empty result" (infra-up del 29-Oct).
 - **La sesión de `aws login` dura poco:** un vigilante largo falla con `ExpiredTokenException`, que no es un error del recurso.
+## T13 — Guía del equipo y agentes de OpenCode (27-Oct-2026, SCRUM-83)
+
+**Qué se hizo**
+- `docs/guia-equipo.md`, idéntica en los dos repos (sección compartida): accesos, herramientas, cómo lee el proyecto cada herramienta, el flujo de una HU en 9 pasos, prompts para copiar, recursos que chocan entre personas, cómo probar en el celular y reglas del CI.
+- `.opencode/agents/` con `security-reviewer`, `traceability-clerk` y `slice-scaffolder`. Remiten a `.claude/agents/`, que sigue siendo la fuente única.
+
+**Decisiones (con su porqué)**
+- **Mismas reglas para Claude Code y OpenCode:** OpenCode lee `AGENTS.md` y las skills de `.claude/skills/` (verificado en su documentación), pero no `.claude/agents/`. Por eso los agentes tienen una versión corta en `.opencode/agents/`.
+- **La solo lectura en OpenCode se impone por `permission`:** `edit: deny` y bash solo para `git diff`, `git log` y `git show`, con la última regla que coincide ganando. Los hooks de Claude Code no corren en OpenCode.
+- **Una sesión de IA por repo:** abierta en la carpeta `musubi/`, ninguna de las dos herramientas carga el `AGENTS.md` de los repos.
+
+**Errores a evitar**
+- **Números compartidos entre ramas:** `db/NNN`, `ExpectedVersion`, versiones, "T" de esta memoria y totales de `endpoints.md`. Quien fusiona segundo rebasa y renumera (guía §5).
 
 ## T10 — HU-06 Publicar un producto y vitrina pública (27-Oct-2026, SCRUM-23)
 
