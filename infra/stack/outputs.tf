@@ -1,6 +1,11 @@
 output "api_url" {
   description = "URL publica de la API (HTTPS). Va en API_BASE_URL de musubi-app (config/prod.json)."
-  value       = "https://${aws_cloudfront_distribution.main.domain_name}"
+  value       = var.api_domain == "" ? "https://${aws_cloudfront_distribution.main.domain_name}" : "https://${var.api_domain}"
+}
+
+output "cloudfront_domain" {
+  description = "Destino del CNAME de api_domain en Cloudflare (DNS only). Cambia si se recrea la distribucion."
+  value       = aws_cloudfront_distribution.main.domain_name
 }
 
 output "alb_dns_name" {

@@ -32,6 +32,12 @@ variable "ssm_prefix" {
   default     = "/musubi/prod"
 }
 
+variable "api_domain" {
+  description = "Dominio propio de la API en CloudFront. Su certificado ACM (us-east-1, validado por DNS) debe estar emitido antes del apply; vacio = solo *.cloudfront.net."
+  type        = string
+  default     = "api.musubiapp.com.mx"
+}
+
 variable "log_retention_days" {
   description = "Dias que CloudWatch conserva los logs de la API."
   type        = number

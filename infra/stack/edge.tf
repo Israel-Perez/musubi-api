@@ -1,4 +1,4 @@
-# CloudFront: HTTPS sin dominio propio (certificado *.cloudfront.net) delante del balanceador,
+# CloudFront: HTTPS con dominio propio (api.musubiapp.com.mx) delante del balanceador,
 # y CDN de imagenes (lineamiento 15) desde un bucket privado.
 
 # Politicas administradas por AWS (IDs publicos y fijos).
@@ -60,13 +60,23 @@ resource "aws_cloudfront_origin_access_control" "media" {
   signing_protocol                  = "sigv4"
 }
 
-# Con el certificado *.cloudfront.net no se puede fijar la version minima de TLS: NOTE (02-05) dominio propio.
+# El certificado se pide fuera de Terraform (infra/README.md, "Dominio"): su validacion es un
+# CNAME en Cloudflare y debe estar emitido antes del apply. Renovacion automatica de ACM.
+data "aws_acm_certificate" "api" {
+  count       = var.api_domain == "" ? 0 : 1
+  domain      = var.api_domain
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
+# Con dominio, TLS 1.2 como minimo; sin dominio (api_domain vacio) CloudFront no permite fijarlo.
 resource "aws_cloudfront_distribution" "main" { # nosemgrep: terraform.aws.security.aws-cloudfront-insecure-tls.aws-insecure-cloudfront-distribution-tls-version
   enabled         = true
   comment         = "musubi-api + imagenes"
   price_class     = "PriceClass_100"
   http_version    = "http2and3"
   is_ipv6_enabled = true
+  aliases         = var.api_domain == "" ? [] : [var.api_domain]
 
   origin {
     origin_id   = "api"
@@ -75,7 +85,7 @@ resource "aws_cloudfront_distribution" "main" { # nosemgrep: terraform.aws.secur
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "http-only" # Sin dominio no hay certificado en el ALB (NOTE (02-05): dominio propio).
+      origin_protocol_policy = "http-only" # El ALB solo acepta a CloudFront (X-Origin-Verify). NOTE (02-06): HTTPS hasta el ALB.
       origin_ssl_protocols   = ["TLSv1.2"]
     }
 
@@ -122,7 +132,10 @@ resource "aws_cloudfront_distribution" "main" { # nosemgrep: terraform.aws.secur
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.api_domain == ""
+    acm_certificate_arn            = var.api_domain == "" ? null : data.aws_acm_certificate.api[0].arn
+    ssl_support_method             = var.api_domain == "" ? null : "sni-only"
+    minimum_protocol_version       = var.api_domain == "" ? "TLSv1" : "TLSv1.2_2021"
   }
 }
 
