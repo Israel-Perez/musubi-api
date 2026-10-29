@@ -14,10 +14,16 @@ Esta guía es para quien va a tomar una historia de usuario (HU) de Jira y entre
 |---|---|---|
 | Colaborador en GitHub de **musubi-api** y **musubi-app** | Crear ramas y PR (los dos repos son públicos, pero sin ser colaborador no puedes empujar ramas) | Al dueño de los repos |
 | Cuenta en Jira (`uttt-startup-musubi.atlassian.net`, proyecto `SCRUM`) | Tomar HU, moverlas de estado y comentar | Al dueño del proyecto Jira |
-| Tu correo institucional verificado en AWS SES | Registrarte en la app que corre en la nube (SES está en modo de prueba y solo envía a correos dados de alta) | Al responsable de la nube; te llega un correo de AWS con un enlace que debes abrir en 24 h |
-| La URL de la API en la nube | Probar la app contra AWS (`config/prod.json`) | Pídela en el canal del equipo: cambia cada vez que se recrea la infraestructura |
 
-**No necesitas** credenciales de AWS ni de MongoDB Atlas: el despliegue lo hace el responsable de la nube con el workflow `infra-up`.
+**No necesitas:**
+- credenciales de AWS ni de MongoDB Atlas: el despliegue lo hace el responsable de la nube con el workflow `infra-up`;
+- pedir la URL de la API: ya viene en `config/prod.example.json`;
+- dar de alta tu correo: la app envía los códigos a cualquier correo institucional.
+
+**Direcciones del proyecto:**
+- la API: `https://api.musubiapp.com.mx`;
+- el sitio con los avisos legales: `https://musubiapp.com.mx`;
+- el contacto del equipo: `contacto@musubiapp.com.mx`.
 
 ### Herramientas
 | Repo | Herramientas (versiones medidas) |
@@ -32,6 +38,8 @@ git clone https://github.com/Israel-Perez/musubi-api.git
 git clone https://github.com/Israel-Perez/musubi-app.git
 ```
 Tienen que quedar así (`musubi/musubi-api` y `musubi/musubi-app`): los scripts y las specs se buscan entre sí por esa ruta.
+
+Hay un tercer repo, [`musubi-landing`](https://github.com/Israel-Perez/musubi-landing): el sitio `musubiapp.com.mx`. Solo lo necesitas si cambias el sitio. Los avisos legales **no** viven ahí: se editan en `musubi-app/assets/legal/` y el sitio los toma al desplegarse.
 
 ### Comprueba que todo compila
 - **API:** `cd musubi-api` → `dotnet build Musubi.slnx -c Release` (0 errores / 0 advertencias) → `dotnet run --project Musubi.Api` (en Development usa una base en memoria; no necesitas MongoDB).
@@ -191,6 +199,7 @@ Estos archivos y números los tocan casi todas las HU. Quien fusiona **segundo**
 |---|---|---|
 | `db/NNN-*.js` y `MongoSchema.ExpectedVersion` (api) | Dos HU pueden crear el mismo número de script | Antes de crear un script, avisa el número en el equipo. Si choca, renumera el tuyo y su `ExpectedVersion` |
 | `<Version>` del API, `version` de `pubspec.yaml` y `docs/versionado.md` | Dos HU suben a la misma versión | La versión se decide al fusionar; las pruebas `VersioningTests` / `versioning_test.dart` revisan que coincidan |
+| PR de Dependabot fusionados en `musubi-api` | Cambian la imagen de la API, y `infra-up` se niega a desplegar con la misma versión ("La API cambió desde api-vX") | Antes de desplegar, sube `<Version>` (por ejemplo `-alpha.2`) y su fila en `docs/versionado.md` |
 | `Memoria.md` ("Estado actual" y números `T`) | Conflicto casi seguro | Conserva las dos entradas y renumera la tuya |
 | `docs/trazabilidad.md` | Cada quien cambia su fila | Toca **solo** la fila de tu HU |
 | `docs/endpoints.md` ("Total: N filas") y conteos en `AGENTS.md` | Los dos suman filas | Recalcula el total después del rebase |
@@ -205,10 +214,10 @@ Estos archivos y números los tocan casi todas las HU. Quien fusiona **segundo**
 
 | Contra qué | Cómo |
 |---|---|
-| **AWS** (la API desplegada) | Crea `config/prod.json` con la URL de la API (pídela en el equipo; `config/*.json` está ignorado por Git) y compila con `flutter build apk --profile --dart-define-from-file=config/prod.json`. Para registrarte, tu correo debe estar dado de alta en SES (sección 1) |
+| **AWS** (la API desplegada) | `Copy-Item config/prod.example.json config/prod.json` (ya trae `https://api.musubiapp.com.mx`) y compila con `flutter build apk --profile --dart-define-from-file=config/prod.json`. Regístrate con tu correo institucional: el código te llega desde `no-reply@musubiapp.com.mx` |
 | **Tu API local** con el celular por USB | En `musubi-api`, `dotnet run --project Musubi.Api`. Después `adb reverse tcp:5080 tcp:5080` y `flutter run --dart-define-from-file=config/usb.json` (copia de `usb.example.json`). Si el cable se mueve, repite el `adb reverse` |
 
-**Si la app dice "sin conexión"**, casi siempre compilaste con `dev.example.json` (que solo sirve en el emulador) o con la URL de ejemplo. No es tu internet.
+**Si la app dice "sin conexión"**, casi siempre compilaste con `dev.example.json` o `usb.example.json`. Esos apuntan a una API en tu propia PC (emulador o cable), no a la nube. No es tu internet.
 
 **Si no puedes instalar sobre otra versión**, desinstala la anterior. Cada PC firma la app de depuración con una llave distinta.
 
@@ -235,7 +244,8 @@ Estos archivos y números los tocan casi todas las HU. Quien fusiona **segundo**
 
 - **No hagas push a `main`.** Está protegida; todo entra por PR.
 - **No fusiones tu propio PR** sin la aprobación de otra persona.
-- **No corras `infra-up` ni `infra-down`**, y no toques AWS ni Atlas: cuestan dinero y cambian la URL de todos.
+- **No corras `infra-up` ni `infra-down`**, y no toques AWS, Atlas ni el DNS de Cloudflare: cuestan dinero y afectan a todos.
+- **No uses el botón "Update branch" en un PR de Dependabot.** Mezcla `main` a su manera y puede dejar paquetes duplicados en el `.csproj`; después Dependabot ya no lo puede arreglar. Comenta `@dependabot rebase` y él lo rehace.
 - **No marques una spec como "✅ Aprobado"** sin un revisor distinto del autor.
 - **No subas** `config/*.json` reales, `appsettings.Local.json`, `key.properties`, archivos `.jks` ni los archivos de Firebase.
 - **No pongas nombres reales de personas** en el código, las pruebas ni los datos de ejemplo.
