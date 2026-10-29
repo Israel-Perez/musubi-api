@@ -9,7 +9,7 @@ RUN dotnet restore Musubi.Api/Musubi.Api.csproj
 COPY Musubi.Api/ Musubi.Api/
 RUN dotnet publish Musubi.Api/Musubi.Api.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.13 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14 AS runtime
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_RUNNING_IN_CONTAINER=true
