@@ -20,7 +20,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
     <PackageReference Include="MongoDB.Driver" Version="3.12.0" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.18.0" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.18.2" />
     <!-- Fotos de HU-06: decodificar, enderezar, reducir y volver a codificar a WebP sin metadatos (MIT; excepcion 00-01). -->
     <PackageReference Include="SkiaSharp" Version="4.153.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
