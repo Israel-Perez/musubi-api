@@ -8,6 +8,16 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Build Release 0/0 · Unit 104/104 · Integration 53/53 · Security 49/49 · Contract 6/6 · endpoints OK (19) · critic PASS.
 - Siguiente: fusionar, aplicar `002` en Atlas y correr `infra-up` (con autorización del usuario); después la app (HU-06 front).
 
+## T15 — Cuenta de revisión de Google Play (29-Oct-2026, SCRUM-88)
+
+**Qué se hizo**
+- `db/003-dominio-revision.js` agrega `musubiapp.com.mx` a los dominios de la UTTT (esquema 3; `MongoSchema.ExpectedVersion = 3`). La semilla en memoria hace lo mismo.
+- API `0.3.0-alpha.3`. Prueba nueva: `Campus_TeamReviewDomain_BelongsToUttt`; `DatabaseTest` revisa el dominio y la idempotencia.
+
+**Decisiones (con su porqué)**
+- **Un dominio del equipo dentro de la UTTT, no un campus aparte:** el revisor de Google ve el catálogo real del campus, y nadie de fuera puede registrarse. Solo existen las direcciones que se crean en Cloudflare Email Routing (catch-all apagado), y el registro exige el código enviado a esa dirección.
+- **HU-04 usará `db/004-perfiles.js`**, no `003` como decía su spec: hay que ajustarla al detallarla.
+
 ## T14 — Specs en borrador de todo el backlog (29-Oct-2026, SCRUM-86)
 
 **Qué se hizo**
