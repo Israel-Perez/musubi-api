@@ -279,8 +279,9 @@ public abstract class AuthRepositoryContract
     {
         var mine = AuthIds.New();
         var other = AuthIds.New();
-        await Codes.UpsertAsync(NewCode(mine, "hash-a", Now.AddMinutes(10)), Ct);
-        await Codes.UpsertAsync(NewCode(other, "hash-b", Now.AddMinutes(10)), Ct);
+        // El $jsonSchema de verificationCodes exige un hash de 32 caracteres o mas.
+        await Codes.UpsertAsync(NewCode(mine, new string('a', 64), Now.AddMinutes(10)), Ct);
+        await Codes.UpsertAsync(NewCode(other, new string('b', 64), Now.AddMinutes(10)), Ct);
 
         await Codes.DeleteAllForUserAsync(mine, Ct);
 
