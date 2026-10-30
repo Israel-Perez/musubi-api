@@ -273,4 +273,38 @@ public abstract class AuthRepositoryContract
             Assert.Null(await Tokens.TryConsumeAsync(t.TokenHash, Now, Ct));
         }
     }
+
+    [Fact]
+    public async Task Codes_DeleteAllForUser_LeavesOtherUsers()
+    {
+        var mine = AuthIds.New();
+        var other = AuthIds.New();
+        await Codes.UpsertAsync(NewCode(mine, "hash-a", Now.AddMinutes(10)), Ct);
+        await Codes.UpsertAsync(NewCode(other, "hash-b", Now.AddMinutes(10)), Ct);
+
+        await Codes.DeleteAllForUserAsync(mine, Ct);
+
+        Assert.Null(await Codes.FindActiveAsync(mine, VerificationPurposes.EmailVerification, Now, Ct));
+        Assert.NotNull(await Codes.FindActiveAsync(other, VerificationPurposes.EmailVerification, Now, Ct));
+    }
+
+    [Fact]
+    public async Task Tokens_DeleteAllForUser_RemovesOnlyThatUser()
+    {
+        var mine = AuthIds.New();
+        var revoked = NewToken(mine, AuthIds.New(), Now.AddDays(60));
+        var active = NewToken(mine, AuthIds.New(), Now.AddDays(60));
+        var other = NewToken(AuthIds.New(), AuthIds.New(), Now.AddDays(60));
+        foreach (var t in new[] { revoked, active, other })
+        {
+            await Tokens.InsertAsync(t, Ct);
+        }
+
+        await Tokens.RevokeFamilyAsync(revoked.FamilyId, Now, Ct);
+
+        Assert.Equal(2, await Tokens.DeleteAllForUserAsync(mine, Ct));
+        Assert.Null(await Tokens.FindByHashAsync(revoked.TokenHash, Ct));
+        Assert.Null(await Tokens.FindByHashAsync(active.TokenHash, Ct));
+        Assert.NotNull(await Tokens.FindByHashAsync(other.TokenHash, Ct));
+    }
 }

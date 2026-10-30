@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Musubi.Api</RootNamespace>
     <!-- Matriz de versionamiento: docs/versionado.md (unica fuente de la version de la API). -->
-    <Version>0.3.0-alpha.3</Version>
+    <Version>0.3.0-alpha.4</Version>
     <UserSecretsId>musubi-api-dev</UserSecretsId>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- CA1515: MVC solo descubre controllers publicos y System.Text.Json serializa los DTOs publicos. -->

@@ -144,4 +144,21 @@ public abstract class ListingRepositoryContract
 
         Assert.Equal([30_000L, 42_000L], prices.Order());
     }
+
+    [Fact]
+    public async Task DeleteBySeller_RemovesEveryStatusOnlyForThatSeller()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var other = AuthIds.New();
+        await Products.InsertAsync(NewProduct(community, seller), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.SoldOut), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Removed), Ct);
+        await Products.InsertAsync(NewProduct(community, other), Ct);
+
+        Assert.Equal(3, await Products.DeleteBySellerAsync(seller, Ct));
+        Assert.Empty(await Products.FindBySellerAsync(seller, 10, Ct));
+        Assert.Single(await Products.FindBySellerAsync(other, 10, Ct));
+        Assert.Equal(0, await Products.DeleteBySellerAsync(seller, Ct));
+    }
 }

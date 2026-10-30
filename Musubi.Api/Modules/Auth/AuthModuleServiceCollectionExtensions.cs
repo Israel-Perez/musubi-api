@@ -43,6 +43,7 @@ internal static class AuthModuleServiceCollectionExtensions
         services.AddSingleton<RegistrationService>();
         services.AddSingleton<LoginService>();
         services.AddSingleton<PasswordRecoveryService>();
+        services.AddSingleton<AccountDeletionService>();
         services.AddSingleton<IMemberDirectory, MemberDirectory>();
     }
 }

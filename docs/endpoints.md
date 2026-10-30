@@ -25,7 +25,7 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
 | GET | /media/{**path} | `[AllowAnonymous]` | HU-06 | — | La imagen (`image/webp`) guardada en memoria | 200 / 404 `resource.not_found` | Solo Development (`Media:Provider=InMemory`). En la nube CloudFront sirve `/media/*` desde S3 y la API responde 404 |
 
-Total: 19 filas (4 de plataforma, 15 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+Total: 20 filas (4 de plataforma, 16 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
 
 ## M-01 · Autenticación y usuarios
 
@@ -42,6 +42,7 @@ Públicos (aún no hay sesión) y con rate limit `auth` por IP (429 + `Retry-Aft
 | POST | /api/v1/auth/logout | `[AllowAnonymous]` + rate limit | HU-02 | `LogoutRequest { refreshToken }` | — (idempotente: un token desconocido también responde 204) | 204 / 400 `validation.failed` / 429 | `musubi-app` HU-02 (Perfil → "Cerrar sesión") |
 | POST | /api/v1/auth/password/forgot | `[AllowAnonymous]` + rate limit | HU-56 | `RecoveryRequest { email }` | `ResendCodeResponse { resendAvailableAt }` (igual exista o no la cuenta; solo se envía a cuentas activas) | 202 / 400 `validation.failed` / 429 | `musubi-app` HU-56 ("¿Olvidaste tu contraseña?") |
 | POST | /api/v1/auth/password/reset | `[AllowAnonymous]` + rate limit | HU-56 | `RecoveryResetRequest { email, code, newPassword }` | — (cierra todas las sesiones abiertas de la cuenta) | 204 / 400 `auth.invalid_code` · `auth.weak_password` · `validation.failed` / 429 `auth.code_attempts_exceeded` · `rate_limit.exceeded` | `musubi-app` HU-56 (código + contraseña nueva) |
+| POST | /api/v1/account/delete | `[Authorize]` + rate limit `auth` | HU-46 | `DeleteAccountRequest { password }` (contraseña actual) | — (borra la cuenta, sus sesiones, sus códigos, sus publicaciones y sus fotos; borrado real R11) | 204 / 400 `auth.wrong_password` · `validation.failed` / 401 `auth.session_expired` (la cuenta ya no existe) / 429 | `musubi-app` HU-46 (`Privacidad` → "Eliminar mi cuenta") |
 
 ## M-03 · Publicaciones
 

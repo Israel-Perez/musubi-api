@@ -8,6 +8,25 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Build Release 0/0 · Unit 104/104 · Integration 53/53 · Security 49/49 · Contract 6/6 · endpoints OK (19) · critic PASS.
 - Siguiente: fusionar, aplicar `002` en Atlas y correr `infra-up` (con autorización del usuario); después la app (HU-06 front).
 
+## T16 — HU-46 Eliminar mi cuenta y mis datos (30-Oct-2026, SCRUM-32)
+
+**Qué se hizo**
+- `POST /api/v1/account/delete` (`AccountController`, con sesión y rate limit `auth`) pide la contraseña actual. Hace borrado real de cuenta, sesiones, códigos, publicaciones y fotos (S3 por prefijo).
+- `IAccountDataEraser`: cada módulo borra sus propios datos. Listings es el primero (`ListingAccountEraser`).
+- Repositorios: `DeleteAllForUserAsync` en códigos y sesiones, y `DeleteBySellerAsync`. `IMediaStorage.DeletePrefixAsync` en S3 y en memoria.
+- `iam.tf`: `s3:ListBucket` en `media/products/*` (infra `0.3.1`). API `0.3.0-alpha.4`.
+- Pruebas: Unit 112 · Integration 57 · Security 52 · Contract 6 · endpoints 20.
+
+**Decisiones (con su porqué)**
+- **Pedir la contraseña** antes de borrar: con una sesión abierta en un teléfono ajeno no se puede borrar la cuenta.
+- **El usuario se borra al final:** sin transacciones, así un fallo a medias permite reintentar.
+- **`POST .../delete` y no `DELETE` con cuerpo:** algunos proxies descartan el cuerpo de un `DELETE`.
+- **`auth.wrong_password` responde 400:** la app trata un 401 como sesión vencida.
+
+**Errores a evitar**
+- **La palabra "todo" en un comentario de C#** ("Borra todo lo del usuario") rompió el build por S1135. Usa "los datos", "cada", etc.
+- **Sin `s3:ListBucket`**, S3 responde 403 (no 404) a una llave que no existe, y no se puede listar un prefijo.
+
 ## T15 — Cuenta de revisión de Google Play (29-Oct-2026, SCRUM-88)
 
 **Qué se hizo**
