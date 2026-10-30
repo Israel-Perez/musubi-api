@@ -42,6 +42,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 27-Oct-2026 | 0.3.0-alpha.1 | `v1` | 2 | 0.2.0+2 | — (sin publicar) | 0.2.0 | Publicar productos y vitrina pública (SCRUM-23, HU-06/50 y HU-48 fase 2): fotos en S3 + CloudFront, categorías y productos (`db/002-publicaciones.js`) |
 | 29-Oct-2026 | 0.3.0-alpha.2 | `v1` | 2 | 0.2.0+2 | — (sin publicar) | 0.3.0 | Dominio propio (SCRUM-85): `api.musubiapp.com.mx` con certificado ACM y TLS 1.2 como mínimo, y correo desde `no-reply@musubiapp.com.mx`. API sin cambios funcionales: dependencias de Dependabot (Scalar 2.18.2, AWSSDK.S3 4.0.104.6, AWSSDK.SimpleEmailV2 4.0.106.6, imágenes .NET 10.0.14 / SDK 10.0.403) |
 | 30-Oct-2026 | 0.3.0-alpha.2 | `v1` | 2 | 0.3.0+3 | Prueba interna | 0.3.0 | Primera versión en Google Play (SCRUM-87): AAB firmado con la llave de subida y Play App Signing, contra `https://api.musubiapp.com.mx` |
+| 30-Oct-2026 | 0.3.0-alpha.3 | `v1` | 3 | 0.3.0+3 | Prueba interna | 0.3.0 | Cuenta de revisión de Google Play (SCRUM-88): dominio `musubiapp.com.mx` en la UTTT (`db/003-dominio-revision.js`); sin otros cambios en la API |
 
 ## 4. Plan hacia la evaluación
 
