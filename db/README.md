@@ -6,6 +6,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 |---|---|---|
 | `001-identidad.js` | `communities` (+ UTTT), `users`, `verificationCodes`, `refreshTokens`, `_meta` | 1 |
 | `002-publicaciones.js` | `categories` (+ 6 de la UTTT), `products` | 2 |
+| `003-dominio-revision.js` | Dominio `musubiapp.com.mx` en la UTTT, para la cuenta de los revisores de Google Play (SCRUM-88) | 3 |
 
 ## Aplicar
 

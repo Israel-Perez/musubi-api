@@ -54,6 +54,16 @@ public sealed class RegistrationFlowTests(AuthApiFactory factory) : IClassFixtur
         Assert.Equal("Universidad Tecnológica de Tula-Tepeji", body.GetProperty("name").GetString());
     }
 
+    [Fact]
+    public async Task Campus_TeamReviewDomain_BelongsToUttt()
+    {
+        // SCRUM-88: la cuenta de los revisores de Google Play (revision@musubiapp.com.mx).
+        var response = await PostAsync("/api/v1/auth/campus", new { email = "revision@musubiapp.com.mx" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("UTTT", (await JsonAsync(response)).GetProperty("shortName").GetString());
+    }
+
     [Theory]
     [InlineData("ana.ramirez@gmail.com")]
     [InlineData("ana.ramirez@correo.com")]

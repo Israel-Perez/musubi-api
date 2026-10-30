@@ -43,7 +43,7 @@ Estados: ✅ Implementada (script aplicado y repositorio con pruebas) · 📐 Di
 | Colección | Módulo / HU | Contenido (campos clave) | Índices | Estado |
 |---|---|---|---|---|
 | `_meta` | 02-01 | `{ _id: "schema", version, applied[] }` | — | ✅ |
-| `communities` | M-01 · HU-01/03 | `slug`, `name`, `shortName`, `emailDomains[]` (tope ~10), `status` | `ux_slug` (único), `ux_emailDomains` (único, multikey: un dominio pertenece a un solo campus) | ✅ |
+| `communities` | M-01 · HU-01/03 | `slug`, `name`, `shortName`, `emailDomains[]` (tope ~10; la UTTT incluye `musubiapp.com.mx` para la cuenta de revisión de Google Play, `db/003`), `status` | `ux_slug` (único), `ux_emailDomains` (único, multikey: un dominio pertenece a un solo campus) | ✅ |
 | `users` | M-01 · HU-01/02/03/40/46/47 | `communityId`, `email`, `emailNormalized`, `passwordHash`, `fullName`, `status` (`pendingVerification`/`active`/`suspended`), `emailVerifiedAt`, `consents{termsVersion, privacyVersion, acceptedAt}`, `roles[]` (tope 3) | `ux_emailNormalized` (único), `ix_community_status` | ✅ |
 | `verificationCodes` | M-01 · HU-03 (y recuperar contraseña) | `userId`, `purpose`, `codeHash`, `attempts`, `lastSentAt`, `expiresAt` | `ux_user_purpose` (único: un código vigente por propósito), `ttl_expiresAt` | ✅ |
 | `refreshTokens` | M-01 · HU-02 | `userId`, `familyId`, `tokenHash`, `expiresAt`, `usedAt`, `revokedAt`, `device` | `ux_tokenHash` (único), `ix_user`, `ix_family`, `ttl_expiresAt` | ✅ |

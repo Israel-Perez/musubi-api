@@ -30,9 +30,12 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Equal(MongoSchema.ExpectedVersion, meta["version"].AsInt32);
         Assert.Single(meta["applied"].AsBsonArray, v => v == "001-identidad");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "002-publicaciones");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "003-dominio-revision");
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
         Assert.Equal(1, await db.GetCollection<BsonDocument>(MongoSchema.Communities).CountDocumentsAsync(new BsonDocument("slug", "uttt"), cancellationToken: Ct));
+        var uttt = await db.GetCollection<BsonDocument>(MongoSchema.Communities).Find(new BsonDocument("slug", "uttt")).SingleAsync(Ct);
+        Assert.Equal(["uttt.edu.mx", "musubiapp.com.mx"], uttt["emailDomains"].AsBsonArray.Select(d => d.AsString));
     }
 
     [Fact]
