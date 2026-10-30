@@ -7,7 +7,7 @@ Cada cambio nace de una spec que sigue [`_template.md`](_template.md) (gobernanz
 
 - **Specs técnicas:** `NN-NN` en `specs/phase-NN-<nombre>/NN-NN-<slug>/`.
 - **Specs funcionales:** `HU-NN` en `specs/mNN-<modulo>/HU-NN-<slug>/`, con **el mismo ID y la misma carpeta en los dos repos**. Cada una describe su lado y declara su `**Contraparte:**`.
-- Las specs de cada HU se crean **al iniciar el sprint** de esa HU (calendario en la constitución §1 y en `docs/trazabilidad.md`).
+- **Desde el 29-Oct-2026, todas las HU tienen una spec ligera en 🚧 Borrador** (SCRUM-86, a pedido del docente), con sus requisitos, criterios, pantallas, dependencias y decisiones pendientes tomados de Jira y de la maqueta. **Al iniciar el sprint** de la HU se detalla: diseño, contratos, `plan.md` y `task.md` (calendario en la constitución §1 y en `docs/trazabilidad.md`).
 - Para citar una spec del otro repo se antepone el repo: `musubi-api:02-01`, `musubi-app:HU-01`. Los `NOTE (…)` usan los mismos IDs.
 - Módulos y carpetas: [`docs/modulos.md`](../docs/modulos.md).
 <!-- Fin de sección compartida -->

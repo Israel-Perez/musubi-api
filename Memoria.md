@@ -8,6 +8,27 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Build Release 0/0 · Unit 104/104 · Integration 53/53 · Security 49/49 · Contract 6/6 · endpoints OK (19) · critic PASS.
 - Siguiente: fusionar, aplicar `002` en Atlas y correr `infra-up` (con autorización del usuario); después la app (HU-06 front).
 
+## T14 — Specs en borrador de todo el backlog (29-Oct-2026, SCRUM-86)
+
+**Qué se hizo**
+- 47 HU pendientes con spec ligera (🚧 Borrador) en los dos repos: 94 carpetas en `specs/mNN-*/HU-NN-*/` con `spec.md`, `plan.md` y `task.md`.
+- Las generó un script con datos de cuatro fuentes:
+  - Jira: historia, criterios, RF/RNF y decisiones pendientes;
+  - la maqueta: las pantallas de cada HU;
+  - `docs/modelo-datos.md`: las colecciones;
+  - `docs/modulos.md`: la carpeta de cada módulo.
+- Specs técnicas en borrador:
+  - musubi-api: 02-02 caché y `outbox`, 02-04 rendimiento HTTP, 02-06 observabilidad y 02-07 moderación;
+  - musubi-app: 02-02 Google Play.
+- `docs/trazabilidad.md` en "Spec en borrador", y la regla de `specs/README.md` (sección compartida) actualizada.
+
+**Decisiones (con su porqué)**
+- **Spec ligera para todo y detalle al iniciar cada HU:** el docente pide las specs desde el inicio. Detallar diseño y contratos semanas antes los desactualiza; así lo hacen Spec Kit y Kiro (constitución al inicio, specs por funcionalidad).
+- **HU-43 sin spec** (fuera de alcance, D-01). **HU-42** con spec, marcada como posterior al MVP. **HU-48** en la API se cubre con HU-06 (vitrina pública).
+
+**Errores a evitar**
+- Una spec ligera **no** es una spec aprobada. Antes de programar una HU, completa su `plan.md` y resuelve las decisiones pendientes de su sección Límites.
+
 ## T12 — Dominio propio musubiapp.com.mx (29-Oct-2026, SCRUM-84/85)
 
 **Qué se hizo**
