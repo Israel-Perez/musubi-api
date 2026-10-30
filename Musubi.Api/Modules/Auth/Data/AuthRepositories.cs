@@ -101,6 +101,12 @@ internal interface IVerificationCodeRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
     Task DeleteAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>Borra todos los codigos de un usuario (HU-46).</summary>
+    /// <param name="userId">Usuario.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task DeleteAllForUserAsync(string userId, CancellationToken cancellationToken);
 }
 
 /// <summary>Refresh tokens (rotacion con deteccion de reutilizacion, 02-03).</summary>
@@ -141,4 +147,10 @@ internal interface IRefreshTokenRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantos se revocaron.</returns>
     Task<long> RevokeAllForUserAsync(string userId, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Borra todas las sesiones de un usuario (HU-46: borrado real, no solo revocadas).</summary>
+    /// <param name="userId">Usuario.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantas se borraron.</returns>
+    Task<long> DeleteAllForUserAsync(string userId, CancellationToken cancellationToken);
 }

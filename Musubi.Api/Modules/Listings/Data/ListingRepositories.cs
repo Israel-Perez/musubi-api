@@ -60,4 +60,10 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Los precios, sin orden.</returns>
     Task<IReadOnlyList<long>> FindActivePricesAsync(string communityId, string categorySlug, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Borra todas las publicaciones de un vendedor, en cualquier estado (HU-46, R11).</summary>
+    /// <param name="sellerId">Vendedor.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantas se borraron.</returns>
+    Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken);
 }

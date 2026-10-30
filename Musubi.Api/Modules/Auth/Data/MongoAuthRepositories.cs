@@ -128,6 +128,10 @@ internal sealed class MongoVerificationCodeRepository(IMongoDatabase database) :
     /// <inheritdoc />
     public Task DeleteAsync(string id, CancellationToken cancellationToken) =>
         codes.DeleteOneAsync(c => c.Id == id, cancellationToken);
+
+    /// <inheritdoc />
+    public Task DeleteAllForUserAsync(string userId, CancellationToken cancellationToken) =>
+        codes.DeleteManyAsync(c => c.UserId == userId, cancellationToken);
 }
 
 /// <summary>Refresh tokens en MongoDB (indices <c>ux_tokenHash</c>, <c>ix_family</c>, <c>ix_user</c> y TTL).</summary>
@@ -169,5 +173,12 @@ internal sealed class MongoRefreshTokenRepository(IMongoDatabase database) : IRe
             Builders<RefreshTokenDocument>.Update.Set(t => t.RevokedAt, now),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return result.ModifiedCount;
+    }
+
+    /// <inheritdoc />
+    public async Task<long> DeleteAllForUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        var result = await tokens.DeleteManyAsync(t => t.UserId == userId, cancellationToken).ConfigureAwait(false);
+        return result.DeletedCount;
     }
 }

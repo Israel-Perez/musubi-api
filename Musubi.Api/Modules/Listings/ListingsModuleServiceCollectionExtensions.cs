@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
+using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Data;
@@ -34,6 +35,7 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ListingService>();
         services.AddSingleton<PhotoUploadService>();
+        services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
 
         // Subir fotos cuesta CPU (SkiaSharp) y espacio en S3: un tope por usuario evita el abuso (OWASP API4).
         services.AddOptions<RateLimiterOptions>().Configure<IConfiguration>((options, config) =>

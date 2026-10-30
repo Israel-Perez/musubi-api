@@ -85,6 +85,15 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<long>(products.RemoveAll(p => string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)));
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(string sellerId, int limit, CancellationToken cancellationToken)
     {
         lock (gate)

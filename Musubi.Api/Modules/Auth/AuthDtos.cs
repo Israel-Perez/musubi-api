@@ -97,3 +97,8 @@ public sealed record RecoveryResetRequest(
     [Required, MaxLength(254)] string Email,
     [Required, RegularExpression("^[0-9]{6}$", ErrorMessage = "El código tiene 6 dígitos.")] string Code,
     [Required, MaxLength(128)] string NewPassword); // critic-allow: input-credential (HU-56)
+
+/// <summary>Eliminar mi cuenta y mis datos (HU-46): se confirma con la contrasena actual.</summary>
+/// <param name="Password">Contrasena actual en claro (solo entrada).</param> <!-- critic-allow: input-credential (HU-46) -->
+public sealed record DeleteAccountRequest(
+    [Required, MaxLength(128)] string Password); // critic-allow: input-credential (HU-46)

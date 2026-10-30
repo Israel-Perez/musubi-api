@@ -218,11 +218,16 @@ internal sealed partial class ListingService(
         return new PriceRangeResponse(Percentile(prices, 0.25), Percentile(prices, 0.75), prices.Count);
     }
 
+    /// <summary>Prefijo de las fotos de un usuario: la llave lleva su id (OWASP API1) y se borran juntas (HU-46).</summary>
+    /// <param name="userId">Usuario.</param>
+    /// <returns>El prefijo, terminado en <c>/</c>.</returns>
+    public static string PhotoPrefix(string userId) => "media/products/" + userId + "/";
+
     /// <summary>Llave de una foto nueva del usuario.</summary>
     /// <param name="userId">Usuario (del token).</param>
     /// <returns>La llave.</returns>
     public static string NewPhotoKey(string userId) =>
-        string.Create(CultureInfo.InvariantCulture, $"media/products/{userId}/{Guid.NewGuid():N}.webp");
+        string.Create(CultureInfo.InvariantCulture, $"{PhotoPrefix(userId)}{Guid.NewGuid():N}.webp");
 
     /// <summary>Ruta publica de una llave.</summary>
     /// <param name="key">Llave.</param>
@@ -284,7 +289,7 @@ internal sealed partial class ListingService(
         }
 
         // Solo fotos que el mismo usuario subio por POST /products/photos (OWASP API1): la llave lleva su id.
-        var prefix = "media/products/" + userId + "/";
+        var prefix = PhotoPrefix(userId);
         foreach (var key in photos)
         {
             if (key is null || !PhotoKeyPattern().IsMatch(key) || !key.StartsWith(prefix, StringComparison.Ordinal)

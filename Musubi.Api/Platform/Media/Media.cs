@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -74,6 +75,12 @@ internal interface IMediaStorage
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns><c>true</c> si existe.</returns>
     Task<bool> ExistsAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>Borra todos los archivos cuya llave empieza con el prefijo (HU-46).</summary>
+    /// <param name="prefix">Prefijo, terminado en <c>/</c> (<c>media/products/{userId}/</c>).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantos se borraron.</returns>
+    Task<int> DeletePrefixAsync(string prefix, CancellationToken cancellationToken);
 }
 
 /// <summary>Archivo guardado en memoria.</summary>
@@ -95,6 +102,18 @@ internal sealed class InMemoryMediaStorage : IMediaStorage
 
     /// <inheritdoc />
     public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken) => Task.FromResult(files.ContainsKey(key));
+
+    /// <inheritdoc />
+    public Task<int> DeletePrefixAsync(string prefix, CancellationToken cancellationToken)
+    {
+        var deleted = 0;
+        foreach (var key in files.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            deleted += files.TryRemove(key, out _) ? 1 : 0;
+        }
+
+        return Task.FromResult(deleted);
+    }
 
     /// <summary>Lee un archivo.</summary>
     /// <param name="key">Llave.</param>
@@ -133,5 +152,34 @@ internal sealed class S3MediaStorage(IAmazonS3 s3, IOptions<MediaOptions> option
         {
             return false;
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<int> DeletePrefixAsync(string prefix, CancellationToken cancellationToken)
+    {
+        var deleted = 0;
+        var request = new ListObjectsV2Request { BucketName = options.Value.Bucket, Prefix = prefix };
+        ListObjectsV2Response page;
+        do
+        {
+            page = await s3.ListObjectsV2Async(request, cancellationToken).ConfigureAwait(false);
+            if (page.S3Objects is { Count: > 0 } objects)
+            {
+                // Una pagina trae hasta 1000 llaves: el maximo de DeleteObjects.
+                await s3.DeleteObjectsAsync(
+                    new DeleteObjectsRequest
+                    {
+                        BucketName = options.Value.Bucket,
+                        Objects = objects.Select(o => new KeyVersion { Key = o.Key }).ToList(),
+                    },
+                    cancellationToken).ConfigureAwait(false);
+                deleted += objects.Count;
+            }
+
+            request.ContinuationToken = page.NextContinuationToken;
+        }
+        while (page.IsTruncated == true);
+
+        return deleted;
     }
 }

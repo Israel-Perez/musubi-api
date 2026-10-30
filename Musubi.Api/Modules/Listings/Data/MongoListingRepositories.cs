@@ -51,6 +51,13 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         products.CountDocumentsAsync(Showcase(query), cancellationToken: cancellationToken);
 
     /// <inheritdoc />
+    public async Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        var result = await products.DeleteManyAsync(p => p.SellerId == sellerId, cancellationToken).ConfigureAwait(false);
+        return result.DeletedCount;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(string sellerId, int limit, CancellationToken cancellationToken) =>
         await products.Find(p => p.SellerId == sellerId && p.Status != ProductStatuses.Removed)
             .SortByDescending(p => p.Id)

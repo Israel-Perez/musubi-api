@@ -46,6 +46,13 @@ internal static class AuthErrors
     public static readonly ApiError TooManyCodeAttempts = new(
         "auth.code_attempts_exceeded", StatusCodes.Status429TooManyRequests, "Demasiados intentos con este código. Pide uno nuevo.");
 
+    /// <summary>
+    /// Contrasena actual incorrecta en una accion con sesion (HU-46). Es 400 y no 401: la app trata
+    /// un 401 como sesion vencida y la renovaria.
+    /// </summary>
+    public static readonly ApiError WrongPassword = new(
+        "auth.wrong_password", StatusCodes.Status400BadRequest, "La contraseña no es correcta.");
+
     /// <summary>Reenvio antes del tiempo de espera (HU-03).</summary>
     public static readonly ApiError ResendTooSoon = new(
         "auth.resend_too_soon", StatusCodes.Status429TooManyRequests, "Espera un momento antes de pedir otro código.");

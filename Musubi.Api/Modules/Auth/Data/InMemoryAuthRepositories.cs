@@ -225,6 +225,20 @@ internal sealed class InMemoryVerificationCodeRepository : IVerificationCodeRepo
     }
 
     /// <inheritdoc />
+    public Task DeleteAllForUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            foreach (var code in codes.Values.Where(c => string.Equals(c.UserId, userId, StringComparison.Ordinal)).ToList())
+            {
+                codes.Remove(code.Id);
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <inheritdoc />
     public Task DeleteAsync(string id, CancellationToken cancellationToken)
     {
         lock (gate)
@@ -290,6 +304,21 @@ internal sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
     /// <inheritdoc />
     public Task<long> RevokeAllForUserAsync(string userId, DateTime now, CancellationToken cancellationToken) =>
         Task.FromResult(Revoke(t => string.Equals(t.UserId, userId, StringComparison.Ordinal), now));
+
+    /// <inheritdoc />
+    public Task<long> DeleteAllForUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var mine = tokens.Values.Where(t => string.Equals(t.UserId, userId, StringComparison.Ordinal)).ToList();
+            foreach (var token in mine)
+            {
+                tokens.Remove(token.TokenHash);
+            }
+
+            return Task.FromResult<long>(mine.Count);
+        }
+    }
 
     private long Revoke(Func<RefreshTokenDocument, bool> match, DateTime now)
     {
