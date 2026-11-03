@@ -53,6 +53,13 @@ data "aws_iam_policy_document" "api" {
     resources = ["arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/*"]
   }
 
+  # Moderacion antes de guardar (02-07). Estas acciones no admiten restringir el recurso.
+  statement {
+    sid       = "Moderar"
+    actions   = ["rekognition:DetectModerationLabels", "comprehend:DetectToxicContent", "translate:TranslateText"]
+    resources = ["*"] # nosemgrep: terraform.lang.security.iam.no-iam-resource-exposure.no-iam-resource-exposure
+  }
+
   statement {
     sid       = "Imagenes"
     actions   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]

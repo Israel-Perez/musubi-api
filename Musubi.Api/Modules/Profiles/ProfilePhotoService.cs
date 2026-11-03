@@ -6,19 +6,21 @@ using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
+using Musubi.Api.Platform.Moderation;
 
 namespace Musubi.Api.Modules.Profiles;
 
 /// <summary>
 /// Foto de perfil (HU-04, RNF-05, RNF-13): el mismo procesamiento que las fotos de productos (sin metadatos,
 /// WebP), recortada cuadrada a 512 px. Al reemplazarla o quitarla se borra la anterior de S3 (R11).
-/// NOTE (02-07): moderar la foto.
+/// Se modera antes de guardarla (02-07).
 /// </summary>
 internal sealed class ProfilePhotoService(
     ProfileService service,
     IProfileRepository profiles,
     ICareerRepository careers,
     IMediaStorage media,
+    IContentModerator moderator,
     TimeProvider time)
 {
     /// <summary>Sube o reemplaza la foto.</summary>
@@ -40,8 +42,15 @@ internal sealed class ProfilePhotoService(
             return error;
         }
 
+        // 02-07: se modera antes de guardar; una foto rechazada nunca llega a S3.
+        var verdict = await moderator.CheckImageAsync(read.Value!.ModerationCopy, cancellationToken).ConfigureAwait(false);
+        if (ModerationErrors.For(verdict, ModerationErrors.ImageRejected) is { } rejected)
+        {
+            return rejected;
+        }
+
         var key = ProfileService.NewAvatarKey(account.Id);
-        await media.PutAsync(key, read.Value!.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
+        await media.PutAsync(key, read.Value.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
         var previous = await profiles.SetAvatarAsync(ProfileService.Owner(account), key, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
         if (previous is not null)
         {
