@@ -48,6 +48,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 03-Nov-2026 | 0.4.0-alpha.1 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.2 | Editar mi perfil en la app (SCRUM-22, HU-04): `Perfil` con estadísticas y mosaicos, `Ajustes`, "Datos personales" (carrera, cuatrimestre y foto de perfil), "Correo institucional", "Cambiar contraseña" y "Quién te ve" en `Privacidad` |
 | 03-Nov-2026 | 0.4.0-alpha.2 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.2 | Caché (SCRUM-91, 02-02): cache-aside de categorías y carreras (Redis compartido si existe `/musubi/prod/Cache/ConnectionString`; si no, memoria), caché de salida de la vitrina y las categorías anónimas, y `ETag`/`304` en categorías, vitrina y carreras. Sin cambios en la app ni en el esquema |
 | 03-Nov-2026 | 0.4.0-alpha.3 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.3 | Moderación (SCRUM-92, 02-07): fotos (productos y perfil) con Rekognition y texto de las publicaciones con Translate + Comprehend antes de guardar; `422 moderation.*` y `503 moderation.unavailable`. Permisos `Moderar` en el rol de las instancias |
+| 03-Nov-2026 | 0.4.0-alpha.4 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.4 | Observabilidad (SCRUM-93, 02-06): logs JSON con `TraceId`, una línea por petición sin datos personales, alarmas por correo (errores, 5xx, instancias sanas, latencia p95), dashboard `musubi-api` y Trivy en el CI |
 
 ## 4. Plan hacia la evaluación
 

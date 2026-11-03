@@ -8,6 +8,25 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
 - **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, PR #23): **API implementada** (`0.4.0-alpha.1`, infra `0.3.2`, esquema 4). Siguiente: fusionar, aplicar `db/004-perfiles.js` en Atlas, correr `infra-up` (con autorización) y hacer la app (HU-04 front). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 
+## T21 — Observabilidad (03-Nov-2026, SCRUM-93, 02-06)
+
+**Qué se hizo**
+- Logs JSON fuera de Development con `TraceId`, y una línea por petición (método, ruta, código y duración) sin query, encabezados ni cuerpos, y sin `/health*`.
+- `observability.tf` (infra `0.3.4`):
+  - SNS con correo a `alert_email`;
+  - filtro `Musubi/ApiErrors`;
+  - 4 alarmas;
+  - dashboard `musubi-api`.
+- Trivy `0.76.1` (por digest) en `docker-build`. API `0.4.0-alpha.4`.
+
+**Decisiones (con su porqué)**
+- **`Musubi` en `Information` en producción:** antes el nivel era `Warning` y los eventos del negocio (cuenta eliminada, moderación) no llegaban a CloudWatch.
+- **Sin query en el log de peticiones:** puede llevar un correo (RNF-05).
+
+**Errores a evitar**
+- **`terraform validate` en local** usa el `.terraform` ya inicializado contra S3: valida en una copia limpia con `../VERSION`, como el job del CI.
+- **La suscripción de SNS por correo queda pendiente** hasta que alguien confirme el correo de AWS.
+
 ## T20 — Moderación antes de guardar (03-Nov-2026, SCRUM-92, 02-07)
 
 **Qué se hizo**
