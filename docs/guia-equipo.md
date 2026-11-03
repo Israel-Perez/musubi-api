@@ -45,6 +45,9 @@ Hay un tercer repo, [`musubi-landing`](https://github.com/Israel-Perez/musubi-la
 - **API:** `cd musubi-api` → `dotnet build Musubi.slnx -c Release` (0 errores / 0 advertencias) → `dotnet run --project Musubi.Api` (en Development usa una base en memoria; no necesitas MongoDB).
 - **App:** `cd musubi-app` → `Copy-Item config/dev.example.json config/dev.json` → `flutter test` → `flutter run --dart-define-from-file=config/dev.json`.
 
+### Conecta los MCP (opcional, recomendado)
+Con el MCP de Atlassian tu agente lee la HU en Jira y deja la evidencia en la tarea. Con el de AWS consulta precios y documentación. La configuración para Claude Code y OpenCode está en [`mcp.md`](mcp.md).
+
 ---
 
 ## 2. Cómo "lee" el proyecto tu IA
