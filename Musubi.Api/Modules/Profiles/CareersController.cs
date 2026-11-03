@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Platform.Auth;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Profiles;
@@ -21,7 +22,9 @@ public sealed class CareersController : ControllerBase
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las carreras.</returns>
     [HttpGet]
+    [ConditionalGet]
     [ProducesResponseType<CareersResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List(CancellationToken cancellationToken) =>
         this.Respond(

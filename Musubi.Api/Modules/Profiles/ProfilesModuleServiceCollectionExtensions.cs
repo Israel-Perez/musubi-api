@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Profiles.Data;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Media;
 
@@ -21,9 +22,11 @@ internal static class ProfilesModuleServiceCollectionExtensions
 
         var careers = new InMemoryCareerRepository();
         var profiles = new InMemoryProfileRepository();
-        services.AddSingleton<ICareerRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
-            ? careers
-            : new MongoCareerRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<ICareerRepository>(provider => new CachedCareerRepository(
+            MongoServiceCollectionExtensions.UseInMemory(provider)
+                ? careers
+                : new MongoCareerRepository(provider.GetRequiredService<IMongoDatabase>()),
+            provider.GetRequiredService<AppCache>()));
         services.AddSingleton<IProfileRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? profiles
             : new MongoProfileRepository(provider.GetRequiredService<IMongoDatabase>()));
