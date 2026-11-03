@@ -9,7 +9,8 @@
 - **Setup:** `dotnet restore Musubi.slnx` → `dotnet run --project Musubi.Api` (Development usa `UseInMemoryDatabase=true`, sin MongoDB; API en `http://localhost:5080`, Scalar en `/scalar`). Para usar MongoDB local o Atlas, ver `deploy/README.md`.
 - **Comandos:**
   - `dotnet build Musubi.slnx -c Release` (0 errores / 0 advertencias)
-  - `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` (igual para `IntegrationTest`, `SecurityTest` y `ContractTest`)
+  - `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` (igual para `IntegrationTest`, `SecurityTest`, `ContractTest` y `PerformanceTest`)
+  - Mutación: `dotnet tool restore` → `cd MutationTest` → `dotnet stryker` (Stryker no soporta MTP: usa xUnit v2, ver `02-09`)
   - `pwsh scripts/critic-guardrails.ps1` · `pwsh scripts/check_endpoints.ps1`
 - **Orden del CI (`ci-pr.yml`):** `build` → `unit` / `integration` / `security` / `contract` / `database` (MongoDB real; requiere Docker); en paralelo `critic`, `endpoints`, `semgrep` y `docker-build`.
 - **Flujo SDD por HU:** spec (`specs/mNN-<modulo>/HU-NN-<slug>/`, skill `spec-first-writing`) → `slice-scaffolder` (Fase A) → implementación y pruebas (skill `vertical-slice`) → `security-reviewer` → `traceability-clerk` → PR.
@@ -131,6 +132,8 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `SecurityTest` | `SecurityTest/` | xUnit v3 + WebApplicationFactory por ambiente |
 | `ContractTest` | `ContractTest/` | Forma JSON contra `Fixtures/` |
 | `DatabaseTest` | `DatabaseTest/` | MongoDB real (Testcontainers) con `db/` aplicado; solo en el CI si no hay Docker local |
+| `PerformanceTest` | `PerformanceTest/` | p95 bajo carga concurrente (en proceso; `PERF_BASE_URL` para AWS) |
+| `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
 | `docs/` | `docs/` | `endpoints.md` (28 filas), `trazabilidad.md` (56 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |

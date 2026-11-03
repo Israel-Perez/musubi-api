@@ -24,7 +24,7 @@ Umbrales medibles de los RNF del MVP que aplican al back, más los NFR técnicos
 | RNF-06 IA solo a petición y con datos mínimos | Privacidad | Ambos | Ninguna conversación sale a la IA sin la petición explícita de un participante; solo con los campos mínimos | 🎯 Objetivo (Por medir) — HU-32 | UnitTest (fake del proveedor) | Pruebas de HU-32 |
 | RNF-07 Búsquedas e historial privados | Privacidad | Back | Ningún endpoint expone el historial de otro usuario; la analítica es solo agregada | 🎯 Objetivo (Por medir) — HU-09/HU-12 | SecurityTest | Pruebas de HU-12 |
 | RNF-08 Eliminación de cuenta y datos | Privacidad | Ambos | Eliminación (o anonimización documentada) de los datos personales | 🎯 Objetivo (Por medir) — HU-46 | IntegrationTest + DatabaseTest | Pruebas de HU-46 |
-| RNF-09 Búsquedas en tiempo aceptable | Rendimiento | Ambos | p95 ≤ N s (N por definir) | 🎯 Objetivo (Por definir con el PO) | Prueba de carga (pendiente) | `NOTE (02-06)` |
+| RNF-09 Búsquedas en tiempo aceptable | Rendimiento | Ambos | p95 ≤ N s (N por definir). En proceso: ≤ 100 ms (umbral del CI) | 📈 Medido real (03-Nov-2026): en proceso, p95 de 1–5 ms; contra AWS sin caché, p95 de 127 ms (ping) a 994 ms (vitrina) | `PerformanceTest/LatencyTests.cs` (job `performance`) | `02-09` |
 | RNF-10 Chat casi en tiempo real | Rendimiento | Ambos | Entrega de un mensaje ≤ N s (N por definir) | 🎯 Objetivo (Por definir con el PO) | SignalR + prueba de integración | `NOTE (HU-20)` |
 | RNF-11 Coincidencias en segundo plano | Rendimiento | Back | La petición de publicar no espera el cálculo de coincidencias | 🎯 Objetivo (Por medir) — HU-18/HU-19 | IntegrationTest | Pruebas de HU-18 |
 | RNF-13 Fotos optimizadas | Rendimiento | Ambos | El back rechaza cuerpos de más de 10 MB (Kestrel); el tamaño final de la foto está por definir | 📈 Medido real (límite) / 🎯 tamaño por definir | Límites de Kestrel | `UnitTest/DI/ServiceRegistrationTests.cs` (`Kestrel_LimitsAreBoundFromConfiguration`) |
@@ -74,7 +74,7 @@ Checklist completo en [`docs/bitacora/lineamientos-materia.md`](../../../docs/bi
 | L-15g Observabilidad | Operación | 100 % de los errores 5xx en CloudWatch Logs con id de correlación | 🎯 Objetivo (Por medir) — 02-06 | CloudWatch Logs | `NOTE (02-06)` |
 | L-16b Moderación | Seguridad | 0 imágenes o textos marcados como inapropiados persistidos | 🎯 Objetivo (Por medir) — 02-07 | Rekognition + Comprehend | `NOTE (02-07)` |
 
-Pendientes que no se instalan ahora (decisión de la plantilla inicial): Stryker, NBomber (carga), Pact, RESTler y chaos.
+Pendientes que no se instalan ahora (decisión de la plantilla inicial): Pact, RESTler y chaos. Stryker y las pruebas de carga llegaron con `02-09` (03-Nov-2026); la carga usa `HttpClient` concurrente, sin NBomber.
 
 ## Contratos
 N/A — spec constitucional de umbrales.
