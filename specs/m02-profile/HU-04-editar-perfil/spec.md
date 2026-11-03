@@ -39,7 +39,7 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
    - al reemplazarla o quitarla, se borra el archivo anterior de S3;
    - comparte el tope de subidas de HU-06 (30 por minuto por usuario).
 5. **Quién te ve:**
-   - tres interruptores (`career`, `sales`, `online`), encendidos por defecto como en la maqueta;
+   - tres interruptores (`career`, `sales`, `online`): carrera y ventas encendidos y "en línea" apagado por defecto, como en la maqueta (`Privacidad`, `sw('enLinea', false)`);
    - la API los **aplica en el servidor**: el perfil público nunca devuelve la carrera ni el periodo si `career` está apagado, ni las ventas si `sales` está apagado.
    - `online` se guarda desde ahora; lo aplicará HU-20 con el chat.
 6. **Perfil público (criterio 3 de Jira):**

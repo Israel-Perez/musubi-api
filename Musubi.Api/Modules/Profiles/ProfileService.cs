@@ -109,7 +109,7 @@ internal sealed class ProfileService(
         {
             Career = request.Career ?? true,
             Sales = request.Sales ?? true,
-            Online = request.Online ?? true,
+            Online = request.Online ?? false,
         };
         var saved = await profiles.SetVisibilityAsync(Owner(account), visibility, Now(), cancellationToken).ConfigureAwait(false);
         var list = await careers.ListActiveAsync(account.CommunityId, cancellationToken).ConfigureAwait(false);

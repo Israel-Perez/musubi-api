@@ -57,7 +57,7 @@ public sealed class ProfileServiceTests
         Assert.Null(me.Career);
         Assert.Null(me.Term);
         Assert.Null(me.Photo);
-        Assert.Equal(new VisibilityResponse(true, true, true), me.Visibility);
+        Assert.Equal(new VisibilityResponse(true, true, false), me.Visibility);
         Assert.Equal(new MyStatsResponse(null, 0, 0, 0), me.Stats);
         Assert.Null(await profiles.FindAsync(id, Ct));
     }

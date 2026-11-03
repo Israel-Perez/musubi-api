@@ -63,7 +63,7 @@ public abstract class ProfileRepositoryContract
         Assert.Equal(owner.CommunityId, created.CommunityId);
         Assert.Equal("Ana Sofía Ramírez", created.FullName);
         Assert.Equal(("ing-mecatronica", 7), (created.CareerSlug, created.Term));
-        Assert.True(created.Visibility.Career && created.Visibility.Sales && created.Visibility.Online);
+        Assert.Equal((true, true, false), (created.Visibility.Career, created.Visibility.Sales, created.Visibility.Online));
         Assert.Equal((null, 0, 0, 0), (created.Stats.RatingAvg, created.Stats.RatingCount, created.Stats.Sales, created.Stats.Purchases));
         Assert.Null(cleared.CareerSlug);
         Assert.Null(cleared.Term);
