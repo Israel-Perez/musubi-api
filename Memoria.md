@@ -8,6 +8,25 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
 - **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, PR #23): **API implementada** (`0.4.0-alpha.1`, infra `0.3.2`, esquema 4). Siguiente: fusionar, aplicar `db/004-perfiles.js` en Atlas, correr `infra-up` (con autorización) y hacer la app (HU-04 front). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 
+## T19 — Caché en 3 niveles (03-Nov-2026, SCRUM-91, 02-02)
+
+**Qué se hizo**
+- `Platform/Caching`:
+  - `AppCache` (cache-aside sobre `IDistributedCache`, Redis o memoria, con degradación);
+  - caché de salida (`catalog` y `showcase`);
+  - `[ConditionalGet]` (`ETag` y 304).
+- `CachedCategoryRepository` y `CachedCareerRepository`. Publicar o eliminar una cuenta borra la vitrina de la caché (`EvictByTagAsync`).
+- API `0.4.0-alpha.2`. Unit 139 · Integration 70 · Security 69.
+
+**Decisiones (con su porqué)**
+- **Redis opcional (Redis Cloud gratuito):** sin la cadena en Parameter Store, cada instancia usa su memoria y la API funciona igual. Con ella, la caché de datos es compartida (requisito "Redis distribuido").
+- **La caché de salida solo es para anónimos y dura poco (30 s en la vitrina):** es por instancia; una publicación nueva se ve al instante en la instancia que la recibió y en 30 s en la otra.
+- **`no-cache` + `ETag`:** el cliente revalida siempre, así que no hay datos viejos, y un 304 no manda cuerpo.
+
+**Errores a evitar**
+- **Una prueba de mordida con un build que falla** corre contra binarios viejos y "pasa": verifica que el build compile antes de leer el resultado.
+- **`StackExchange.Redis` 3.x depende de `RESPite`:** el mapeo de `nuget.config` necesita los dos patrones (`Pipelines.Sockets.Unofficial` ya no).
+- **El constructor `RedisConnectionException(tipo, mensaje)` es obsoleto (CS0618):** en las pruebas usa `RedisException`.
 ## T18 — Gobernanza: ruleset, MCP y spec de CI/CD (03-Nov-2026, SCRUM-90)
 
 **Qué se hizo**

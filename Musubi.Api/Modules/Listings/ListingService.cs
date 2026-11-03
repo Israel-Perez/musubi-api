@@ -5,10 +5,12 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
@@ -34,6 +36,7 @@ internal sealed partial class ListingService(
     ICategoryRepository categories,
     IMemberDirectory members,
     IMediaStorage media,
+    IOutputCacheStore outputCache,
     IOptions<CatalogOptions> catalog,
     TimeProvider time)
 {
@@ -145,6 +148,8 @@ internal sealed partial class ListingService(
             UpdatedAt = now,
         };
         await products.InsertAsync(product, cancellationToken).ConfigureAwait(false);
+        // La vitrina del visitante (cache de salida, 02-02) la muestra en la siguiente consulta.
+        await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.ShowcaseTag, cancellationToken).ConfigureAwait(false);
         // NOTE (HU-18): avisar en segundo plano a las solicitudes "Se busca" que coincidan (RF-23, RNF-11).
         return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
     }

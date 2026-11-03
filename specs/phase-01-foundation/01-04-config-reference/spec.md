@@ -36,7 +36,7 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `RateLimiting:Uploads:PermitLimit` / `RateLimiting:Uploads:WindowSeconds` | `30` / `60` | [HU-06 / Implementado] | Fotos por usuario por ventana (`POST /api/v1/products/photos`) |
 | `RateLimiting:Auth:PermitLimit` / `RateLimiting:Auth:WindowSeconds` | `10` / `60` | [02-03 / Implementado] | Intentos por IP en `/auth/*` |
 | `Legal:TermsVersion` / `Legal:PrivacyVersion` | `2026-10` / `2026-10` | [HU-47 / Implementado] | Versiones vigentes que se guardan en `users.consents` al registrarse |
-| `Redis:*` | — | [02-02 / Pendiente] | Cadena de Redis/Valkey (secreto si lleva clave) |
+| `Cache:ConnectionString` | `""` | [02-02 / Implementado] | Cadena de Redis (secreto: Parameter Store `/musubi/prod/Cache/ConnectionString`). Vacía: caché en memoria de cada instancia |
 | `Firebase:*` | — | [HU-31 / Pendiente] | Credenciales de Firebase Admin (secreto, solo back) |
 | `GenAi:*` | — | [HU-32 / Pendiente] | Proveedor, modelo y llave del LLM (secreto) |
 | `Payments:*` | — | [HU-55 / Pendiente] | Llave para cifrar la CLABE del vendedor (secreto). `MercadoPago:*` ya no aplica (HU-43 fuera de alcance, D-01) |
@@ -68,4 +68,4 @@ Claves de la tabla. Las variables de entorno siguen la convención de .NET (`Con
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 21-Oct-2026
-- **Detalle:** Tabla inicial con 8 claves implementadas y 4 familias pendientes con su HU dueña. 20-Oct-2026 (SCRUM-66): `ConnectionStrings:Default` (PostgreSQL) → `ConnectionStrings:Mongo` + `Mongo:DatabaseName`; se agrega `Redis:*` como pendiente de 02-02. 21-Oct-2026 (SCRUM-77): `Jwt:*`, `Email:*` y `RateLimiting:Auth:*` implementados (02-03); `AppSettingsTests` impide versionar `SigningKey`. 27-Oct-2026 (SCRUM-23): `Media:*`, `Catalog:DefaultCampus` y `RateLimiting:Uploads:*` (HU-06).
+- **Detalle:** Tabla inicial con 8 claves implementadas y 4 familias pendientes con su HU dueña. 20-Oct-2026 (SCRUM-66): `ConnectionStrings:Default` (PostgreSQL) → `ConnectionStrings:Mongo` + `Mongo:DatabaseName`; se agrega `Redis:*` como pendiente de 02-02. 21-Oct-2026 (SCRUM-77): `Jwt:*`, `Email:*` y `RateLimiting:Auth:*` implementados (02-03); `AppSettingsTests` impide versionar `SigningKey`. 27-Oct-2026 (SCRUM-23): `Media:*`, `Catalog:DefaultCampus` y `RateLimiting:Uploads:*` (HU-06). 03-Nov-2026 (SCRUM-91): `Redis:*` → `Cache:ConnectionString` (02-02).
