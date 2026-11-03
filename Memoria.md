@@ -8,6 +8,26 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
 - **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, PR #23): **API implementada** (`0.4.0-alpha.1`, infra `0.3.2`, esquema 4). Siguiente: fusionar, aplicar `db/004-perfiles.js` en Atlas, correr `infra-up` (con autorización) y hacer la app (HU-04 front). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 
+## T20 — Moderación antes de guardar (03-Nov-2026, SCRUM-92, 02-07)
+
+**Qué se hizo**
+- `Platform/Moderation`: `IContentModerator` con dos adaptadores:
+  - AWS: Rekognition para las fotos y Translate + Comprehend para el texto;
+  - en memoria: el marcador `[[inapropiado]]` y las fotos magenta.
+- Se modera antes de guardar en tres lugares:
+  - fotos de productos;
+  - foto de perfil;
+  - título y descripción al publicar.
+- Statement `Moderar` en el rol de las instancias (infra `0.3.3`). API `0.4.0-alpha.3`. Unit 151 · Integration 70.
+
+**Decisiones (con su porqué)**
+- **Translate antes de Comprehend:** la toxicidad de Comprehend solo acepta inglés (documentación de AWS, 03-Nov-2026).
+- **Copia JPEG para Rekognition:** no acepta WebP; la copia no se guarda.
+- **Si AWS falla, 503 y nada se guarda:** nunca se publica sin moderar, sin la complejidad de una cola de pendientes (eso llega con HU-39).
+
+**Errores a evitar**
+- **Un marcador de imagen en bytes crudos nunca llega al moderador:** `PhotoProcessor` rechaza antes lo que no es imagen. La regla de prueba tiene que sobrevivir al procesamiento (color magenta).
+
 ## T17 — HU-04 Editar mi perfil: API (03-Nov-2026, SCRUM-22)
 
 **Qué se hizo**

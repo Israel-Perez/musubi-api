@@ -71,6 +71,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Versión: `<Version>` de `Musubi.Api.csproj`, alineada con `docs/versionado.md` (lo verifica `UnitTest/Common/VersioningTests.cs`).
 - Lineamientos de la materia (criterios de evaluación): `docs/bitacora/lineamientos-materia.md`.
 - Errores: `return this.Problem(<Modulo>Errors.X)` con un código del catálogo `docs/errores.md` (nunca `try/catch`). Sesión: JWT (`AccessTokenIssuer`) + `RefreshTokenService` (02-03); cada endpoint exige sesión salvo `[AllowAnonymous]`; los de `/auth/*` llevan `[EnableRateLimiting(AuthPlatformServiceCollectionExtensions.AuthRateLimit)]`.
+- Moderación (02-07): todo texto o foto que publica una persona pasa por `IContentModerator` antes de guardarse (`ModerationErrors.For(...)`); en Development el moderador en memoria rechaza `[[inapropiado]]` y las fotos magenta.
 - Pendientes con dueño: SignalR → HU-20; FCM → HU-31; IA → HU-32; ML → HU-35; pagos por transferencia/efectivo → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
 
 ## 6. Seguridad y DevSecOps

@@ -38,6 +38,15 @@ aws ssm put-parameter --name "/musubi/prod/<Clave>" --type SecureString --overwr
 
 Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-up` otra vez, o iniciar un *instance refresh* del grupo `musubi-api`.
 
+## Moderación (02-07)
+
+Cada foto subida pasa por Rekognition (`DetectModerationLabels`) y cada texto publicado por Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés). El rol de las instancias tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+
+Costo del piloto: ~1 USD/mes con 500 fotos y 500 publicaciones. Precios de us-east-1:
+- Rekognition: 0.001 USD por imagen;
+- Translate: 15 USD por millón de caracteres;
+- Comprehend: 0.0001 USD por unidad de 100 caracteres.
+
 ## Dominio (`musubiapp.com.mx`, DNS en Cloudflare)
 
 | Nombre | Para qué | Dónde se configura |

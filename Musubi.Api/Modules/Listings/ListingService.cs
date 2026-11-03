@@ -12,6 +12,7 @@ using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
+using Musubi.Api.Platform.Moderation;
 
 namespace Musubi.Api.Modules.Listings;
 
@@ -34,6 +35,7 @@ internal sealed partial class ListingService(
     ICategoryRepository categories,
     IMemberDirectory members,
     IMediaStorage media,
+    IContentModerator moderator,
     IOptions<CatalogOptions> catalog,
     TimeProvider time)
 {
@@ -123,6 +125,18 @@ internal sealed partial class ListingService(
         if (!await ValidPhotosAsync(userId, request.Photos, cancellationToken).ConfigureAwait(false))
         {
             return ListingsErrors.InvalidPhotos;
+        }
+
+        // 02-07: nombre y descripcion se moderan antes de guardar (las fotos, al subirlas).
+        var verdicts = await moderator.CheckTextsAsync([title, description], cancellationToken).ConfigureAwait(false);
+        if (ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("el nombre del producto")) is { } badTitle)
+        {
+            return badTitle;
+        }
+
+        if (ModerationErrors.For(verdicts[1], ModerationErrors.TextRejected("la descripción")) is { } badDescription)
+        {
+            return badDescription;
         }
 
         var now = time.GetUtcNow().UtcDateTime;
