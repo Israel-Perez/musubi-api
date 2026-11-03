@@ -1,21 +1,13 @@
-# 02-06 — Observabilidad y seguridad en el pipeline (tareas)
+# 02-06 — Observabilidad (tareas)
 
-## T1 — Detallar
-- **Qué:** Campos del log, redacción de datos sensibles, métricas y umbrales de las alarmas.
-- **Estado:** ⏳ Por hacer.
+## T1 — Logs estructurados
+- **Estado:** ✅ Hecho (03-Nov-2026). JSON, `TraceId` y una línea por petición sin datos personales. `RequestLoggingTests`.
 
-## T2 — Logs y correlación
-- **Qué:** JSON con `traceId` y el redactor de datos personales.
-- **Estado:** ⏳ Por hacer.
+## T2 — Alarmas y dashboard
+- **Estado:** ✅ Hecho en Terraform (`observability.tf`, infra `0.3.4`). Falta `infra-up` y confirmar el correo de SNS.
 
-## T3 — Infra
-- **Qué:** `observability.tf` (alarmas, SNS y dashboard).
-- **Estado:** ⏳ Por hacer.
+## T3 — Seguridad en el pipeline
+- **Estado:** 🚧 Trivy hecho; ZAP y SonarCloud pendientes (`NOTE (02-06)`).
 
-## T4 — Pipeline
-- **Qué:** Jobs de Trivy y ZAP, y la decisión sobre SonarCloud.
-- **Estado:** ⏳ Por hacer.
-
-## T5 — Documentación
-- **Qué:** `infra/README.md`, `01-04` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+## T4 — Métricas propias (EMF)
+- **Estado:** ⏳ Por hacer (`NOTE (02-06)`).

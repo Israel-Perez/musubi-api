@@ -43,3 +43,9 @@ variable "log_retention_days" {
   type        = number
   default     = 14
 }
+
+variable "alert_email" {
+  description = "Correo que recibe las alarmas de CloudWatch (02-06). AWS pide confirmar la suscripcion."
+  type        = string
+  default     = "contacto@musubiapp.com.mx"
+}

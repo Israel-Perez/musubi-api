@@ -3,10 +3,12 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Platform.Hosting;
+using Musubi.Api.Platform.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddMusubiLocalConfiguration();
+builder.AddMusubiObservability();
 builder.Services.AddMusubiPlatform(builder.Configuration);
 builder.Services.AddAuthModule();
 builder.Services.AddListingsModule();

@@ -130,12 +130,16 @@ jobs:
       - run: semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error
 
   docker-build:
-    # Verifica el Dockerfile sin publicar nada (sin login ni push).
+    # Verifica el Dockerfile y escanea la imagen (Trivy) sin publicar nada (sin login ni push).
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build --pull -t musubi-api:ci .
+      # 02-06: falla si la imagen trae vulnerabilidades criticas con arreglo publicado.
+      - name: Trivy (imagen)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock             aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c             image --exit-code 1 --severity CRITICAL --ignore-unfixed --no-progress musubi-api:ci
 
   terraform:
     # 02-05: formato y validacion de infra/ (sin credenciales ni estado remoto).
