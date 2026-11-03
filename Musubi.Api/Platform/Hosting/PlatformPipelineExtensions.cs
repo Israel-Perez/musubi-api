@@ -2,6 +2,7 @@ using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Musubi.Api.Platform.Observability;
 using Scalar.AspNetCore;
 
 namespace Musubi.Api.Platform.Hosting;
@@ -24,6 +25,8 @@ internal static class PlatformPipelineExtensions
         app.UseForwardedHeaders();
         // En AWS (02-05): IP real del cliente y esquema que vio CloudFront.
         app.UseCloudFrontForwardedHeaders();
+        // 02-06: una linea por peticion (despues de los forwarded headers: el esquema y la IP ya son los reales).
+        app.UseMusubiRequestLogging();
 
         if (!app.Environment.IsDevelopment())
         {
@@ -46,6 +49,8 @@ internal static class PlatformPipelineExtensions
         app.UseAuthentication();
         app.UseRateLimiter();
         app.UseAuthorization();
+        // 02-02: despues de la autorizacion, para no servir de la cache algo que pide sesion.
+        app.UseOutputCache();
 
         app.MapControllers();
         // Las sondas del balanceador no llevan token (la politica de respaldo exige sesion en lo demas).

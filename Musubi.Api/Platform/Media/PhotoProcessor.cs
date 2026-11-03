@@ -8,7 +8,8 @@ namespace Musubi.Api.Platform.Media;
 /// <param name="Content">Bytes WebP.</param>
 /// <param name="Width">Ancho final.</param>
 /// <param name="Height">Alto final.</param>
-internal sealed record ProcessedPhoto(byte[] Content, int Width, int Height);
+/// <param name="ModerationCopy">La misma foto en JPEG para la moderacion (02-07): Rekognition no acepta WebP. Nunca se guarda.</param>
+internal sealed record ProcessedPhoto(byte[] Content, int Width, int Height, byte[] ModerationCopy);
 
 /// <summary>Motivo por el que una foto no se acepta.</summary>
 internal enum PhotoRejection
@@ -94,7 +95,8 @@ internal static class PhotoProcessor
         using var resized = square ? CropSquare(oriented) : Resize(oriented);
         using var image = SKImage.FromBitmap(resized);
         using var webp = image.Encode(SKEncodedImageFormat.Webp, Quality);
-        photo = new ProcessedPhoto(webp.ToArray(), resized.Width, resized.Height);
+        using var jpeg = image.Encode(SKEncodedImageFormat.Jpeg, Quality);
+        photo = new ProcessedPhoto(webp.ToArray(), resized.Width, resized.Height, jpeg.ToArray());
         return null;
     }
 

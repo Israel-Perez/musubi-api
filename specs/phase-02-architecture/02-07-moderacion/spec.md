@@ -1,62 +1,80 @@
 # 02-07 — Moderación de contenido antes de guardarlo
 
-**HU / Jira / Sprint / Módulo / Contraparte:** N/A (spec técnica) / SCRUM-86 / S3–S4 / Plataforma / musubi-app: mensajes de rechazo en las pantallas de cada HU
+**HU / Jira / Sprint / Módulo / Contraparte:** N/A (spec técnica) / SCRUM-92 (antes SCRUM-86) / S4 / Plataforma / musubi-app: los mensajes de rechazo llegan como `ApiFailure` (`code` y mensaje en español)
 
 ## Contexto
-Los lineamientos piden moderar texto, imágenes y video con las APIs de la nube **antes de guardar** (L-16b).
+El documento de la materia (requisito 16) pide que, antes de almacenar texto, imágenes o video, se evalúe con una API de la nube si la información es inapropiada; si lo es, no se permite subirla.
 
-Lo que hoy se guarda sin moderar:
-- fotos y textos de publicaciones (HU-06);
-- foto de perfil (HU-04);
-- después: solicitudes (HU-13), ofertas (HU-16), mensajes (HU-20) y reportes (HU-28).
+Lo que se guardaba sin moderar:
+- fotos y textos de las publicaciones (HU-06);
+- la foto de perfil (HU-04).
 
-Los `NOTE (02-07)` del código y de las specs apuntan aquí.
+Después llegarán solicitudes (HU-13), ofertas (HU-16), mensajes (HU-20) y reportes (HU-28).
 
-**Depende de:** `HU-06` (`PhotoProcessor` y `Platform/Media`) y `02-02` (`outbox`, para revisiones diferidas).
+**Depende de:** `HU-06` (`PhotoProcessor` y `Platform/Media`) y `HU-04` (foto de perfil).
 
 ## Requisitos
-1. **Imágenes:** Amazon Rekognition (`DetectModerationLabels`) sobre la foto ya procesada.
-   - Si hay etiquetas prohibidas (desnudez, violencia, armas, drogas) por encima del umbral, la foto se rechaza y no se guarda en S3.
-2. **Texto:** títulos, descripciones, solicitudes y mensajes pasan por un servicio de moderación de texto antes de guardarse.
-   - Si se rechaza, se responde con el campo marcado y un mensaje en español.
+1. **Imágenes:**
+   - Amazon Rekognition (`DetectModerationLabels`) revisa la foto ya procesada;
+   - con una etiqueta prohibida y una confianza de 80 % o más, la foto se rechaza y **no se guarda en S3**;
+   - etiquetas prohibidas: desnudez, violencia, contenido perturbador, drogas, símbolos de odio y gestos groseros. Se permiten la ropa de baño y el alcohol (ropa y vasos que se venden en el campus).
+2. **Texto:**
+   - el título y la descripción de una publicación se revisan antes de guardarla;
+   - si uno se rechaza, la respuesta nombra el campo con un mensaje en español.
 3. **Video:** la app no sube video (la maqueta no lo incluye). Si se agrega, aplica la misma regla.
-4. **Degradación (RNF-15):** si el proveedor no responde, el contenido queda `moderation.status = pending` y oculto hasta revisarse (`outbox`). Nunca se publica sin moderar.
-5. **Rastro:** cada decisión queda en `moderationLog` (quién, qué, resultado, umbral), sin guardar el contenido rechazado.
-6. **Revisión humana:** el administrador ve lo pendiente y lo reportado (HU-39).
+4. **Sin moderación no se guarda (RNF-15):** si AWS no responde, se responde `503 moderation.unavailable` y no se guarda nada. Nunca se publica sin moderar.
+5. **Rastro sin el contenido:** cada rechazo queda en los logs (CloudWatch) con el tipo y el motivo, nunca con el texto ni la foto.
 
 ## Diseño
-- **`Platform/Moderation/`:** `IContentModerator` con un adaptador AWS y uno en memoria (Development y pruebas, con reglas deterministas).
-- **Umbrales** en configuración, por categoría de etiqueta.
-- **Integración:** `PhotoUploadService` (HU-06), `ProfilePhotoService` (HU-04) y los servicios de texto de cada HU llaman al moderador antes del repositorio.
-- **Decisión pendiente, texto en español:** Amazon Comprehend detecta toxicidad solo en algunos idiomas. Al detallar hay que verificar el soporte de español y, si no lo tiene, elegir una alternativa con costo cero (lista de términos + modelo, u otro servicio).
+- **`Platform/Moderation/`:**
+  - `IContentModerator` (`CheckImageAsync` y `CheckTextsAsync`).
+  - `AwsContentModerator`. Las reglas son funciones puras con pruebas: `BlockedLabel` (por la etiqueta o por su padre en la taxonomía) e `IsToxic`.
+  - `InMemoryContentModerator`, solo en Development y pruebas: rechaza el marcador `[[inapropiado]]` y las fotos magenta.
+  - `ModerationOptionsValidator`: fuera de Development exige AWS (fail-fast).
+- **Texto en español:** la detección de toxicidad de Comprehend **solo acepta inglés**. Por eso el texto se traduce con Amazon Translate (`es` → `en`) y luego pasa por `DetectToxicContent`. Las dos son APIs de AWS.
+- **Fotos:** Rekognition no acepta WebP. `PhotoProcessor` agrega una copia JPEG (`ProcessedPhoto.ModerationCopy`) que se modera y nunca se guarda.
+- **Integración:**
+  - `PhotoUploadService` (productos) y `ProfilePhotoService` (perfil): moderan antes de `PutAsync`;
+  - `ListingService.PublishAsync`: modera el título y la descripción antes de insertar.
+- **Permisos:** el rol de las instancias tiene `rekognition:DetectModerationLabels`, `comprehend:DetectToxicContent` y `translate:TranslateText` (statement `Moderar`; estas acciones no admiten restringir el recurso). Infra `0.3.3`.
 
 ## Contratos
-- Errores nuevos:
+- **Errores** ([`docs/errores.md`](../../../docs/errores.md)):
   - `moderation.image_rejected` (422);
-  - `moderation.text_rejected` (422, con el campo);
-  - `moderation.unavailable` (202 o pendiente, según la decisión).
-- Configuración: `Moderation:*` (`01-04`).
-- El rol de las instancias tiene permiso de `rekognition:DetectModerationLabels` (Terraform).
+  - `moderation.text_rejected` (422, el mensaje nombra el campo);
+  - `moderation.unavailable` (503).
+- **Filas afectadas** en [`docs/endpoints.md`](../../../docs/endpoints.md): `POST /products`, `POST /products/photos` y `PUT /profiles/me/photo`.
+- **Configuración:** `Moderation:*` (`01-04`).
+- **Paquetes:** `AWSSDK.Rekognition`, `AWSSDK.Comprehend` y `AWSSDK.Translate` (constitución §6; patrón `AWSSDK.*` ya mapeado).
 
 ## Tests
-- `UnitTest/Platform/`: el umbral decide; si el proveedor falla, queda `pending`.
-- `IntegrationTest/`:
-  - una foto marcada por el moderador falso responde 422 y no llega al almacenamiento;
-  - un texto marcado responde 422 con el campo.
-- `SecurityTest/`: el contenido pendiente no aparece en la vitrina pública.
+- **`UnitTest/Platform/ModerationTests.cs` (17):**
+  - qué etiquetas y qué confianza rechazan;
+  - el umbral de toxicidad;
+  - las reglas del moderador en memoria;
+  - la copia JPEG;
+  - el fail-fast fuera de Development.
+- **`IntegrationTest/Moderation/ModerationFlowTests.cs` (4):**
+  - una foto inapropiada responde 422 en productos y en perfil, y no se guarda;
+  - un texto inapropiado responde 422 nombrando el campo, y no se publica;
+  - lo apropiado se publica.
 
 ## Criterios
-- [ ] Ninguna foto ni texto se guarda sin pasar por `IContentModerator`.
-- [ ] Rechazos con mensaje en español y el campo marcado.
-- [ ] Si se apaga el proveedor, el contenido queda pendiente y oculto, sin error 500.
-- [ ] Costo estimado dentro de los créditos (Rekognition y Comprehend), registrado en `infra/README.md`.
+- [x] Ninguna foto ni texto publicado se guarda sin pasar por `IContentModerator`.
+- [x] Los rechazos llevan un mensaje en español y nombran el campo.
+- [x] Si AWS no responde, no se guarda nada y la respuesta es `503`, nunca `500`.
+- [x] El costo estimado está en `infra/README.md` (~1 USD/mes en el piloto).
+- [ ] Probado contra AWS después de `infra-up`: una foto normal se publica.
 
 ## Límites
-- **Decisión pendiente:** proveedor de moderación de texto en español.
-- Los umbrales iniciales se ajustan con datos del piloto.
+- **Sin cola de pendientes:** si AWS falla se pide reintentar en lugar de guardar como pendiente. El `outbox` y la revisión humana llegan con HU-39 (`NOTE (HU-39)`).
+- **Pendientes:** `NOTE (HU-13)`, `NOTE (HU-16)`, `NOTE (HU-20)` y `NOTE (HU-28)` moderan su texto con el mismo `IContentModerator`.
+- **Umbrales:** se ajustan con datos del piloto.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 29-Oct-2026
-- **Detalle:** spec técnica creada con el backlog en borrador (SCRUM-86). Cubre L-16b.
+- **Fecha:** 29-Oct-2026 (borrador) · 03-Nov-2026 (implementación)
+- **Detalle:**
+  - texto en español con Translate + Comprehend (la toxicidad de Comprehend solo acepta inglés, según la documentación de AWS consultada el 03-Nov-2026);
+  - se rechaza en lugar de dejar pendiente cuando AWS no responde.

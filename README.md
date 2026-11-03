@@ -114,13 +114,15 @@ Las specs quedan en "🚧 Borrador con evidencia" hasta que el usuario indique u
 
 Las actions están fijadas por SHA; Dependabot (nuget, github-actions y docker, con `cooldown` de 7 días) las mantiene al día.
 
-## Protección de rama recomendada (`main`)
+## Protección de rama (`main`)
 
-En GitHub → Settings → Branches (o Rulesets) → regla para `main`:
+Ruleset **"Main Proteccion"** (GitHub → Settings → Rules → Rulesets), activo desde el 03-Nov-2026 en api, app y landing. Detalle en la spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md).
 
-- Requerir un pull request con **1 aprobación** (de un integrante distinto del autor).
-- Requerir que pasen los checks: `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep` y `docker-build`.
-- Requerir que la rama esté actualizada antes del merge y bloquear los force push.
+- No se puede borrar `main` ni hacer force push.
+- Pull request obligatorio con **1 aprobación** (de un integrante distinto del autor).
+- Checks obligatorios con la rama al día: `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep` y `docker-build`.
+- Revisión automática de Copilot en cada PR. La aprobación extra en PR de Copilot sin atribuir se activa en la interfaz.
+- El administrador puede saltar la aprobación solo desde un PR, mientras no haya un revisor fijo.
 
 > En GitHub gratuito, la protección de rama (y los rulesets) solo se aplica en **repos públicos**. Para un repo **privado** se necesita GitHub Pro (cuenta personal) o GitHub Team (organización).
 

@@ -28,6 +28,7 @@ Cada parámetro `/musubi/prod/A/B` llega a la API como la variable `A__B` (= `A:
 | `/musubi/prod/ConnectionStrings/Mongo` | SecureString | Cadena `mongodb+srv://` de Atlas |
 | `/musubi/prod/Jwt/SigningKey` | SecureString | Llave HS256 (base64, 64 bytes) |
 | `/musubi/prod/Email/From` | String | Remitente verificado en SES |
+| `/musubi/prod/Cache/ConnectionString` | SecureString | **Opcional** (02-02): Redis compartido por las 2 instancias, p. ej. Redis Cloud gratuito (`host:puerto,password=...,ssl=True`). Sin él, cada instancia usa su memoria |
 
 Para guardar un secreto sin que quede en el historial de la terminal:
 
@@ -37,6 +38,27 @@ aws ssm put-parameter --name "/musubi/prod/<Clave>" --type SecureString --overwr
 ```
 
 Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-up` otra vez, o iniciar un *instance refresh* del grupo `musubi-api`.
+
+## Moderación (02-07)
+
+Cada foto subida pasa por Rekognition (`DetectModerationLabels`) y cada texto publicado por Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés). El rol de las instancias tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+
+Costo del piloto: ~1 USD/mes con 500 fotos y 500 publicaciones. Precios de us-east-1:
+- Rekognition: 0.001 USD por imagen;
+- Translate: 15 USD por millón de caracteres;
+- Comprehend: 0.0001 USD por unidad de 100 caracteres.
+
+## Observabilidad (02-06)
+
+- **Logs:** el contenedor escribe JSON a la consola y el driver `awslogs` los manda a `/musubi/prod/api`. Cada línea lleva `TraceId`, el mismo que recibe la app en el `problem+json` de un error.
+- **Dashboard** `musubi-api` (CloudWatch → Dashboards): peticiones, 5xx, latencia p50/p95, instancias sanas, errores de la API y los últimos errores con su `TraceId`.
+- **Alarmas** (aviso por correo a `alert_email`, por defecto `contacto@musubiapp.com.mx`):
+  - 5 o más errores en 5 minutos;
+  - 5 o más respuestas 5xx en 5 minutos;
+  - menos instancias sanas que `instance_count` durante 10 minutos;
+  - latencia p95 mayor a 1.5 s durante 15 minutos.
+- **Confirmar el correo:** después del primer `infra-up` con 02-06, AWS manda un correo "AWS Notification - Subscription Confirmation". Hay que abrirlo y confirmar; si no, las alarmas no avisan.
+- **Costo:** dentro de la capa gratuita (10 alarmas, 3 dashboards y 1,000 correos de SNS al mes).
 
 ## Dominio (`musubiapp.com.mx`, DNS en Cloudflare)
 

@@ -18,6 +18,7 @@ Registro DI y pipeline HTTP de la plataforma, en un orden fijo y explícito, sob
 | Orden | Componente | Estado | Nota |
 |---|---|---|---|
 | 1 | `UseForwardedHeaders` (X-Forwarded-For/Proto) + `UseCloudFrontForwardedHeaders` | ✅ | En AWS, la IP y el esquema vienen de CloudFront (02-05, solo con `Proxy:TrustCloudFrontHeaders`) |
+| 1b | `UseMusubiRequestLogging` (`UseHttpLogging`, salvo `/health*`) | ✅ | 02-06: método, ruta, código y duración; sin query, encabezados ni cuerpos |
 | 2 | `UseExceptionHandler` + `ProblemDetails` (fuera de Dev) | ✅ | 01-03 |
 | 3 | `UseHsts` (fuera de Dev) | ✅ | `AddHsts`: 365 d + subdominios |
 | 4 | `UseStatusCodePages` | ✅ | 02-03: 401/403/404/405/429 sin cuerpo → problem+json con `code` |
@@ -27,9 +28,10 @@ Registro DI y pipeline HTTP de la plataforma, en un orden fijo y explícito, sob
 | 8 | `UseAuthentication` | ✅ | 02-03: JWT Bearer HS256 |
 | 9 | `UseRateLimiter` | ✅ | 02-03: política `auth` (429 + `Retry-After`) |
 | 10 | `UseAuthorization` | ✅ | 02-03: FallbackPolicy = sesión obligatoria |
-| 11 | `MapControllers` + `MapHealthChecks` (`AllowAnonymous`) | ✅ | 01-03 |
+| 11 | `UseOutputCache` | ✅ | 02-02: solo respuestas anónimas (categorías y vitrina); después de la autorización para no servir de la caché algo que pide sesión |
+| 12 | `MapControllers` + `MapHealthChecks` (`AllowAnonymous`) | ✅ | 01-03 |
 | — | Headers de seguridad, rate limit global, compresión | Pendiente | `02-04` |
-| — | Logs estructurados, correlación | Pendiente | `02-06` |
+| — | Logs estructurados (JSON) y correlación (`TraceId`) | ✅ | `02-06`: `AddMusubiObservability` en `Program.cs` |
 | — | Hub de SignalR | Pendiente | `NOTE (HU-20)` |
 
 Archivos: `Musubi.Api/Program.cs`, `Musubi.Api/Platform/Hosting/PlatformServiceCollectionExtensions.cs`, `Musubi.Api/Platform/Hosting/PlatformPipelineExtensions.cs`.

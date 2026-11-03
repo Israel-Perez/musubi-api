@@ -9,10 +9,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Musubi.Api.Platform.Auth;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Email;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
+using Musubi.Api.Platform.Moderation;
 
 namespace Musubi.Api.Platform.Hosting;
 
@@ -95,6 +97,8 @@ internal static class PlatformServiceCollectionExtensions
         services.AddMusubiAuth();
         services.AddMusubiEmail();
         services.AddMusubiMedia();
+        services.AddMusubiCaching();
+        services.AddMusubiModeration();
 
         services.AddMusubiMongo(ReadyTag);
     }
