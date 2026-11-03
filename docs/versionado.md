@@ -45,6 +45,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 30-Oct-2026 | 0.3.0-alpha.3 | `v1` | 3 | 0.3.0+3 | Prueba interna | 0.3.0 | Cuenta de revisión de Google Play (SCRUM-88): dominio `musubiapp.com.mx` en la UTTT (`db/003-dominio-revision.js`); sin otros cambios en la API |
 | 30-Oct-2026 | 0.3.0-alpha.4 | `v1` | 3 | 0.3.0+4 | Prueba cerrada | 0.3.1 | Eliminar mi cuenta desde la app (SCRUM-32, HU-46): `POST /api/v1/account/delete` con la contraseña actual, borrado real de la cuenta, las sesiones, las publicaciones y las fotos; `s3:ListBucket` en las fotos |
 | 03-Nov-2026 | 0.4.0-alpha.1 | `v1` | 4 | 0.3.0+4 | Prueba cerrada | 0.3.2 | Editar mi perfil (SCRUM-22, HU-04), solo la API: perfil, "Quién te ve", foto de perfil, carreras del campus y cambiar la contraseña (8 rutas); `profiles`, `careers` y el periodo del campus (`db/004-perfiles.js`); `s3:ListBucket` también en `media/avatars/*`. La app lo usa desde su versión de HU-04 |
+| 03-Nov-2026 | 0.4.0-alpha.1 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.2 | Editar mi perfil en la app (SCRUM-22, HU-04): `Perfil` con estadísticas y mosaicos, `Ajustes`, "Datos personales" (carrera, cuatrimestre y foto de perfil), "Correo institucional", "Cambiar contraseña" y "Quién te ve" en `Privacidad` |
 
 ## 4. Plan hacia la evaluación
 
