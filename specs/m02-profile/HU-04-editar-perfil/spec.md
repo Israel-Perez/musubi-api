@@ -66,19 +66,19 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - reutiliza `Passwords`, `RefreshTokenService` y `SessionIssuer`.
 - **`Platform/Media`:**
   - `PhotoProcessor` gana una variante cuadrada (recorte al centro, 512 px);
-  - `IMediaStorage` gana `DeleteAsync`, que también usará HU-46;
+  - `IMediaStorage` gana `DeleteAsync` (una llave); `DeletePrefixAsync` ya existe (HU-46);
   - llave de la foto: `media/avatars/{userId}/{32hex}.webp`.
 - **Datos:**
-  - `db/003-perfiles.js` crea `profiles` y `careers` con su `$jsonSchema` e índices;
+  - `db/004-perfiles.js` crea `profiles` y `careers` con su `$jsonSchema` e índices;
   - agrega `academicTerm` a `communities`;
   - siembra las carreras de la UTTT;
-  - `MongoSchema.ExpectedVersion = 3`;
+  - `MongoSchema.ExpectedVersion = 4`;
   - filas en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md).
 - **Pendientes:**
   - `NOTE (HU-05)`: reputación, publicaciones y opiniones en el perfil público;
   - `NOTE (HU-20)`: aplicar `online`;
   - `NOTE (HU-23)`/`NOTE (HU-27)`: actualizar `stats` al completar pedidos y calificaciones;
-  - `NOTE (HU-46)`: borrar el perfil y la foto al eliminar la cuenta;
+  - HU-46 ya está en `main`: `ProfileAccountEraser` (`IAccountDataEraser`) borra el perfil y `media/avatars/{userId}/`; `infra/stack/iam.tf` suma `media/avatars/*` al `s3:prefix` de `s3:ListBucket`;
   - `NOTE (02-07)`: moderar la foto;
   - `NOTE (HU-41)`: administrar las carreras.
 
@@ -98,7 +98,7 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - `profiles.invalid_career` (400);
   - `profiles.invalid_term` (400);
   - `profiles.not_found` (404);
-  - `auth.wrong_password` (400).
+  - `auth.wrong_password` (400) ya existe (HU-46): se reutiliza.
   - Las fotos reutilizan `listings.photo_*`.
 - **Fixtures:** `ContractTest/Fixtures/{my-profile,public-profile,careers}.json`.
 - **Configuración:** sin claves nuevas. La foto usa `Media:*` de HU-06.

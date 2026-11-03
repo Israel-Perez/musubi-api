@@ -2,11 +2,11 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (29-Oct-2026)
+## Estado actual (03-Nov-2026)
 
-- **En producción:** API `0.3.0-alpha.2` e infra `0.3.0` en `https://api.musubiapp.com.mx` (dominio propio, certificado ACM y TLS 1.2 como mínimo). SES está en producción y envía desde `no-reply@musubiapp.com.mx`. El sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
-- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`): spec, plan y tareas en `specs/m02-profile/HU-04-editar-perfil/` (🚧 Borrador). Siguiente: T1 (datos y `db/003-perfiles.js`). La lista de carreras de la UTTT está pendiente de validar con el equipo.
-- **Guía del equipo** (SCRUM-83, PR #22): `docs/guia-equipo.md` y los agentes de OpenCode.
+- **En producción:** API `0.3.0-alpha.4`, infra `0.3.1` y esquema 3 en `https://api.musubiapp.com.mx`. Incluye HU-46 (eliminar la cuenta) y la cuenta de revisión de Google Play (`db/003`). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
+- **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
+- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, rebasada sobre HU-46): spec, plan y tareas en `specs/m02-profile/HU-04-editar-perfil/` (🚧 Borrador). Siguiente: T1 (datos y `db/004-perfiles.js`, esquema 4). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 
 ## T11 — HU-04 Editar mi perfil: spec (27-Oct-2026, SCRUM-22)
 

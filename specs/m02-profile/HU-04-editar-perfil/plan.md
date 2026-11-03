@@ -13,7 +13,7 @@
 - `Platform/Media`:
   - `PhotoProcessor.TryProcessSquare(bytes, 512, out photo)`;
   - `IMediaStorage.DeleteAsync` en S3 y en memoria.
-- `db/003-perfiles.js` y `MongoSchema.ExpectedVersion = 3`.
+- `db/004-perfiles.js` y `MongoSchema.ExpectedVersion = 4`.
 
 ## 2. Contratos (DTOs)
 
@@ -46,7 +46,7 @@ Formas de las respuestas:
   - `academicTerm { unit, count }`;
   - `careers: [{ slug, name, shortName, level, firstTerm, lastTerm }]`, en el orden de la semilla.
 
-## 3. Datos (`db/003-perfiles.js`)
+## 3. Datos (`db/004-perfiles.js`)
 - **`profiles`** (`_id` = `userId`; R1, R4, R13). Campos:
   - `communityId`, `fullName` (copia R8 del nombre, que no cambia);
   - `careerSlug`, `term` (entero ≥ 1), `avatarKey`;

@@ -2,9 +2,9 @@
 
 ## T1 — Datos
 - **Crear:**
-  - `db/003-perfiles.js`: `profiles`, `careers`, `communities.academicTerm` y la semilla de la UTTT;
+  - `db/004-perfiles.js`: `profiles`, `careers`, `communities.academicTerm` y la semilla de la UTTT;
   - `Modules/Profiles/Data/*`.
-- **Cambiar:** `MongoSchema.ExpectedVersion = 3`.
+- **Cambiar:** `MongoSchema.ExpectedVersion = 4`.
 - **Verificar:** `ProfileRepositoryContract` (en memoria y Mongo) y `SchemaScriptTests` (+1).
 - **Estado:** ⏳ Por hacer.
 
@@ -47,7 +47,7 @@
 - `NOTE (HU-05)`: reputación, publicaciones y opiniones en `GET /profiles/{id}`.
 - `NOTE (HU-20)`: aplicar `visibility.online`.
 - `NOTE (HU-23)`/`NOTE (HU-27)`: actualizar `profiles.stats`.
-- `NOTE (HU-46)`: borrar el perfil y la foto con la cuenta.
+- HU-46 (en `main`): `ProfileAccountEraser` y el prefijo `media/avatars/*` en `infra/stack/iam.tf` (T2).
 - `NOTE (02-07)`: moderar la foto.
 - `NOTE (HU-41)`: administrar las carreras y el periodo del campus.
 - **Validar con el equipo** la lista de carreras (`plan.md` §4).
