@@ -32,11 +32,27 @@ internal sealed class CommunityDocument
     /// <summary><c>active</c> o <c>inactive</c>.</summary>
     public string Status { get; init; } = CommunityStatuses.Active;
 
+    /// <summary>Periodo academico del campus (HU-04, db/004). Sin el, vale <see cref="CommunityAcademicTerm.Default"/>.</summary>
+    public CommunityAcademicTerm? AcademicTerm { get; init; }
+
     /// <summary>Version del documento (R4).</summary>
     public int SchemaVersion { get; init; } = 1;
 
     /// <summary>Alta (UTC).</summary>
     public DateTime CreatedAt { get; init; }
+}
+
+/// <summary>Como divide el campus sus estudios ("7.º cuatrimestre"). Cada campus define el suyo (RNF-21).</summary>
+internal sealed class CommunityAcademicTerm
+{
+    /// <summary>Periodo de un campus que aun no lo configura.</summary>
+    public static readonly CommunityAcademicTerm Default = new() { Unit = "semestre", Count = 12 };
+
+    /// <summary><c>cuatrimestre</c>, <c>semestre</c> o <c>trimestre</c>.</summary>
+    public string Unit { get; init; } = string.Empty;
+
+    /// <summary>Numero de periodos (la UTTT cursa 11 cuatrimestres).</summary>
+    public int Count { get; init; }
 }
 
 /// <summary>Estados de una comunidad.</summary>

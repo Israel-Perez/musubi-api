@@ -12,7 +12,7 @@ namespace Musubi.Api.Modules.Auth.Data;
 // operaciones atomicas); TestShared/Auth verifica que se comporten igual que las de Mongo.
 // Los documentos son inmutables (init): cada cambio reemplaza la entrada bajo el candado.
 
-/// <summary>Comunidades en memoria, con la misma semilla que db/001-identidad.js y db/003-dominio-revision.js.</summary>
+/// <summary>Comunidades en memoria, con la misma semilla que db/001-identidad.js, db/003-dominio-revision.js y db/004-perfiles.js.</summary>
 internal sealed class InMemoryCommunityRepository : ICommunityRepository
 {
     /// <summary>Id fijo de la UTTT en memoria (en Mongo el id lo genera el script).</summary>
@@ -28,6 +28,7 @@ internal sealed class InMemoryCommunityRepository : ICommunityRepository
             ShortName = "UTTT",
             EmailDomains = ["uttt.edu.mx", "musubiapp.com.mx"],
             Status = CommunityStatuses.Active,
+            AcademicTerm = new CommunityAcademicTerm { Unit = "cuatrimestre", Count = 11 },
             CreatedAt = DateTime.UnixEpoch,
         },
     ];

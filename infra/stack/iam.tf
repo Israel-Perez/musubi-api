@@ -59,7 +59,7 @@ data "aws_iam_policy_document" "api" {
     resources = ["${aws_s3_bucket.media.arn}/*"]
   }
 
-  # Listar solo las fotos: borrar las de una cuenta por prefijo (HU-46). Con este permiso S3
+  # Listar solo las fotos (productos y perfil): borrar las de una cuenta por prefijo (HU-46). Con este permiso S3
   # tambien responde 404 (y no 403) a una foto que no existe.
   statement {
     sid       = "ListarImagenes"
@@ -69,7 +69,7 @@ data "aws_iam_policy_document" "api" {
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
-      values   = ["media/products/*"]
+      values   = ["media/products/*", "media/avatars/*"]
     }
   }
 }

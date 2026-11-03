@@ -45,11 +45,24 @@ internal static class PhotoProcessor
     /// <summary>Tipo MIME de la salida.</summary>
     public const string ContentType = "image/webp";
 
-    /// <summary>Procesa la foto.</summary>
+    /// <summary>Lado de la foto de perfil (HU-04): el avatar mas grande mide 72 pt, a 3x son 216 px.</summary>
+    public const int AvatarSide = 512;
+
+    /// <summary>Procesa la foto de un producto: conserva la proporcion.</summary>
     /// <param name="input">Bytes del archivo subido.</param>
     /// <param name="photo">La foto lista, si se acepto.</param>
     /// <returns><c>null</c> si se acepto; si no, el motivo.</returns>
-    public static PhotoRejection? TryProcess(byte[] input, out ProcessedPhoto? photo)
+    public static PhotoRejection? TryProcess(byte[] input, out ProcessedPhoto? photo) =>
+        TryProcess(input, square: false, out photo);
+
+    /// <summary>Procesa una foto de perfil (HU-04): la recorta cuadrada al centro y la deja de <see cref="AvatarSide"/> px.</summary>
+    /// <param name="input">Bytes del archivo subido.</param>
+    /// <param name="photo">La foto lista, si se acepto.</param>
+    /// <returns><c>null</c> si se acepto; si no, el motivo.</returns>
+    public static PhotoRejection? TryProcessSquare(byte[] input, out ProcessedPhoto? photo) =>
+        TryProcess(input, square: true, out photo);
+
+    private static PhotoRejection? TryProcess(byte[] input, bool square, out ProcessedPhoto? photo)
     {
         ArgumentNullException.ThrowIfNull(input);
         photo = null;
@@ -78,7 +91,7 @@ internal static class PhotoProcessor
         }
 
         using var oriented = Orient(decoded, codec.EncodedOrigin);
-        using var resized = Resize(oriented);
+        using var resized = square ? CropSquare(oriented) : Resize(oriented);
         using var image = SKImage.FromBitmap(resized);
         using var webp = image.Encode(SKEncodedImageFormat.Webp, Quality);
         photo = new ProcessedPhoto(webp.ToArray(), resized.Width, resized.Height);
@@ -136,6 +149,18 @@ internal static class PhotoProcessor
         // Giros y espejos exactos: no hace falta interpolar.
         using var image = SKImage.FromBitmap(source);
         canvas.DrawImage(image, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest), paint: null);
+        return target;
+    }
+
+    // Recorta el centro cuadrado y lo escala a AvatarSide (tambien hacia arriba: el minimo es MinSide).
+    private static SKBitmap CropSquare(SKBitmap source)
+    {
+        var side = Math.Min(source.Width, source.Height);
+        var crop = SKRectI.Create((source.Width - side) / 2, (source.Height - side) / 2, side, side);
+        var target = new SKBitmap(new SKImageInfo(AvatarSide, AvatarSide, source.ColorType, source.AlphaType));
+        using var canvas = new SKCanvas(target);
+        using var image = SKImage.FromBitmap(source);
+        canvas.DrawImage(image, crop, SKRect.Create(AvatarSide, AvatarSide), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear), paint: null);
         return target;
     }
 

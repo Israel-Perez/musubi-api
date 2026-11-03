@@ -76,6 +76,12 @@ internal interface IMediaStorage
     /// <returns><c>true</c> si existe.</returns>
     Task<bool> ExistsAsync(string key, CancellationToken cancellationToken);
 
+    /// <summary>Borra un archivo (HU-04: la foto de perfil anterior). Idempotente.</summary>
+    /// <param name="key">Llave.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task DeleteAsync(string key, CancellationToken cancellationToken);
+
     /// <summary>Borra todos los archivos cuya llave empieza con el prefijo (HU-46).</summary>
     /// <param name="prefix">Prefijo, terminado en <c>/</c> (<c>media/products/{userId}/</c>).</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -102,6 +108,13 @@ internal sealed class InMemoryMediaStorage : IMediaStorage
 
     /// <inheritdoc />
     public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken) => Task.FromResult(files.ContainsKey(key));
+
+    /// <inheritdoc />
+    public Task DeleteAsync(string key, CancellationToken cancellationToken)
+    {
+        files.TryRemove(key, out _);
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc />
     public Task<int> DeletePrefixAsync(string prefix, CancellationToken cancellationToken)
@@ -153,6 +166,10 @@ internal sealed class S3MediaStorage(IAmazonS3 s3, IOptions<MediaOptions> option
             return false;
         }
     }
+
+    /// <inheritdoc />
+    public Task DeleteAsync(string key, CancellationToken cancellationToken) =>
+        s3.DeleteObjectAsync(options.Value.Bucket, key, cancellationToken);
 
     /// <inheritdoc />
     public async Task<int> DeletePrefixAsync(string prefix, CancellationToken cancellationToken)

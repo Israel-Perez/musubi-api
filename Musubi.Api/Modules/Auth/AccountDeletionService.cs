@@ -10,7 +10,7 @@ namespace Musubi.Api.Modules.Auth;
 
 /// <summary>
 /// Borra los datos de una cuenta que pertenecen a un modulo (HU-46). M-01 no lee las colecciones
-/// de otros modulos: cada uno registra su implementacion. NOTE (HU-04): perfil y foto.
+/// de otros modulos: cada uno registra su implementacion (publicaciones, perfil y fotos).
 /// NOTE (HU-20): conversaciones. NOTE (HU-23): pedidos y calificaciones se anonimizan (R11).
 /// </summary>
 internal interface IAccountDataEraser

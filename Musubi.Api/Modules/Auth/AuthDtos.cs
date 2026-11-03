@@ -102,3 +102,10 @@ public sealed record RecoveryResetRequest(
 /// <param name="Password">Contrasena actual en claro (solo entrada).</param> <!-- critic-allow: input-credential (HU-46) -->
 public sealed record DeleteAccountRequest(
     [Required, MaxLength(128)] string Password); // critic-allow: input-credential (HU-46)
+
+/// <summary>Cambiar la contrasena con sesion (HU-04, maqueta <c>Ajustes</c>).</summary>
+/// <param name="CurrentPassword">Contrasena actual en claro (solo entrada).</param> <!-- critic-allow: input-credential (HU-04) -->
+/// <param name="NewPassword">Contrasena nueva en claro (solo entrada).</param> <!-- critic-allow: input-credential (HU-04) -->
+public sealed record ChangePasswordRequest( // critic-allow: input-credential (HU-04)
+    [Required, MaxLength(128)] string CurrentPassword, // critic-allow: input-credential (HU-04)
+    [Required, MaxLength(128)] string NewPassword); // critic-allow: input-credential (HU-04)
