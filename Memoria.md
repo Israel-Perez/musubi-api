@@ -8,6 +8,23 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
 - **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, PR #23): **API implementada** (`0.4.0-alpha.1`, infra `0.3.2`, esquema 4). Siguiente: fusionar, aplicar `db/004-perfiles.js` en Atlas, correr `infra-up` (con autorización) y hacer la app (HU-04 front). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 
+## T22 — Mutación y rendimiento (03-Nov-2026, SCRUM-94, 02-09)
+
+**Qué se hizo**
+- `PerformanceTest`: p95 de `ping`, categorías y vitrina con 400 peticiones (20 a la vez); job `performance`.
+- `MutationTest`: Stryker.NET 5 sobre `Passwords.cs` y `EmailAddresses.cs`, con puntaje de 87.5 %; workflow `mutation.yml`.
+- Con eso, la solución completa los 8 proyectos de la plantilla `WebAPIDevSecOps`.
+
+**Mediciones (03-Nov-2026)**
+- **En proceso:** p95 de 1.1 ms (ping), 2.7 ms (categorías) y 4.6 ms (vitrina).
+- **Contra AWS** (`0.4.0-alpha.1`, sin caché): p95 de 127 ms (ping), 895 ms (categorías) y 994 ms (vitrina); p50 de la vitrina, 908 ms. Hay que medir otra vez con `02-02` desplegada.
+
+**Errores a evitar**
+- **Stryker no funciona con xUnit v3:** no soporta MTP (#3094) y activa los mutantes dentro del proceso de VSTest, pero xUnit v3 corre las pruebas en otro proceso. El síntoma: los mutantes "sobreviven" y el puntaje sale en 0 %.
+- **Un mutante en el inicializador de un campo** solo se activa si la prueba crea la instancia, no con una estática.
+- **`dotnet test` con `global.json` en MTP no corre proyectos VSTest:** `MutationTest` se corre con `dotnet stryker`.
+- **No escribas un SHA de una action de memoria:** cópialo de un workflow verificado o de `git ls-remote`.
+
 ## T17 — HU-04 Editar mi perfil: API (03-Nov-2026, SCRUM-22)
 
 **Qué se hizo**

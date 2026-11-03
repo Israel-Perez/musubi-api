@@ -5,4 +5,5 @@
   <Project Path="SecurityTest/SecurityTest.csproj" />
   <Project Path="ContractTest/ContractTest.csproj" />
   <Project Path="DatabaseTest/DatabaseTest.csproj" />
+  <Project Path="PerformanceTest/PerformanceTest.csproj" />
 </Solution>

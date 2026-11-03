@@ -1,0 +1,36 @@
+name: mutation
+
+# SCRUM-94: pruebas de mutacion con Stryker.NET sobre las reglas del nucleo (MutationTest/stryker-config.json).
+# Tarda varios minutos: corre cada semana y a mano, no en cada PR. Falla si el puntaje baja del umbral
+# "break" y deja el reporte HTML como artefacto.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 1" # lunes, 6:00 en Mexico
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet tool restore
+      - name: Stryker
+        working-directory: MutationTest
+        run: dotnet stryker
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: stryker-report
+          path: MutationTest/StrykerOutput/**/reports/
+          retention-days: 14

@@ -1,0 +1,12 @@
+{
+  "stryker-config": {
+    "project": "Musubi.Api.csproj",
+    "test-projects": ["MutationTest.csproj"],
+    "mutate": [
+      "**/Modules/Auth/Passwords.cs",
+      "**/Modules/Auth/EmailAddresses.cs"
+    ],
+    "reporters": ["cleartext", "json", "html"],
+    "thresholds": { "high": 80, "low": 70, "break": 70 }
+  }
+}

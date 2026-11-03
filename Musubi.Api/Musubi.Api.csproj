@@ -32,6 +32,8 @@
     <InternalsVisibleTo Include="SecurityTest" />
     <InternalsVisibleTo Include="ContractTest" />
     <InternalsVisibleTo Include="DatabaseTest" />
+    <InternalsVisibleTo Include="MutationTest" />
+    <InternalsVisibleTo Include="PerformanceTest" />
   </ItemGroup>
 
 </Project>

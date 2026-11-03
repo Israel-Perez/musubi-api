@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pruebas de mutacion (SCRUM-94) con Stryker.NET. Stryker activa cada mutante desde un colector DENTRO del
+    proceso de VSTest; xUnit v3 corre siempre en un proceso aparte y Stryker no lo soporta
+    (stryker-net#3094). Por eso este proyecto usa xUnit v2 y tiene pruebas propias sobre reglas puras del
+    dominio (stryker-config.json, "mutate"). No entra en Musubi.slnx ni en `dotnet test` del CI de PR.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- CA1515: las clases de prueba deben ser publicas para el runner. CA1707: nombres Metodo_Escenario_Resultado. CS1591: las pruebas no requieren XML doc. -->
+    <NoWarn>$(NoWarn);CA1515;CA1707;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Musubi.Api\Musubi.Api.csproj" />
+  </ItemGroup>
+
+</Project>
