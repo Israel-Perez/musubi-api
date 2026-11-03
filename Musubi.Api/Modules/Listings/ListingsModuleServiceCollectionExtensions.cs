@@ -7,6 +7,7 @@ using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Platform.Auth;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 
 namespace Musubi.Api.Modules.Listings;
@@ -25,9 +26,11 @@ internal static class ListingsModuleServiceCollectionExtensions
 
         var categories = new InMemoryCategoryRepository();
         var products = new InMemoryProductRepository();
-        services.AddSingleton<ICategoryRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
-            ? categories
-            : new MongoCategoryRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<ICategoryRepository>(provider => new CachedCategoryRepository(
+            MongoServiceCollectionExtensions.UseInMemory(provider)
+                ? categories
+                : new MongoCategoryRepository(provider.GetRequiredService<IMongoDatabase>()),
+            provider.GetRequiredService<AppCache>()));
         services.AddSingleton<IProductRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? products
             : new MongoProductRepository(provider.GetRequiredService<IMongoDatabase>()));

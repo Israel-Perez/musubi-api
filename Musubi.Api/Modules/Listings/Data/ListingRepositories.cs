@@ -67,3 +67,19 @@ internal interface IProductRepository
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Categorias con cache-aside (02-02): cambian poco y se leen en cada "Filtrar" y "Vender-3". Se guardan por
+/// comunidad durante <see cref="Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl"/>.
+/// NOTE (HU-41): borrar la entrada al editar una categoria.
+/// </summary>
+internal sealed class CachedCategoryRepository(ICategoryRepository inner, Platform.Caching.AppCache cache) : ICategoryRepository
+{
+    /// <inheritdoc />
+    public Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
+        cache.GetOrCreateAsync(
+            "categories:" + communityId,
+            Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl,
+            ct => inner.ListActiveAsync(communityId, ct),
+            cancellationToken);
+}

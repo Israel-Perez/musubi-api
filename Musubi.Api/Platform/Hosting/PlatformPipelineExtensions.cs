@@ -49,6 +49,8 @@ internal static class PlatformPipelineExtensions
         app.UseAuthentication();
         app.UseRateLimiter();
         app.UseAuthorization();
+        // 02-02: despues de la autorizacion, para no servir de la cache algo que pide sesion.
+        app.UseOutputCache();
 
         app.MapControllers();
         // Las sondas del balanceador no llevan token (la politica de respaldo exige sesion en lo demas).

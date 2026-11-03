@@ -69,8 +69,10 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
 - Datos: MongoDB (`IMongoClient`/`IMongoDatabase` lazy en `Platform/Data/MongoServiceCollectionExtensions.cs`; sin MongoDB con `UseInMemoryDatabase=true`). Modelo y reglas R1–R14 en `docs/modelo-datos.md` (02-01); esquema en `db/NNN-*.js` + `MongoSchema.ExpectedVersion`; cada repositorio tiene un `Mongo*` y un `InMemory*` que pasan la misma batería de `TestShared/`.
 - Versión: `<Version>` de `Musubi.Api.csproj`, alineada con `docs/versionado.md` (lo verifica `UnitTest/Common/VersioningTests.cs`).
+- Caché (02-02): un catálogo que cambia poco se lee con un decorador `Cached*Repository` sobre `AppCache` (Redis o memoria, siempre con degradación); una lista pública lleva `[OutputCache(PolicyName = ...)]` y `[ConditionalGet]`; lo que cambia con una escritura se invalida (`EvictByTagAsync`). Nunca se cachea algo con sesión en la caché de salida.
 - Lineamientos de la materia (criterios de evaluación): `docs/bitacora/lineamientos-materia.md`.
 - Errores: `return this.Problem(<Modulo>Errors.X)` con un código del catálogo `docs/errores.md` (nunca `try/catch`). Sesión: JWT (`AccessTokenIssuer`) + `RefreshTokenService` (02-03); cada endpoint exige sesión salvo `[AllowAnonymous]`; los de `/auth/*` llevan `[EnableRateLimiting(AuthPlatformServiceCollectionExtensions.AuthRateLimit)]`.
+- Moderación (02-07): todo texto o foto que publica una persona pasa por `IContentModerator` antes de guardarse (`ModerationErrors.For(...)`); en Development el moderador en memoria rechaza `[[inapropiado]]` y las fotos magenta.
 - Pendientes con dueño: SignalR → HU-20; FCM → HU-31; IA → HU-32; ML → HU-35; pagos por transferencia/efectivo → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
 
 ## 6. Seguridad y DevSecOps
@@ -113,7 +115,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 - `traceability-clerk`: spec ↔ código ↔ test ↔ Jira; solo lectura forzada.
 - Invocación manual en desarrollo; en el CI solo corren los scripts (`critic`, `endpoints`).
 - Fuente de reglas: `.claude/skills/` (10 skills); los agentes las enlazan, nunca las copian. Convención: `.claude/agents/README.md`.
-- OpenCode: lee este `AGENTS.md` y las skills de `.claude/skills/`; sus agentes están en `.opencode/agents/` y remiten a `.claude/agents/` (solo lectura por `permission`). Flujo del equipo: `docs/guia-equipo.md`.
+- OpenCode: lee este `AGENTS.md` y las skills de `.claude/skills/`; sus agentes están en `.opencode/agents/` y remiten a `.claude/agents/` (solo lectura por `permission`). Flujo del equipo: `docs/guia-equipo.md`. MCP del equipo (Atlassian y AWS): `docs/mcp.md`.
 
 ---
 

@@ -64,3 +64,19 @@ internal interface IProfileRepository
     /// <returns>Tarea.</returns>
     Task DeleteAsync(string userId, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Carreras con cache-aside (02-02): las lee cada consulta del perfil. Se guardan por comunidad durante
+/// <see cref="Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl"/>.
+/// NOTE (HU-41): borrar la entrada al editar una carrera.
+/// </summary>
+internal sealed class CachedCareerRepository(ICareerRepository inner, Platform.Caching.AppCache cache) : ICareerRepository
+{
+    /// <inheritdoc />
+    public Task<IReadOnlyList<CareerDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
+        cache.GetOrCreateAsync(
+            "careers:" + communityId,
+            Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl,
+            ct => inner.ListActiveAsync(communityId, ct),
+            cancellationToken);
+}

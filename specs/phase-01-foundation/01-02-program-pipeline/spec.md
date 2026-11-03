@@ -28,7 +28,8 @@ Registro DI y pipeline HTTP de la plataforma, en un orden fijo y explícito, sob
 | 8 | `UseAuthentication` | ✅ | 02-03: JWT Bearer HS256 |
 | 9 | `UseRateLimiter` | ✅ | 02-03: política `auth` (429 + `Retry-After`) |
 | 10 | `UseAuthorization` | ✅ | 02-03: FallbackPolicy = sesión obligatoria |
-| 11 | `MapControllers` + `MapHealthChecks` (`AllowAnonymous`) | ✅ | 01-03 |
+| 11 | `UseOutputCache` | ✅ | 02-02: solo respuestas anónimas (categorías y vitrina); después de la autorización para no servir de la caché algo que pide sesión |
+| 12 | `MapControllers` + `MapHealthChecks` (`AllowAnonymous`) | ✅ | 01-03 |
 | — | Headers de seguridad, rate limit global, compresión | Pendiente | `02-04` |
 | — | Logs estructurados (JSON) y correlación (`TraceId`) | ✅ | `02-06`: `AddMusubiObservability` en `Program.cs` |
 | — | Hub de SignalR | Pendiente | `NOTE (HU-20)` |

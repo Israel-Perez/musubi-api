@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
+using Musubi.Api.Platform.Moderation;
 
 namespace Musubi.Api.Modules.Listings;
 
@@ -12,7 +13,7 @@ namespace Musubi.Api.Modules.Listings;
 /// S3 con una llave nueva del usuario. La app la reduce antes de enviarla; aqui se vuelve a codificar para
 /// quitar metadatos (GPS) y no confiar en lo que llega.
 /// </summary>
-internal sealed class PhotoUploadService(IMediaStorage media)
+internal sealed class PhotoUploadService(IMediaStorage media, IContentModerator moderator)
 {
     /// <summary>Tamano maximo del archivo subido (10 MB, igual que el limite de Kestrel).</summary>
     public const long MaxBytes = 10 * 1024 * 1024;
@@ -30,8 +31,15 @@ internal sealed class PhotoUploadService(IMediaStorage media)
             return error;
         }
 
+        // 02-07: se modera antes de guardar; una foto rechazada nunca llega a S3.
+        var verdict = await moderator.CheckImageAsync(read.Value!.ModerationCopy, cancellationToken).ConfigureAwait(false);
+        if (ModerationErrors.For(verdict, ModerationErrors.ImageRejected) is { } rejected)
+        {
+            return rejected;
+        }
+
         var key = ListingService.NewPhotoKey(userId);
-        await media.PutAsync(key, read.Value!.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
+        await media.PutAsync(key, read.Value.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
         return Result<PhotoResponse>.Ok(new PhotoResponse(key, ListingService.PhotoUrl(key)));
     }
 
