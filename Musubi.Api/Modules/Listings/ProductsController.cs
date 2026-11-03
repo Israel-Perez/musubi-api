@@ -4,9 +4,11 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Platform.Auth;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Listings;
@@ -39,7 +41,10 @@ public sealed class ProductsController : ControllerBase
     /// <returns>La pagina.</returns>
     [HttpGet]
     [AllowAnonymous]
+    [OutputCache(PolicyName = CachingServiceCollectionExtensions.ShowcasePolicy)]
+    [ConditionalGet]
     [ProducesResponseType<ProductPage>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Showcase(

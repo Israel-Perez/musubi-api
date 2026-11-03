@@ -28,6 +28,45 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 **Errores a evitar**
 - **Un marcador de imagen en bytes crudos nunca llega al moderador:** `PhotoProcessor` rechaza antes lo que no es imagen. La regla de prueba tiene que sobrevivir al procesamiento (color magenta).
 
+## T19 — Caché en 3 niveles (03-Nov-2026, SCRUM-91, 02-02)
+
+**Qué se hizo**
+- `Platform/Caching`:
+  - `AppCache` (cache-aside sobre `IDistributedCache`, Redis o memoria, con degradación);
+  - caché de salida (`catalog` y `showcase`);
+  - `[ConditionalGet]` (`ETag` y 304).
+- `CachedCategoryRepository` y `CachedCareerRepository`. Publicar o eliminar una cuenta borra la vitrina de la caché (`EvictByTagAsync`).
+- API `0.4.0-alpha.2`. Unit 139 · Integration 70 · Security 69.
+
+**Decisiones (con su porqué)**
+- **Redis opcional (Redis Cloud gratuito):** sin la cadena en Parameter Store, cada instancia usa su memoria y la API funciona igual. Con ella, la caché de datos es compartida (requisito "Redis distribuido").
+- **La caché de salida solo es para anónimos y dura poco (30 s en la vitrina):** es por instancia; una publicación nueva se ve al instante en la instancia que la recibió y en 30 s en la otra.
+- **`no-cache` + `ETag`:** el cliente revalida siempre, así que no hay datos viejos, y un 304 no manda cuerpo.
+
+**Errores a evitar**
+- **Una prueba de mordida con un build que falla** corre contra binarios viejos y "pasa": verifica que el build compile antes de leer el resultado.
+- **`StackExchange.Redis` 3.x depende de `RESPite`:** el mapeo de `nuget.config` necesita los dos patrones (`Pipelines.Sockets.Unofficial` ya no).
+- **El constructor `RedisConnectionException(tipo, mensaje)` es obsoleto (CS0618):** en las pruebas usa `RedisException`.
+
+## T18 — Gobernanza: ruleset, MCP y spec de CI/CD (03-Nov-2026, SCRUM-90)
+
+**Qué se hizo**
+- Ruleset "Main Proteccion" en `main` de api, app y landing:
+  - no borrar la rama ni hacer force push;
+  - PR con 1 aprobación;
+  - checks obligatorios;
+  - revisión de Copilot.
+- Spec `02-08-ci-cd`, que junta el CI (`01-05`) y el CD (`02-05`).
+- `docs/mcp.md` con los MCP que usa el equipo (Atlassian y AWS) y su configuración en Claude Code y OpenCode.
+
+**Decisiones (con su porqué)**
+- **El administrador puede saltar la aprobación solo desde un PR** (`bypass_mode: pull_request`): hoy no hay un revisor fijo y sin esto nada se podría fusionar. El CI sigue siendo obligatorio.
+- **El ruleset convive con la protección clásica**, que ya exigía los checks.
+
+**Errores a evitar**
+- **`infra-up` ya aplica `db/*.js`:** no hace falta correr los scripts a mano antes de desplegar. Son idempotentes, así que correrlos dos veces no daña.
+- **Documentar un MCP con su configuración real:** el de AWS es el proxy remoto (`mcp-proxy-for-aws`), no el servidor local de AWS Labs.
+
 ## T17 — HU-04 Editar mi perfil: API (03-Nov-2026, SCRUM-22)
 
 **Qué se hizo**

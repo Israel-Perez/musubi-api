@@ -28,6 +28,7 @@ Cada parámetro `/musubi/prod/A/B` llega a la API como la variable `A__B` (= `A:
 | `/musubi/prod/ConnectionStrings/Mongo` | SecureString | Cadena `mongodb+srv://` de Atlas |
 | `/musubi/prod/Jwt/SigningKey` | SecureString | Llave HS256 (base64, 64 bytes) |
 | `/musubi/prod/Email/From` | String | Remitente verificado en SES |
+| `/musubi/prod/Cache/ConnectionString` | SecureString | **Opcional** (02-02): Redis compartido por las 2 instancias, p. ej. Redis Cloud gratuito (`host:puerto,password=...,ssl=True`). Sin él, cada instancia usa su memoria |
 
 Para guardar un secreto sin que quede en el historial de la terminal:
 

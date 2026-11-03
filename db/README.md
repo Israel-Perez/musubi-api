@@ -13,6 +13,8 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 
 Se aplican **en orden** contra la base que indica la cadena de conexión. Correrlos otra vez no cambia nada.
 
+**En la nube los aplica `infra-up`** antes de reemplazar las instancias (paso "Esquema de la base", con la cadena de Parameter Store). A mano solo hace falta en local o para revisar un script antes del despliegue.
+
 ```powershell
 # Local (deploy/docker-compose.local.yml)
 Get-ChildItem db/*.js | Sort-Object Name | ForEach-Object {
