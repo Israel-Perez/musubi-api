@@ -57,6 +57,16 @@ Cada error es `application/problem+json` (RFC 9457):
 | `auth.code_attempts_exceeded` | 429 | Demasiados intentos con este código. Pide uno nuevo. | HU-03 / HU-56 |
 | `auth.resend_too_soon` | 429 | Espera un momento antes de pedir otro código. | HU-03 |
 
+## M-02 · Perfil (`Modules/Profiles/ProfilesErrors.cs`)
+
+La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamiento).
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `profiles.invalid_career` | 400 | Elige una carrera de la lista. | HU-04 (carrera que no está activa en el campus) |
+| `profiles.invalid_term` | 400 | Elige un periodo que corresponda a tu carrera. | HU-04 (fuera del rango de la carrera, o del campus si no hay carrera) |
+| `profiles.not_found` | 404 | No encontramos ese perfil. | HU-04 / HU-05 (inexistente, inactiva o de otro campus: no revela cuál, OWASP API3) |
+
 ## M-03 · Publicaciones (`Modules/Listings/ListingsErrors.cs`)
 
 | code | HTTP | Mensaje | HU |

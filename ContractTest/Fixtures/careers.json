@@ -1,0 +1,6 @@
+{
+  "academicTerm": { "unit": "cuatrimestre", "count": 11 },
+  "careers": [
+    { "slug": "tsu-energias-renovables-solar", "name": "TSU en Energías Renovables, área Solar", "shortName": "TSU Energías Renovables", "level": "tsu", "firstTerm": 1, "lastTerm": 6 }
+  ]
+}

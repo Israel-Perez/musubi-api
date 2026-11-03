@@ -61,11 +61,13 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - `Data/`: `ProfileDocument`, `CareerDocument`, sus repositorios `Mongo*`/`InMemory*` y una batería compartida en `TestShared/Profiles/`.
 - **M-01 expone en `IMemberDirectory`** lo que M-02 necesita de la cuenta: nombre, correo, fecha de verificación, campus y su periodo. Un módulo no lee las colecciones de otro.
 - **Cambiar contraseña vive en M-01:**
-  - endpoint en `PasswordController`;
+  - endpoint en `PasswordChangeController` (Sonar S6960 pidió separarlo de `PasswordController`, que es anónimo);
   - servicio en `PasswordChangeService`;
   - reutiliza `Passwords`, `RefreshTokenService` y `SessionIssuer`.
+- **Eliminar la cuenta (HU-46):** `ProfileAccountEraser` (`IAccountDataEraser`) borra el perfil y `media/avatars/{userId}/`; `infra/stack/iam.tf` suma `media/avatars/*` al `s3:prefix` de `s3:ListBucket`.
 - **`Platform/Media`:**
   - `PhotoProcessor` gana una variante cuadrada (recorte al centro, 512 px);
+  - `PhotoUploadService.ReadAsync` lee y valida el archivo para las dos fotos (productos y perfil);
   - `IMediaStorage` gana `DeleteAsync` (una llave); `DeletePrefixAsync` ya existe (HU-46);
   - llave de la foto: `media/avatars/{userId}/{32hex}.webp`.
 - **Datos:**
@@ -78,7 +80,6 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - `NOTE (HU-05)`: reputación, publicaciones y opiniones en el perfil público;
   - `NOTE (HU-20)`: aplicar `online`;
   - `NOTE (HU-23)`/`NOTE (HU-27)`: actualizar `stats` al completar pedidos y calificaciones;
-  - HU-46 ya está en `main`: `ProfileAccountEraser` (`IAccountDataEraser`) borra el perfil y `media/avatars/{userId}/`; `infra/stack/iam.tf` suma `media/avatars/*` al `s3:prefix` de `s3:ListBucket`;
   - `NOTE (02-07)`: moderar la foto;
   - `NOTE (HU-41)`: administrar las carreras.
 
@@ -124,7 +125,9 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - editar y ver el cambio al instante en el perfil público de otra persona del campus;
   - apagar "Mostrar mi carrera" la oculta;
   - subir, reemplazar (se borra la anterior) y quitar la foto;
-  - cada validación con su código.
+  - eliminar la cuenta también borra la foto (HU-46);
+  - cada validación con su código;
+  - las 38 carreras de la UTTT.
 - `IntegrationTest/Auth/PasswordChangeTests.cs`:
   - cambia y entra con la nueva;
   - las sesiones anteriores quedan revocadas;
@@ -139,7 +142,7 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
 ## Criterios
 - `dotnet build -c Release` 0/0.
 - Unit, Integration, Security y Contract al 100 %; Database en el CI.
-- `check_endpoints` OK (19 → 27 filas).
+- `check_endpoints` OK (20 → 28 filas).
 - critic PASS.
 - Restauración con caché vacía sin NU1100 (sin paquetes nuevos).
 - Desplegado con `infra-up` y probado desde el celular contra AWS:
@@ -162,9 +165,10 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - cuenta para cobrar (HU-55).
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia (API; la app sigue)
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 27-Oct-2026
+- **Fecha:** 27-Oct-2026 (spec) · 03-Nov-2026 (API implementada)
 - **Detalle:**
   - alcance y decisiones acordados con el usuario el 27-Oct-2026: cuatrimestre configurable por campus, carrera de una lista, las cuatro piezas de la maqueta y la foto;
-  - sin paquetes nuevos.
+  - sin paquetes nuevos;
+  - evidencia (03-Nov-2026): Build Release 0/0 · Unit 134 · Integration 66 · Security 68 · Contract 7 · `check_endpoints` OK (28) · critic PASS · Semgrep 0. `DatabaseTest` corre en el CI (sin Docker local).

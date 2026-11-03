@@ -31,11 +31,35 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "001-identidad");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "002-publicaciones");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "003-dominio-revision");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "004-perfiles");
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
+        Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
         Assert.Equal(1, await db.GetCollection<BsonDocument>(MongoSchema.Communities).CountDocumentsAsync(new BsonDocument("slug", "uttt"), cancellationToken: Ct));
         var uttt = await db.GetCollection<BsonDocument>(MongoSchema.Communities).Find(new BsonDocument("slug", "uttt")).SingleAsync(Ct);
         Assert.Equal(["uttt.edu.mx", "musubiapp.com.mx"], uttt["emailDomains"].AsBsonArray.Select(d => d.AsString));
+        Assert.Equal(new BsonDocument { { "unit", "cuatrimestre" }, { "count", 11 } }, uttt["academicTerm"].AsBsonDocument);
+    }
+
+    [Fact]
+    public async Task Profiles_HaveTheirIndexes_AndRejectATermOfZero()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_perfiles");
+        var profiles = db.GetCollection<BsonDocument>(MongoSchema.Profiles);
+        var bad = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "fullName", "Ana Sofía" },
+            { "term", 0 },
+            { "visibility", new BsonDocument { { "career", true }, { "sales", true }, { "online", true } } },
+            { "stats", new BsonDocument { { "ratingCount", 0 }, { "sales", 0 }, { "purchases", 0 } } },
+            { "schemaVersion", 1 }, { "updatedAt", DateTime.UtcNow },
+        };
+
+        var ex = await Assert.ThrowsAsync<MongoWriteException>(() => profiles.InsertOneAsync(bad, cancellationToken: Ct));
+
+        Assert.Equal(121, ex.WriteError.Code);
+        Assert.Contains(await IndexesAsync(db, MongoSchema.Profiles), i => i["name"] == "ix_community");
+        Assert.Contains(await IndexesAsync(db, MongoSchema.Careers), i => i["name"] == "ux_community_slug" && i.GetValue("unique", false).ToBoolean());
     }
 
     [Fact]

@@ -117,6 +117,38 @@ public sealed class PhotoProcessorTests
     }
 
     [Fact]
+    public void Avatar_FromAPortraitPhoneJpeg_Is512Square_UprightAndWithoutMetadata()
+    {
+        // Guardada 800x600 con EXIF 6: derecha mide 600x800 (rojo arriba, azul abajo) y se recorta su centro.
+        using var stored = Halves(800, 600);
+
+        Assert.Null(PhotoProcessor.TryProcessSquare(JpegWithExif(stored, orientation: 6), out var photo));
+
+        Assert.NotNull(photo);
+        Assert.Equal((PhotoProcessor.AvatarSide, PhotoProcessor.AvatarSide), (photo.Width, photo.Height));
+        using var output = Decode(photo);
+        Assert.Equal((512, 512), (output.Width, output.Height));
+        Assert.True(IsRed(output.GetPixel(256, 64)));
+        Assert.True(IsBlue(output.GetPixel(256, 448)));
+        var text = Encoding.ASCII.GetString(photo.Content);
+        Assert.StartsWith("RIFF", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Exif", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Avatar_FromALandscapePhoto_KeepsTheCenter()
+    {
+        // 1200x400: el centro cuadrado conserva las dos mitades, roja a la izquierda y azul a la derecha.
+        using var bitmap = Halves(1200, 400);
+
+        Assert.Null(PhotoProcessor.TryProcessSquare(Encode(bitmap, SKEncodedImageFormat.Png), out var photo));
+
+        using var output = Decode(photo!);
+        Assert.True(IsRed(output.GetPixel(64, 256)));
+        Assert.True(IsBlue(output.GetPixel(448, 256)));
+    }
+
+    [Fact]
     public void TinyPhoto_IsRejected()
     {
         using var bitmap = Halves(150, 150);

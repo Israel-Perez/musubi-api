@@ -24,6 +24,27 @@ internal sealed class PhotoUploadService(IMediaStorage media)
     /// <returns>La foto o el error.</returns>
     public async Task<Result<PhotoResponse>> UploadAsync(string userId, IFormFile? file, CancellationToken cancellationToken)
     {
+        var read = await ReadAsync(file, square: false, cancellationToken).ConfigureAwait(false);
+        if (read.Error is { } error)
+        {
+            return error;
+        }
+
+        var key = ListingService.NewPhotoKey(userId);
+        await media.PutAsync(key, read.Value!.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
+        return Result<PhotoResponse>.Ok(new PhotoResponse(key, ListingService.PhotoUrl(key)));
+    }
+
+    /// <summary>
+    /// Lee el archivo subido y lo normaliza con <see cref="PhotoProcessor"/>. Lo comparten las fotos de
+    /// productos y la de perfil (HU-04), con los mismos errores <c>listings.photo_*</c>.
+    /// </summary>
+    /// <param name="file">Archivo del formulario.</param>
+    /// <param name="square">Foto de perfil: cuadrada de 512 px.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La foto lista o el error.</returns>
+    public static async Task<Result<ProcessedPhoto>> ReadAsync(IFormFile? file, bool square, CancellationToken cancellationToken)
+    {
         if (file is null || file.Length == 0)
         {
             return ListingsErrors.PhotoUnsupported;
@@ -41,7 +62,9 @@ internal sealed class PhotoUploadService(IMediaStorage media)
             bytes = buffer.ToArray();
         }
 
-        var rejection = PhotoProcessor.TryProcess(bytes, out var photo);
+        var rejection = square
+            ? PhotoProcessor.TryProcessSquare(bytes, out var photo)
+            : PhotoProcessor.TryProcess(bytes, out photo);
         if (rejection is not null || photo is null)
         {
             return rejection switch
@@ -52,8 +75,6 @@ internal sealed class PhotoUploadService(IMediaStorage media)
             };
         }
 
-        var key = ListingService.NewPhotoKey(userId);
-        await media.PutAsync(key, photo.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
-        return Result<PhotoResponse>.Ok(new PhotoResponse(key, ListingService.PhotoUrl(key)));
+        return Result<ProcessedPhoto>.Ok(photo);
     }
 }

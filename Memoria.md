@@ -6,7 +6,29 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 - **En producción:** API `0.3.0-alpha.4`, infra `0.3.1` y esquema 3 en `https://api.musubiapp.com.mx`. Incluye HU-46 (eliminar la cuenta) y la cuenta de revisión de Google Play (`db/003`). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
 - **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
-- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, rebasada sobre HU-46): spec, plan y tareas en `specs/m02-profile/HU-04-editar-perfil/` (🚧 Borrador). Siguiente: T1 (datos y `db/004-perfiles.js`, esquema 4). La lista de carreras de la UTTT está pendiente de validar con el equipo.
+- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, PR #23): **API implementada** (`0.4.0-alpha.1`, infra `0.3.2`, esquema 4). Siguiente: fusionar, aplicar `db/004-perfiles.js` en Atlas, correr `infra-up` (con autorización) y hacer la app (HU-04 front). La lista de carreras de la UTTT está pendiente de validar con el equipo.
+
+## T17 — HU-04 Editar mi perfil: API (03-Nov-2026, SCRUM-22)
+
+**Qué se hizo**
+- Módulo `Modules/Profiles/` (M-02): `ProfileService`, `ProfilePhotoService`, `ProfilesController` (`/profiles/me`, `/me/visibility`, `/me/photo`, `/{id}`), `CareersController`, `ProfilesErrors` y `ProfileAccountEraser` (HU-46).
+- `POST /auth/password/change` en `PasswordChangeController`: pide la actual, revoca todas las sesiones y devuelve una nueva.
+- `db/004-perfiles.js`: `profiles`, `careers` (38 de la UTTT), `communities.academicTerm` (cuatrimestre, 11) y el `$jsonSchema` de `communities` con ese campo.
+- `IMemberDirectory.FindAccountAsync` (cuenta y campus para M-02). `PhotoProcessor.TryProcessSquare` (512 px), `IMediaStorage.DeleteAsync` y `PhotoUploadService.ReadAsync` (compartido entre las dos fotos).
+- `s3:ListBucket` también en `media/avatars/*` (infra `0.3.2`).
+- Build 0/0 · Unit 134 · Integration 66 · Security 68 · Contract 7 · endpoints OK (28) · critic PASS · Semgrep 0.
+
+**Decisiones (con su porqué)**
+- **Perfil con upsert atómico (`FindOneAndUpdate` + `$setOnInsert`):** el primer cambio crea el documento sin leerlo antes, y dos escrituras a la vez no se pisan los valores por defecto.
+- **Un campo vacío se quita con `$unset`:** el `$jsonSchema` no acepta `null` (y la convención `IgnoreIfNull` ya los omite al insertar).
+- **El perfil público responde 404 igual para inexistente, inactiva y de otro campus** (OWASP API3): no deja saber si la cuenta existe.
+- **Controlador aparte para cambiar la contraseña:** Sonar S6960 marcó `PasswordController` (anónimo) con dos responsabilidades.
+- **Sin cuenta activa, las rutas del perfil responden 403 `auth.forbidden`**, igual que publicar (HU-06).
+
+**Errores a evitar**
+- **B2 del critic también revisa el nombre del record:** `ChangePasswordRequest(` necesita su waiver en esa línea.
+- **`FindOneAndUpdateAsync<TProjection>` no acepta lambda como filtro:** usa `Builders<T>.Filter.Eq`.
+- **La fila de `docs/versionado.md` es sección compartida:** agrégala también en `musubi-app` (va en el PR de HU-04 de la app).
 
 ## T11 — HU-04 Editar mi perfil: spec (27-Oct-2026, SCRUM-22)
 

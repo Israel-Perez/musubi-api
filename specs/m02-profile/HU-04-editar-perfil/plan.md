@@ -9,10 +9,11 @@
   - `Data/` (documentos, contratos, `Mongo*` e `InMemory*`).
 - M-01:
   - `IMemberDirectory` devuelve `MemberAccount` (nombre, correo, `emailVerifiedAt`, campus y `academicTerm`);
-  - `PasswordChangeService` y la acción `change` en `PasswordController`.
+  - `PasswordChangeService` y `PasswordChangeController` (`POST /auth/password/change`; separado de `PasswordController` por Sonar S6960).
 - `Platform/Media`:
-  - `PhotoProcessor.TryProcessSquare(bytes, 512, out photo)`;
-  - `IMediaStorage.DeleteAsync` en S3 y en memoria.
+  - `PhotoProcessor.TryProcessSquare(bytes, out photo)` (`AvatarSide` = 512);
+  - `IMediaStorage.DeleteAsync` en S3 y en memoria;
+  - `PhotoUploadService.ReadAsync(file, square)`: lectura y errores `listings.photo_*` compartidos.
 - `db/004-perfiles.js` y `MongoSchema.ExpectedVersion = 4`.
 
 ## 2. Contratos (DTOs)
@@ -134,7 +135,7 @@ Fuente: [Programas Educativos de la UTTT](https://www.uttt.edu.mx/ProgramasEduca
 - Perfil público solo dentro del campus. Si no es visible, responde 404 y no 403, para no revelar que la cuenta existe.
 
 ## 7. Validación
-Las pruebas de `spec.md`, `check_endpoints`, critic, el despliegue a AWS (`api-v0.4.0-alpha.1`, script `003`) y la prueba desde el celular.
+Las pruebas de `spec.md`, `check_endpoints`, critic, el despliegue a AWS (`api-v0.4.0-alpha.1`, infra `0.3.2`, script `004`) y la prueba desde el celular.
 
 ## 8. Secuencia
 1. Datos y script.

@@ -25,7 +25,7 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
 | GET | /media/{**path} | `[AllowAnonymous]` | HU-06 | — | La imagen (`image/webp`) guardada en memoria | 200 / 404 `resource.not_found` | Solo Development (`Media:Provider=InMemory`). En la nube CloudFront sirve `/media/*` desde S3 y la API responde 404 |
 
-Total: 20 filas (4 de plataforma, 16 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+Total: 28 filas (4 de plataforma, 24 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
 
 ## M-01 · Autenticación y usuarios
 
@@ -42,7 +42,24 @@ Públicos (aún no hay sesión) y con rate limit `auth` por IP (429 + `Retry-Aft
 | POST | /api/v1/auth/logout | `[AllowAnonymous]` + rate limit | HU-02 | `LogoutRequest { refreshToken }` | — (idempotente: un token desconocido también responde 204) | 204 / 400 `validation.failed` / 429 | `musubi-app` HU-02 (Perfil → "Cerrar sesión") |
 | POST | /api/v1/auth/password/forgot | `[AllowAnonymous]` + rate limit | HU-56 | `RecoveryRequest { email }` | `ResendCodeResponse { resendAvailableAt }` (igual exista o no la cuenta; solo se envía a cuentas activas) | 202 / 400 `validation.failed` / 429 | `musubi-app` HU-56 ("¿Olvidaste tu contraseña?") |
 | POST | /api/v1/auth/password/reset | `[AllowAnonymous]` + rate limit | HU-56 | `RecoveryResetRequest { email, code, newPassword }` | — (cierra todas las sesiones abiertas de la cuenta) | 204 / 400 `auth.invalid_code` · `auth.weak_password` · `validation.failed` / 429 `auth.code_attempts_exceeded` · `rate_limit.exceeded` | `musubi-app` HU-56 (código + contraseña nueva) |
+| POST | /api/v1/auth/password/change | `[Authorize]` + rate limit `auth` | HU-04 | `ChangePasswordRequest { currentPassword, newPassword }` | `SessionResponse` (misma forma que `verification/confirm`): sesión nueva; las demás sesiones de la cuenta quedan cerradas | 200 / 400 `auth.wrong_password` · `auth.weak_password` · `validation.failed` / 401 `auth.session_expired` / 429 | `musubi-app` HU-04 (`Ajustes` → "Cambiar contraseña") |
 | POST | /api/v1/account/delete | `[Authorize]` + rate limit `auth` | HU-46 | `DeleteAccountRequest { password }` (contraseña actual) | — (borra la cuenta, sus sesiones, sus códigos, sus publicaciones y sus fotos; borrado real R11) | 204 / 400 `auth.wrong_password` · `validation.failed` / 401 `auth.session_expired` (la cuenta ya no existe) / 429 | `musubi-app` HU-46 (`Privacidad` → "Eliminar mi cuenta") |
+
+## M-02 · Perfil
+
+Con sesión. Las rutas de escritura no llevan id: solo se edita el perfil del token (OWASP API1). El perfil público solo existe dentro del campus y oculta lo que la persona apagó en "Quién te ve" (OWASP API3). Las rutas de imagen (`/media/...`) son relativas a la URL base de la API. Errores del catálogo [`docs/errores.md`](errores.md).
+
+`MyProfileResponse { id, fullName, email, emailVerifiedAt, campus { shortName, name }, academicTerm { unit, count }, career { slug, name, shortName, firstTerm, lastTerm } o null, term o null, photo o null, visibility { career, sales, online }, stats { ratingAvg (o null), ratingCount, sales, purchases } }`.
+
+| Método | Ruta | Auth | Spec | Request | Response | Códigos | Consumidor |
+|---|---|---|---|---|---|---|---|
+| GET | /api/v1/profiles/me | `[Authorize]` | HU-04 | — | `MyProfileResponse` (sin perfil guardado: los valores por defecto) | 200 / 401 / 403 `auth.forbidden` | `musubi-app` HU-04 (`Perfil`, `Ajustes`, `Privacidad`) |
+| PUT | /api/v1/profiles/me | `[Authorize]` | HU-04 | `UpdateProfileRequest { career, term }` (slug de `GET /careers` y periodo; `null` los borra) | `MyProfileResponse` | 200 / 400 `profiles.invalid_career` · `profiles.invalid_term` · `validation.failed` / 401 / 403 `auth.forbidden` | `musubi-app` HU-04 (`Ajustes` → "Datos personales") |
+| PUT | /api/v1/profiles/me/visibility | `[Authorize]` | HU-04 | `VisibilityRequest { career, sales, online }` (los tres obligatorios) | `MyProfileResponse` | 200 / 400 `validation.failed` / 401 / 403 `auth.forbidden` | `musubi-app` HU-04 (`Privacidad` → "Quién te ve") |
+| PUT | /api/v1/profiles/me/photo | `[Authorize]` + rate limit `uploads` (30/min por usuario) | HU-04 | `multipart/form-data` con `photo` (JPG, PNG o WebP; hasta 10 MB) | `MyProfileResponse`; la foto se guarda cuadrada de 512 px, en WebP y sin metadatos, y se borra la anterior | 200 / 401 / 403 `auth.forbidden` / 413 `listings.photo_too_large` · `request.too_large` / 415 `listings.photo_unsupported` / 422 `listings.photo_too_small` / 429 | `musubi-app` HU-04 (`Perfil` → foto) |
+| DELETE | /api/v1/profiles/me/photo | `[Authorize]` | HU-04 | — | — (idempotente: sin foto también responde 204; borra el archivo) | 204 / 401 / 403 `auth.forbidden` | `musubi-app` HU-04 (`Perfil` → "Quitar foto") |
+| GET | /api/v1/profiles/{id} | `[Authorize]` | HU-04 (HU-05 lo amplía) | — | `PublicProfileResponse { id, fullName, campus, photo, memberSince, career, term, stats { ratingAvg, ratingCount, sales } }`, sin correo; `career` y `term` en `null` si "Mostrar mi carrera" está apagado, y `sales` si "Mostrar mis ventas" lo está | 200 / 401 / 404 `profiles.not_found` (inexistente, inactiva o de otro campus: no revela cuál) | `musubi-app` HU-05 (`Perfil-vendedor`) |
+| GET | /api/v1/careers | `[Authorize]` | HU-04 | — | `CareersResponse { academicTerm { unit, count }, careers: [{ slug, name, shortName, level, firstTerm, lastTerm }] }` (activas del campus del token, en su orden) | 200 / 401 / 403 `auth.forbidden` | `musubi-app` HU-04 ("Datos personales": carrera y periodo) |
 
 ## M-03 · Publicaciones
 

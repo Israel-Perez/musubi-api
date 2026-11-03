@@ -1,0 +1,10 @@
+{
+  "id": "6716a0000000000000000001",
+  "fullName": "Ana Sofía Ramírez",
+  "campus": { "shortName": "UTTT", "name": "Universidad Tecnológica de Tula-Tepeji" },
+  "photo": "/media/avatars/6716a0000000000000000001/0123456789abcdef0123456789abcdef.webp",
+  "memberSince": "2026-10-21T12:00:00Z",
+  "career": { "slug": "ing-mecatronica", "name": "Ingeniería en Mecatrónica", "shortName": "Ing. Mecatrónica", "firstTerm": 7, "lastTerm": 11 },
+  "term": 7,
+  "stats": { "ratingAvg": null, "ratingCount": 0, "sales": 0 }
+}

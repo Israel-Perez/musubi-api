@@ -1,0 +1,13 @@
+{
+  "id": "6716a0000000000000000001",
+  "fullName": "Ana Sofía Ramírez",
+  "email": "ana.ramirez@uttt.edu.mx",
+  "emailVerifiedAt": "2026-10-21T12:00:00Z",
+  "campus": { "shortName": "UTTT", "name": "Universidad Tecnológica de Tula-Tepeji" },
+  "academicTerm": { "unit": "cuatrimestre", "count": 11 },
+  "career": { "slug": "ing-mecatronica", "name": "Ingeniería en Mecatrónica", "shortName": "Ing. Mecatrónica", "firstTerm": 7, "lastTerm": 11 },
+  "term": 7,
+  "photo": "/media/avatars/6716a0000000000000000001/0123456789abcdef0123456789abcdef.webp",
+  "visibility": { "career": true, "sales": true, "online": true },
+  "stats": { "ratingAvg": null, "ratingCount": 0, "sales": 0, "purchases": 0 }
+}
