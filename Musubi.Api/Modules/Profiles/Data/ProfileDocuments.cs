@@ -101,7 +101,7 @@ internal sealed class ProfileDocument
     public DateTime UpdatedAt { get; init; }
 }
 
-/// <summary>Que muestra el perfil publico. Encendido por defecto, como en la maqueta.</summary>
+/// <summary>Que muestra el perfil publico. Como en la maqueta: carrera y ventas encendidas, "en linea" apagado (RNF-05).</summary>
 internal sealed class ProfileVisibility
 {
     /// <summary>"Mostrar mi carrera" (carrera y periodo).</summary>
@@ -111,7 +111,7 @@ internal sealed class ProfileVisibility
     public bool Sales { get; init; } = true;
 
     /// <summary>"Mostrar si estoy en línea" (NOTE (HU-20): lo aplica el chat).</summary>
-    public bool Online { get; init; } = true;
+    public bool Online { get; init; }
 }
 
 /// <summary>Estadisticas del perfil (maqueta <c>Perfil</c>).</summary>
