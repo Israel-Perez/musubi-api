@@ -50,12 +50,18 @@ internal sealed class ConversationDocument
 }
 
 /// <summary>Elemento de contexto (RN-21). En HU-20 solo publicaciones; solicitudes y ofertas llegan en S3.</summary>
+/// <remarks>
+/// <c>[BsonNoId]</c>: sin el, el driver toma <see cref="Id"/> como id del subdocumento y lo guarda como
+/// <c>_id</c>, y la validacion de db/005-chat.js (que pide <c>context.id</c>) rechaza la conversacion.
+/// </remarks>
+[BsonNoId]
 internal sealed class ConversationContext
 {
     /// <summary>Ver <see cref="ConversationContextTypes"/>.</summary>
     public string Type { get; init; } = ConversationContextTypes.Product;
 
     /// <summary>Id del elemento.</summary>
+    [BsonElement("id")]
     [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; init; } = string.Empty;
 

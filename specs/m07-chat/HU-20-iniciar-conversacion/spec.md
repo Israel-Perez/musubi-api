@@ -45,7 +45,7 @@ RNF que aplican: RNF-10.
 - [x] Los mensajes de texto se entregan casi en tiempo real (RNF-10) → `ChatFlowTests.Messages_ArriveInRealTime_ToBothParticipants_AndNotToOthers` (WebSocket real). Entre instancias: backplane de Redis (se verifica en AWS al configurar `/musubi/prod/Cache/ConnectionString`).
 - [x] Solo los participantes pueden leer la conversación (RN-22) → `ChatFlowTests.SomeoneElse_CannotReadOrWrite_TheConversation` y `ChatAuthTests`.
 - [ ] Los mensajes pueden reportarse (RN-23) → `NOTE (HU-28)`: el reporte llega con los reportes (Sprint 5).
-- [x] Build Release 0/0 · Unit 171, Integration 87, Security 80 y Contract 8 al 100 % · `check_endpoints` OK (33 rutas, ahora también hubs) · critic PASS.
+- [x] Build Release 0/0 · Unit 172, Integration 87, Security 80 y Contract 8 al 100 % · `check_endpoints` OK (33 rutas, ahora también hubs) · critic PASS.
 
 ## Límites
 - **Imágenes en el chat (RF-27):** fuera de HU-20; solo texto.

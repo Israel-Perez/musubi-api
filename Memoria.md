@@ -19,7 +19,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `Platform/Realtime`: SignalR con backplane de Redis cuando existe `Cache:ConnectionString`.
 - M-03 expone `IProductDirectory`, para que el chat no lea `products`.
 - `check_endpoints` ahora también compara los hubs (`| WS | /ruta |`).
-- API `0.5.0-alpha.1`. Unit 171 · Integration 87 · Security 80 · Contract 8.
+- API `0.5.0-alpha.1`. Unit 172 · Integration 87 · Security 80 · Contract 8.
 
 **Decisiones (con su porqué)**
 - **SignalR + Redis** (decisión del usuario): sin backplane, un mensaje que entra por una instancia no llega a quien está conectado a la otra.
@@ -32,6 +32,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **`dotnet add package` dice "no es compatible con los marcos de trabajo"** cuando una dependencia transitiva no está en el source mapping de `nuget.config`. Con SignalR+Redis faltaba `MessagePack`. No es un problema del TFM.
 - **Sonar S1135 lee "Todo" en español como un TODO:** en un comentario que empieza con "Todo con sesión", escribe "Siempre con sesión".
 - **`IHubContext<T>.Clients` y `IHubClients.Clients(...)` chocan en un fake** que implementa los dos: implementa los miembros de `IHubContext` de forma explícita.
+- **Un `Id` en un subdocumento se guarda como `_id`** (convención de id del driver de C#). La validación de `db/005-chat.js` pedía `context.id` y rechazó la conversación, pero solo en `DatabaseTest` (CI): los repositorios en memoria no serializan. Se resolvió con `[BsonNoId]` + `[BsonElement("id")]` y con `MongoConventionsTests.Conversation_KeepsContextIdAsId_AndParticipantsAsObjectIds`, que no necesita Docker.
 - **La prueba del hub tiene que morder:** se comprobó que falla (timeout) si cambia el nombre del evento.
 
 ## T22 — Mutación y rendimiento (03-Nov-2026, SCRUM-94, 02-09)
