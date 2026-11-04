@@ -37,7 +37,8 @@ La plantilla `WebAPIDevSecOps` de la materia tiene 8 proyectos. A `musubi-api` l
 - [x] Puntaje de mutación de 87.5 % (28 mutantes muertos, 0 sobrevivientes y 4 sin cobertura en el señuelo de `VerifyAgainstDecoy`), por encima de 70 %.
 - [x] **p95 en proceso** (03-Nov-2026, 2 corridas): `ping` 1.1 ms, categorías 2.7 ms y vitrina 4.6 ms. El umbral del CI es de 100 ms.
 - [x] **p95 contra AWS** (03-Nov-2026, API `0.4.0-alpha.1`, sin la caché de `02-02`): `ping` 127 ms, categorías 895 ms y vitrina 994 ms (p50 de 908 ms).
-- [ ] Después de desplegar `02-02` (caché), medir otra vez contra AWS y fijar RNF-09.
+- [x] **p95 contra AWS con caché** (03-Nov-2026, API `0.4.0-alpha.4`, 2 corridas): `ping` 216–251 ms, categorías 143–178 ms y vitrina 158–164 ms (p50 de ~100–113 ms). La vitrina bajó de 994 a ~160 ms.
+- [ ] Fijar con el PO el umbral de RNF-09 contra AWS (propuesta: p95 ≤ 500 ms, el doble del peor valor medido).
 
 ## Límites
 - **La mutación cubre solo reglas puras del núcleo.** Ampliarla a los servicios exige pruebas en xUnit v2, o esperar a que Stryker soporte MTP (`NOTE (02-09)`).

@@ -8,8 +8,8 @@
 
 ## T3 — Ruleset
 - **Qué:** agregar `performance` a los checks obligatorios de "Main Proteccion" **después** de fusionar (antes bloquearía los PR abiertos, que no tienen ese job).
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (03-Nov-2026).
 
 ## Pendientes
 - `NOTE (02-09)`: ampliar la mutación a los servicios.
-- Volver a medir contra AWS con la caché desplegada y fijar RNF-09.
+- Fijar con el PO el umbral de RNF-09 contra AWS (ya medido con la caché el 03-Nov-2026).
