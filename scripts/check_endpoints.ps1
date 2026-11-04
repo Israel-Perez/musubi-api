@@ -6,7 +6,8 @@
   Extrae del codigo:
     - Controllers (*Controller.cs): [Route("...")] de clase + [HttpGet/Post/Put/Patch/Delete("...")].
     - Minimal APIs: MapGet/MapPost/MapPut/MapPatch/MapDelete/MapHealthChecks con literal o constante.
-  Compara contra las filas "| VERBO | /ruta |" de docs/endpoints.md.
+    - Hubs de SignalR: MapHub<T>(literal o Clase.Constante) -> verbo WS (HU-20).
+  Compara contra las filas "| VERBO | /ruta |" de docs/endpoints.md (VERBO incluye WS).
   FAIL (exit 1) si una ruta del codigo no tiene fila, o si una fila no existe en el codigo.
   Compatible con PowerShell 5.1 y pwsh. ASCII puro.
 #>
@@ -83,10 +84,23 @@ foreach ($s in $sources) {
         }
         [void]$code.Add(('{0} {1}' -f $verb, (Format-Route $route)))
     }
+
+    foreach ($hm in [regex]::Matches($text, '\.MapHub<\w+>\(\s*(?:"([^"]+)"|(?:\w+\.)?(\w+))')) {
+        $route = $hm.Groups[1].Value
+        if ($route -eq '') {
+            $name = $hm.Groups[2].Value
+            if (-not $constants.ContainsKey($name)) {
+                Write-Output ("endpoints: FAIL (no se pudo resolver la constante '{0}' en {1})" -f $name, $s.Name)
+                exit 1
+            }
+            $route = $constants[$name]
+        }
+        [void]$code.Add(('WS {0}' -f (Format-Route $route)))
+    }
 }
 
 $doc = New-Object System.Collections.Generic.HashSet[string]
-foreach ($dm in [regex]::Matches((Get-Content -LiteralPath $docPath -Raw), '(?m)^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*(/[^\s|]*)\s*\|')) {
+foreach ($dm in [regex]::Matches((Get-Content -LiteralPath $docPath -Raw), '(?m)^\|\s*(GET|POST|PUT|PATCH|DELETE|WS)\s*\|\s*(/[^\s|]*)\s*\|')) {
     [void]$doc.Add(('{0} {1}' -f $dm.Groups[1].Value, (Format-Route $dm.Groups[2].Value)))
 }
 

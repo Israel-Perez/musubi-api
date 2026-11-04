@@ -1,6 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Platform.Data;
 
 namespace UnitTest.Data;
@@ -72,5 +73,30 @@ public sealed class MongoConventionsTests
         Assert.False(bson.Contains("revokedAt"));
         Assert.False(bson.Contains("device"));
         Assert.Equal(BsonType.ObjectId, bson["familyId"].BsonType);
+    }
+
+    [Fact]
+    public void Conversation_KeepsContextIdAsId_AndParticipantsAsObjectIds()
+    {
+        // HU-20: el driver convierte un "Id" anidado en "_id" si no se le indica lo contrario (db/005-chat.js pide context.id).
+        var buyer = MongoConventions.NewId();
+        var seller = MongoConventions.NewId();
+        var bson = new ConversationDocument
+        {
+            Id = MongoConventions.NewId(),
+            CommunityId = MongoConventions.NewId(),
+            BuyerId = buyer,
+            SellerId = seller,
+            Participants = [buyer, seller],
+            Context = new ConversationContext { Type = ConversationContextTypes.Product, Id = MongoConventions.NewId(), Title = "Calculadora" },
+            LastMessageAt = Now,
+            CreatedAt = Now,
+        }.ToBsonDocument();
+
+        var context = bson["context"].AsBsonDocument;
+        Assert.Equal(["type", "id", "title"], context.Names);
+        Assert.Equal(BsonType.ObjectId, context["id"].BsonType);
+        Assert.All(bson["participants"].AsBsonArray, p => Assert.Equal(BsonType.ObjectId, p.BsonType));
+        Assert.False(bson.Contains("lastMessage"));
     }
 }

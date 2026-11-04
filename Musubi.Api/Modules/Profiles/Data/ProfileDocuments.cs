@@ -110,7 +110,7 @@ internal sealed class ProfileVisibility
     /// <summary>"Mostrar mis ventas".</summary>
     public bool Sales { get; init; } = true;
 
-    /// <summary>"Mostrar si estoy en línea" (NOTE (HU-20): lo aplica el chat).</summary>
+    /// <summary>"Mostrar si estoy en línea" (NOTE (HU-21): lo aplica el encabezado del chat).</summary>
     public bool Online { get; init; }
 }
 
