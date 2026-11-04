@@ -91,3 +91,13 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |
+
+## M-07 · Chat (`Modules/Chat/ChatErrors.cs`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `chat.product_unavailable` | 404 | Esta publicación ya no está disponible. | HU-20 (inexistente, de otro campus, pausada o quitada: no revela cuál) |
+| `chat.own_product` | 400 | Es tu publicación: aquí te escribirán los compradores. | HU-20 (el vendedor no se escribe a sí mismo) |
+| `chat.conversation_not_found` | 404 | No encontramos esta conversación. | HU-20 (inexistente o de otras personas: no revela cuál, RN-22, OWASP API1) |
+| `chat.invalid_message` | 400 | Escribe un mensaje de hasta 1000 caracteres. | HU-20 (vacío o de más de 1000 caracteres) |
+| `chat.invalid_cursor` | 400 | No pudimos cargar mensajes anteriores. Vuelve a abrir la conversación. | HU-20 (cursor que no emitió la API) |

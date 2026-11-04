@@ -32,6 +32,12 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         products.InsertOneAsync(product, cancellationToken: cancellationToken);
 
     /// <inheritdoc />
+    public async Task<ProductDocument?> FindByIdAsync(string id, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await products.Find(p => p.Id == id).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         var filter = Showcase(query);

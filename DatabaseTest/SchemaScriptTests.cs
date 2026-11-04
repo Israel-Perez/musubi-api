@@ -32,6 +32,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "002-publicaciones");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "003-dominio-revision");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "004-perfiles");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "005-chat");
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
@@ -39,6 +40,40 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         var uttt = await db.GetCollection<BsonDocument>(MongoSchema.Communities).Find(new BsonDocument("slug", "uttt")).SingleAsync(Ct);
         Assert.Equal(["uttt.edu.mx", "musubiapp.com.mx"], uttt["emailDomains"].AsBsonArray.Select(d => d.AsString));
         Assert.Equal(new BsonDocument { { "unit", "cuatrimestre" }, { "count", 11 } }, uttt["academicTerm"].AsBsonDocument);
+    }
+
+    [Fact]
+    public async Task Chat_HasItsIndexes_AndRejectsAnEmptyMessageAndAThirdParticipant()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_chat");
+        var conversationIndexes = (await IndexesAsync(db, MongoSchema.Conversations)).ToDictionary(i => i["name"].AsString);
+        var messageIndexes = (await IndexesAsync(db, MongoSchema.Messages)).Select(i => i["name"].AsString);
+
+        Assert.True(conversationIndexes["ux_context_buyer"]["unique"].AsBoolean);
+        Assert.Contains("ix_participant_lastAt", conversationIndexes.Keys);
+        Assert.Contains("ix_conversation_id", messageIndexes);
+
+        var buyer = ObjectId.GenerateNewId();
+        var seller = ObjectId.GenerateNewId();
+        var crowded = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() },
+            { "buyerId", buyer }, { "sellerId", seller },
+            { "participants", new BsonArray { buyer, seller, ObjectId.GenerateNewId() } },
+            { "context", new BsonDocument { { "type", "product" }, { "id", ObjectId.GenerateNewId() }, { "title", "Calculadora" } } },
+            { "lastMessageAt", DateTime.UtcNow }, { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+        var empty = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "conversationId", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() },
+            { "senderId", buyer }, { "text", string.Empty }, { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+
+        var third = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Conversations).InsertOneAsync(crowded, cancellationToken: Ct));
+        var blank = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Messages).InsertOneAsync(empty, cancellationToken: Ct));
+
+        Assert.Equal(121, third.WriteError.Code);
+        Assert.Equal(121, blank.WriteError.Code);
     }
 
     [Fact]

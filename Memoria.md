@@ -2,11 +2,37 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (03-Nov-2026)
+## Estado actual (04-Nov-2026)
 
 - **En producción (03-Nov-2026):** API `0.4.0-alpha.4`, infra `0.3.4` y esquema 4 en `https://api.musubiapp.com.mx` (`infra-up` 41743342605). Incluye HU-46, HU-04 (perfil), caché (02-02), moderación (02-07) y observabilidad (02-06). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
 - **App en Google Play:** `0.4.0+5` en la prueba cerrada (HU-04), publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
-- **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), Redis Cloud opcional (`/musubi/prod/Cache/ConnectionString`), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
+- **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
+- **En curso (04-Nov-2026):** HU-20 (chat), API `0.5.0-alpha.1` lista en su PR; falta la app.
+
+## T23 — Iniciar una conversación con el vendedor (04-Nov-2026, SCRUM-29, HU-20)
+
+**Qué se hizo**
+- Módulo `Chat` (M-07):
+  - 4 rutas de `/conversations`;
+  - hub `/hubs/chat` (evento `messageCreated`);
+  - `conversations` y `messages` (`db/005-chat.js`, esquema 5).
+- `Platform/Realtime`: SignalR con backplane de Redis cuando existe `Cache:ConnectionString`.
+- M-03 expone `IProductDirectory`, para que el chat no lea `products`.
+- `check_endpoints` ahora también compara los hubs (`| WS | /ruta |`).
+- API `0.5.0-alpha.1`. Unit 171 · Integration 87 · Security 80 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **SignalR + Redis** (decisión del usuario): sin backplane, un mensaje que entra por una instancia no llega a quien está conectado a la otra.
+- **Solo WebSockets y sin negociar:** así no hacen falta sesiones pegajosas en el ALB.
+- **El token va en `?access_token=` solo en `/hubs`:** el WebSocket del celular no lleva encabezados. En REST la query se ignora.
+- **Se envía por REST y se entrega por el hub:** validación, moderación y rate limit en un solo lugar.
+- **Si Redis falla al entregar, el mensaje ya está guardado:** se registra un aviso y la app lo ve al recargar.
+
+**Errores a evitar**
+- **`dotnet add package` dice "no es compatible con los marcos de trabajo"** cuando una dependencia transitiva no está en el source mapping de `nuget.config`. Con SignalR+Redis faltaba `MessagePack`. No es un problema del TFM.
+- **Sonar S1135 lee "Todo" en español como un TODO:** en un comentario que empieza con "Todo con sesión", escribe "Siempre con sesión".
+- **`IHubContext<T>.Clients` y `IHubClients.Clients(...)` chocan en un fake** que implementa los dos: implementa los miembros de `IHubContext` de forma explícita.
+- **La prueba del hub tiene que morder:** se comprobó que falla (timeout) si cambia el nombre del evento.
 
 ## T22 — Mutación y rendimiento (03-Nov-2026, SCRUM-94, 02-09)
 

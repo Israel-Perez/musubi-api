@@ -60,6 +60,15 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<ProductDocument?> FindByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult(products.Find(p => string.Equals(p.Id, id, StringComparison.Ordinal)));
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);

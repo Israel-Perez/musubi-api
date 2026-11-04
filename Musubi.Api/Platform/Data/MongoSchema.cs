@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 4;
+    public const int ExpectedVersion = 5;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";
@@ -32,4 +32,10 @@ internal static class MongoSchema
 
     /// <summary>Carreras por comunidad (HU-04; las administra HU-41).</summary>
     public const string Careers = "careers";
+
+    /// <summary>Conversaciones de compra y venta (HU-20; bandeja HU-22).</summary>
+    public const string Conversations = "conversations";
+
+    /// <summary>Mensajes de las conversaciones (HU-20).</summary>
+    public const string Messages = "messages";
 }

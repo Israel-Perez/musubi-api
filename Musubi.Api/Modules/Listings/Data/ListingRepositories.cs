@@ -34,6 +34,12 @@ internal interface IProductRepository
     /// <returns>Tarea.</returns>
     Task InsertAsync(ProductDocument product, CancellationToken cancellationToken);
 
+    /// <summary>Una publicacion por id, en cualquier estado.</summary>
+    /// <param name="id">Id (ObjectId en texto).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion o <c>null</c> (tambien si el id no es un ObjectId).</returns>
+    Task<ProductDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
+
     /// <summary>Pagina de la vitrina (activas y, si se pide, agotadas), de la mas nueva a la mas vieja.</summary>
     /// <param name="query">La consulta.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

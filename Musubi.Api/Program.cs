@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Platform.Hosting;
@@ -13,10 +14,12 @@ builder.Services.AddMusubiPlatform(builder.Configuration);
 builder.Services.AddAuthModule();
 builder.Services.AddListingsModule();
 builder.Services.AddProfilesModule();
+builder.Services.AddChatModule();
 
 var app = builder.Build();
 
 app.UseMusubiPipeline();
+app.MapChatModule();
 
 await app.RunAsync().ConfigureAwait(false);
 

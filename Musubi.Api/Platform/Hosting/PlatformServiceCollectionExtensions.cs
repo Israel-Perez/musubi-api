@@ -15,6 +15,7 @@ using Musubi.Api.Platform.Email;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
 using Musubi.Api.Platform.Moderation;
+using Musubi.Api.Platform.Realtime;
 
 namespace Musubi.Api.Platform.Hosting;
 
@@ -99,6 +100,7 @@ internal static class PlatformServiceCollectionExtensions
         services.AddMusubiMedia();
         services.AddMusubiCaching();
         services.AddMusubiModeration();
+        services.AddMusubiRealtime(configuration);
 
         services.AddMusubiMongo(ReadyTag);
     }

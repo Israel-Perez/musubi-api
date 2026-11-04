@@ -1,0 +1,16 @@
+{
+  "id": "6716a0000000000000000010",
+  "role": "buyer",
+  "counterpart": { "id": "6716a0000000000000000001", "name": "Valeria Cruz" },
+  "context": {
+    "type": "product",
+    "id": "6716a0000000000000000002",
+    "title": "Calculadora Casio fx-991ES Plus",
+    "priceCents": 45000,
+    "condition": "used",
+    "conditionDetail": "good",
+    "photo": "/media/products/6716a0000000000000000001/0123456789abcdef0123456789abcdef.webp",
+    "available": true
+  },
+  "createdAt": "2026-11-03T12:00:00Z"
+}
