@@ -4,9 +4,9 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (03-Nov-2026)
 
-- **En producción:** API `0.3.0-alpha.4`, infra `0.3.1` y esquema 3 en `https://api.musubiapp.com.mx`. Incluye HU-46 (eliminar la cuenta) y la cuenta de revisión de Google Play (`db/003`). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
-- **App en Google Play:** `0.3.0+4` en la prueba cerrada, publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
-- **HU-04 Editar mi perfil** (rama `feature/SCRUM-22-editar-perfil`, PR #23): **API implementada** (`0.4.0-alpha.1`, infra `0.3.2`, esquema 4). Siguiente: fusionar, aplicar `db/004-perfiles.js` en Atlas, correr `infra-up` (con autorización) y hacer la app (HU-04 front). La lista de carreras de la UTTT está pendiente de validar con el equipo.
+- **En producción (03-Nov-2026):** API `0.4.0-alpha.4`, infra `0.3.4` y esquema 4 en `https://api.musubiapp.com.mx` (`infra-up` 41743342605). Incluye HU-46, HU-04 (perfil), caché (02-02), moderación (02-07) y observabilidad (02-06). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
+- **App en Google Play:** `0.4.0+5` en la prueba cerrada (HU-04), publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
+- **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), Redis Cloud opcional (`/musubi/prod/Cache/ConnectionString`), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 
 ## T22 — Mutación y rendimiento (03-Nov-2026, SCRUM-94, 02-09)
 
@@ -17,7 +17,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 **Mediciones (03-Nov-2026)**
 - **En proceso:** p95 de 1.1 ms (ping), 2.7 ms (categorías) y 4.6 ms (vitrina).
-- **Contra AWS** (`0.4.0-alpha.1`, sin caché): p95 de 127 ms (ping), 895 ms (categorías) y 994 ms (vitrina); p50 de la vitrina, 908 ms. Hay que medir otra vez con `02-02` desplegada.
+- **Contra AWS** (`0.4.0-alpha.1`, sin caché): p95 de 127 ms (ping), 895 ms (categorías) y 994 ms (vitrina); p50 de la vitrina, 908 ms.
+- **Contra AWS con caché** (`0.4.0-alpha.4`, 2 corridas desde la laptop de desarrollo): p95 de 216–251 ms (ping), 143–178 ms (categorías) y 158–164 ms (vitrina); p50 de ~100–113 ms en las tres. La vitrina bajó de 994 a ~160 ms de p95. El ping sin caché queda más alto que antes por la variación de la red doméstica.
 
 **Errores a evitar**
 - **Stryker no funciona con xUnit v3:** no soporta MTP (#3094) y activa los mutantes dentro del proceso de VSTest, pero xUnit v3 corre las pruebas en otro proceso. El síntoma: los mutantes "sobreviven" y el puntaje sale en 0 %.
