@@ -2,12 +2,37 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (04-Nov-2026)
+## Estado actual (05-Nov-2026)
 
 - **En producción (03-Nov-2026):** API `0.4.0-alpha.4`, infra `0.3.4` y esquema 4 en `https://api.musubiapp.com.mx` (`infra-up` 41743342605). Incluye HU-46, HU-04 (perfil), caché (02-02), moderación (02-07) y observabilidad (02-06). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
 - **App en Google Play:** `0.4.0+5` en la prueba cerrada (HU-04), publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En curso (04-Nov-2026):** HU-20 (chat), API `0.5.0-alpha.1` lista en su PR; falta la app.
+- **En curso (05-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.2` en `feature/SCRUM-24-editar-eliminar-publicaciones`; falta la app.
+
+## T24 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
+
+**Qué se hizo**
+- `MyProductsController` con 4 rutas: `PUT /products/{id}`, `POST /products/{id}/pause`, `POST /products/{id}/resume` y `DELETE /products/{id}`.
+- `MyListingsService`, y `ProductRules`, que reúne las reglas que comparten publicar y editar.
+- `IProductRepository`: `UpdateDetailsAsync`, `SetPausedAsync` y `DeleteAsync`, en Mongo y en memoria.
+- Error nuevo: `listings.product_not_found`. Sin script en `db/`: el esquema ya aceptaba `hidden`.
+- API `0.5.0-alpha.2`. Unit 186 · Integration 92 · Security 97 · Contract 8 · endpoints 37.
+
+**Decisiones (con su porqué)** (aprobadas por el usuario)
+- **`PUT` con los campos editables completos:** la app ya los tiene de "Mis productos", y no hay que adivinar qué significa un `null`.
+- **Eliminar es borrado real, con las fotos de S3 (una por llave):** la maqueta dice "no se puede deshacer". El chat ya muestra `available: false` y el pedido guardará su copia (HU-23).
+- **Las fotos y las piezas no se editan:** la maqueta no muestra `Vender-1`, y "Reponer" es de HU-50. Así la edición no pisa el descuento atómico de un pedido (R7).
+- **Pausar entra en la API aunque la maqueta no lo tenga:** `hidden` ya existía; la app decide si lo muestra.
+- **El dueño va en el filtro de cada escritura** (`_id` + `sellerId` + no quitada) y otra persona recibe 404 (OWASP API1).
+- **Solo se modera el texto que cambió:** el texto que no cambió ya se moderó al publicar.
+
+**Errores a evitar**
+- **Una mutación que no compila "pasa":** `x.Length >= 0` (siempre verdadero), un método que deja de usar la instancia (CA1822/S2325) y un `using` sin usar (IDE0005) rompen el build, y `--no-build` corre los binarios viejos. Las mutaciones que sí mordieron: `!string.IsNullOrEmpty(sellerId)` en el filtro del dueño (4 Security y 5 Unit en rojo) y otra etiqueta en `EvictByTagAsync` (3 Integration en rojo).
+- **`ProductDocument` es inmutable (`init`):** el repositorio en memoria reemplaza el documento, como Mongo con `ReturnDocument.After`.
+- **Reactivar sin leer antes:** update con pipeline (`$cond` sobre `$stock`) para decidir entre `active` y `soldOut` en la misma operación.
+- **En un producto nuevo, `conditionDetail` se quita con `$unset`:** el `$jsonSchema` no acepta `null`.
+- **`docs/endpoints.md` decía "28 filas" y había 33:** al sumar filas, recalcula el total con `check_endpoints`.
 
 ## T23 — Iniciar una conversación con el vendedor (04-Nov-2026, SCRUM-29, HU-20)
 

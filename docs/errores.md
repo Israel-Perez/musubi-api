@@ -88,6 +88,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
 | `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 (cursor que no emitió la API) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
+| `listings.product_not_found` | 404 | No encontramos esta publicación. | HU-07 (inexistente, de otra persona o quitada por moderación: no revela cuál, OWASP API1) |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |

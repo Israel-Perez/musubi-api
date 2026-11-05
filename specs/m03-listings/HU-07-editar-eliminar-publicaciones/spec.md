@@ -74,11 +74,11 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - `ContractTest/ListingsContractTests.cs`: la respuesta de editar, pausar y reactivar tiene la forma de `product.json`.
 
 ## Criterios
-- [ ] Solo el dueño edita, pausa, reactiva o elimina (RNF-03): `MyListingsAuthTests` en verde (404 para otra persona, 401 sin sesión).
-- [ ] Editar aplica las reglas de publicar y modera el texto: `MyListingsServiceTests` y `MyListingsFlowTests` en verde.
-- [ ] Pausar, reactivar y eliminar se reflejan en la vitrina anónima en la siguiente consulta: `MyListingsFlowTests` en verde.
-- [ ] RF-08 y RN-07 quedan con `NOTE (HU-18)` y `NOTE (HU-23)` en el código, esta spec y `task.md`.
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK (37 rutas: 33 de hoy + 4) · `check_shared_sections` OK · critic PASS.
+- [x] Solo el dueño edita, pausa, reactiva o elimina (RNF-03): `MyListingsAuthTests` (16: 401 sin sesión, 404 para otra persona del campus, 404 con un id inválido y 403 con una cuenta suspendida, en las 4 rutas).
+- [x] Editar aplica las reglas de publicar y modera solo el texto que cambió: `MyListingsServiceTests` (10) y `MyListingsFlowTests` (5).
+- [x] Pausar, reactivar y eliminar se reflejan en la vitrina anónima en la siguiente consulta: `MyListingsFlowTests`. Si la etiqueta de la caché cambia, 3 pruebas quedan en rojo (mutación comprobada).
+- [x] RF-08 y RN-07 quedan con `NOTE (HU-18)` y `NOTE (HU-23)` en `MyListingsService`, esta spec y `task.md`.
+- [x] Build Release 0/0 · Unit 186 · Integration 92 · Security 97 · Contract 8 (100 %) · `check_endpoints` OK (37 rutas) · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real) corre en el CI.
 
 ## Límites
 - **Fotos:** no se editan en esta HU (la maqueta no muestra `Vender-1` al editar).
@@ -89,7 +89,10 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - Sin control de concurrencia optimista: si el dueño edita desde dos teléfonos a la vez, gana la última edición.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (detallada; el usuario aprobó las decisiones D1–D6 de `plan.md` el 05-Nov-2026)
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 05-Nov-2026
-- **Detalle:** detallada desde Jira (SCRUM-24), la maqueta (`Mis-productos`, `Vender-2…4`) y HU-06. El sprint pasa de S2 a S3 (como está en Jira).
+- **Detalle:**
+  - detallada desde Jira (SCRUM-24), la maqueta (`Mis-productos`, `Vender-2…4`) y HU-06; el sprint pasa de S2 a S3, como está en Jira;
+  - decisiones D1–D6 de `plan.md` aprobadas por el usuario el 05-Nov-2026;
+  - `ProductRules` reúne las reglas de publicar y editar; al publicar, las piezas ahora se validan después de la categoría (solo cambia qué error sale primero si hay varios).
