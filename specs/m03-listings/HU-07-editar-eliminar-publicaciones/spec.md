@@ -32,12 +32,12 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
   - `MyListingsService` (nuevo): editar, pausar, reactivar y eliminar. Comparte las reglas de nombre, descripción, precio, estado y categoría con `ListingService.PublishAsync` (se extraen a `ProductRules`, sin cambiar su comportamiento).
   - `MyProductsController` (nuevo, mismo prefijo `api/v{version}/products`, `[Authorize]`): las 4 rutas de escritura. Va en su propio archivo (`check_endpoints` lee una ruta por archivo) y deja a `ProductsController` con la lectura y la publicación (Sonar S6960).
   - `ListingsErrors.ProductNotFound` (nuevo).
-- **Dueño en el filtro, sin leer y luego escribir:** cada escritura del repositorio filtra por `_id` **y** `sellerId` (y `status != removed`), con `FindOneAndUpdate` / `FindOneAndDelete`. Si el filtro no encuentra nada, el servicio responde 404. Así no hay una ventana entre "comprobar el dueño" y "escribir".
+- **Dueño en el filtro de cada escritura:** el repositorio filtra por `_id` **y** `sellerId` (y `status != removed`), con `FindOneAndUpdate` / `FindOneAndDelete`. Si el filtro no encuentra nada, el servicio responde 404. Pausar, reactivar y eliminar no leen antes. Editar sí lee antes, para saber qué texto cambió y moderarlo, pero vuelve a filtrar por el dueño al escribir: una carrera no deja escribir sobre una publicación ajena ni revivir una borrada.
 - **Repositorio (`IProductRepository`, Mongo e InMemory):**
   - `UpdateDetailsAsync(id, sellerId, details, now)` → el documento nuevo o `null`;
   - `SetPausedAsync(id, sellerId, paused, now)` → el documento nuevo o `null`; reactivar calcula `active`/`soldOut` con las piezas en la misma operación (update con pipeline en Mongo);
   - `DeleteAsync(id, sellerId)` → el documento borrado (para saber sus fotos) o `null`.
-- **Fotos:** al eliminar, `IMediaStorage.DeleteAsync` por cada llave de la publicación. Primero se borra el documento y después las fotos: si S3 falla a medias, la publicación ya no se ve y las fotos huérfanas las cubre la regla de ciclo de vida del bucket (`NOTE (02-05)`, ya registrada en HU-06).
+- **Fotos:** al eliminar, `IMediaStorage.DeleteAsync` por cada llave de la publicación. Primero se borra el documento y después las fotos: si S3 falla a medias, la publicación ya no se ve y las fotos huérfanas quedan para la regla de ciclo de vida del bucket (`NOTE (02-05)`). Es un caso nuevo: HU-06 solo registró las fotos que nunca se publican.
 - **Datos:** sin script nuevo en `db/`. El `$jsonSchema` de `products` ya acepta `hidden` y `updatedAt`; `MongoSchema.ExpectedVersion` sigue en 5. Fila de `products` en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md): se agrega HU-07 al uso.
 - **Pendientes en el código:** `NOTE (HU-18)` en `MyListingsService.UpdateAsync` y `NOTE (HU-23)` en `MyListingsService.DeleteAsync`.
 
@@ -74,11 +74,11 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - `ContractTest/ListingsContractTests.cs`: la respuesta de editar, pausar y reactivar tiene la forma de `product.json`.
 
 ## Criterios
-- [x] Solo el dueño edita, pausa, reactiva o elimina (RNF-03): `MyListingsAuthTests` (16: 401 sin sesión, 404 para otra persona del campus, 404 con un id inválido y 403 con una cuenta suspendida, en las 4 rutas).
+- [x] Solo el dueño edita, pausa, reactiva o elimina (RNF-03): `MyListingsAuthTests` (17: 401 sin sesión, 404 para otra persona del campus, 404 con un id inválido y 403 con una cuenta suspendida, en las 4 rutas; y el tope de 16 KB del cuerpo de la edición, comprobado por reflexión porque TestServer no lo aplica; en la nube lo aplica Kestrel).
 - [x] Editar aplica las reglas de publicar y modera solo el texto que cambió: `MyListingsServiceTests` (10) y `MyListingsFlowTests` (5).
 - [x] Pausar, reactivar y eliminar se reflejan en la vitrina anónima en la siguiente consulta: `MyListingsFlowTests`. Si la etiqueta de la caché cambia, 3 pruebas quedan en rojo (mutación comprobada).
-- [x] RF-08 y RN-07 quedan con `NOTE (HU-18)` y `NOTE (HU-23)` en `MyListingsService`, esta spec y `task.md`.
-- [x] Build Release 0/0 · Unit 186 · Integration 92 · Security 97 · Contract 8 (100 %) · `check_endpoints` OK (37 rutas) · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real) corre en el CI.
+- [x] RF-08 y RN-07 quedan con `NOTE (HU-18)` y `NOTE (HU-23)` en `MyListingsService`, esta spec, `task.md` y `Memoria.md` (T24).
+- [x] Build Release 0/0 · Unit 186 · Integration 92 · Security 98 · Contract 8 (100 %) · `check_endpoints` OK (37 rutas) · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real) corre en el CI.
 
 ## Límites
 - **Fotos:** no se editan en esta HU (la maqueta no muestra `Vender-1` al editar).

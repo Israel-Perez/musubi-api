@@ -150,4 +150,16 @@ public sealed class MyListingsAuthTests(ProductionApiFactory production) : IClas
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.NotNull(await production.Services.GetRequiredService<IProductRepository>().FindByIdAsync(product.Id, Ct));
     }
+
+    [Fact]
+    public void TheEditBody_HasItsOwnSizeLimit()
+    {
+        // Kestrel aplica el tope en la nube; TestServer no lo aplica (lee el cuerpo completo), asi que se
+        // verifica el atributo: sin el, el PUT aceptaria hasta 10 MB (el tope global, OWASP API4).
+        var update = typeof(Musubi.Api.Modules.Listings.MyProductsController).GetMethod("Update")!;
+        var limit = update.GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute), inherit: false);
+
+        Assert.Single(limit);
+        Assert.Equal(16 * 1024, Musubi.Api.Modules.Listings.MyProductsController.MaxEditBytes);
+    }
 }

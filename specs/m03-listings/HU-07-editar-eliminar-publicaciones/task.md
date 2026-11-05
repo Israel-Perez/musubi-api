@@ -13,7 +13,7 @@
 
 ## T3 — Servicio y endpoints
 - **Crear:** `ProductRules`, `MyListingsService`, `MyProductsController`, `UpdateProductRequest` y `ListingsErrors.ProductNotFound`.
-- **Verificar:** `UnitTest/Listings/MyListingsServiceTests.cs` (10), `IntegrationTest/Listings/MyListingsFlowTests.cs` (5), `SecurityTest/Auth/MyListingsAuthTests.cs` (16) y `ContractTest/ListingsContractTests.cs` (amplía la prueba existente).
+- **Verificar:** `UnitTest/Listings/MyListingsServiceTests.cs` (10), `IntegrationTest/Listings/MyListingsFlowTests.cs` (5), `SecurityTest/Auth/MyListingsAuthTests.cs` (17) y `ContractTest/ListingsContractTests.cs` (amplía la prueba existente).
 - **Estado:** ✅ Hecho (05-Nov-2026). Mutaciones comprobadas: sin el dueño en el filtro → 4 Security y 5 Unit en rojo; otra etiqueta de caché → 3 Integration en rojo.
 
 ## T4 — Documentación y versión

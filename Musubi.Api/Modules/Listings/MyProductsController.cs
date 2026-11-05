@@ -20,6 +20,9 @@ namespace Musubi.Api.Modules.Listings;
 [Authorize]
 public sealed class MyProductsController : ControllerBase
 {
+    /// <summary>Tope del cuerpo al editar: el JSON cabe en menos de 3 KB (OWASP API4).</summary>
+    public const int MaxEditBytes = 16 * 1024;
+
     private MyListingsService myListings => HttpContext.RequestServices.GetRequiredService<MyListingsService>();
 
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
@@ -30,10 +33,12 @@ public sealed class MyProductsController : ControllerBase
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La publicacion ya cambiada.</returns>
     [HttpPut("{id}")]
+    [RequestSizeLimit(MaxEditBytes)]
     [ProducesResponseType<ProductResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Update(string id, UpdateProductRequest request, CancellationToken cancellationToken) =>
         this.Respond(await myListings.UpdateAsync(userId, id, request, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);

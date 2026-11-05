@@ -20,6 +20,7 @@
 3. **Excepciones al stack (00-01):** ninguna; no hay paquetes nuevos.
 4. **Guardarraíles:**
    - el dueño va en el filtro de cada escritura (`_id` + `sellerId` + `status != removed`), sin ventana entre leer y escribir;
+   - el cuerpo de la edición tiene un tope de 16 KB (`RequestSizeLimit`, OWASP API4);
    - una cuenta no activa responde 403 `auth.forbidden`, igual que al publicar;
    - los textos pasan por la moderación antes de guardarse; si AWS falla, 503 y nada cambia;
    - la vitrina anónima se borra de la caché de salida después de cada escritura que tuvo efecto;

@@ -17,7 +17,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `MyListingsService`, y `ProductRules`, que reúne las reglas que comparten publicar y editar.
 - `IProductRepository`: `UpdateDetailsAsync`, `SetPausedAsync` y `DeleteAsync`, en Mongo y en memoria.
 - Error nuevo: `listings.product_not_found`. Sin script en `db/`: el esquema ya aceptaba `hidden`.
-- API `0.5.0-alpha.2`. Unit 186 · Integration 92 · Security 97 · Contract 8 · endpoints 37.
+- API `0.5.0-alpha.2`. Unit 186 · Integration 92 · Security 98 · Contract 8 · endpoints 37.
 
 **Decisiones (con su porqué)** (aprobadas por el usuario)
 - **`PUT` con los campos editables completos:** la app ya los tiene de "Mis productos", y no hay que adivinar qué significa un `null`.
@@ -32,7 +32,13 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **`ProductDocument` es inmutable (`init`):** el repositorio en memoria reemplaza el documento, como Mongo con `ReturnDocument.After`.
 - **Reactivar sin leer antes:** update con pipeline (`$cond` sobre `$stock`) para decidir entre `active` y `soldOut` en la misma operación.
 - **En un producto nuevo, `conditionDetail` se quita con `$unset`:** el `$jsonSchema` no acepta `null`.
+- **TestServer no aplica `[RequestSizeLimit]`:** lee el cuerpo completo (no tiene `IHttpMaxRequestBodySizeFeature`), y la prueba llegó hasta la moderación. El tope se verifica por reflexión; en la nube lo aplica Kestrel.
 - **`docs/endpoints.md` decía "28 filas" y había 33:** al sumar filas, recalcula el total con `check_endpoints`.
+
+**Pendientes con dueño**
+- `NOTE (HU-18)`: volver a buscar coincidencias al editar el nombre, la categoría, el precio o la descripción (RF-08).
+- `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
+- `NOTE (02-05)`: fotos de una publicación eliminada que quedan en S3 si el borrado falla a medias. La regla de ciclo de vida del bucket (pendiente desde HU-06 para las fotos que nunca se publican) debe cubrir también este caso.
 
 ## T23 — Iniciar una conversación con el vendedor (04-Nov-2026, SCRUM-29, HU-20)
 
