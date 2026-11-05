@@ -42,6 +42,10 @@ internal static class ListingsErrors
     public static readonly ApiError UnknownCampus = new(
         "listings.unknown_campus", StatusCodes.Status404NotFound, "No encontramos ese campus.");
 
+    /// <summary>Publicacion inexistente, de otra persona o quitada por moderacion: no revela cual (HU-07, OWASP API1).</summary>
+    public static readonly ApiError ProductNotFound = new(
+        "listings.product_not_found", StatusCodes.Status404NotFound, "No encontramos esta publicación.");
+
     /// <summary>Archivo que no es una imagen que se pueda leer.</summary>
     public static readonly ApiError PhotoUnsupported = new(
         "listings.photo_unsupported", StatusCodes.Status415UnsupportedMediaType, "No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP.");

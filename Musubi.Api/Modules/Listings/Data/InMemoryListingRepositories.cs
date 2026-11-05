@@ -94,6 +94,38 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<ProductDocument?> UpdateDetailsAsync(string id, string sellerId, ProductDetails details, DateTime now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+        return Task.FromResult(Replace(id, sellerId, p => Copy(p, details, p.Status, now)));
+    }
+
+    /// <inheritdoc />
+    public Task<ProductDocument?> SetPausedAsync(string id, string sellerId, bool paused, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Replace(id, sellerId, p => Copy(
+            p,
+            new ProductDetails(p.Title, p.Description, p.CategorySlug, p.PriceCents, p.Condition, p.ConditionDetail),
+            ResumedOrPaused(p, paused),
+            now)));
+
+    /// <inheritdoc />
+    public Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var index = products.FindIndex(p => Owned(p, id, sellerId));
+            if (index < 0)
+            {
+                return Task.FromResult<ProductDocument?>(null);
+            }
+
+            var deleted = products[index];
+            products.RemoveAt(index);
+            return Task.FromResult<ProductDocument?>(deleted);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)
     {
         lock (gate)
@@ -130,6 +162,57 @@ internal sealed class InMemoryProductRepository : IProductRepository
                 .Select(p => p.PriceCents)
                 .ToList();
             return Task.FromResult<IReadOnlyList<long>>(prices);
+        }
+    }
+
+    private static bool Owned(ProductDocument p, string id, string sellerId) =>
+        string.Equals(p.Id, id, StringComparison.Ordinal)
+        && string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)
+        && p.Status != ProductStatuses.Removed;
+
+    private static string ResumedOrPaused(ProductDocument p, bool paused)
+    {
+        if (paused)
+        {
+            return ProductStatuses.Hidden;
+        }
+
+        return p.Stock > 0 ? ProductStatuses.Active : ProductStatuses.SoldOut;
+    }
+
+    // Los documentos son inmutables (init): un cambio reemplaza el documento, como lo devuelve Mongo.
+    private static ProductDocument Copy(ProductDocument p, ProductDetails details, string status, DateTime now) => new()
+    {
+        Id = p.Id,
+        CommunityId = p.CommunityId,
+        SellerId = p.SellerId,
+        Seller = p.Seller,
+        Title = details.Title,
+        Description = details.Description,
+        CategorySlug = details.CategorySlug,
+        PriceCents = details.PriceCents,
+        Condition = details.Condition,
+        ConditionDetail = details.ConditionDetail,
+        Stock = p.Stock,
+        Status = status,
+        Photos = p.Photos,
+        SchemaVersion = p.SchemaVersion,
+        CreatedAt = p.CreatedAt,
+        UpdatedAt = now,
+    };
+
+    private ProductDocument? Replace(string id, string sellerId, Func<ProductDocument, ProductDocument> change)
+    {
+        lock (gate)
+        {
+            var index = products.FindIndex(p => Owned(p, id, sellerId));
+            if (index < 0)
+            {
+                return null;
+            }
+
+            products[index] = change(products[index]);
+            return products[index];
         }
     }
 

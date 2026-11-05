@@ -37,6 +37,7 @@ internal static class ListingsModuleServiceCollectionExtensions
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ListingService>();
+        services.AddSingleton<MyListingsService>();
         services.AddSingleton<PhotoUploadService>();
         services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
         services.AddSingleton<IProductDirectory, ProductDirectory>();

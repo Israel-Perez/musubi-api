@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,6 +67,37 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Los precios, sin orden.</returns>
     Task<IReadOnlyList<long>> FindActivePricesAsync(string communityId, string categorySlug, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Cambia los datos editables de una publicacion (HU-07). El dueno va en el filtro (OWASP API1): con otro
+    /// vendedor, un id que no existe o una publicacion quitada no cambia nada.
+    /// </summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="sellerId">Vendedor (del token).</param>
+    /// <param name="details">Datos ya validados.</param>
+    /// <param name="now">Hora del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe o esta quitada.</returns>
+    Task<ProductDocument?> UpdateDetailsAsync(string id, string sellerId, ProductDetails details, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Pausa (<c>hidden</c>) o reactiva una publicacion del vendedor (HU-07). Reactivar la deja en
+    /// <c>active</c>, o en <c>soldOut</c> si no tiene piezas, en la misma operacion. Es idempotente.
+    /// </summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="sellerId">Vendedor (del token).</param>
+    /// <param name="paused"><c>true</c> para pausar; <c>false</c> para reactivar.</param>
+    /// <param name="now">Hora del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe o esta quitada.</returns>
+    Task<ProductDocument?> SetPausedAsync(string id, string sellerId, bool paused, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Borra una publicacion del vendedor (HU-07, borrado real). Una quitada por moderacion no se borra aqui.</summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="sellerId">Vendedor (del token).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion borrada (para borrar sus fotos), o <c>null</c> si no es suya, no existe o esta quitada.</returns>
+    Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken);
 
     /// <summary>Borra todas las publicaciones de un vendedor, en cualquier estado (HU-46, R11).</summary>
     /// <param name="sellerId">Vendedor.</param>

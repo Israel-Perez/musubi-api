@@ -49,7 +49,7 @@ internal sealed partial class ListingService(
     public const int MaxStock = 10;
 
     /// <summary>Precio maximo: $999,999 (6 digitos en la maqueta).</summary>
-    public const long MaxPriceCents = 99_999_900;
+    public const long MaxPriceCents = ProductRules.MaxPriceCents;
 
     /// <summary>Tamano de pagina por defecto y maximo.</summary>
     public const int DefaultPageSize = 20;
@@ -91,38 +91,18 @@ internal sealed partial class ListingService(
             return ApiErrors.Forbidden;
         }
 
-        var title = request.Title.Trim();
-        if (title.Length is < 3 or > 80)
+        var categoriesOfCampus = await categories.ListActiveAsync(member.CommunityId, cancellationToken).ConfigureAwait(false);
+        var checkedDetails = ProductRules.Check(
+            request.Title, request.Description, request.PriceCents, request.Condition, request.ConditionDetail, request.Category, categoriesOfCampus);
+        if (checkedDetails.Error is { } invalid)
         {
-            return ListingsErrors.InvalidTitle;
+            return invalid;
         }
 
-        var description = (request.Description ?? string.Empty).Trim();
-        if (description.Length > 500)
-        {
-            return ListingsErrors.InvalidDescription;
-        }
-
-        if (request.PriceCents is not { } price || price <= 0 || price > MaxPriceCents)
-        {
-            return ListingsErrors.InvalidPrice;
-        }
-
+        var details = checkedDetails.Value!;
         if (request.Stock is not { } stock || stock is < 1 or > MaxStock)
         {
             return ListingsErrors.InvalidStock;
-        }
-
-        if (!ValidCondition(request.Condition, request.ConditionDetail))
-        {
-            return ListingsErrors.InvalidCondition;
-        }
-
-        var category = (await categories.ListActiveAsync(member.CommunityId, cancellationToken).ConfigureAwait(false))
-            .FirstOrDefault(c => string.Equals(c.Slug, request.Category, StringComparison.Ordinal));
-        if (category is null)
-        {
-            return ListingsErrors.InvalidCategory;
         }
 
         if (!await ValidPhotosAsync(userId, request.Photos, cancellationToken).ConfigureAwait(false))
@@ -131,7 +111,7 @@ internal sealed partial class ListingService(
         }
 
         // 02-07: nombre y descripcion se moderan antes de guardar (las fotos, al subirlas).
-        var verdicts = await moderator.CheckTextsAsync([title, description], cancellationToken).ConfigureAwait(false);
+        var verdicts = await moderator.CheckTextsAsync([details.Title, details.Description], cancellationToken).ConfigureAwait(false);
         if (ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("el nombre del producto")) is { } badTitle)
         {
             return badTitle;
@@ -149,12 +129,12 @@ internal sealed partial class ListingService(
             CommunityId = member.CommunityId,
             SellerId = member.Id,
             Seller = new ProductSeller { Name = ShortName(member.FullName) },
-            Title = title,
-            Description = description,
-            CategorySlug = category.Slug,
-            PriceCents = price,
-            Condition = request.Condition,
-            ConditionDetail = request.Condition == ProductConditions.Used ? request.ConditionDetail : null,
+            Title = details.Title,
+            Description = details.Description,
+            CategorySlug = details.CategorySlug,
+            PriceCents = details.PriceCents,
+            Condition = details.Condition,
+            ConditionDetail = details.ConditionDetail,
             Stock = stock,
             Status = ProductStatuses.Active,
             Photos = request.Photos.ToList(),
@@ -267,13 +247,6 @@ internal sealed partial class ListingService(
         };
     }
 
-    private static bool ValidCondition(string condition, string? detail) => condition switch
-    {
-        ProductConditions.New => string.IsNullOrEmpty(detail),
-        ProductConditions.Used => detail is not null && ProductConditions.UsedDetails.Contains(detail),
-        _ => false,
-    };
-
     // Interpolacion lineal entre los dos precios vecinos (como PERCENTILE.INC de Excel).
     private static long Percentile(List<long> sorted, double p)
     {
@@ -283,7 +256,11 @@ internal sealed partial class ListingService(
         return (long)Math.Round(sorted[lower] + ((sorted[upper] - sorted[lower]) * (position - lower)), MidpointRounding.AwayFromZero);
     }
 
-    private static ProductResponse ToResponse(ProductDocument p, bool includeSeller) => new(
+    /// <summary>Forma publica de una publicacion (tambien la usan editar, pausar y reactivar, HU-07).</summary>
+    /// <param name="p">La publicacion.</param>
+    /// <param name="includeSeller">Mostrar el vendedor (solo con sesion; RNF-05).</param>
+    /// <returns>La respuesta.</returns>
+    internal static ProductResponse ToResponse(ProductDocument p, bool includeSeller) => new(
         p.Id,
         p.Title,
         p.Description,
