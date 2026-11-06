@@ -28,7 +28,7 @@ Cada parámetro `/musubi/prod/A/B` llega a la API como la variable `A__B` (= `A:
 | `/musubi/prod/ConnectionStrings/Mongo` | SecureString | Cadena `mongodb+srv://` de Atlas |
 | `/musubi/prod/Jwt/SigningKey` | SecureString | Llave HS256 (base64, 64 bytes) |
 | `/musubi/prod/Email/From` | String | Remitente verificado en SES |
-| `/musubi/prod/Cache/ConnectionString` | SecureString | **Opcional** (02-02): Redis compartido por las 2 instancias, p. ej. Redis Cloud gratuito (`host:puerto,password=...,ssl=True`). Sin él, cada instancia usa su memoria |
+| `/musubi/prod/Cache/ConnectionString` | SecureString | Redis Cloud gratuito (02-02 y HU-20): caché compartida y backplane del chat en tiempo real. Formato de StackExchange.Redis: `host:puerto,user=default,password=...,abortConnect=false` (+ `,ssl=true` con TLS). **No** el comando `redis-cli -u redis://...` que muestra Redis Cloud. El puerto debe coincidir con la variable `redis_port` de Terraform (salida del grupo de seguridad). Sin el parámetro, cada instancia usa su memoria y el chat solo entrega en tiempo real dentro de su instancia |
 
 Para guardar un secreto sin que quede en el historial de la terminal:
 

@@ -33,6 +33,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Sonar S1135 lee "Todo" en español como un TODO:** en un comentario que empieza con "Todo con sesión", escribe "Siempre con sesión".
 - **`IHubContext<T>.Clients` y `IHubClients.Clients(...)` chocan en un fake** que implementa los dos: implementa los miembros de `IHubContext` de forma explícita.
 - **Un `Id` en un subdocumento se guarda como `_id`** (convención de id del driver de C#). La validación de `db/005-chat.js` pedía `context.id` y rechazó la conversación, pero solo en `DatabaseTest` (CI): los repositorios en memoria no serializan. Se resolvió con `[BsonNoId]` + `[BsonElement("id")]` y con `MongoConventionsTests.Conversation_KeepsContextIdAsId_AndParticipantsAsObjectIds`, que no necesita Docker.
+- **El grupo de seguridad de la API solo dejaba salir 443, 27017 y 80:** Redis Cloud (puerto 15092) respondía `UnableToConnect (0-read, 0-sent)`. Se agregó la salida `api_redis` con la variable `redis_port` (infra `0.3.5`).
+- **En Parameter Store va la cadena de StackExchange.Redis, no el comando `redis-cli -u redis://default:<clave>@host:puerto`** que muestra Redis Cloud. Con el comando, la API lo toma como nombre de host y **la contraseña termina en los logs** dentro del mensaje de error. Hubo que rotarla (06-Nov-2026).
 - **La prueba del hub tiene que morder:** se comprobó que falla (timeout) si cambia el nombre del evento.
 
 ## T22 — Mutación y rendimiento (03-Nov-2026, SCRUM-94, 02-09)
