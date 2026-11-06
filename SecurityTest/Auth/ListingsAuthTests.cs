@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Platform.Auth;
 using SecurityTest.Common;
 
@@ -35,6 +37,60 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
         var response = await client.SendAsync(request, Ct);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Detail_HidesPausedProductsFromOthers_AndProductsOfAnotherCampusFromMembers()
+    {
+        var owner = AuthIds.New();
+        var paused = await InsertAsync(owner, InMemoryCommunityRepository.UtttId, ProductStatuses.Hidden);
+        var removed = await InsertAsync(owner, InMemoryCommunityRepository.UtttId, ProductStatuses.Removed);
+        var elsewhere = await InsertAsync(AuthIds.New(), OtherCommunity, ProductStatuses.Active);
+        using var visitor = production.CreateClient();
+        using var stranger = ClientFor(AuthIds.New(), InMemoryCommunityRepository.UtttId);
+        using var mine = ClientFor(owner, InMemoryCommunityRepository.UtttId);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync(new Uri($"/api/v1/products/{paused}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync(new Uri($"/api/v1/products/{paused}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await mine.GetAsync(new Uri($"/api/v1/products/{paused}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await mine.GetAsync(new Uri($"/api/v1/products/{removed}", UriKind.Relative), Ct)).StatusCode);
+        // Con sesion, otro campus es como si no existiera; sin sesion, una publicacion visible es publica (HU-48).
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync(new Uri($"/api/v1/products/{elsewhere}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await visitor.GetAsync(new Uri($"/api/v1/products/{elsewhere}", UriKind.Relative), Ct)).StatusCode);
+    }
+
+    private const string OtherCommunity = "000000000000000000000002";
+
+    private async Task<string> InsertAsync(string sellerId, string communityId, string status)
+    {
+        var id = AuthIds.New();
+        await production.Services.GetRequiredService<IProductRepository>().InsertAsync(
+            new ProductDocument
+            {
+                Id = id,
+                CommunityId = communityId,
+                SellerId = sellerId,
+                Seller = new ProductSeller { Name = "Ana R." },
+                Title = "Calculadora Casio",
+                CategorySlug = "calculadoras",
+                PriceCents = 45_000,
+                Condition = ProductConditions.New,
+                Stock = 1,
+                Status = status,
+                Photos = [$"media/products/{sellerId}/{Guid.NewGuid():N}.webp"],
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+            Ct).ConfigureAwait(false);
+        return id;
+    }
+
+    private HttpClient ClientFor(string userId, string communityId)
+    {
+        var token = production.Services.GetRequiredService<AccessTokenIssuer>().Issue(userId, communityId, ["student"]);
+        var client = production.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+        return client;
     }
 
     [Fact]

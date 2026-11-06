@@ -9,6 +9,21 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T25 — Detalle de un producto (06-Nov-2026, SCRUM-28, HU-11)
+
+**Qué se hizo**
+- `GET /api/v1/products/{id}`:
+  - es público, y el vendedor `{ id, name }` solo aparece con sesión;
+  - la publicación pausada solo la ve su dueño;
+  - la quitada, o la de otro campus con sesión, responde `404 listings.product_not_found`.
+- API `0.5.0-alpha.3`. Unit 174 · Integration 96 · Security 83 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **El vendedor solo con `{ id, name }`:** su tarjeta completa sale de `GET /profiles/{id}`, y así M-03 no lee perfiles. "Quién te ve" (HU-04) se respeta en un solo lugar.
+
+**Errores a evitar**
+- **En un controller con la propiedad `userId`, una variable local `userId` rompe el build** (Sonar S1117): usa otro nombre (`viewer`).
+
 ## T24 — Bandeja de conversaciones (06-Nov-2026, SCRUM-31, HU-22)
 
 **Qué se hizo**
