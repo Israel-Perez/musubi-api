@@ -120,6 +120,39 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
     }
 
     [Fact]
+    public async Task Detail_ShowsEverything_AndTheSellerOnlyWithASession()
+    {
+        using var seller = await SignedInClientAsync();
+        var published = await PublishAsync(seller, Product([await UploadKeyAsync(seller), await UploadKeyAsync(seller)]));
+        var id = (await AuthFlow.JsonAsync(published)).GetProperty("id").GetString();
+        using var visitor = factory.CreateClient();
+        using var buyer = await SignedInClientAsync();
+
+        var anonymous = await GetJsonAsync(visitor, $"/api/v1/products/{id}");
+        var member = await GetJsonAsync(buyer, $"/api/v1/products/{id}");
+
+        Assert.Equal("Calculadora científica Casio fx-991ES Plus", anonymous.GetProperty("title").GetString());
+        Assert.Equal("La usé un semestre para Cálculo y Física.", anonymous.GetProperty("description").GetString());
+        Assert.Equal("Calculadoras", anonymous.GetProperty("category").GetProperty("name").GetString());
+        Assert.Equal(2, anonymous.GetProperty("photos").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, anonymous.GetProperty("seller").ValueKind);
+        Assert.Equal("Ana P.", member.GetProperty("seller").GetProperty("name").GetString());
+        Assert.False(string.IsNullOrEmpty(member.GetProperty("seller").GetProperty("id").GetString()));
+    }
+
+    [Theory]
+    [InlineData("6716a0000000000000000099")]
+    [InlineData("no-es-un-id")]
+    public async Task Detail_OfAnUnknownProduct_Is404(string id)
+    {
+        using var visitor = factory.CreateClient();
+
+        var response = await visitor.GetAsync(new Uri($"/api/v1/products/{id}", UriKind.Relative), Ct);
+
+        await AuthFlow.AssertCodeAsync(response, HttpStatusCode.NotFound, "listings.product_not_found");
+    }
+
+    [Fact]
     public async Task Publish_ExplainsWhatIsMissing()
     {
         using var seller = await SignedInClientAsync();

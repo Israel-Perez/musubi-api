@@ -78,3 +78,35 @@ public sealed record ProductPage(IReadOnlyList<ProductResponse> Items, string? N
 /// <param name="HighCents">Percentil 75.</param>
 /// <param name="Count">Publicaciones consideradas.</param>
 public sealed record PriceRangeResponse(long LowCents, long HighCents, int Count);
+
+/// <summary>Quien vende, en el detalle (con sesion). Su foto, calificacion y carrera: <c>GET /profiles/{id}</c>.</summary>
+/// <param name="Id">Id del usuario.</param>
+/// <param name="Name">Nombre corto ("Valeria C.").</param>
+public sealed record ProductSellerResponse(string Id, string Name);
+
+/// <summary>Detalle de una publicacion (maqueta <c>Producto</c>, HU-11).</summary>
+/// <param name="Id">Id.</param>
+/// <param name="Title">Nombre.</param>
+/// <param name="Description">Descripcion.</param>
+/// <param name="Category">Categoria con su nombre visible.</param>
+/// <param name="PriceCents">Precio en centavos.</param>
+/// <param name="Condition"><c>new</c> o <c>used</c>.</param>
+/// <param name="ConditionDetail">Detalle de un usado.</param>
+/// <param name="Stock">Piezas disponibles.</param>
+/// <param name="Status"><c>active</c>, <c>soldOut</c> o <c>hidden</c> (solo su dueno la ve pausada).</param>
+/// <param name="Photos">Rutas de las fotos (la primera es la portada).</param>
+/// <param name="Seller">Quien vende, o <c>null</c> sin sesion (RNF-05).</param>
+/// <param name="PublishedAt">Publicacion (UTC).</param>
+public sealed record ProductDetailResponse(
+    string Id,
+    string Title,
+    string Description,
+    CategoryResponse Category,
+    long PriceCents,
+    string Condition,
+    string? ConditionDetail,
+    int Stock,
+    string Status,
+    IReadOnlyList<string> Photos,
+    ProductSellerResponse? Seller,
+    DateTime PublishedAt);

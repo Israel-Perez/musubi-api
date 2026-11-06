@@ -38,6 +38,13 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidCursor = new(
         "listings.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más publicaciones. Actualiza la lista.");
 
+    /// <summary>
+    /// La publicacion no existe, se quito, esta pausada (para quien no es su dueno) o es de otro campus
+    /// (con sesion). Misma respuesta en todos los casos: no se revela cual (OWASP API1).
+    /// </summary>
+    public static readonly ApiError ProductNotFound = new(
+        "listings.product_not_found", StatusCodes.Status404NotFound, "Esta publicación ya no está disponible.");
+
     /// <summary>Campus desconocido en la vitrina publica.</summary>
     public static readonly ApiError UnknownCampus = new(
         "listings.unknown_campus", StatusCodes.Status404NotFound, "No encontramos ese campus.");

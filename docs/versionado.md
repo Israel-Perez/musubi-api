@@ -53,6 +53,8 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 06-Nov-2026 | 0.5.0-alpha.1 | `v1` | 5 | 0.4.0+5 | Prueba cerrada | 0.3.5 | Salida del grupo de seguridad de la API hacia Redis Cloud (`redis_port`, SCRUM-29): sin ella, la caché compartida y el backplane del chat no se conectaban. Misma imagen de la API |
 | 06-Nov-2026 | 0.5.0-alpha.2 | `v1` | 6 | 0.4.0+5 | Prueba cerrada | 0.3.5 | Bandeja de conversaciones (SCRUM-31, HU-22), solo la API: `GET /conversations` (Todos, Compras y Ventas, por actividad reciente) con no leídos por lado y `POST /conversations/{id}/read`; copia de los nombres en la conversación (`db/006-chat-bandeja.js`) |
 | 06-Nov-2026 | 0.5.0-alpha.2 | `v1` | 6 | 0.5.0+6 | Prueba cerrada | 0.3.5 | Chat en la app (SCRUM-29 y SCRUM-31, HU-20 y HU-22): `Chat-Valeria` en tiempo real (SignalR propio sobre WebSocket) desde un producto de Inicio, y la bandeja `Mensajes` con Todos, Compras, Ventas y no leídos |
+| 06-Nov-2026 | 0.5.0-alpha.3 | `v1` | 6 | 0.5.0+6 | Prueba cerrada | 0.3.5 | Detalle de un producto (SCRUM-28, HU-11), solo la API: `GET /products/{id}` (público, con el vendedor solo con sesión; la pausada solo la ve su dueño) |
+| 06-Nov-2026 | 0.5.0-alpha.3 | `v1` | 6 | 0.5.1+7 | Prueba cerrada | 0.3.5 | Detalle del producto en la app (SCRUM-28 y SCRUM-30, HU-11 y HU-21): `Producto` desde Inicio (también para visitantes), "Mensaje" y "Comprar" al chat, y "Ver" desde el chat |
 
 ## 4. Plan hacia la evaluación
 

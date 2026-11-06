@@ -19,31 +19,36 @@ Jira (SCRUM-28): Como **comprador**, quiero **ver el detalle de un producto**, p
 RNF que aplican: RNF-19.
 
 ## Diseño
-- Módulo `Musubi.Api/Modules/Marketplace/` (M-04). Si es la primera HU del módulo, aquí se crea su carpeta (`Modules/README.md`).
-- Colecciones: `products` (diseño 📐 en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); el script `db/NNN-*.js` se escribe al implementar).
-- Endpoints: se definen al detallar. Cada ruta tiene su fila en `docs/endpoints.md` (`check_endpoints`) y su auth explícita.
+- `ListingService.DetailAsync` y `GET /products/{id}` en `ProductsController` (M-03, junto a la vitrina). Detalle en [`plan.md`](plan.md).
+- **Público** como la vitrina (HU-48): sin sesión solo se ven las disponibles o agotadas, y sin el vendedor (RNF-05).
+- **Con sesión:**
+  - trae `seller { id, name }`;
+  - la app completa la foto, la calificación y la carrera con `GET /profiles/{id}` (HU-04/HU-05), así M-03 no lee perfiles;
+  - la de otro campus responde 404.
+- **La pausada solo la ve su dueño. La quitada no la ve nadie.** En todos esos casos la respuesta es la misma, `404 listings.product_not_found`: no se revela cuál aplica (OWASP API1).
 
 ## Contratos
-Por definir al detallar: filas nuevas en [`docs/endpoints.md`](../../../docs/endpoints.md), errores en [`docs/errores.md`](../../../docs/errores.md) y fixtures en `ContractTest/Fixtures/`.
+- Fila `GET /api/v1/products/{id}` en [`docs/endpoints.md`](../../../docs/endpoints.md).
+- Error `listings.product_not_found` en [`docs/errores.md`](../../../docs/errores.md).
+- Fixture `ContractTest/Fixtures/product-detail.json`.
 
 ## Tests
-- `UnitTest/Marketplace/`: reglas de negocio de cada criterio.
-- `IntegrationTest/Marketplace/`: un flujo por criterio de aceptación, con su código de error.
-- `SecurityTest/Auth/`: 401 sin sesión y, cuando aplique, solo el dueño actúa (RNF-03, OWASP API1).
-- `ContractTest/`: forma JSON de las respuestas nuevas.
-- `TestShared/` + `DatabaseTest/`: la batería del repositorio en memoria y en MongoDB real; índices del script.
+- `IntegrationTest/Listings/ListingFlowTests.cs`: el detalle completo, el vendedor solo con sesión, y un producto desconocido responde 404.
+- `SecurityTest/Auth/ListingsAuthTests.cs`: pausada (solo su dueño), quitada (nadie) y otro campus (404 con sesión).
+- `ContractTest/ListingsContractTests.cs`: forma de `ProductDetailResponse`.
 
 ## Criterios
-- [ ] El detalle muestra fotografías, descripción, precio, estado, cantidad, datos del vendedor y su reputación.
-- [ ] Desde el detalle se puede contactar al vendedor (chat) o comprar.
-- [ ] La interfaz distingue visualmente los productos publicados de las solicitudes de compra (RNF-19).
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
+- [x] El detalle muestra fotografías, descripción, precio, estado, cantidad y datos del vendedor → `Detail_ShowsEverything_AndTheSellerOnlyWithASession`. La reputación sale de `GET /profiles/{id}` (HU-27 la llena).
+- [x] Desde el detalle se puede contactar al vendedor → `POST /conversations` (HU-20) con el id del detalle. "Comprar" llega con HU-23.
+- [ ] La interfaz distingue los productos de las solicitudes (RNF-19) → `musubi-app:HU-11`.
+- [x] Build Release 0/0 · Unit 174, Integration 96, Security 83 y Contract 8 · `check_endpoints` OK · critic PASS.
 
 ## Límites
-- Spec ligera: el diseño, los contratos y las pruebas exactas se fijan al iniciar la HU (`plan.md`).
+- Contar las vistas para "Populares": `NOTE (HU-49)`.
+- "Compara antes de comprar": `NOTE (HU-51)`. Apartar: `NOTE (HU-52)`. Guardar: `NOTE (HU-53)`.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (spec ligera)
+- **Estado:** 🚧 Borrador con evidencia (API). La app queda pendiente (musubi-app:HU-11).
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 29-Oct-2026
-- **Detalle:** generada desde Jira, la maqueta y el modelo de datos para tener todo el backlog especificado (SCRUM-86, pedido del docente). Al iniciar la HU se completan `plan.md` y `task.md` y se resuelven las decisiones pendientes.
+- **Fecha:** 06-Nov-2026
+- **Detalle:** 29-Oct-2026: spec ligera (SCRUM-86). 06-Nov-2026 (SCRUM-28): API implementada para que el chat abra el detalle ("Ver", HU-21) y el detalle abra el chat ("Mensaje").
