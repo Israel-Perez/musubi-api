@@ -113,6 +113,17 @@ resource "aws_vpc_security_group_egress_rule" "api_mongo" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+# HU-20 / 02-02: Redis Cloud (cache compartida y backplane de SignalR). Sin esta salida la conexion
+# se queda en "UnableToConnect (0-read, 0-sent)" y cada instancia cae a su memoria.
+resource "aws_vpc_security_group_egress_rule" "api_redis" {
+  security_group_id = aws_security_group.api.id
+  description       = "Redis Cloud (cache y backplane de SignalR)"
+  ip_protocol       = "tcp"
+  from_port         = var.redis_port
+  to_port           = var.redis_port
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
 resource "aws_vpc_security_group_egress_rule" "api_http" {
   security_group_id = aws_security_group.api.id
   description       = "HTTP (repositorios de paquetes de Amazon Linux)"

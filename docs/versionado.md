@@ -50,6 +50,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 03-Nov-2026 | 0.4.0-alpha.3 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.3 | Moderación (SCRUM-92, 02-07): fotos (productos y perfil) con Rekognition y texto de las publicaciones con Translate + Comprehend antes de guardar; `422 moderation.*` y `503 moderation.unavailable`. Permisos `Moderar` en el rol de las instancias |
 | 03-Nov-2026 | 0.4.0-alpha.4 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.4 | Observabilidad (SCRUM-93, 02-06): logs JSON con `TraceId`, una línea por petición sin datos personales, alarmas por correo (errores, 5xx, instancias sanas, latencia p95), dashboard `musubi-api` y Trivy en el CI |
 | 04-Nov-2026 | 0.5.0-alpha.1 | `v1` | 5 | 0.4.0+5 | Prueba cerrada | 0.3.4 | Iniciar una conversación con el vendedor (SCRUM-29, HU-20), solo la API: 4 rutas de `/conversations` y el hub `/hubs/chat` (SignalR, solo WebSockets, con backplane de Redis si existe `/musubi/prod/Cache/ConnectionString`); `conversations` y `messages` (`db/005-chat.js`); texto moderado antes de guardar y rate limit `chat` |
+| 06-Nov-2026 | 0.5.0-alpha.1 | `v1` | 5 | 0.4.0+5 | Prueba cerrada | 0.3.5 | Salida del grupo de seguridad de la API hacia Redis Cloud (`redis_port`, SCRUM-29): sin ella, la caché compartida y el backplane del chat no se conectaban. Misma imagen de la API |
 
 ## 4. Plan hacia la evaluación
 
