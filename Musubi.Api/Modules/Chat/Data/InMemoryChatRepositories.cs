@@ -46,32 +46,54 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
     }
 
     /// <inheritdoc />
-    public Task SetLastMessageAsync(string id, LastMessage last, CancellationToken cancellationToken)
+    public Task RecordMessageAsync(string id, LastMessage last, string recipientRole, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(last);
+        var toBuyer = string.Equals(recipientRole, ChatService.BuyerRole, StringComparison.Ordinal);
+        Replace(id, current => Copy(
+            current,
+            last,
+            last.At > current.LastMessageAt ? last.At : current.LastMessageAt,
+            current.BuyerUnread + (toBuyer ? 1 : 0),
+            current.SellerUnread + (toBuyer ? 0 : 1)));
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task MarkReadAsync(string id, string role, CancellationToken cancellationToken)
+    {
+        var buyer = string.Equals(role, ChatService.BuyerRole, StringComparison.Ordinal);
+        Replace(id, current => Copy(
+            current,
+            current.LastMessage,
+            current.LastMessageAt,
+            buyer ? 0 : current.BuyerUnread,
+            buyer ? current.SellerUnread : 0));
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ConversationDocument>> FindInboxPageAsync(InboxQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
         lock (gate)
         {
-            var index = conversations.FindIndex(c => string.Equals(c.Id, id, StringComparison.Ordinal));
-            if (index >= 0)
-            {
-                var current = conversations[index];
-                conversations[index] = new ConversationDocument
+            return Task.FromResult<IReadOnlyList<ConversationDocument>>(conversations
+                .Where(c => c.LastMessage is not null && c.Participants.Contains(query.UserId, StringComparer.Ordinal))
+                .Where(c => query.Role switch
                 {
-                    Id = current.Id,
-                    CommunityId = current.CommunityId,
-                    BuyerId = current.BuyerId,
-                    SellerId = current.SellerId,
-                    Participants = current.Participants,
-                    Context = current.Context,
-                    LastMessage = last,
-                    LastMessageAt = last.At > current.LastMessageAt ? last.At : current.LastMessageAt,
-                    CreatedAt = current.CreatedAt,
-                    SchemaVersion = current.SchemaVersion,
-                };
-            }
+                    ChatService.BuyerRole => string.Equals(c.BuyerId, query.UserId, StringComparison.Ordinal),
+                    ChatService.SellerRole => string.Equals(c.SellerId, query.UserId, StringComparison.Ordinal),
+                    _ => true,
+                })
+                .Where(c => query.BeforeAt is not { } at || query.BeforeId is not { } beforeId
+                    || c.LastMessageAt < at
+                    || (c.LastMessageAt == at && string.CompareOrdinal(c.Id, beforeId) < 0))
+                .OrderByDescending(c => c.LastMessageAt)
+                .ThenByDescending(c => c.Id, StringComparer.Ordinal)
+                .Take(query.Limit)
+                .ToList());
         }
-
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
@@ -89,6 +111,36 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
         lock (gate)
         {
             return Task.FromResult((long)conversations.RemoveAll(c => c.Participants.Contains(userId, StringComparer.Ordinal)));
+        }
+    }
+
+    private static ConversationDocument Copy(ConversationDocument c, LastMessage? last, DateTime lastAt, int buyerUnread, int sellerUnread) => new()
+    {
+        Id = c.Id,
+        CommunityId = c.CommunityId,
+        BuyerId = c.BuyerId,
+        SellerId = c.SellerId,
+        Participants = c.Participants,
+        BuyerName = c.BuyerName,
+        SellerName = c.SellerName,
+        Context = c.Context,
+        LastMessage = last,
+        LastMessageAt = lastAt,
+        BuyerUnread = buyerUnread,
+        SellerUnread = sellerUnread,
+        CreatedAt = c.CreatedAt,
+        SchemaVersion = c.SchemaVersion,
+    };
+
+    private void Replace(string id, Func<ConversationDocument, ConversationDocument> change)
+    {
+        lock (gate)
+        {
+            var index = conversations.FindIndex(c => string.Equals(c.Id, id, StringComparison.Ordinal));
+            if (index >= 0)
+            {
+                conversations[index] = change(conversations[index]);
+            }
         }
     }
 }

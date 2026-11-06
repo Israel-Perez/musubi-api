@@ -51,6 +51,8 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 03-Nov-2026 | 0.4.0-alpha.4 | `v1` | 4 | 0.4.0+5 | Prueba cerrada | 0.3.4 | Observabilidad (SCRUM-93, 02-06): logs JSON con `TraceId`, una línea por petición sin datos personales, alarmas por correo (errores, 5xx, instancias sanas, latencia p95), dashboard `musubi-api` y Trivy en el CI |
 | 04-Nov-2026 | 0.5.0-alpha.1 | `v1` | 5 | 0.4.0+5 | Prueba cerrada | 0.3.4 | Iniciar una conversación con el vendedor (SCRUM-29, HU-20), solo la API: 4 rutas de `/conversations` y el hub `/hubs/chat` (SignalR, solo WebSockets, con backplane de Redis si existe `/musubi/prod/Cache/ConnectionString`); `conversations` y `messages` (`db/005-chat.js`); texto moderado antes de guardar y rate limit `chat` |
 | 06-Nov-2026 | 0.5.0-alpha.1 | `v1` | 5 | 0.4.0+5 | Prueba cerrada | 0.3.5 | Salida del grupo de seguridad de la API hacia Redis Cloud (`redis_port`, SCRUM-29): sin ella, la caché compartida y el backplane del chat no se conectaban. Misma imagen de la API |
+| 06-Nov-2026 | 0.5.0-alpha.2 | `v1` | 6 | 0.4.0+5 | Prueba cerrada | 0.3.5 | Bandeja de conversaciones (SCRUM-31, HU-22), solo la API: `GET /conversations` (Todos, Compras y Ventas, por actividad reciente) con no leídos por lado y `POST /conversations/{id}/read`; copia de los nombres en la conversación (`db/006-chat-bandeja.js`) |
+| 06-Nov-2026 | 0.5.0-alpha.2 | `v1` | 6 | 0.5.0+6 | Prueba cerrada | 0.3.5 | Chat en la app (SCRUM-29 y SCRUM-31, HU-20 y HU-22): `Chat-Valeria` en tiempo real (SignalR propio sobre WebSocket) desde un producto de Inicio, y la bandeja `Mensajes` con Todos, Compras, Ventas y no leídos |
 
 ## 4. Plan hacia la evaluación
 

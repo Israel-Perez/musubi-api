@@ -78,19 +78,70 @@ public abstract class ChatRepositoryContract
     }
 
     [Fact]
-    public async Task SetLastMessage_KeepsTheCopy_AndNeverMovesActivityBack()
+    public async Task RecordMessage_KeepsTheCopy_NeverMovesActivityBack_AndCountsUnreadForTheRecipient()
     {
         var conversation = NewConversation(AuthIds.New(), AuthIds.New(), AuthIds.New());
         await Conversations.InsertOrGetAsync(conversation, Ct);
         var later = new LastMessage { SenderId = conversation.BuyerId, Text = "¿Sigue disponible?", At = Now.AddMinutes(5) };
         var earlier = new LastMessage { SenderId = conversation.SellerId, Text = "Sí", At = Now.AddMinutes(1) };
 
-        await Conversations.SetLastMessageAsync(conversation.Id, later, Ct);
-        await Conversations.SetLastMessageAsync(conversation.Id, earlier, Ct);
+        await Conversations.RecordMessageAsync(conversation.Id, later, "seller", Ct);
+        await Conversations.RecordMessageAsync(conversation.Id, later, "seller", Ct);
+        await Conversations.RecordMessageAsync(conversation.Id, earlier, "buyer", Ct);
 
         var saved = (await Conversations.FindByIdAsync(conversation.Id, Ct))!;
         Assert.Equal("Sí", saved.LastMessage!.Text);
         Assert.Equal(Now.AddMinutes(5), saved.LastMessageAt);
+        Assert.Equal(2, saved.SellerUnread);
+        Assert.Equal(1, saved.BuyerUnread);
+    }
+
+    [Fact]
+    public async Task MarkRead_ClearsOnlyThatSide()
+    {
+        var conversation = NewConversation(AuthIds.New(), AuthIds.New(), AuthIds.New());
+        await Conversations.InsertOrGetAsync(conversation, Ct);
+        var message = new LastMessage { SenderId = conversation.BuyerId, Text = "Hola", At = Now.AddMinutes(1) };
+        await Conversations.RecordMessageAsync(conversation.Id, message, "seller", Ct);
+        await Conversations.RecordMessageAsync(conversation.Id, message, "buyer", Ct);
+
+        await Conversations.MarkReadAsync(conversation.Id, "seller", Ct);
+
+        var saved = (await Conversations.FindByIdAsync(conversation.Id, Ct))!;
+        Assert.Equal(0, saved.SellerUnread);
+        Assert.Equal(1, saved.BuyerUnread);
+    }
+
+    [Fact]
+    public async Task Inbox_HasOnlyMyConversationsWithMessages_NewestFirst_ByRole_AndTheCursorContinues()
+    {
+        var me = AuthIds.New();
+        var asBuyerOld = NewConversation(me, AuthIds.New(), AuthIds.New());
+        var asSeller = NewConversation(AuthIds.New(), me, AuthIds.New());
+        var asBuyerNew = NewConversation(me, AuthIds.New(), AuthIds.New());
+        var empty = NewConversation(me, AuthIds.New(), AuthIds.New());
+        var others = NewConversation(AuthIds.New(), AuthIds.New(), AuthIds.New());
+        var minute = 1;
+        foreach (var conversation in new[] { asBuyerOld, asSeller, asBuyerNew, others })
+        {
+            await Conversations.InsertOrGetAsync(conversation, Ct);
+            var at = Now.AddMinutes(minute++);
+            await Conversations.RecordMessageAsync(conversation.Id, new LastMessage { SenderId = conversation.BuyerId, Text = "Hola", At = at }, "seller", Ct);
+        }
+
+        await Conversations.InsertOrGetAsync(empty, Ct);
+
+        var all = await Conversations.FindInboxPageAsync(new InboxQuery(me, null, null, null, 10), Ct);
+        var first = await Conversations.FindInboxPageAsync(new InboxQuery(me, null, null, null, 2), Ct);
+        var second = await Conversations.FindInboxPageAsync(new InboxQuery(me, null, first[^1].LastMessageAt, first[^1].Id, 2), Ct);
+        var buying = await Conversations.FindInboxPageAsync(new InboxQuery(me, "buyer", null, null, 10), Ct);
+        var selling = await Conversations.FindInboxPageAsync(new InboxQuery(me, "seller", null, null, 10), Ct);
+
+        Assert.Equal([asBuyerNew.Id, asSeller.Id, asBuyerOld.Id], all.Select(c => c.Id));
+        Assert.Equal([asBuyerNew.Id, asSeller.Id], first.Select(c => c.Id));
+        Assert.Equal([asBuyerOld.Id], second.Select(c => c.Id));
+        Assert.Equal([asBuyerNew.Id, asBuyerOld.Id], buying.Select(c => c.Id));
+        Assert.Equal([asSeller.Id], selling.Select(c => c.Id));
     }
 
     [Fact]

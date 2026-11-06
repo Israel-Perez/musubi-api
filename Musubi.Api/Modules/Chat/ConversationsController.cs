@@ -12,7 +12,7 @@ using Musubi.Api.Platform.Errors;
 namespace Musubi.Api.Modules.Chat;
 
 /// <summary>
-/// Conversaciones y mensajes (HU-20). Filas canonicas en docs/endpoints.md. Siempre con sesion; solo los
+/// Conversaciones, mensajes (HU-20) y bandeja (HU-22). Filas canonicas en docs/endpoints.md. Siempre con sesion; solo los
 /// participantes leen o escriben (RN-22). La entrega en tiempo real va por <see cref="ChatHub"/>.
 /// </summary>
 [ApiController]
@@ -24,6 +24,31 @@ public sealed class ConversationsController : ControllerBase
     private ChatService chat => HttpContext.RequestServices.GetRequiredService<ChatService>();
 
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
+
+    /// <summary>Bandeja (maqueta <c>Mensajes</c>, HU-22): mis conversaciones con mensajes, por actividad reciente.</summary>
+    /// <param name="role">Filtro: <c>buyer</c> ("Compras") o <c>seller</c> ("Ventas"); sin filtro, "Todos".</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50; 30 por defecto).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina.</returns>
+    [HttpGet]
+    [ProducesResponseType<InboxPage>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Inbox([FromQuery] string? role, [FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken cancellationToken) =>
+        this.Respond(await chat.InboxAsync(userId, role, cursor, limit, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>Marca la conversacion como leida para mi (al abrirla y con cada mensaje que llega abierta).</summary>
+    /// <param name="id">Conversacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>204.</returns>
+    [HttpPost("{id}/read")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MarkRead(string id, CancellationToken cancellationToken)
+    {
+        var result = await chat.MarkReadAsync(userId, id, cancellationToken).ConfigureAwait(false);
+        return result.Error is { } error ? this.Problem(error) : NoContent();
+    }
 
     /// <summary>"Mensaje" en una publicacion: abre la conversacion con el vendedor, o la que ya existia.</summary>
     /// <param name="request">La publicacion.</param>
