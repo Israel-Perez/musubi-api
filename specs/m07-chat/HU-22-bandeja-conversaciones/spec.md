@@ -19,31 +19,37 @@ Jira (SCRUM-31): Como **usuario**, quiero **ver la lista de mis conversaciones**
 RNF que aplican: se confirman al detallar.
 
 ## Diseño
-- Módulo `Musubi.Api/Modules/Chat/` (M-07). Si es la primera HU del módulo, aquí se crea su carpeta (`Modules/README.md`).
-- Colecciones: `conversations` (diseño 📐 en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); el script `db/NNN-*.js` se escribe al implementar).
-- Endpoints: se definen al detallar. Cada ruta tiene su fila en `docs/endpoints.md` (`check_endpoints`) y su auth explícita.
+- Módulo `Musubi.Api/Modules/Chat/` (M-07), sobre las conversaciones de HU-20. Detalle en [`plan.md`](plan.md).
+- **Solo aparecen conversaciones con al menos un mensaje:** el vendedor no ve chats "vacíos" de quien tocó "Mensaje" y no escribió.
+- **No leídos por lado** (`buyerUnread` / `sellerUnread`, `$inc` atómico al enviar) y `POST /conversations/{id}/read` al abrir la conversación.
+- **Copia de los nombres y de la portada** (`buyerName` / `sellerName` / `context.photo`, R8): la bandeja no consulta usuarios ni publicaciones. El nombre no se edita (HU-04).
+- Orden por `lastMessageAt` (y `_id` para desempatar) con cursor `ticks_id`; filtro `role` para "Compras" y "Ventas" (maqueta `Mensajes`).
+- Tiempo real: la app vuelve a pedir la bandeja al recibir `messageCreated` por `/hubs/chat` (HU-20).
 
 ## Contratos
-Por definir al detallar: filas nuevas en [`docs/endpoints.md`](../../../docs/endpoints.md), errores en [`docs/errores.md`](../../../docs/errores.md) y fixtures en `ContractTest/Fixtures/`.
+- Filas canónicas: [`docs/endpoints.md`](../../../docs/endpoints.md) → M-07 · Chat (`GET /conversations`, `POST /conversations/{id}/read`).
+- Errores: `chat.invalid_filter` y `chat.invalid_cursor` en [`docs/errores.md`](../../../docs/errores.md).
+- Fixture: `ContractTest/Fixtures/inbox-page.json`.
 
 ## Tests
-- `UnitTest/Chat/`: reglas de negocio de cada criterio.
-- `IntegrationTest/Chat/`: un flujo por criterio de aceptación, con su código de error.
-- `SecurityTest/Auth/`: 401 sin sesión y, cuando aplique, solo el dueño actúa (RNF-03, OWASP API1).
-- `ContractTest/`: forma JSON de las respuestas nuevas.
-- `TestShared/` + `DatabaseTest/`: la batería del repositorio en memoria y en MongoDB real; índices del script.
+- `TestShared/Chat/ChatRepositoryContract.cs` (memoria y MongoDB): orden, cursor, filtro por papel, sin conversaciones vacías, no leídos y marcar leído.
+- `IntegrationTest/Chat/ChatFlowTests.cs`: bandeja de los dos lados con no leídos, filtros y cursor, filtro o cursor inválidos y marcar leída una ajena.
+- `SecurityTest/Auth/ChatAuthTests.cs`: 401 sin sesión; la conversación ajena no aparece en mi bandeja y no se puede marcar leída.
+- `ContractTest/ChatContractTests.cs` y `DatabaseTest/SchemaScriptTests.cs` (`006-chat-bandeja`, no leídos ≥ 0).
 
 ## Criterios
-- [ ] Las conversaciones se ordenan por actividad reciente.
-- [ ] Se muestra un indicador de mensajes no leídos.
-- [ ] Cada conversación muestra al otro participante y el elemento de contexto.
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
+- [x] Las conversaciones se ordenan por actividad reciente → `ChatRepositoryContract.Inbox_HasOnlyMyConversationsWithMessages_NewestFirst_ByRole_AndTheCursorContinues` y `ChatFlowTests.Inbox_FiltersPurchasesAndSales_AndIsNewestFirstWithACursor`.
+- [x] Se muestra un indicador de mensajes no leídos → `ChatFlowTests.Inbox_ShowsTheConversationToBothSides_WithUnreadForTheRecipient_UntilItIsRead` y `ChatRepositoryContract.MarkRead_ClearsOnlyThatSide`.
+- [x] Cada conversación muestra al otro participante y el elemento de contexto → la misma prueba de integración (`counterpart` y `context`).
+- [x] Build Release 0/0 · Unit 174, Integration 93, Security 82 y Contract 8 al 100 % · `check_endpoints` OK · critic PASS.
 
 ## Límites
-- Spec ligera: el diseño, los contratos y las pruebas exactas se fijan al iniciar la HU (`plan.md`).
+- Pestañas de la maqueta para solicitudes y ofertas ("Tu solicitud", "Tu oferta"): `NOTE (HU-16)`.
+- Silenciar o archivar una conversación: fuera de alcance.
+- La app (pantalla `Mensajes`): `musubi-app:HU-22`.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (spec ligera)
+- **Estado:** 🚧 Borrador con evidencia (API). La app queda pendiente (musubi-app:HU-22).
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 29-Oct-2026
-- **Detalle:** generada desde Jira, la maqueta y el modelo de datos para tener todo el backlog especificado (SCRUM-86, pedido del docente). Al iniciar la HU se completan `plan.md` y `task.md` y se resuelven las decisiones pendientes.
+- **Fecha:** 06-Nov-2026
+- **Detalle:** 29-Oct-2026: spec ligera (SCRUM-86). 06-Nov-2026 (SCRUM-31): se detalla e implementa la API para que el chat de HU-20 funcione de punta a punta.

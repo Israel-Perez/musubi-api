@@ -39,14 +39,51 @@ internal sealed class MongoConversationRepository(IMongoDatabase database) : ICo
             : null;
 
     /// <inheritdoc />
-    public Task SetLastMessageAsync(string id, LastMessage last, CancellationToken cancellationToken)
+    public Task RecordMessageAsync(string id, LastMessage last, string recipientRole, CancellationToken cancellationToken)
     {
         System.ArgumentNullException.ThrowIfNull(last);
-        // $max: si dos mensajes se guardan casi a la vez, la bandeja no retrocede.
+        // $max: si dos mensajes se guardan casi a la vez, la bandeja no retrocede. $inc: atomico entre instancias.
         var update = Builders<ConversationDocument>.Update
             .Set(c => c.LastMessage, last)
-            .Max(c => c.LastMessageAt, last.At);
+            .Max(c => c.LastMessageAt, last.At)
+            .Inc(UnreadField(recipientRole), 1);
         return conversations.UpdateOneAsync(c => c.Id == id, update, cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task MarkReadAsync(string id, string role, CancellationToken cancellationToken) =>
+        conversations.UpdateOneAsync(
+            c => c.Id == id,
+            Builders<ConversationDocument>.Update.Set(UnreadField(role), 0),
+            cancellationToken: cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ConversationDocument>> FindInboxPageAsync(InboxQuery query, CancellationToken cancellationToken)
+    {
+        System.ArgumentNullException.ThrowIfNull(query);
+        var filter = Builders<ConversationDocument>.Filter;
+        var where = filter.AnyEq(c => c.Participants, query.UserId) & filter.Exists(c => c.LastMessage);
+        if (string.Equals(query.Role, ChatService.BuyerRole, System.StringComparison.Ordinal))
+        {
+            where &= filter.Eq(c => c.BuyerId, query.UserId);
+        }
+        else if (string.Equals(query.Role, ChatService.SellerRole, System.StringComparison.Ordinal))
+        {
+            where &= filter.Eq(c => c.SellerId, query.UserId);
+        }
+
+        if (query.BeforeAt is { } at && query.BeforeId is { } beforeId)
+        {
+            where &= filter.Lt(c => c.LastMessageAt, at)
+                | (filter.Eq(c => c.LastMessageAt, at) & filter.Lt("_id", ObjectId.Parse(beforeId)));
+        }
+
+        // ix_participant_lastAt cubre el filtro y el orden.
+        return await conversations.Find(where)
+            .SortByDescending(c => c.LastMessageAt)
+            .ThenByDescending(c => c.Id)
+            .Limit(query.Limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -65,6 +102,9 @@ internal sealed class MongoConversationRepository(IMongoDatabase database) : ICo
             .ConfigureAwait(false);
         return result.DeletedCount;
     }
+
+    private static string UnreadField(string role) =>
+        string.Equals(role, ChatService.BuyerRole, System.StringComparison.Ordinal) ? "buyerUnread" : "sellerUnread";
 }
 
 /// <summary>Mensajes en MongoDB (indice <c>ix_conversation_id</c>: pagina por cursor).</summary>

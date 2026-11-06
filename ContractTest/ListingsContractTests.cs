@@ -87,11 +87,13 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
             Ct));
         var page = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?category=calculadoras", UriKind.Relative), Ct));
         var categories = await BodyAsync(await client.GetAsync(new Uri("/api/v1/categories", UriKind.Relative), Ct));
+        var detail = await BodyAsync(await client.GetAsync(new Uri($"/api/v1/products/{product.GetProperty("id").GetString()}", UriKind.Relative), Ct));
 
         Assert.Equal(Shape(await FixtureAsync("photo.json")), Shape(photo));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(product));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(page));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(page.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("category.json")), Shape(categories[0]));
+        Assert.Equal(Shape(await FixtureAsync("product-detail.json")), Shape(detail));
     }
 }

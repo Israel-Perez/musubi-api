@@ -29,7 +29,7 @@ internal sealed class CatalogOptions
 }
 
 /// <summary>
-/// Publicar productos (HU-06, HU-50) y leer la vitrina (HU-48 fase 2). Reglas: RN-03 (nombre, precio,
+/// Publicar productos (HU-06, HU-50), leer la vitrina (HU-48 fase 2) y el detalle (HU-11). Reglas: RN-03 (nombre, precio,
 /// categoria, estado, cantidad y al menos una foto), RN-04 (precio mayor que cero y al menos una pieza).
 /// </summary>
 internal sealed partial class ListingService(
@@ -206,6 +206,51 @@ internal sealed partial class ListingService(
             page.Select(p => ToResponse(p, includeSeller)).ToList(),
             page.Count == size ? page[^1].Id : null,
             total));
+    }
+
+    /// <summary>
+    /// Detalle de una publicacion (HU-11). Visitantes: solo disponibles o agotadas, sin el vendedor (RNF-05).
+    /// Con sesion: tambien su campus; su dueno la ve aunque este pausada.
+    /// </summary>
+    /// <param name="userId">Usuario del token, o <c>null</c> sin sesion.</param>
+    /// <param name="userCommunityId">Comunidad del token, o <c>null</c>.</param>
+    /// <param name="productId">Publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El detalle o <c>listings.product_not_found</c>.</returns>
+    public async Task<Result<ProductDetailResponse>> DetailAsync(string? userId, string? userCommunityId, string productId, CancellationToken cancellationToken)
+    {
+        var product = string.IsNullOrEmpty(productId) ? null : await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
+        if (product is null)
+        {
+            return ListingsErrors.ProductNotFound;
+        }
+
+        var owner = userId is not null && string.Equals(product.SellerId, userId, StringComparison.Ordinal);
+        var visible = product.Status is ProductStatuses.Active or ProductStatuses.SoldOut
+            || (owner && product.Status == ProductStatuses.Hidden);
+        // Con sesion, otro campus es como si no existiera (RNF-21, OWASP API1).
+        var otherCampus = userCommunityId is not null && !string.Equals(product.CommunityId, userCommunityId, StringComparison.Ordinal);
+        if (!visible || otherCampus)
+        {
+            return ListingsErrors.ProductNotFound;
+        }
+
+        var category = (await categories.ListActiveAsync(product.CommunityId, cancellationToken).ConfigureAwait(false))
+            .FirstOrDefault(c => string.Equals(c.Slug, product.CategorySlug, StringComparison.Ordinal));
+        // NOTE (HU-49): contar la vista para "Populares".
+        return Result<ProductDetailResponse>.Ok(new ProductDetailResponse(
+            product.Id,
+            product.Title,
+            product.Description,
+            new CategoryResponse(product.CategorySlug, category?.Name ?? product.CategorySlug),
+            product.PriceCents,
+            product.Condition,
+            product.ConditionDetail,
+            product.Stock,
+            product.Status,
+            product.Photos.Select(PhotoUrl).ToList(),
+            userCommunityId is null ? null : new ProductSellerResponse(product.SellerId, product.Seller.Name),
+            product.CreatedAt));
     }
 
     /// <summary>Publicaciones del usuario ("Ver mis productos").</summary>

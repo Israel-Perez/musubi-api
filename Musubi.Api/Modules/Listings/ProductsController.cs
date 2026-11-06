@@ -14,7 +14,7 @@ using Musubi.Api.Platform.Errors;
 namespace Musubi.Api.Modules.Listings;
 
 /// <summary>
-/// Publicar productos (HU-06, HU-50) y la vitrina publica (HU-48 fase 2). Filas canonicas en docs/endpoints.md.
+/// Publicar productos (HU-06, HU-50), la vitrina publica (HU-48 fase 2) y el detalle (HU-11). Filas canonicas en docs/endpoints.md.
 /// Con sesion por defecto; la vitrina es anonima y entonces no muestra al vendedor (RNF-05).
 /// </summary>
 [ApiController]
@@ -77,6 +77,25 @@ public sealed class ProductsController : ControllerBase
     {
         var range = await listings.PriceRangeAsync(communityId ?? string.Empty, category ?? string.Empty, cancellationToken).ConfigureAwait(false);
         return range is null ? NoContent() : Ok(range);
+    }
+
+    /// <summary>Detalle de una publicacion (maqueta <c>Producto</c> y <c>Producto-visitante</c>, HU-11).</summary>
+    /// <param name="id">Publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El detalle; sin sesion, sin el vendedor (RNF-05).</returns>
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    [ConditionalGet]
+    [ProducesResponseType<ProductDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Detail(string id, CancellationToken cancellationToken)
+    {
+        // Con [AllowAnonymous] la sesion es opcional: si viene, se usa.
+        var viewer = string.IsNullOrEmpty(userId) ? null : userId;
+        return this.Respond(
+            await listings.DetailAsync(viewer, communityId, id, cancellationToken).ConfigureAwait(false),
+            StatusCodes.Status200OK);
     }
 
     /// <summary>Publica un producto (maqueta <c>Vender-4</c> → <c>Vender-listo</c>).</summary>

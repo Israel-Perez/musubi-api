@@ -1,17 +1,21 @@
 # HU-22 — Bandeja de conversaciones (tareas)
 
 ## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (06-Nov-2026).
 
 ## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+- **Crear:** `db/006-chat-bandeja.js`. **Cambiar:** documentos y repositorios del chat; `MongoSchema.ExpectedVersion = 6`.
+- **Verificar:** `ChatRepositoryContract` (en memoria 9/9; en Mongo en el CI) y `SchemaScriptTests`.
+- **Estado:** ✅ Hecho (06-Nov-2026).
 
 ## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+- **Crear:** `InboxAsync`, `MarkReadAsync`, `GET /conversations` y `POST /conversations/{id}/read`.
+- **Verificar:** `ChatFlowTests` (+5), `ChatAuthTests` y `ChatContractTests`.
+- **Estado:** ✅ Hecho (06-Nov-2026).
 
 ## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (06-Nov-2026): `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md`, `docs/versionado.md` y `Memoria.md`.
+
+## Pendientes
+- La app: `musubi-app:HU-22` (pantalla `Mensajes`).
+- `NOTE (HU-16)`: pestañas de solicitudes y ofertas.

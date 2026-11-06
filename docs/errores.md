@@ -88,6 +88,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
 | `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 (cursor que no emitió la API) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
+| `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus: no revela cuál, OWASP API1) |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |
@@ -100,4 +101,5 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `chat.own_product` | 400 | Es tu publicación: aquí te escribirán los compradores. | HU-20 (el vendedor no se escribe a sí mismo) |
 | `chat.conversation_not_found` | 404 | No encontramos esta conversación. | HU-20 (inexistente o de otras personas: no revela cuál, RN-22, OWASP API1) |
 | `chat.invalid_message` | 400 | Escribe un mensaje de hasta 1000 caracteres. | HU-20 (vacío o de más de 1000 caracteres) |
-| `chat.invalid_cursor` | 400 | No pudimos cargar mensajes anteriores. Vuelve a abrir la conversación. | HU-20 (cursor que no emitió la API) |
+| `chat.invalid_filter` | 400 | No pudimos aplicar ese filtro. Elige Todos, Compras o Ventas. | HU-22 (`role` que no es `buyer` ni `seller`) |
+| `chat.invalid_cursor` | 400 | No pudimos cargar más. Vuelve a abrir la lista. | HU-20 / HU-22 (cursor que no emitió la API) |

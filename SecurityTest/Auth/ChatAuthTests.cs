@@ -24,7 +24,9 @@ public sealed class ChatAuthTests(ProductionApiFactory production) : IClassFixtu
 
     public static TheoryData<string, string> MemberOnly() => new()
     {
+        { "GET", "/api/v1/conversations" },
         { "POST", "/api/v1/conversations" },
+        { "POST", $"/api/v1/conversations/{AnyId}/read" },
         { "GET", $"/api/v1/conversations/{AnyId}" },
         { "GET", $"/api/v1/conversations/{AnyId}/messages" },
         { "POST", $"/api/v1/conversations/{AnyId}/messages" },
@@ -97,7 +99,12 @@ public sealed class ChatAuthTests(ProductionApiFactory production) : IClassFixtu
         var get = await outsider.GetAsync(new Uri($"/api/v1/conversations/{conversation}", UriKind.Relative), Ct);
         var read = await outsider.GetAsync(new Uri($"/api/v1/conversations/{conversation}/messages", UriKind.Relative), Ct);
         var write = await outsider.PostAsJsonAsync(new Uri($"/api/v1/conversations/{conversation}/messages", UriKind.Relative), new { text = "Hola" }, Ct);
+        var markRead = await outsider.PostAsync(new Uri($"/api/v1/conversations/{conversation}/read", UriKind.Relative), null, Ct);
+        var inbox = await outsider.GetAsync(new Uri("/api/v1/conversations", UriKind.Relative), Ct);
 
+        Assert.Equal(HttpStatusCode.NotFound, markRead.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, inbox.StatusCode);
+        Assert.DoesNotContain(conversation, await inbox.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, read.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
