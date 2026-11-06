@@ -7,7 +7,28 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **En producción (03-Nov-2026):** API `0.4.0-alpha.4`, infra `0.3.4` y esquema 4 en `https://api.musubiapp.com.mx` (`infra-up` 41743342605). Incluye HU-46, HU-04 (perfil), caché (02-02), moderación (02-07) y observabilidad (02-06). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
 - **App en Google Play:** `0.4.0+5` en la prueba cerrada (HU-04), publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
-- **En curso (04-Nov-2026):** HU-20 (chat), API `0.5.0-alpha.1` lista en su PR; falta la app.
+- **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
+
+## T24 — Bandeja de conversaciones (06-Nov-2026, SCRUM-31, HU-22)
+
+**Qué se hizo**
+- `GET /conversations`: Todos, Compras y Ventas, ordenados por actividad, con cursor y no leídos.
+- `POST /conversations/{id}/read`.
+- `db/006-chat-bandeja.js` (esquema 6): no leídos por lado y copia de los nombres.
+- API `0.5.0-alpha.2`. Unit 174 · Integration 93 · Security 82 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **Solo conversaciones con mensajes en la bandeja:** tocar "Mensaje" sin escribir no llena la bandeja del vendedor.
+- **No leídos por lado (`buyerUnread` / `sellerUnread`) con `$inc`:** atómico entre las 2 instancias y validable con `$jsonSchema`.
+- **Copia de los nombres (R8):** la bandeja no consulta `users` por fila.
+
+**Errores a evitar**
+- **Redis en producción (06-Nov-2026):** quedaron tres fallas encadenadas, todas resueltas.
+  - En Parameter Store iba el comando `redis-cli` en vez de la cadena, y la contraseña terminó en los logs.
+  - El grupo de seguridad no dejaba salir al puerto de Redis Cloud.
+  - La contraseña guardada no era la vigente: `NOAUTH`, que se diagnosticó reproduciendo la conexión con la misma librería.
+- **Para diagnosticar Redis sin entrar a las instancias:** un programa local con StackExchange.Redis y la cadena de Parameter Store, con la contraseña tapada en la salida. El log de la conexión dice exactamente en qué paso falla.
+- **El plan gratuito de Redis Cloud no tiene TLS:** la caché y los mensajes del backplane viajan sin cifrar entre AWS y Redis Cloud (ambos en us-east-1), protegidos por la contraseña. Riesgo aceptado para el piloto.
 
 ## T23 — Iniciar una conversación con el vendedor (04-Nov-2026, SCRUM-29, HU-20)
 

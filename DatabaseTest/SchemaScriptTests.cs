@@ -33,6 +33,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "003-dominio-revision");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "004-perfiles");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "005-chat");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "006-chat-bandeja");
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
@@ -74,6 +75,16 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
 
         Assert.Equal(121, third.WriteError.Code);
         Assert.Equal(121, blank.WriteError.Code);
+
+        // 006 (HU-22): los no leidos nunca son negativos.
+        var negative = new BsonDocument(crowded)
+        {
+            ["_id"] = ObjectId.GenerateNewId(),
+            ["participants"] = new BsonArray { buyer, seller },
+            ["sellerUnread"] = -1,
+        };
+        var below = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Conversations).InsertOneAsync(negative, cancellationToken: Ct));
+        Assert.Equal(121, below.WriteError.Code);
     }
 
     [Fact]

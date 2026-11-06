@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +20,8 @@ namespace Musubi.Api.Modules.Chat;
 internal sealed record ConversationStart(ConversationResponse Conversation, bool Created);
 
 /// <summary>
-/// Iniciar una conversacion con el vendedor y enviar mensajes (HU-20). Reglas: RN-21 (cada conversacion es
+/// Iniciar una conversacion con el vendedor, enviar mensajes (HU-20) y la bandeja con no leidos (HU-22).
+/// Reglas: RN-21 (cada conversacion es
 /// entre dos usuarios y nace de un elemento), RN-22 (solo los participantes la leen) y 02-07 (el texto se
 /// modera antes de guardarlo). NOTE (HU-28): reportar un mensaje (RN-23) llega con los reportes.
 /// </summary>
@@ -42,6 +45,12 @@ internal sealed class ChatService(
 
     /// <summary>Mensajes por pagina como maximo.</summary>
     public const int MaxPageSize = 100;
+
+    /// <summary>Conversaciones por pagina de la bandeja por defecto.</summary>
+    public const int DefaultInboxSize = 30;
+
+    /// <summary>Conversaciones por pagina de la bandeja como maximo.</summary>
+    public const int MaxInboxSize = 50;
 
     /// <summary>Papel del comprador.</summary>
     public const string BuyerRole = "buyer";
@@ -80,6 +89,7 @@ internal sealed class ChatService(
             return ChatErrors.OwnProduct;
         }
 
+        var seller = await members.FindMemberAsync(product.SellerId, cancellationToken).ConfigureAwait(false);
         var now = time.GetUtcNow().UtcDateTime;
         var (conversation, created) = await conversations.InsertOrGetAsync(
             new ConversationDocument
@@ -89,6 +99,8 @@ internal sealed class ChatService(
                 BuyerId = member.Id,
                 SellerId = product.SellerId,
                 Participants = [member.Id, product.SellerId],
+                BuyerName = member.FullName,
+                SellerName = seller?.FullName,
                 Context = new ConversationContext { Type = ConversationContextTypes.Product, Id = product.Id, Title = product.Title },
                 LastMessageAt = now,
                 CreatedAt = now,
@@ -187,15 +199,109 @@ internal sealed class ChatService(
             CreatedAt = time.GetUtcNow().UtcDateTime,
         };
         await messages.InsertAsync(message, cancellationToken).ConfigureAwait(false);
-        await conversations.SetLastMessageAsync(
+        var recipientRole = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal) ? SellerRole : BuyerRole;
+        await conversations.RecordMessageAsync(
             conversation.Id,
             new LastMessage { SenderId = userId, Text = text.Length > PreviewLength ? text[..PreviewLength] : text, At = message.CreatedAt },
+            recipientRole,
             cancellationToken).ConfigureAwait(false);
 
         var response = ToResponse(message);
         // NOTE (HU-31): aviso push al otro participante si no tiene la app abierta.
         await notifier.MessageCreatedAsync(conversation.Participants, response, cancellationToken).ConfigureAwait(false);
         return Result<MessageResponse>.Ok(response);
+    }
+
+    /// <summary>Bandeja (HU-22): mis conversaciones con mensajes, de la mas reciente a la mas vieja.</summary>
+    /// <param name="userId">Usuario (del token).</param>
+    /// <param name="role">Filtro: <c>buyer</c> ("Compras"), <c>seller</c> ("Ventas") o <c>null</c> ("Todos").</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina o el error.</returns>
+    public async Task<Result<InboxPage>> InboxAsync(string userId, string? role, string? cursor, int? limit, CancellationToken cancellationToken)
+    {
+        if (role is not null and not BuyerRole and not SellerRole)
+        {
+            return ChatErrors.InvalidFilter;
+        }
+
+        DateTime? beforeAt = null;
+        string? beforeId = null;
+        if (cursor is not null)
+        {
+            if (!TryParseInboxCursor(cursor, out var at, out var id))
+            {
+                return ChatErrors.InvalidCursor;
+            }
+
+            (beforeAt, beforeId) = (at, id);
+        }
+
+        var size = Math.Clamp(limit ?? DefaultInboxSize, 1, MaxInboxSize);
+        var page = await conversations.FindInboxPageAsync(new InboxQuery(userId, role, beforeAt, beforeId, size + 1), cancellationToken).ConfigureAwait(false);
+        var items = new List<InboxItemResponse>(Math.Min(size, page.Count));
+        foreach (var conversation in page.Take(size))
+        {
+            var isBuyer = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal);
+            var counterpartId = isBuyer ? conversation.SellerId : conversation.BuyerId;
+            var name = (isBuyer ? conversation.SellerName : conversation.BuyerName)
+                ?? (await members.FindMemberAsync(counterpartId, cancellationToken).ConfigureAwait(false))?.FullName
+                ?? UnknownMember;
+            var last = conversation.LastMessage!;
+            items.Add(new InboxItemResponse(
+                conversation.Id,
+                isBuyer ? BuyerRole : SellerRole,
+                new CounterpartResponse(counterpartId, name),
+                new InboxContextResponse(conversation.Context.Type, conversation.Context.Id, conversation.Context.Title),
+                new LastMessageResponse(last.SenderId, last.Text, last.At),
+                isBuyer ? conversation.BuyerUnread : conversation.SellerUnread));
+        }
+
+        var next = page.Count > size ? InboxCursor(page[size - 1]) : null;
+        return Result<InboxPage>.Ok(new InboxPage(items, next));
+    }
+
+    /// <summary>Marca como leida la conversacion para quien la abre (HU-22). Idempotente.</summary>
+    /// <param name="userId">Usuario (del token).</param>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Exito o <c>chat.conversation_not_found</c>.</returns>
+    public async Task<Result<bool>> MarkReadAsync(string userId, string conversationId, CancellationToken cancellationToken)
+    {
+        var conversation = await FindForParticipantAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is null)
+        {
+            return ChatErrors.ConversationNotFound;
+        }
+
+        var role = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal) ? BuyerRole : SellerRole;
+        await conversations.MarkReadAsync(conversation.Id, role, cancellationToken).ConfigureAwait(false);
+        return Result<bool>.Ok(true);
+    }
+
+    /// <summary>Cursor de la bandeja: <c>ticks_id</c> de la ultima conversacion de la pagina.</summary>
+    /// <param name="conversation">La conversacion.</param>
+    /// <returns>El cursor.</returns>
+    internal static string InboxCursor(ConversationDocument conversation) =>
+        string.Create(CultureInfo.InvariantCulture, $"{conversation.LastMessageAt.Ticks}_{conversation.Id}");
+
+    private static bool TryParseInboxCursor(string cursor, out DateTime at, out string id)
+    {
+        at = default;
+        id = string.Empty;
+        var parts = cursor.Split('_');
+        if (parts.Length != 2
+            || !long.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
+            || ticks > DateTime.MaxValue.Ticks
+            || !ObjectId.TryParse(parts[1], out _))
+        {
+            return false;
+        }
+
+        at = new DateTime(ticks, DateTimeKind.Utc);
+        id = parts[1];
+        return true;
     }
 
     private static MessageResponse ToResponse(MessageDocument m) => new(m.Id, m.ConversationId, m.SenderId, m.Text, m.CreatedAt);
@@ -216,7 +322,8 @@ internal sealed class ChatService(
     {
         var isBuyer = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal);
         var counterpartId = isBuyer ? conversation.SellerId : conversation.BuyerId;
-        var counterpart = await members.FindMemberAsync(counterpartId, cancellationToken).ConfigureAwait(false);
+        var copied = isBuyer ? conversation.SellerName : conversation.BuyerName;
+        var name = copied ?? (await members.FindMemberAsync(counterpartId, cancellationToken).ConfigureAwait(false))?.FullName ?? UnknownMember;
         // NOTE (HU-21): "En linea" / "Activa hace 5 min" segun visibility.online del perfil.
         var available = product is { Visible: true };
         var context = new ConversationContextResponse(
@@ -231,7 +338,7 @@ internal sealed class ChatService(
         return new ConversationResponse(
             conversation.Id,
             isBuyer ? BuyerRole : SellerRole,
-            new CounterpartResponse(counterpartId, counterpart?.FullName ?? UnknownMember),
+            new CounterpartResponse(counterpartId, name),
             context,
             conversation.CreatedAt);
     }

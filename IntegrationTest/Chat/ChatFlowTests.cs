@@ -273,6 +273,90 @@ public sealed class ChatFlowTests(AuthApiFactory factory) : IClassFixture<AuthAp
         await AuthFlow.AssertCodeAsync(afterwards, HttpStatusCode.NotFound, "chat.conversation_not_found");
     }
 
+    private static async Task<JsonElement> InboxAsync(Member member, string query = "") =>
+        await GetJsonAsync(member.Client, "/api/v1/conversations" + query).ConfigureAwait(false);
+
+    [Fact]
+    public async Task Inbox_ShowsTheConversationToBothSides_WithUnreadForTheRecipient_UntilItIsRead()
+    {
+        var (buyer, seller, conversation) = await ConversationAsync();
+
+        // Sin mensajes, la conversacion no aparece en la bandeja de nadie.
+        Assert.Empty((await InboxAsync(seller)).GetProperty("items").EnumerateArray());
+
+        Assert.Equal(HttpStatusCode.Created, (await SendAsync(buyer, conversation, "¡Hola! ¿Sigue disponible?")).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await SendAsync(buyer, conversation, "Me interesa.")).StatusCode);
+
+        var sellerRow = (await InboxAsync(seller)).GetProperty("items")[0];
+        var buyerRow = (await InboxAsync(buyer)).GetProperty("items")[0];
+        Assert.Equal(conversation, sellerRow.GetProperty("id").GetString());
+        Assert.Equal("seller", sellerRow.GetProperty("role").GetString());
+        Assert.Equal(buyer.Id, sellerRow.GetProperty("counterpart").GetProperty("id").GetString());
+        Assert.Equal("Ana Sofía Prueba", sellerRow.GetProperty("counterpart").GetProperty("name").GetString());
+        Assert.Equal("Calculadora Casio fx-991ES Plus", sellerRow.GetProperty("context").GetProperty("title").GetString());
+        Assert.Equal("Me interesa.", sellerRow.GetProperty("lastMessage").GetProperty("text").GetString());
+        Assert.Equal(2, sellerRow.GetProperty("unread").GetInt32());
+        Assert.Equal("buyer", buyerRow.GetProperty("role").GetString());
+        Assert.Equal(0, buyerRow.GetProperty("unread").GetInt32());
+
+        var read = await seller.Client.PostAsync(new Uri($"/api/v1/conversations/{conversation}/read", UriKind.Relative), null, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, read.StatusCode);
+        Assert.Equal(0, (await InboxAsync(seller)).GetProperty("items")[0].GetProperty("unread").GetInt32());
+    }
+
+    [Fact]
+    public async Task Inbox_FiltersPurchasesAndSales_AndIsNewestFirstWithACursor()
+    {
+        var me = await MemberAsync();
+        var sellerA = await MemberAsync();
+        var sellerB = await MemberAsync();
+        var buyer = await MemberAsync();
+        var mine = await PublishAsync(me);
+        var buyingA = (await AuthFlow.JsonAsync(await StartAsync(me, await PublishAsync(sellerA)))).GetProperty("id").GetString()!;
+        var selling = (await AuthFlow.JsonAsync(await StartAsync(buyer, mine))).GetProperty("id").GetString()!;
+        var buyingB = (await AuthFlow.JsonAsync(await StartAsync(me, await PublishAsync(sellerB)))).GetProperty("id").GetString()!;
+        foreach (var (who, id) in new[] { (me, buyingA), (buyer, selling), (me, buyingB) })
+        {
+            Assert.Equal(HttpStatusCode.Created, (await SendAsync(who, id, "Hola")).StatusCode);
+        }
+
+        var all = await InboxAsync(me, "?limit=2");
+        var older = await InboxAsync(me, $"?limit=2&cursor={all.GetProperty("nextCursor").GetString()}");
+        var purchases = await InboxAsync(me, "?role=buyer");
+        var sales = await InboxAsync(me, "?role=seller");
+
+        Assert.Equal([buyingB, selling], all.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetString()));
+        Assert.Equal([buyingA], older.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetString()));
+        Assert.Equal(JsonValueKind.Null, older.GetProperty("nextCursor").ValueKind);
+        Assert.Equal([buyingB, buyingA], purchases.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetString()));
+        Assert.Equal([selling], sales.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetString()));
+    }
+
+    [Theory]
+    [InlineData("?role=admin", "chat.invalid_filter")]
+    [InlineData("?cursor=no-es-un-cursor", "chat.invalid_cursor")]
+    [InlineData("?cursor=123_no-es-un-id", "chat.invalid_cursor")]
+    public async Task Inbox_WithABadFilterOrCursor_Is400(string query, string code)
+    {
+        var member = await MemberAsync();
+
+        var response = await member.Client.GetAsync(new Uri("/api/v1/conversations" + query, UriKind.Relative), Ct);
+
+        await AuthFlow.AssertCodeAsync(response, HttpStatusCode.BadRequest, code);
+    }
+
+    [Fact]
+    public async Task MarkRead_OnSomeoneElsesConversation_Is404()
+    {
+        var (_, _, conversation) = await ConversationAsync();
+        var outsider = await MemberAsync();
+
+        var read = await outsider.Client.PostAsync(new Uri($"/api/v1/conversations/{conversation}/read", UriKind.Relative), null, Ct);
+
+        await AuthFlow.AssertCodeAsync(read, HttpStatusCode.NotFound, "chat.conversation_not_found");
+    }
+
     [Fact]
     public async Task Sending_IsRateLimitedPerUser()
     {
