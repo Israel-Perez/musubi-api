@@ -80,6 +80,9 @@ internal sealed class ConversationContext
 
     /// <summary>Copia del nombre (R8): se sigue viendo aunque la publicacion se quite.</summary>
     public string Title { get; init; } = string.Empty;
+
+    /// <summary>Copia de la ruta de la portada (<c>/media/...</c>, R8) para la bandeja (HU-22).</summary>
+    public string? Photo { get; init; }
 }
 
 /// <summary>Copia del ultimo mensaje.</summary>

@@ -13,12 +13,12 @@
 Filas en `docs/endpoints.md` (M-07). Forma de `InboxItemResponse`:
 - `id` y `role` (`buyer` → "Compra", `seller` → "Venta");
 - `counterpart { id, name }`;
-- `context { type, id, title }` (nombre guardado);
+- `context { type, id, title, photo }` (nombre y portada guardados: la miniatura de la derecha en `Mensajes`);
 - `lastMessage { senderId, text, sentAt }`;
 - `unread`.
 
 ## 3. Datos (`db/006-chat-bandeja.js`)
-- `conversations` agrega `buyerName`, `sellerName`, `buyerUnread` y `sellerUnread`. Son opcionales: las conversaciones anteriores valen 0 y la API busca el nombre si no está copiado.
+- `conversations` agrega `buyerName`, `sellerName`, `context.photo`, `buyerUnread` y `sellerUnread`. Son opcionales: las conversaciones anteriores valen 0 y la API busca el nombre si no está copiado.
 - Sin índices nuevos: `ix_participant_lastAt` cubre el filtro y el orden.
 
 ## 4. Decisiones (con su porqué)

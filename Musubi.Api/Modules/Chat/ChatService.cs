@@ -101,7 +101,7 @@ internal sealed class ChatService(
                 Participants = [member.Id, product.SellerId],
                 BuyerName = member.FullName,
                 SellerName = seller?.FullName,
-                Context = new ConversationContext { Type = ConversationContextTypes.Product, Id = product.Id, Title = product.Title },
+                Context = new ConversationContext { Type = ConversationContextTypes.Product, Id = product.Id, Title = product.Title, Photo = product.Photo },
                 LastMessageAt = now,
                 CreatedAt = now,
             },
@@ -253,7 +253,7 @@ internal sealed class ChatService(
                 conversation.Id,
                 isBuyer ? BuyerRole : SellerRole,
                 new CounterpartResponse(counterpartId, name),
-                new InboxContextResponse(conversation.Context.Type, conversation.Context.Id, conversation.Context.Title),
+                new InboxContextResponse(conversation.Context.Type, conversation.Context.Id, conversation.Context.Title, conversation.Context.Photo),
                 new LastMessageResponse(last.SenderId, last.Text, last.At),
                 isBuyer ? conversation.BuyerUnread : conversation.SellerUnread));
         }

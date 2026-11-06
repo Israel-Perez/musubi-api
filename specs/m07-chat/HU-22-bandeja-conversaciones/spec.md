@@ -22,7 +22,7 @@ RNF que aplican: se confirman al detallar.
 - Módulo `Musubi.Api/Modules/Chat/` (M-07), sobre las conversaciones de HU-20. Detalle en [`plan.md`](plan.md).
 - **Solo aparecen conversaciones con al menos un mensaje:** el vendedor no ve chats "vacíos" de quien tocó "Mensaje" y no escribió.
 - **No leídos por lado** (`buyerUnread` / `sellerUnread`, `$inc` atómico al enviar) y `POST /conversations/{id}/read` al abrir la conversación.
-- **Copia de los nombres** (`buyerName` / `sellerName`, R8): la bandeja no consulta usuarios. El nombre no se edita (HU-04).
+- **Copia de los nombres y de la portada** (`buyerName` / `sellerName` / `context.photo`, R8): la bandeja no consulta usuarios ni publicaciones. El nombre no se edita (HU-04).
 - Orden por `lastMessageAt` (y `_id` para desempatar) con cursor `ticks_id`; filtro `role` para "Compras" y "Ventas" (maqueta `Mensajes`).
 - Tiempo real: la app vuelve a pedir la bandeja al recibir `messageCreated` por `/hubs/chat` (HU-20).
 

@@ -1,4 +1,4 @@
-// 006-chat-bandeja (HU-22): no leidos por lado y copia de los nombres en conversations.
+// 006-chat-bandeja (HU-22): no leidos por lado y copia de los nombres y de la portada en conversations.
 // Idempotente: se puede correr N veces despues de 005-chat.js. Catalogo canonico: docs/modelo-datos.md.
 
 const SCRIPT_ID = '006-chat-bandeja';
@@ -34,6 +34,8 @@ db.runCommand({
             type: { enum: ['product'] },
             id: id,
             title: { bsonType: 'string', minLength: 1, maxLength: 80 },
+            // Copia de la portada para la bandeja (HU-22); ruta /media/... del bucket de imagenes.
+            photo: { bsonType: 'string', pattern: '^/media/products/[0-9a-f]{24}/[0-9a-f]{32}\\.webp$' },
           },
         },
         lastMessage: {

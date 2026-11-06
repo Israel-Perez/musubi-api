@@ -85,7 +85,8 @@ public sealed record InboxItemResponse(
 /// <param name="Type"><c>product</c>.</param>
 /// <param name="Id">Id del elemento.</param>
 /// <param name="Title">Nombre guardado al iniciar la conversacion.</param>
-public sealed record InboxContextResponse(string Type, string Id, string Title);
+/// <param name="Photo">Portada guardada (<c>/media/...</c>), o <c>null</c>.</param>
+public sealed record InboxContextResponse(string Type, string Id, string Title, string? Photo);
 
 /// <summary>El ultimo mensaje de una conversacion.</summary>
 /// <param name="SenderId">Quien lo envio.</param>

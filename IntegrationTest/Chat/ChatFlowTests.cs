@@ -294,6 +294,7 @@ public sealed class ChatFlowTests(AuthApiFactory factory) : IClassFixture<AuthAp
         Assert.Equal(buyer.Id, sellerRow.GetProperty("counterpart").GetProperty("id").GetString());
         Assert.Equal("Ana Sofía Prueba", sellerRow.GetProperty("counterpart").GetProperty("name").GetString());
         Assert.Equal("Calculadora Casio fx-991ES Plus", sellerRow.GetProperty("context").GetProperty("title").GetString());
+        Assert.StartsWith("/media/products/", sellerRow.GetProperty("context").GetProperty("photo").GetString(), StringComparison.Ordinal);
         Assert.Equal("Me interesa.", sellerRow.GetProperty("lastMessage").GetProperty("text").GetString());
         Assert.Equal(2, sellerRow.GetProperty("unread").GetInt32());
         Assert.Equal("buyer", buyerRow.GetProperty("role").GetString());
