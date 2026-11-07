@@ -13,7 +13,8 @@ namespace Musubi.Api.Modules.Listings.Data;
 /// <param name="IncludeSoldOut">Incluir los agotados ("Ocultar agotados" apagado).</param>
 /// <param name="BeforeId">Cursor: solo ids menores que este.</param>
 /// <param name="Limit">Maximo de resultados.</param>
-internal sealed record ProductQuery(string CommunityId, string? CategorySlug, bool IncludeSoldOut, string? BeforeId, int Limit);
+/// <param name="Search">Palabra clave (HU-09): con ella solo salen las disponibles, sin importar <paramref name="IncludeSoldOut"/>.</param>
+internal sealed record ProductQuery(string CommunityId, string? CategorySlug, bool IncludeSoldOut, string? BeforeId, int Limit, string? Search = null);
 
 /// <summary>Categorias por comunidad.</summary>
 internal interface ICategoryRepository

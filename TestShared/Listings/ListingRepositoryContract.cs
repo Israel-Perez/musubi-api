@@ -21,14 +21,21 @@ public abstract class ListingRepositoryContract
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static ProductDocument NewProduct(string communityId, string sellerId, string category = "calculadoras", string status = ProductStatuses.Active, long price = 45_000) => new()
+    private static ProductDocument NewProduct(
+        string communityId,
+        string sellerId,
+        string category = "calculadoras",
+        string status = ProductStatuses.Active,
+        long price = 45_000,
+        string? title = null,
+        string? description = null) => new()
     {
         Id = AuthIds.New(),
         CommunityId = communityId,
         SellerId = sellerId,
         Seller = new ProductSeller { Name = "Ana R." },
-        Title = "Calculadora Casio fx-991ES Plus",
-        Description = "La usé un semestre.",
+        Title = title ?? "Calculadora Casio fx-991ES Plus",
+        Description = description ?? "La usé un semestre.",
         CategorySlug = category,
         PriceCents = price,
         Condition = ProductConditions.Used,
@@ -160,5 +167,102 @@ public abstract class ListingRepositoryContract
         Assert.Empty(await Products.FindBySellerAsync(seller, 10, Ct));
         Assert.Single(await Products.FindBySellerAsync(other, 10, Ct));
         Assert.Equal(0, await Products.DeleteBySellerAsync(seller, Ct));
+    }
+
+    // HU-09: busqueda por palabra clave (indice de texto en espanol, db/007). Las palabras de estos
+    // casos coinciden igual en MongoDB y en el fake en memoria, que solo aproxima el stemming.
+
+    [Fact]
+    public async Task Search_MatchesTitleAndDescription_AndOnlyAvailable()
+    {
+        var community = AuthIds.New();
+        var otherCampus = AuthIds.New();
+        var seller = AuthIds.New();
+        var calculator = NewProduct(community, seller);
+        var book = NewProduct(community, seller, "libros", title: "Libro de Biología", description: "Incluye ejercicios resueltos.");
+        var elsewhere = NewProduct(otherCampus, seller);
+        await Products.InsertAsync(calculator, Ct);
+        await Products.InsertAsync(book, Ct);
+        await Products.InsertAsync(elsewhere, Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.SoldOut), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Hidden), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Removed), Ct);
+
+        // Con busqueda solo salen las disponibles, aunque se pidan los agotados (HU-09 R2).
+        var byTitle = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, "calculadora"), Ct);
+        var byDescription = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, "ejercicios"), Ct);
+        var ofAnotherCommunity = await Products.FindPageAsync(new ProductQuery(otherCampus, null, true, null, 10, "calculadora"), Ct);
+
+        Assert.Equal(calculator.Id, Assert.Single(byTitle).Id);
+        Assert.Equal(book.Id, Assert.Single(byDescription).Id);
+        Assert.Equal(elsewhere.Id, Assert.Single(ofAnotherCommunity).Id);
+    }
+
+    [Fact]
+    public async Task Search_IgnoresCaseAccentsAndPlurals()
+    {
+        var community = AuthIds.New();
+        var product = NewProduct(community, AuthIds.New(), title: "Calculadora Casio", description: "La usé un semestre para Cálculo y Física.");
+        await Products.InsertAsync(product, Ct);
+
+        foreach (var query in new[] { "CALCULADORA", "calculadoras", "cálculo", "FISICA", "  Casio  " })
+        {
+            var found = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, query), Ct);
+
+            Assert.Equal(product.Id, Assert.Single(found).Id);
+        }
+    }
+
+    [Fact]
+    public async Task Search_MatchesAnyWord_AndCombinesWithTheCategory()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var calculator = NewProduct(community, seller);
+        var book = NewProduct(community, seller, "libros", title: "Libro de Biología", description: "Apuntes del semestre.");
+        await Products.InsertAsync(calculator, Ct);
+        await Products.InsertAsync(book, Ct);
+
+        var either = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "casio apuntes"), Ct);
+        var booksOnly = await Products.FindPageAsync(new ProductQuery(community, "libros", false, null, 10, "casio apuntes"), Ct);
+
+        Assert.Equal(2, either.Count);
+        Assert.Contains(either, p => p.Id == calculator.Id);
+        Assert.Contains(either, p => p.Id == book.Id);
+        Assert.Equal(book.Id, Assert.Single(booksOnly).Id);
+        Assert.Equal(2, await Products.CountAsync(new ProductQuery(community, null, false, null, 10, "casio apuntes"), Ct));
+    }
+
+    [Fact]
+    public async Task Search_PagesWithTheCursor_AndCountsEveryMatch()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var inserted = new List<ProductDocument>();
+        for (var i = 0; i < 3; i++)
+        {
+            var product = NewProduct(community, seller, title: $"Calculadora Casio {i}");
+            inserted.Add(product);
+            await Products.InsertAsync(product, Ct);
+        }
+
+        await Products.InsertAsync(NewProduct(community, seller, "libros", title: "Libro de Biología"), Ct);
+
+        var first = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 2, "calculadora"), Ct);
+        var second = await Products.FindPageAsync(new ProductQuery(community, null, false, first[^1].Id, 2, "calculadora"), Ct);
+
+        Assert.Equal([inserted[2].Id, inserted[1].Id], first.Select(p => p.Id));
+        Assert.Equal([inserted[0].Id], second.Select(p => p.Id));
+        Assert.Equal(3, await Products.CountAsync(new ProductQuery(community, null, false, null, 2, "calculadora"), Ct));
+    }
+
+    [Fact]
+    public async Task Search_WithoutMatches_ReturnsNothing()
+    {
+        var community = AuthIds.New();
+        await Products.InsertAsync(NewProduct(community, AuthIds.New()), Ct);
+
+        Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "zzzzqqqq"), Ct));
+        Assert.Equal(0, await Products.CountAsync(new ProductQuery(community, null, false, null, 10, "zzzzqqqq"), Ct));
     }
 }

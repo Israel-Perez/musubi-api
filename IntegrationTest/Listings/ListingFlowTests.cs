@@ -64,10 +64,18 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         return (await AuthFlow.JsonAsync(response).ConfigureAwait(false)).GetProperty("key").GetString()!;
     }
 
-    private static object Product(IEnumerable<string> photos, string category = "calculadoras", long priceCents = 45_000, string condition = "used", string? detail = "likeNew", int stock = 1) => new
+    private static object Product(
+        IEnumerable<string> photos,
+        string category = "calculadoras",
+        long priceCents = 45_000,
+        string condition = "used",
+        string? detail = "likeNew",
+        int stock = 1,
+        string? title = null,
+        string? description = null) => new
     {
-        title = "Calculadora científica Casio fx-991ES Plus",
-        description = "La usé un semestre para Cálculo y Física.",
+        title = title ?? "Calculadora científica Casio fx-991ES Plus",
+        description = description ?? "La usé un semestre para Cálculo y Física.",
         category,
         priceCents,
         condition,
@@ -207,6 +215,57 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
             await seller.GetAsync(new Uri("/api/v1/products?cursor=no-es-un-id", UriKind.Relative), Ct),
             HttpStatusCode.BadRequest,
             "listings.invalid_cursor");
+    }
+
+    [Fact]
+    public async Task Search_FindsProductsByTitleAndDescription_NewestFirst()
+    {
+        using var seller = await SignedInClientAsync();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var first = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Microscopio {tag}"));
+        var second = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], title: "Libro de biología", description: $"Incluye el código {tag}."));
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        var firstId = (await AuthFlow.JsonAsync(first)).GetProperty("id").GetString();
+        var secondId = (await AuthFlow.JsonAsync(second)).GetProperty("id").GetString();
+
+        // HU-09 R3 y R5: por el titulo o por la descripcion, de la mas nueva a la mas vieja.
+        var page = await GetJsonAsync(seller, $"/api/v1/products?q={tag}");
+
+        Assert.Equal(2, page.GetProperty("total").GetInt64());
+        Assert.Equal(new[] { secondId, firstId }, page.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));
+        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
+    }
+
+    [Fact]
+    public async Task Search_WithoutMatches_ReturnsAnEmptyPage()
+    {
+        using var visitor = factory.CreateClient();
+
+        var page = await GetJsonAsync(visitor, "/api/v1/products?q=zzzzqqqq");
+
+        // HU-09 R7: sin resultados no hay error; la app muestra las opciones de HU-12.
+        Assert.Equal(0, page.GetProperty("items").GetArrayLength());
+        Assert.Equal(0, page.GetProperty("total").GetInt64());
+        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
+    }
+
+    [Fact]
+    public async Task Search_WithAnInvalidQuery_IsRejected_AndAnEmptyOneIsTheShowcase()
+    {
+        using var visitor = factory.CreateClient();
+
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri($"/api/v1/products?q={new string('a', 81)}", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_query");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?q=%21%3F%2D", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_query");
+
+        // HU-09 R8: q vacio equivale a no buscar.
+        Assert.Equal(HttpStatusCode.OK, (await visitor.GetAsync(new Uri("/api/v1/products?q=", UriKind.Relative), Ct)).StatusCode);
     }
 
     [Fact]

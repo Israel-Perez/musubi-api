@@ -9,6 +9,30 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T26 — Búsqueda de productos por palabra clave (07-Nov-2026, SCRUM-26, HU-09)
+
+**Qué se hizo**
+- `GET /api/v1/products?q=` (API): coincidencia por palabra completa en `title` y `description`, solo disponibles, de la más nueva a la más vieja, con el cursor `_id` de la vitrina.
+- `db/007-busqueda.js` (esquema 7): índice de texto `tx_title_description` en español, pesos título 3 y descripción 1.
+- Error nuevo `listings.invalid_query` (400): más de 80 caracteres o sin letras ni dígitos. `q` vacío equivale a no buscar.
+- Unit 179 · Integration 99 · Security 83 · Contract 8 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+
+**Decisiones (con su porqué)**
+- **Palabra completa con índice de texto en español:** MongoDB resuelve mayúsculas, acentos y plurales sin *backfill*; la coincidencia parcial por prefijo queda como pendiente con dueño.
+- **Solo disponibles cuando hay `q`, orden por `_id`:** cumple el criterio de Jira y reutiliza el cursor de la vitrina; la relevancia se difiere.
+- **La exclusión de agotados vive en el repositorio, no en el servicio:** cualquier consulta con `Search` devuelve solo `active`, aunque el llamador pida los agotados.
+- **Título y descripción, sin categoría ni vendedor:** cubre "nombre o palabra clave" y evita mezclar búsqueda con filtros (HU-10).
+- **`SearchTerms` deja solo letras, dígitos y espacios:** un `-`, una comilla o un `+` del usuario no se vuelven operadores de `$text` (OWASP API3).
+- **Sin persistir `q`:** RNF-07; el historial y las búsquedas guardadas son de HU-12. El texto sí vive hasta 30 s como clave de la caché de salida, que no es historial; queda escrito en los límites de la spec.
+- **`$text` + orden por `_id` hace un *sort* bloqueante:** aceptable con el volumen del piloto y `limit ≤ 50`; si `products` crece, se ordena por `textScore` o se agrega índice compuesto (`NOTE (HU-09)` en el repositorio).
+- **Rendimiento medido contra el *fake* en memoria:** el p95 de `PerformanceTest` no cubre `$text` ni el *sort* de MongoDB; el RNF-09 real se confirma con `PERF_BASE_URL` contra el despliegue.
+- **M-04 reutiliza `Modules/Listings/`:** la vitrina, el repositorio y los DTO ya viven ahí; un módulo paralelo duplicaría el endpoint y las pruebas. Se corrigió la fila de `docs/modulos.md`.
+
+**Errores a evitar**
+- **`$text` sin índice falla en tiempo de consulta:** `db/007-busqueda.js` y `MongoSchema.ExpectedVersion = 7` van en el mismo PR que el código.
+- **El *stemming* de MongoDB no se replica en el fake en memoria:** las pruebas compartidas deben usar palabras que coincidan igual en ambas implementaciones (por ejemplo, `cálculo` no encuentra `Calculadora` en el fake).
+- **CA1865 rompe el build:** `EndsWith("s", StringComparison.Ordinal)` debe ser `EndsWith('s')`.
+
 ## T25 — Detalle de un producto (06-Nov-2026, SCRUM-28, HU-11)
 
 **Qué se hizo**

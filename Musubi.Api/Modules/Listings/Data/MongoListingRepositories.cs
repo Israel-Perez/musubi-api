@@ -20,7 +20,7 @@ internal sealed class MongoCategoryRepository(IMongoDatabase database) : ICatego
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 }
 
-/// <summary>Publicaciones en MongoDB (indices <c>ix_community_status_id</c>, <c>ix_community_category_status_id</c>, <c>ix_seller_id</c>).</summary>
+/// <summary>Publicaciones en MongoDB (indices <c>ix_community_status_id</c>, <c>ix_community_category_status_id</c>, <c>ix_seller_id</c> y <c>tx_title_description</c>).</summary>
 internal sealed class MongoProductRepository(IMongoDatabase database) : IProductRepository
 {
     private static readonly FilterDefinitionBuilder<ProductDocument> Filter = Builders<ProductDocument>.Filter;
@@ -84,10 +84,19 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
 
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
-        var statuses = query.IncludeSoldOut
+        // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
+        var statuses = query.Search is null && query.IncludeSoldOut
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId) & Filter.In(p => p.Status, statuses);
-        return query.CategorySlug is { } category ? filter & Filter.Eq(p => p.CategorySlug, category) : filter;
+        if (query.CategorySlug is { } category)
+        {
+            filter &= Filter.Eq(p => p.CategorySlug, category);
+        }
+
+        // Indice tx_title_description (db/007): palabra completa, sin mayusculas ni acentos, en espanol.
+        // NOTE (HU-09): relevancia por textScore y coincidencia parcial quedan diferidas; hoy se ordena
+        // por _id, que con $text hace un sort bloqueante (aceptable con el volumen del piloto).
+        return query.Search is { } search ? filter & Filter.Text(search) : filter;
     }
 }

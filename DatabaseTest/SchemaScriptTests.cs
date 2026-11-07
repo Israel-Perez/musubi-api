@@ -124,7 +124,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
     }
 
     [Fact]
-    public async Task Products_HaveTheShowcaseIndexes_AndRejectAFreeProduct()
+    public async Task Products_HaveTheShowcaseAndSearchIndexes_AndRejectAFreeProduct()
     {
         var db = await mongo.MigratedDatabaseAsync("script_productos");
         var indexes = await IndexesAsync(db, MongoSchema.Products);
@@ -145,6 +145,11 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_id");
         Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_id");
         Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
+        // HU-09: el indice de texto en espanol, con los pesos de titulo y descripcion.
+        Assert.Contains(indexes, i => i["name"] == "tx_title_description"
+            && i["default_language"] == "spanish"
+            && i["weights"]["title"].ToInt32() == 3
+            && i["weights"]["description"].ToInt32() == 1);
     }
 
     [Fact]

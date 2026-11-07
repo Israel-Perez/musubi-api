@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth.Data;
@@ -44,6 +46,8 @@ internal sealed class InMemoryCategoryRepository : ICategoryRepository
 /// <summary>Publicaciones en memoria (el id es un ObjectId nuevo: ordena por tiempo como en Mongo).</summary>
 internal sealed class InMemoryProductRepository : IProductRepository
 {
+    private static readonly char[] WordSeparators = [' ', '\t', '\n', '\r', ',', '.', ';', ':', '!', '?', '(', ')', '-', '/', '"', '\''];
+
     private readonly Lock gate = new();
     private readonly List<ProductDocument> products = [];
 
@@ -136,6 +140,33 @@ internal sealed class InMemoryProductRepository : IProductRepository
     // Los ObjectId en hexadecimal (24 caracteres, minusculas) ordenan igual que en Mongo.
     private IEnumerable<ProductDocument> Showcase(ProductQuery query) => products.Where(p =>
         string.Equals(p.CommunityId, query.CommunityId, StringComparison.Ordinal)
-        && (p.Status == ProductStatuses.Active || (query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
-        && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal)));
+        // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
+        && (p.Status == ProductStatuses.Active || (query.Search is null && query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
+        && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal))
+        && (query.Search is null || Matches(p, query.Search)));
+
+    // Aproximacion del indice de texto de Mongo (db/007, espanol): palabra completa, sin mayusculas ni
+    // acentos y con el plural tolerado. El stemming real no se replica; TestShared usa casos equivalentes.
+    private static bool Matches(ProductDocument product, string search)
+    {
+        var wanted = Words(search);
+        return Words(product.Title).Concat(Words(product.Description)).Any(wanted.Contains);
+    }
+
+    private static HashSet<string> Words(string text) =>
+        [.. text.Split(WordSeparators, StringSplitOptions.RemoveEmptyEntries).Select(Stem)];
+
+    private static string Stem(string word)
+    {
+        var plain = RemoveAccents(word).ToLowerInvariant();
+        if (plain.Length > 3 && plain.EndsWith("es", StringComparison.Ordinal))
+        {
+            return plain[..^2];
+        }
+
+        return plain.Length > 2 && plain.EndsWith('s') ? plain[..^1] : plain;
+    }
+
+    private static string RemoveAccents(string text) =>
+        string.Concat(text.Normalize(NormalizationForm.FormD).Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark));
 }

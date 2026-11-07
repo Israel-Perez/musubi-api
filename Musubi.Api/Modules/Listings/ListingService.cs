@@ -57,6 +57,9 @@ internal sealed partial class ListingService(
     /// <summary>Tamano de pagina maximo.</summary>
     public const int MaxPageSize = 50;
 
+    /// <summary>Caracteres maximos del texto de busqueda (HU-09).</summary>
+    public const int MaxSearchLength = 80;
+
     /// <summary>Publicaciones minimas para mostrar un rango de precios honesto.</summary>
     public const int MinPricesForRange = 3;
 
@@ -168,10 +171,11 @@ internal sealed partial class ListingService(
         return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
     }
 
-    /// <summary>Vitrina: lo recien publicado del campus, con filtros de la hoja "Filtrar".</summary>
+    /// <summary>Vitrina: lo recien publicado del campus, con filtros de la hoja "Filtrar" y busqueda (HU-09).</summary>
     /// <param name="userCommunityId">Comunidad del token, si hay sesion (entonces se ve el vendedor).</param>
     /// <param name="campus">Campus pedido por un visitante.</param>
     /// <param name="category">Slug de la categoria, o todas.</param>
+    /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
     /// <param name="hideSoldOut">Ocultar agotados.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina.</param>
@@ -181,6 +185,7 @@ internal sealed partial class ListingService(
         string? userCommunityId,
         string? campus,
         string? category,
+        string? q,
         bool hideSoldOut,
         string? cursor,
         int? limit,
@@ -191,6 +196,19 @@ internal sealed partial class ListingService(
             return ListingsErrors.InvalidCursor;
         }
 
+        // HU-09 R1: q vacio equivale a no buscar; con texto, hasta 80 caracteres y al menos una letra o digito.
+        var trimmed = q?.Trim();
+        string? search = null;
+        if (!string.IsNullOrEmpty(trimmed))
+        {
+            if (trimmed.Length > MaxSearchLength || !trimmed.Any(char.IsLetterOrDigit))
+            {
+                return ListingsErrors.InvalidQuery;
+            }
+
+            search = SearchTerms(trimmed);
+        }
+
         var communityId = userCommunityId ?? await FindCampusAsync(campus, cancellationToken).ConfigureAwait(false);
         if (communityId is null)
         {
@@ -198,7 +216,7 @@ internal sealed partial class ListingService(
         }
 
         var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
-        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size);
+        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size, search);
         var page = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
         var total = await products.CountAsync(query, cancellationToken).ConfigureAwait(false);
         var includeSeller = userCommunityId is not null;
@@ -207,6 +225,16 @@ internal sealed partial class ListingService(
             page.Count == size ? page[^1].Id : null,
             total));
     }
+
+    /// <summary>
+    /// Texto seguro para <c>$text</c>: solo letras, digitos y espacios. Quita los operadores del indice
+    /// (<c>-</c>, <c>"</c>, <c>+</c>) para que una consulta rara no cambie la busqueda ni la rompa (OWASP API3).
+    /// </summary>
+    private static string SearchTerms(string query) =>
+        string.Join(' ', query
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => string.Concat(word.Where(char.IsLetterOrDigit)))
+            .Where(word => word.Length > 0));
 
     /// <summary>
     /// Detalle de una publicacion (HU-11). Visitantes: solo disponibles o agotadas, sin el vendedor (RNF-05).
