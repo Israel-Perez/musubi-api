@@ -136,6 +136,15 @@ internal sealed class InMemoryProductRepository : IProductRepository
     // Los ObjectId en hexadecimal (24 caracteres, minusculas) ordenan igual que en Mongo.
     private IEnumerable<ProductDocument> Showcase(ProductQuery query) => products.Where(p =>
         string.Equals(p.CommunityId, query.CommunityId, StringComparison.Ordinal)
-        && (p.Status == ProductStatuses.Active || (query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
-        && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal)));
+        // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
+        && (p.Status == ProductStatuses.Active || (query.Search is null && query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
+        && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal))
+        && (query.Search is null || Matches(p, query.Search)));
+
+    // Prefijo de palabra como en MongoDB (HU-09): compara contra las palabras ya normalizadas del documento.
+    private static bool Matches(ProductDocument product, string search)
+    {
+        var wanted = SearchWord.Words(search);
+        return product.SearchWords.Any(word => wanted.Any(word.StartsWith));
+    }
 }

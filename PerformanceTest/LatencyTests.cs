@@ -43,6 +43,8 @@ public sealed class LatencyTests(PerformanceApiFactory factory) : IClassFixture<
         "/api/v1/ping",
         "/api/v1/categories",
         "/api/v1/products?limit=20",
+        // HU-09 (RNF-09): la busqueda por palabra clave.
+        "/api/v1/products?q=calc",
     };
 
     private HttpClient Client()

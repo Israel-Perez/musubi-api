@@ -106,6 +106,21 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
     }
 
     [Fact]
+    public async Task ShowcaseSearch_WithMetacharactersOrManyTerms_IsStillAPage()
+    {
+        using var client = production.CreateClient();
+        var manyTerms = "q=" + string.Join('+', Enumerable.Repeat("calc", 16));
+
+        foreach (var query in new[] { "q=a.%2A%7Cb", manyTerms })
+        {
+            var response = await client.GetAsync(new Uri("/api/v1/products?" + query, UriKind.Relative), Ct);
+
+            // HU-09: el texto se sanea (no hay inyeccion de regex) y los terminos se acotan (OWASP API3/API4).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task ValidTokenOfSomeoneWhoIsNotAMember_CannotPublish()
     {
         var token = production.Services.GetRequiredService<AccessTokenIssuer>()

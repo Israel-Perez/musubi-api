@@ -38,6 +38,10 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidCursor = new(
         "listings.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más publicaciones. Actualiza la lista.");
 
+    /// <summary>Texto de busqueda sin letras ni digitos, o de mas de 80 caracteres (HU-09).</summary>
+    public static readonly ApiError InvalidQuery = new(
+        "listings.invalid_query", StatusCodes.Status400BadRequest, "Escribe lo que quieres buscar.");
+
     /// <summary>
     /// La publicacion no existe, se quito, esta pausada (para quien no es su dueno) o es de otro campus
     /// (con sesion). Misma respuesta en todos los casos: no se revela cual (OWASP API1).

@@ -8,6 +8,9 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `002-publicaciones.js` | `categories` (+ 6 de la UTTT), `products` | 2 |
 | `003-dominio-revision.js` | Dominio `musubiapp.com.mx` en la UTTT, para la cuenta de los revisores de Google Play (SCRUM-88) | 3 |
 | `004-perfiles.js` | `profiles`, `careers` (+ 38 de la UTTT, a validar) y `communities.academicTerm` (UTTT: 11 cuatrimestres) (HU-04) | 4 |
+| `005-chat.js` | `conversations` y `messages` (HU-20) | 5 |
+| `006-chat-bandeja.js` | No leídos por lado y copia de nombres y portada en `conversations` (HU-22) | 6 |
+| `007-busqueda.js` | Palabras normalizadas en `products.searchWords` + índice `ix_community_status_search` (HU-09) | 7 |
 
 ## Aplicar
 

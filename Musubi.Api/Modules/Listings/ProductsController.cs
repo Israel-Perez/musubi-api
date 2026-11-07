@@ -31,9 +31,10 @@ public sealed class ProductsController : ControllerBase
 
     private string? communityId => User.FindFirst(MusubiClaims.Community)?.Value;
 
-    /// <summary>Vitrina: lo recien publicado del campus (maqueta <c>Inicio-visitante</c>, <c>Inicio</c>, "Filtrar").</summary>
+    /// <summary>Vitrina y busqueda por palabra clave (maqueta <c>Inicio-visitante</c>, <c>Inicio</c>, "Filtrar", <c>Busqueda</c>; HU-09).</summary>
     /// <param name="campus">Campus del visitante (sin sesion; por defecto el del piloto).</param>
     /// <param name="category">Slug de la categoria.</param>
+    /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
     /// <param name="hideSoldOut">Ocultar agotados.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina (1 a 50).</param>
@@ -50,12 +51,13 @@ public sealed class ProductsController : ControllerBase
     public async Task<IActionResult> Showcase(
         [FromQuery] string? campus,
         [FromQuery] string? category,
+        [FromQuery] string? q,
         [FromQuery] bool hideSoldOut,
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
         CancellationToken cancellationToken) =>
         this.Respond(
-            await listings.ShowcaseAsync(communityId, campus, category, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
+            await listings.ShowcaseAsync(communityId, campus, category, q, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
     /// <summary>Mis publicaciones ("Ver mis productos").</summary>

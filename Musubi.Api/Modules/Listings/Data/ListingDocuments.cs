@@ -83,6 +83,10 @@ internal sealed class ProductDocument
     /// <summary>Llaves de S3 (1 a 8; la primera es la portada).</summary>
     public IReadOnlyList<string> Photos { get; init; } = [];
 
+    /// <summary>Palabras normalizadas de titulo y descripcion, para buscar por prefijo (HU-09; indice <c>ix_community_status_search</c>).</summary>
+    [BsonElement("searchWords")]
+    public IReadOnlyList<string> SearchWords => SearchWord.Words($"{Title} {Description}");
+
     /// <summary>Version del documento (R4).</summary>
     public int SchemaVersion { get; init; } = 1;
 
