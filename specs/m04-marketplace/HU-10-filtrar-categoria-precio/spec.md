@@ -84,8 +84,8 @@ Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 268 · Integra
 - [x] `GET /api/v1/products?category=libros&category=laptops&minPriceCents=10000&maxPriceCents=50000&condition=used&sort=priceAsc` devuelve solo coincidencias y en orden (`Showcase_FiltersByCategoriesPriceAndCondition`).
 - [x] `GET /api/v1/products?minPriceCents=50000&maxPriceCents=10000` devuelve `400 listings.invalid_price_range` (`Showcase_RejectsInvalidFilters`).
 - [x] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`.
-- [x] `pwsh scripts/check_endpoints.ps1` → `OK (36 rutas con fila, 0 huerfanas)`.
-- [x] `pwsh scripts/critic-guardrails.ps1` → `PASS (31 archivos analizados, 0 avisos)`.
+- [x] `pwsh scripts/check_endpoints.ps1` → `OK (40 rutas con fila, 0 huerfanas)`.
+- [x] `pwsh scripts/critic-guardrails.ps1` → `PASS (24 archivos analizados, 0 avisos)`.
 - [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release` en CI → 0 fallos (local sin Docker: no se corre).
 
 ## Límites
