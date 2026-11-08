@@ -7,7 +7,7 @@
    - `Musubi.Api/Modules/Listings/Data/ListingRepositories.cs`: `ProductQuery`, `ProductCursor`, `ProductCursorCodec` y `ProductSorts`.
    - `Musubi.Api/Modules/Listings/Data/MongoListingRepositories.cs`: filtros, cursor compuesto y orden.
    - `Musubi.Api/Modules/Listings/Data/InMemoryListingRepositories.cs`: misma semántica que Mongo.
-   - `db/008-filtros-precio.js` y `Musubi.Api/Platform/Data/MongoSchema.cs`: cuatro índices de precio (asc/desc, con y sin categoría) y `ExpectedVersion = 8`.
+   - `db/009-filtros-precio.js` y `Musubi.Api/Platform/Data/MongoSchema.cs`: cuatro índices de precio (asc/desc, con y sin categoría) y `ExpectedVersion = 9`.
    - `TestShared/Listings/ListingRepositoryContract.cs`, `IntegrationTest/Listings/ListingFlowTests.cs`, `SecurityTest/Auth/ListingsAuthTests.cs`, `ContractTest/ListingsContractTests.cs` y `DatabaseTest/SchemaScriptTests.cs`.
    - `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `db/README.md`, `docs/trazabilidad.md` y `Memoria.md`.
 
@@ -17,7 +17,7 @@
    - **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados. El token lleva el orden y la clave de orden; el cliente lo trata opaco.
    - **Aceptar el cursor viejo solo para `newest`/`relevance`:** evita romper la app de HU-09 mientras se cambia el formato. Un cursor viejo con otro orden no tiene sentido y se rechaza.
    - **`relevance` como alias de `newest`:** no hay puntaje de relevancia y HU-09 lo difirió. La maqueta conserva su etiqueta; el orden es honesto y documentado.
-   - **Índices de precio en `db/008`:** sin ellos, `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices; no reescribe documentos.
+   - **Índices de precio en `db/009`:** sin ellos, `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices; no reescribe documentos.
    - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo en publicación y filtro; no se duplica un código.
    - **Tope de precio con `MaxPriceCents`:** reutiliza el máximo de publicación (99 999 900) para que el rango nunca pida valores imposibles.
 
@@ -43,7 +43,7 @@
 
 6. **Secuencia de implementación:**
    1. Specs y rama.
-   2. `db/008-filtros-precio.js` y `MongoSchema.ExpectedVersion = 8`.
+   2. `db/009-filtros-precio.js` y `MongoSchema.ExpectedVersion = 9`.
    3. `ProductQuery`, `ProductCursor`, `ProductSorts` y codec.
    4. Repositorios Mongo e InMemory (rojo → verde con la batería compartida).
    5. Servicio, errores y controller.

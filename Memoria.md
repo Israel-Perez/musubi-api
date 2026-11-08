@@ -15,18 +15,18 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `GET /api/v1/products` acepta `category` repetido (OR), `minPriceCents`/`maxPriceCents` inclusivos, `condition` (`new`/`used`) y `sort` (`relevance`, `newest`, `oldest`, `priceAsc`, `priceDesc`). Se combinan con `q`, `campus` y `hideSoldOut`.
 - Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado) y `listings.invalid_sort`.
 - `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
-- `db/008-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 8`.
+- `db/009-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 9`.
 - Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
-- Unit 205 · Integration 103 · Security 85 · Contract 8 · Performance 4; critic PASS (31 archivos) y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- Unit 268 · Integration 106 · Security 92 · Contract 9 · Performance 4; critic PASS (31 archivos) y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
 - **Prueba manual (API en Development + InMemory, 08-Nov-2026):** `/health` y `/health/ready` Healthy; registro y verificación con el código del log; 4 publicaciones; filtro combinado devolvió las 2 esperadas; `priceDesc` ordenó 80k, 30k, 20k y 10k; paginación `priceAsc` 2+2 con cursor; rango/condición/orden inválidos y cursor viejo con precio devolvieron 400 con su código.
-- **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó de 186 a 205.
+- **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó a 268 al rebasar sobre HU-28/HU-57, con 19 casos del codec y el cursor `priceDesc`.
 
 **Decisiones (con su porqué)**
 - **Alcance de la maqueta, no solo Jira:** el usuario eligió `Busqueda-filtros` completa (varias categorías, condición y orden); Jira solo pedía categoría y precio.
 - **Extender `GET /products`:** la app ya consume esa ruta y comparte auth, caché, `ETag` y cursor; una ruta nueva duplicaría controller y pruebas.
 - **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados; el token lleva el orden y la clave.
 - **`relevance` es alias de `newest`:** no hay puntaje de relevancia; HU-09 lo difirió. Se conserva la etiqueta de la maqueta con un límite documentado.
-- **Índices de precio en `db/008`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
+- **Índices de precio en `db/009`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
 - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
 - **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
 - **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).

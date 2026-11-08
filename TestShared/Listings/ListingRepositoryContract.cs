@@ -135,7 +135,7 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(NewProduct(community, visible, title: "Calculadora graficadora"), Ct);
 
         var page = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, ExcludeSellers: [blocked]), Ct);
-        var searched = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "calculadora", [blocked]), Ct);
+        var searched = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "calculadora", ExcludeSellers: [blocked]), Ct);
         var nobody = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, ExcludeSellers: []), Ct);
 
         Assert.All(page, p => Assert.Equal(visible, p.SellerId));
