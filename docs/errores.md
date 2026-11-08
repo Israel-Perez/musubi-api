@@ -45,7 +45,7 @@ Cada error es `application/problem+json` (RFC 9457):
 | code | HTTP | Mensaje | HU |
 |---|---|---|---|
 | `moderation.image_rejected` | 422 | Esta foto no cumple las reglas de la comunidad. Usa otra. | 02-07 (Rekognition; fotos de productos y de perfil). La foto nunca llega a S3 |
-| `moderation.text_rejected` | 422 | Revisa el nombre del producto / la descripción: no cumple las reglas de la comunidad. | 02-07 (Translate + Comprehend). El mensaje nombra el campo |
+| `moderation.text_rejected` | 422 | Revisa el nombre del producto / la descripción: no cumple las reglas de la comunidad. | 02-07 (léxico local; Translate + Comprehend con `Moderation:TextProvider=Aws`). El mensaje nombra el campo |
 | `moderation.unavailable` | 503 | No pudimos revisar tu contenido. Inténtalo en unos minutos. | 02-07: si AWS no responde no se guarda nada (nunca se publica sin moderar) |
 
 ## M-01 · Autenticación y usuarios (`Modules/Auth/AuthErrors.cs`)

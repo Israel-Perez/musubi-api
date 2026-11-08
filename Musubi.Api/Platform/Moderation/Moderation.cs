@@ -20,11 +20,23 @@ internal sealed class ModerationOptions
     /// <summary>Solo Development y pruebas: reglas deterministas, sin llamar a AWS.</summary>
     public const string InMemoryProvider = "InMemory";
 
-    /// <summary>Rekognition (fotos) y Translate + Comprehend (texto).</summary>
+    /// <summary>Rekognition (fotos); como <see cref="TextProvider"/>, ademas Translate + Comprehend (texto).</summary>
     public const string AwsProvider = "Aws";
+
+    /// <summary>Texto solo con el lexico local (<see cref="SpanishLexicon"/>), sin costo.</summary>
+    public const string LexiconTextProvider = "Lexicon";
 
     /// <summary><c>InMemory</c> o <c>Aws</c>.</summary>
     public string Provider { get; set; } = AwsProvider;
+
+    /// <summary>
+    /// Texto con el proveedor <c>Aws</c>: <c>Lexicon</c> (por defecto) o <c>Aws</c> (el lexico y despues
+    /// Translate + Comprehend). El plan gratuito de AWS no incluye Translate ni Comprehend (08-Nov-2026).
+    /// </summary>
+    public string TextProvider { get; set; } = LexiconTextProvider;
+
+    /// <summary>Palabras o frases que se suman al lexico sin desplegar (una frase lleva espacios).</summary>
+    public IReadOnlyList<string> ExtraBlockedTerms { get; set; } = [];
 
     /// <summary>Region de los servicios de AWS.</summary>
     public string Region { get; set; } = "us-east-1";
@@ -32,7 +44,7 @@ internal sealed class ModerationOptions
     /// <summary>Confianza minima (0-100) de una etiqueta de Rekognition para rechazar la foto.</summary>
     public float MinImageConfidence { get; set; } = 80;
 
-    /// <summary>Toxicidad minima (0-1) de Comprehend para rechazar un texto.</summary>
+    /// <summary>Toxicidad minima (0-1) de Comprehend para rechazar un texto (solo con <c>TextProvider=Aws</c>).</summary>
     public float MaxTextToxicity { get; set; } = 0.7f;
 
     /// <summary>
@@ -60,6 +72,11 @@ internal sealed class ModerationOptionsValidator(IHostEnvironment environment) :
     public ValidateOptionsResult Validate(string? name, ModerationOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        if (options.TextProvider is not (ModerationOptions.LexiconTextProvider or ModerationOptions.AwsProvider))
+        {
+            return ValidateOptionsResult.Fail("Moderation:TextProvider debe ser Lexicon o Aws.");
+        }
+
         return options.Provider switch
         {
             ModerationOptions.AwsProvider => ValidateOptionsResult.Success,
@@ -103,11 +120,15 @@ internal interface IContentModerator
 }
 
 /// <summary>
-/// Moderacion para Development y pruebas: solo rechaza el marcador <see cref="RejectMarker"/> (en un texto) y
-/// las fotos magenta (<c>#FF00FF</c> en el centro), para probar el rechazo de punta a punta. Nunca llama a AWS.
+/// Moderacion para Development y pruebas: rechaza el marcador <see cref="RejectMarker"/> o el lexico local (en
+/// un texto, como en produccion) y las fotos magenta (<c>#FF00FF</c> en el centro), para probar el rechazo de
+/// punta a punta. Nunca llama a AWS.
 /// </summary>
-internal sealed class InMemoryContentModerator : IContentModerator
+/// <param name="lexicon">Lexico local; por defecto <see cref="SpanishLexicon.Default"/>.</param>
+internal sealed class InMemoryContentModerator(SpanishLexicon? lexicon = null) : IContentModerator
 {
+    private readonly SpanishLexicon lexicon = lexicon ?? SpanishLexicon.Default;
+
     /// <summary>Un texto con este marcador se rechaza.</summary>
     public const string RejectMarker = "[[inapropiado]]";
 
@@ -126,7 +147,9 @@ internal sealed class InMemoryContentModerator : IContentModerator
     {
         ArgumentNullException.ThrowIfNull(texts);
         return Task.FromResult<IReadOnlyList<ModerationVerdict>>(texts
-            .Select(t => t is not null && t.Contains(RejectMarker, StringComparison.OrdinalIgnoreCase) ? ModerationVerdict.Rejected : ModerationVerdict.Allowed)
+            .Select(t => t is not null && (t.Contains(RejectMarker, StringComparison.OrdinalIgnoreCase) || lexicon.IsOffensive(t))
+                ? ModerationVerdict.Rejected
+                : ModerationVerdict.Allowed)
             .ToList());
     }
 }
