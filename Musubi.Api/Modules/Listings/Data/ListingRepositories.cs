@@ -42,6 +42,7 @@ internal static class ProductSorts
 {
     /// <summary>Relevancia: hoy se comporta como <see cref="Newest"/> (no hay puntaje).</summary>
     public const string Relevance = "relevance";
+    // NOTE (HU-10): no hay puntaje de relevancia; un orden real queda para una HU posterior.
 
     /// <summary>Lo mas nuevo primero: <c>_id</c> descendente.</summary>
     public const string Newest = "newest";

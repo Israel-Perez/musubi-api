@@ -387,6 +387,7 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
             await visitor.GetAsync(new Uri("/api/v1/products?maxPriceCents=99999901", UriKind.Relative), Ct),
             HttpStatusCode.BadRequest,
             "listings.invalid_price_range");
+        // HU-10 R4 y R5: condicion y orden tienen lista blanca.
         await AuthFlow.AssertCodeAsync(
             await visitor.GetAsync(new Uri("/api/v1/products?condition=roto", UriKind.Relative), Ct),
             HttpStatusCode.BadRequest,

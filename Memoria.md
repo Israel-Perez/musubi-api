@@ -15,7 +15,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `GET /api/v1/products` acepta `category` repetido (OR), `minPriceCents`/`maxPriceCents` inclusivos, `condition` (`new`/`used`) y `sort` (`relevance`, `newest`, `oldest`, `priceAsc`, `priceDesc`). Se combinan con `q`, `campus` y `hideSoldOut`.
 - Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado) y `listings.invalid_sort`.
 - `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
-- `db/008-filtros-precio.js` crea `ix_community_status_price_id` e `ix_community_category_status_price_id`; `MongoSchema.ExpectedVersion = 8`.
+- `db/008-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 8`.
+- Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
 - Unit 186 · Integration 103 · Security 85 · Contract 8 · Performance 4; critic PASS (31 archivos) y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
 
 **Decisiones (con su porqué)**
@@ -23,7 +24,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Extender `GET /products`:** la app ya consume esa ruta y comparte auth, caché, `ETag` y cursor; una ruta nueva duplicaría controller y pruebas.
 - **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados; el token lleva el orden y la clave.
 - **`relevance` es alias de `newest`:** no hay puntaje de relevancia; HU-09 lo difirió. Se conserva la etiqueta de la maqueta con un límite documentado.
-- **Índices de precio en `db/008`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices, no reescribe documentos.
+- **Índices de precio en `db/008`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
 - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
 - **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
 - **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).

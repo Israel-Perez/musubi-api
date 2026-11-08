@@ -5,16 +5,25 @@
 const SCRIPT_ID = '009-filtros-precio';
 const SCHEMA_VERSION = 9;
 
-// Vitrina por precio: igualdad (comunidad, estado) y luego la clave de orden, regla ESR (R5).
+// Vitrina por precio ascendente: igualdad (comunidad, estado) y luego la clave de orden, regla ESR (R5).
 db.products.createIndex(
   { communityId: 1, status: 1, priceCents: 1, _id: -1 },
   { name: 'ix_community_status_price_id' },
 );
+// Orden descendente: la direccion de _id tambien importa para que el desempate no se haga en memoria.
+db.products.createIndex(
+  { communityId: 1, status: 1, priceCents: -1, _id: -1 },
+  { name: 'ix_community_status_price_desc_id' },
+);
 
-// Igual, con el filtro de una o varias categorias delante.
+// Igual, con el filtro de una categoria delante.
 db.products.createIndex(
   { communityId: 1, categorySlug: 1, status: 1, priceCents: 1, _id: -1 },
   { name: 'ix_community_category_status_price_id' },
+);
+db.products.createIndex(
+  { communityId: 1, categorySlug: 1, status: 1, priceCents: -1, _id: -1 },
+  { name: 'ix_community_category_status_price_desc_id' },
 );
 
 const meta = db.getCollection('_meta');

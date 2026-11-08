@@ -140,6 +140,8 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         };
     }
 
+    // NOTE (HU-10): con q, el indice de prefijo resuelve la busqueda pero el orden por precio puede
+    // resolverse en memoria sobre las coincidencias; limit <= 50 acota el costo.
     private static SortDefinition<ProductDocument> SortFor(string sort) => sort switch
     {
         ProductSorts.Oldest => Builders<ProductDocument>.Sort.Ascending(p => p.Id),
@@ -158,7 +160,7 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(SearchWord.Normalize)
             .Where(term => term.Length > 0)
-            .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term), "i")))
+            .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term))))
             .ToList();
         return byTerm.Count == 0 ? Filter.Empty : Filter.Or(byTerm);
     }

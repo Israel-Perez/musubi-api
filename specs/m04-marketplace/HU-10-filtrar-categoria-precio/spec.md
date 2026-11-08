@@ -11,7 +11,7 @@ Jira (SCRUM-27): Como **comprador**, quiero **filtrar los resultados por categor
 
 **Depende de:** `02-01`, `02-02`, `02-03`, `HU-06`, `HU-09`, `HU-11`, `HU-48`.
 
-La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hideSoldOut`, `cursor` y `limit`. Esta HU agrega los filtros de la hoja `Busqueda-filtros`: varias categorías, rango de precio, condición y orden. No se crea un módulo nuevo: el endpoint, el repositorio y los DTO viven en `Modules/Listings/` y M-04 los reutiliza (misma decisión que HU-09). El esquema gana dos índices para ordenar por precio, creados por `db/008-filtros-precio.js`.
+La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hideSoldOut`, `cursor` y `limit`. Esta HU agrega los filtros de la hoja `Busqueda-filtros`: varias categorías, rango de precio, condición y orden. No se crea un módulo nuevo: el endpoint, el repositorio y los DTO viven en `Modules/Listings/` y M-04 los reutiliza (misma decisión que HU-09). El esquema gana cuatro índices para ordenar por precio (asc/desc, con y sin categoría), creados por `db/008-filtros-precio.js`.
 
 ## Requisitos
 1. `GET /api/v1/products` acepta `category` repetido (`category=libros&category=laptops`). Los valores se recortan, se descartan los vacíos y se comparan como OR. Un solo valor sigue funcionando. Sin `category`, no hay filtro de categoría.
@@ -26,13 +26,13 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
    - `priceAsc`: `priceCents` ascendente y, en empate, `_id` descendente.
    - `priceDesc`: `priceCents` descendente y, en empate, `_id` descendente.
    - `relevance`: hoy se comporta como `newest`; no hay puntaje de relevancia (HU-09 lo difirió).
-8. `nextCursor` es opaco y lleva el orden y la última clave: `newest:<id>`, `oldest:<id>`, `priceAsc:<priceCents>:<id>` o `priceDesc:<priceCents>:<id>`. Se acepta el ObjectId crudo anterior solo para `newest` y `relevance`. Un cursor malformado, de otro orden o con un id que no es ObjectId: `400 listings.invalid_cursor`.
+8. `nextCursor` es opaco y lleva el orden y la última clave: `newest:<id>`, `relevance:<id>` (se comporta como `newest`), `oldest:<id>`, `priceAsc:<priceCents>:<id>` o `priceDesc:<priceCents>:<id>`. Se acepta el ObjectId crudo anterior solo para `newest` y `relevance`. Un cursor malformado, de otro orden o con un id que no es ObjectId: `400 listings.invalid_cursor`.
 9. La página siguiente conserva los mismos filtros y el mismo `sort`. `total` cuenta todas las coincidencias sin aplicar el cursor; `nextCursor` es `null` si la página no se llenó.
 10. La ruta sigue `[AllowAnonymous]`, con sesión opcional, `ETag`/`304` y la caché de salida actuales. La política `showcase` varía por todos los query params, así que los nuevos entran en la clave sin cambios.
-11. Los índices `ix_community_status_price_id` y `ix_community_category_status_price_id` los crea `db/008-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `8`. El script no modifica documentos.
+11. Los índices `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id` los crea `db/008-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `8`. El script no modifica documentos.
 12. Los filtros no se persisten ni se registran en logs o analítica (RNF-07).
 13. La respuesta no cambia: `ProductPage { items: ProductResponse[], nextCursor, total }`. No hace falta fixture nuevo.
-14. RNF-09: el orden por precio usa los índices nuevos; con `q` el orden puede resolverse en memoria sobre las coincidencias y `limit <= 50` acota el costo.
+14. RNF-09: `priceAsc` y `priceDesc` usan sus índices (asc/desc, con desempate `_id` incluido); con `q` el orden puede resolverse en memoria sobre las coincidencias y `limit <= 50` acota el costo.
 
 ## Diseño
 - **Módulo:** `Musubi.Api/Modules/Listings/` (M-03), reutilizado por M-04. No se crea `Modules/Marketplace/`.
@@ -43,7 +43,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - **MongoDB:** `Showcase` agrega `$in` de categorías, `$gte`/`$lte` de precio y `$eq` de condición. `FindPageAsync` aplica el filtro de cursor compuesto y el `Sort` correspondiente. `CountAsync` ignora el cursor.
 - **En memoria:** `InMemoryProductRepository` aplica los mismos filtros, el mismo orden y la misma comparación de cursor que Mongo.
 - **Errores:** `ListingsErrors.InvalidPriceRange` y `ListingsErrors.InvalidSort` (400). La condición inválida reutiliza `InvalidCondition`.
-- **Índices:** `db/008-filtros-precio.js` crea `{ communityId, status, priceCents, _id }` y `{ communityId, categorySlug, status, priceCents, _id }`; sube `_meta.version` a 8.
+- **Índices:** `db/008-filtros-precio.js` crea `{ communityId, status, priceCents: 1, _id: -1 }`, `{ communityId, status, priceCents: -1, _id: -1 }`, `{ communityId, categorySlug, status, priceCents: 1, _id: -1 }` y `{ communityId, categorySlug, status, priceCents: -1, _id: -1 }`; sube `_meta.version` a 8.
 - **Caché:** sin cambios; `SetVaryByQuery("*")` ya incluye los parámetros nuevos.
 - **Rama:** `feature/SCRUM-27-filtrar-categoria-precio`.
 
@@ -52,7 +52,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - Mapa para la app: `relevancia` → `relevance`, `recientes` → `newest`, `antiguos` → `oldest`, `precio-asc` → `priceAsc`, `precio-desc` → `priceDesc`; categorías como parámetros repetidos; precio en centavos; sin máximo = omitir `maxPriceCents`.
 - Respuesta sin cambios: `ProductPage`. Se reutiliza `ContractTest/Fixtures/product-page.json`.
 - Errores nuevos en [`docs/errores.md`](../../../docs/errores.md): `listings.invalid_price_range` (400) y `listings.invalid_sort` (400). `listings.invalid_condition` y `listings.invalid_cursor` se reutilizan.
-- Esquema: fila `products` de [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); agrega los dos índices de precio con `db/008`.
+- Esquema: fila `products` de [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); agrega los cuatro índices de precio con `db/008`.
 - Configuración: sin claves nuevas.
 
 ## Tests
@@ -70,7 +70,8 @@ Conteos reales al cerrar (07-Nov-2026): Unit 186 · Integration 103 · Security 
   - `Showcase_RejectsInvalidFilters`.
 - `SecurityTest/Auth/ListingsAuthTests.cs`: la vitrina con filtros sigue pública; valores extraños no cruzan campus ni inyectan filtros.
 - `ContractTest/ListingsContractTests.cs`: `GET /api/v1/products` con filtros y orden mantiene la forma de `product-page.json`.
-- `DatabaseTest/SchemaScriptTests.cs`: existen los dos índices y `_meta.version` es 8.
+- `DatabaseTest/SchemaScriptTests.cs`: existen los cuatro índices y `_meta.version` es 8.
+- R12 (no persistir ni registrar filtros) se verifica por revisión: no hay escritura ni log de los parámetros; solo viven como clave de la caché de salida. No tiene prueba automática porque la ausencia no se puede asertar sin instrumentar el pipeline.
 
 ## Criterios
 - [x] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.

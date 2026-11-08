@@ -172,6 +172,6 @@ internal sealed class InMemoryProductRepository : IProductRepository
     private static bool Matches(ProductDocument product, string search)
     {
         var wanted = SearchWord.Words(search);
-        return product.SearchWords.Any(word => wanted.Any(word.StartsWith));
+        return product.SearchWords.Any(word => wanted.Any(term => word.StartsWith(term, StringComparison.Ordinal)));
     }
 }

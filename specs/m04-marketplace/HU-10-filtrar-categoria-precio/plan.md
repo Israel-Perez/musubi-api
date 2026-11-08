@@ -7,7 +7,7 @@
    - `Musubi.Api/Modules/Listings/Data/ListingRepositories.cs`: `ProductQuery`, `ProductCursor`, `ProductCursorCodec` y `ProductSorts`.
    - `Musubi.Api/Modules/Listings/Data/MongoListingRepositories.cs`: filtros, cursor compuesto y orden.
    - `Musubi.Api/Modules/Listings/Data/InMemoryListingRepositories.cs`: misma semántica que Mongo.
-   - `db/008-filtros-precio.js` y `Musubi.Api/Platform/Data/MongoSchema.cs`: índices de precio y `ExpectedVersion = 8`.
+   - `db/008-filtros-precio.js` y `Musubi.Api/Platform/Data/MongoSchema.cs`: cuatro índices de precio (asc/desc, con y sin categoría) y `ExpectedVersion = 8`.
    - `TestShared/Listings/ListingRepositoryContract.cs`, `IntegrationTest/Listings/ListingFlowTests.cs`, `SecurityTest/Auth/ListingsAuthTests.cs`, `ContractTest/ListingsContractTests.cs` y `DatabaseTest/SchemaScriptTests.cs`.
    - `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `db/README.md`, `docs/trazabilidad.md` y `Memoria.md`.
 
@@ -19,7 +19,7 @@
    - **`relevance` como alias de `newest`:** no hay puntaje de relevancia y HU-09 lo difirió. La maqueta conserva su etiqueta; el orden es honesto y documentado.
    - **Índices de precio en `db/008`:** sin ellos, `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices; no reescribe documentos.
    - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo en publicación y filtro; no se duplica un código.
-   - **Tope de precio con `MaxPriceCents`:** reutiliza el máximo de publicación (999 999 900) para que el rango nunca pida valores imposibles.
+   - **Tope de precio con `MaxPriceCents`:** reutiliza el máximo de publicación (99 999 900) para que el rango nunca pida valores imposibles.
 
 3. **Excepciones al stack (00-01):** ninguna. Se usa MongoDB, ASP.NET y lo ya instalado.
 

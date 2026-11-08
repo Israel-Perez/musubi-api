@@ -150,9 +150,11 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
         // HU-09: indice de las palabras normalizadas para la busqueda por prefijo.
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_search");
-        // HU-10: indices para ordenar por precio sin ordenar en memoria.
+        // HU-10: indices para ordenar por precio sin ordenar en memoria (asc y desc).
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_price_id");
+        Assert.Contains(indexes, i => i["name"] == "ix_community_status_price_desc_id");
         Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_price_id");
+        Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_price_desc_id");
     }
 
     [Fact]
