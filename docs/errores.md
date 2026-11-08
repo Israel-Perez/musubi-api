@@ -90,6 +90,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-09 (búsqueda sin letras ni dígitos, o de más de 80 caracteres) |
 | `listings.invalid_price_range` | 400 | Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-10 (mínimo negativo, máximo fuera de rango o mínimo mayor que el máximo) |
 | `listings.invalid_sort` | 400 | Elige un orden para los resultados. | HU-10 (orden fuera de la lista permitida) |
+| `listings.invalid_page` | 400 | Elige una página válida. | HU-10 (`page` menor que 1) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
 | `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus: no revela cuál, OWASP API1) |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |

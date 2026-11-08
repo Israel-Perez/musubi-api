@@ -1,9 +1,9 @@
 # plan.md — HU-10 Filtrar por categoría y precio
 
 1. **Componentes:**
-   - `Musubi.Api/Modules/Listings/ProductsController.cs`: `category` repetido y parámetros `minPriceCents`, `maxPriceCents`, `condition`, `sort`.
+   - `Musubi.Api/Modules/Listings/ProductsController.cs`: `category` repetido y parámetros `minPriceCents`, `maxPriceCents`, `condition`, `sort`, `page`.
    - `Musubi.Api/Modules/Listings/ListingService.cs`: normalización, validación, cursor y `nextCursor`.
-   - `Musubi.Api/Modules/Listings/ListingsErrors.cs`: `InvalidPriceRange` e `InvalidSort`.
+   - `Musubi.Api/Modules/Listings/ListingsErrors.cs`: `InvalidPriceRange`, `InvalidSort` e `InvalidPage`.
    - `Musubi.Api/Modules/Listings/Data/ListingRepositories.cs`: `ProductQuery`, `ProductCursor`, `ProductCursorCodec` y `ProductSorts`.
    - `Musubi.Api/Modules/Listings/Data/MongoListingRepositories.cs`: filtros, cursor compuesto y orden.
    - `Musubi.Api/Modules/Listings/Data/InMemoryListingRepositories.cs`: misma semántica que Mongo.
@@ -20,11 +20,13 @@
    - **Índices de precio en `db/009`:** sin ellos, `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices; no reescribe documentos.
    - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo en publicación y filtro; no se duplica un código.
    - **Tope de precio con `MaxPriceCents`:** reutiliza el máximo de publicación (99 999 900) para que el rango nunca pida valores imposibles.
+   - **`page` para la barra de paginación:** `skip = (page - 1) * limit`, ignora `cursor` y no devuelve uno; la app muestra números de página. `cursor` queda para el desplazamiento continuo.
+   - **`hideSoldOut` opcional:** sin el parámetro la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
 
 3. **Excepciones al stack (00-01):** ninguna. Se usa MongoDB, ASP.NET y lo ya instalado.
 
 4. **Guardarraíles:**
-   - Validación en el borde: rango, condición y orden tienen lista blanca; lo inválido es 400 y no toca la base.
+   - Validación en el borde: rango, condición, orden y página tienen lista blanca; lo inválido es 400 y no toca la base.
    - La comunidad se aplica siempre: ningún filtro cruza campus (RNF-21, OWASP API1).
    - Las categorías se comparan como igualdad (`$in`), nunca como regex: no hay inyección.
    - `q` conserva su saneado y su tope de términos; los filtros nuevos no lo relajan.

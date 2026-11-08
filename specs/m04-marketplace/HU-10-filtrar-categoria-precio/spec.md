@@ -19,7 +19,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 3. El rango es válido si `0 <= minPriceCents <= maxPriceCents <= 99 999 900`. Si no: `400 listings.invalid_price_range`. Un valor no numérico o fuera del rango de `long` lo rechaza el binding como `validation.failed`.
 4. Acepta `condition` con `new` o `used`. Omitido o vacío significa todas. Cualquier otro valor: `400 listings.invalid_condition`.
 5. Acepta `sort` con `relevance`, `newest`, `oldest`, `priceAsc` o `priceDesc`. Omitido o vacío usa `newest`. Cualquier otro valor: `400 listings.invalid_sort`.
-6. Los filtros se combinan entre sí, con `campus`, `q` y `hideSoldOut` mediante AND. Con `q` solo salen publicaciones `active`, aunque llegue `hideSoldOut=false`.
+6. Los filtros se combinan entre sí, con `campus`, `q` y `hideSoldOut` mediante AND. `hideSoldOut` es opcional: sin el parámetro, la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
 7. Orden:
    - `newest`: `_id` descendente.
    - `oldest`: `_id` ascendente.
@@ -28,11 +28,12 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
    - `relevance`: hoy se comporta como `newest`; no hay puntaje de relevancia (HU-09 lo difirió).
 8. `nextCursor` es opaco y lleva el orden y la última clave: `newest:<id>`, `relevance:<id>` (se comporta como `newest`), `oldest:<id>`, `priceAsc:<priceCents>:<id>` o `priceDesc:<priceCents>:<id>`. Se acepta el ObjectId crudo anterior solo para `newest` y `relevance`. Un cursor malformado, de otro orden o con un id que no es ObjectId: `400 listings.invalid_cursor`. Un cursor de `newest` no sirve para `relevance` ni al revés, aunque ordenen igual.
 9. La página siguiente conserva los mismos filtros y el mismo `sort`. `total` cuenta todas las coincidencias sin aplicar el cursor; `nextCursor` es `null` si la página no se llenó.
-10. La ruta sigue `[AllowAnonymous]`, con sesión opcional, `ETag`/`304` y la caché de salida actuales. La política `showcase` varía por todos los query params, así que los nuevos entran en la clave sin cambios.
-11. Los índices `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id` los crea `db/009-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `9`. El script no modifica documentos.
-12. Los filtros no se persisten ni se registran en logs o analítica (RNF-07).
-13. La respuesta no cambia: `ProductPage { items: ProductResponse[], nextCursor, total }`. No hace falta fixture nuevo.
-14. RNF-09: `priceAsc` y `priceDesc` usan sus índices (asc/desc, con desempate `_id` incluido); con `q` el orden puede resolverse en memoria sobre las coincidencias y `limit <= 50` acota el costo.
+10. `page` (base 1) salta a esa página con `skip = (page - 1) * limit`, ignora `cursor` y devuelve `nextCursor: null`. `page < 1` devuelve `400 listings.invalid_page`.
+11. La ruta sigue `[AllowAnonymous]`, con sesión opcional, `ETag`/`304` y la caché de salida actuales. La política `showcase` varía por todos los query params, así que los nuevos entran en la clave sin cambios.
+12. Los índices `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id` los crea `db/009-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `9`. El script no modifica documentos.
+13. Los filtros no se persisten ni se registran en logs o analítica (RNF-07).
+14. La respuesta no cambia: `ProductPage { items: ProductResponse[], nextCursor, total }`. No hace falta fixture nuevo.
+15. RNF-09: `priceAsc` y `priceDesc` usan sus índices (asc/desc, con desempate `_id` incluido); con `q` el orden puede resolverse en memoria sobre las coincidencias y `limit <= 50` acota el costo.
 
 ## Diseño
 - **Módulo:** `Musubi.Api/Modules/Listings/` (M-03), reutilizado por M-04. No se crea `Modules/Marketplace/`.
@@ -56,7 +57,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - Configuración: sin claves nuevas.
 
 ## Tests
-Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 268 · Integration 106 · Security 92 · Contract 9 · Performance 4. `DatabaseTest` no se corrió en local (sin Docker); lo corre el CI.
+Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4. `DatabaseTest` no se corrió en local (sin Docker); lo corre el CI.
 
 - `TestShared/Listings/ListingRepositoryContract.cs` (corre en `UnitTest/Data/InMemoryListingRepositoryTests` y `DatabaseTest/MongoListingRepositoryTests`):
   - `Filters_ByPriceRange_IsInclusive_AndAcceptsOnlyOneBound`.
@@ -64,10 +65,12 @@ Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 268 · Integra
   - `Filters_CombinePriceCategoryConditionAndSearch`.
   - `Sorts_ByNewestAndOldest_WithCursor`.
   - `Sorts_ByPrice_WithTieBreakerAndCursor` (asc y desc, cruzando el empate de precio).
+  - `Pages_ByNumber` (tres páginas sin repetir ids).
 - `UnitTest/Listings/ProductCursorCodecTests.cs`: ida y vuelta por orden; legacy aceptado solo para `newest`/`relevance`; orden ajeno, precio fuera de rango, id inválido y partes de más se rechazan; ObjectId en mayúsculas se canonicaliza.
 - `IntegrationTest/Listings/ListingFlowTests.cs`:
   - `Showcase_FiltersByCategoriesPriceAndCondition`.
   - `Showcase_SortsByPrice_AndPagesWithTheCursor`.
+  - `Showcase_PagesByNumber` (page ignora cursor y no devuelve uno).
   - `Showcase_RejectsInvalidFilters`.
 - `SecurityTest/Auth/ListingsAuthTests.cs`: la vitrina con filtros sigue pública; valores extraños no cruzan campus ni inyectan filtros.
 - `ContractTest/ListingsContractTests.cs`: `GET /api/v1/products` con filtros y orden mantiene la forma de `product-page.json`.
@@ -76,14 +79,15 @@ Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 268 · Integra
 
 ## Criterios
 - [x] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
-- [x] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 268/268, incluidos los 5 casos del contrato compartido y los 19 del codec del cursor.
-- [x] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → 106/106, incluidos los 3 flujos de filtros.
+- [x] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 269/269, incluidos los 6 casos del contrato compartido y los 19 del codec del cursor.
+- [x] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → 107/107, incluidos los 4 flujos de filtros y paginación.
 - [x] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → 92/92; incluye filtros públicos sin cruce de campus.
 - [x] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → 9/9 con la página filtrada.
 - [x] `dotnet test --project PerformanceTest/PerformanceTest.csproj -c Release --no-build` → 4/4.
 - [x] `GET /api/v1/products?category=libros&category=laptops&minPriceCents=10000&maxPriceCents=50000&condition=used&sort=priceAsc` devuelve solo coincidencias y en orden (`Showcase_FiltersByCategoriesPriceAndCondition`).
 - [x] `GET /api/v1/products?minPriceCents=50000&maxPriceCents=10000` devuelve `400 listings.invalid_price_range` (`Showcase_RejectsInvalidFilters`).
-- [x] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`.
+- [x] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`; `page=0`, `400 listings.invalid_page` (`Showcase_RejectsInvalidFilters`).
+- [x] `?limit=2&page=1` y `?limit=2&page=2` no repiten publicaciones y `nextCursor` es `null` (`Pages_ByNumber`, `Showcase_PagesByNumber`).
 - [x] `pwsh scripts/check_endpoints.ps1` → `OK (40 rutas con fila, 0 huerfanas)`.
 - [x] `pwsh scripts/critic-guardrails.ps1` → `PASS (24 archivos analizados, 0 avisos)`.
 - [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release` en CI → 0 fallos (local sin Docker: no se corre).

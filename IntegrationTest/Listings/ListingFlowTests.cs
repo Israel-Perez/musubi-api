@@ -374,12 +374,13 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
     public async Task Showcase_PagesByNumber()
     {
         using var seller = await SignedInClientAsync();
-        var cheap = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "dibujo", priceCents: 10_000));
-        var middle = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "dibujo", priceCents: 20_000));
-        var expensive = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "dibujo", priceCents: 30_000));
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var cheap = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Pagina {tag}", priceCents: 10_000));
+        var middle = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Pagina {tag}", priceCents: 20_000));
+        var expensive = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Pagina {tag}", priceCents: 30_000));
 
-        var first = await GetJsonAsync(seller, "/api/v1/products?category=dibujo&sort=priceAsc&limit=2&page=1");
-        var second = await GetJsonAsync(seller, "/api/v1/products?category=dibujo&sort=priceAsc&limit=2&page=2");
+        var first = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&sort=priceAsc&limit=2&page=1");
+        var second = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&sort=priceAsc&limit=2&page=2");
 
         // HU-10: la pagina ignora el cursor y no devuelve uno.
         Assert.Equal([cheap, middle], first.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));

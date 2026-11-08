@@ -408,7 +408,7 @@ public abstract class ListingRepositoryContract
             await Products.InsertAsync(product, Ct);
         }
 
-        var query = new ProductQuery(community, null, true, null, 10, "cálculo")
+        var query = new ProductQuery(community, null, false, null, 10, "cálculo")
         {
             CategorySlugs = ["libros"],
             MinPriceCents = 20_000,
@@ -416,7 +416,7 @@ public abstract class ListingRepositoryContract
             Condition = ProductConditions.Used,
         };
 
-        // HU-10 R6: los filtros se combinan con AND y, con q, solo salen las disponibles.
+        // HU-10 R6: los filtros se combinan con AND y, con q y sin agotados, solo salen las disponibles.
         Assert.Equal(match.Id, Assert.Single(await Products.FindPageAsync(query, Ct)).Id);
         Assert.Equal(1, await Products.CountAsync(query, Ct));
     }

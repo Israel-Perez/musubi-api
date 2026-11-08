@@ -17,7 +17,9 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
 - `db/009-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 9`.
 - Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
-- Unit 268 · Integration 106 · Security 92 · Contract 9 · Performance 4; critic PASS (24 archivos) y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- `page` (base 1) suma paginación por número para la app: `skip = (page - 1) * limit`, ignora `cursor` y devuelve `nextCursor: null`; `page < 1` es `listings.invalid_page`.
+- `hideSoldOut` pasa a opcional: sin el parámetro la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
+- Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
 - **Prueba manual (API en Development + InMemory, 08-Nov-2026):** `/health` y `/health/ready` Healthy; registro y verificación con el código del log; 4 publicaciones; filtro combinado devolvió las 2 esperadas; `priceDesc` ordenó 80k, 30k, 20k y 10k; paginación `priceAsc` 2+2 con cursor; rango/condición/orden inválidos y cursor viejo con precio devolvieron 400 con su código.
 - **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó a 268 al rebasar sobre HU-28/HU-57, con 19 casos del codec y el cursor `priceDesc`.
 

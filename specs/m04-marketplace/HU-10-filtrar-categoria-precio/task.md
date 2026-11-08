@@ -19,7 +19,7 @@
 - **Estado:** ✅ Hecho.
 
 ## T4 — Servicio, errores y controller
-- **Qué:** Normalizar y validar filtros, resolver el cursor, devolver `nextCursor`; agregar `InvalidPriceRange` e `InvalidSort`; exponer los parámetros en `Showcase`.
+- **Qué:** Normalizar y validar filtros, resolver el cursor y `page`, devolver `nextCursor`; agregar `InvalidPriceRange`, `InvalidSort` e `InvalidPage`; exponer los parámetros en `Showcase`.
 - **Archivos:** `ListingService.cs`, `ListingsErrors.cs`, `ProductsController.cs`.
 - **Verificación:** `IntegrationTest` cubre combinación, orden, paginación y errores 400.
 - **Estado:** ✅ Hecho.
@@ -37,7 +37,7 @@
 
 ## T7 — Verificación y cierre
 - **Qué:** Build 0/0, suites en verde, `critic`, `endpoints`, Semgrep; conciliar conteos reales en `spec.md`; `security-reviewer` y `traceability-clerk`.
-- **Verificación:** comandos de `spec.md` → Criterios; sin fallos. Evidencia: Unit 268 · Integration 106 · Security 92 · Contract 9 · Performance 4; `critic` PASS (24 archivos) y `endpoints` OK. `security-reviewer` PASS con avisos; `traceability-clerk` reportó gaps medios (NOTE en código/task, cursor `relevance`, índice `priceDesc`), corregidos en este PR. Semgrep no está instalado en el entorno local; queda para el CI. `DatabaseTest` queda para el CI (sin Docker local).
+- **Verificación:** comandos de `spec.md` → Criterios; sin fallos. Evidencia: Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; `critic` PASS (24 archivos) y `endpoints` OK. `security-reviewer` PASS con avisos; `traceability-clerk` reportó gaps medios (NOTE en código/task, cursor `relevance`, índice `priceDesc`), corregidos en este PR. Semgrep no está instalado en el entorno local; queda para el CI. `DatabaseTest` queda para el CI (sin Docker local).
 - **Estado:** ✅ Hecho con Semgrep y `DatabaseTest` pendientes del CI.
 
 ## Pendientes
@@ -45,5 +45,6 @@
 - `NOTE (HU-10)` — orden por precio con `q`: el índice de prefijo resuelve la búsqueda, pero el orden puede resolverse en memoria sobre las coincidencias; medir con `02-02` si el volumen crece.
 - `NOTE (HU-10)` — tope de categorías: hoy lo acota la línea de petición; si se vuelve abuso, agregar tope y error propio.
 - `NOTE (HU-10)` — plan con `$in` de estado: confirmar con `explain` en `DatabaseTest`/CI que `priceAsc`/`priceDesc` usan el índice (posible `SORT_MERGE`).
+- `NOTE (HU-10)` — `page` y `cursor` son excluyentes: la app usa `page`; si una HU futura quiere scroll continuo con orden por precio, reutiliza el cursor compuesto.
 - `DatabaseTest` — índices de `db/009` y contrato compartido contra MongoDB real; lo corre el job `database` del CI.
 - Semgrep — `semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error` antes del primer push; no disponible en el entorno local.
