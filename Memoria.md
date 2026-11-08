@@ -15,7 +15,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `GET /api/v1/products?q=` (API): coincidencia por **prefijo de palabra** en `title` y `description`, sin distinguir mayúsculas ni acentos, solo disponibles, de la más nueva a la más vieja, con el cursor `_id` de la vitrina. `calc` y `calcula` encuentran `Calculadora`.
 - Error nuevo `listings.invalid_query` (400): más de 80 caracteres o sin letras ni dígitos. `q` vacío equivale a no buscar.
 - Campo nuevo `searchWords[]` (palabras normalizadas de título y descripción) e índice `ix_community_status_search`; `db/007-busqueda.js` y esquema 7, con relleno de lo existente.
-- Unit 181 · Integration 100 · Security 84 · Contract 8 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- API `0.5.0-alpha.5` (subida al integrar `main`, que ya desplegó `0.5.0-alpha.4`). Unit 181 · Integration 100 · Security 84 · Contract 8 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
 
 **Decisiones (con su porqué)**
 - **Prefijo en lugar de palabra completa:** el requisito pide encontrar `Calculadora` escribiendo `calc`; `$text` no soporta prefijos y Atlas Search no existe en MongoDB Community, así que se compara por prefijo.
