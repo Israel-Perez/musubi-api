@@ -9,6 +9,24 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T26 — Moderación de texto con léxico local (08-Nov-2026, SCRUM-92, 02-07)
+
+**Qué se hizo**
+- En producción, el chat y las publicaciones respondían `503 moderation.unavailable`. El log decía `AmazonTranslateException: The AWS Access Key Id needs a subscription for the service`, y Comprehend daba lo mismo.
+- `SpanishLexicon` modera el texto sin costo. `Moderation:TextProvider` vale `Lexicon` por defecto; con `Aws`, el texto pasa por el léxico y después por Translate + Comprehend. `Moderation:ExtraBlockedTerms` suma términos sin desplegar.
+- El moderador en memoria también aplica el léxico.
+- `HttpRequestException` también da `503`.
+- API `0.5.0-alpha.4`. Unit 210 · Integration 96 · Security 83 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **Léxico local en lugar del plan de pago de AWS:** lo eligió el usuario por el lineamiento de costo cero. Pasar al plan de pago no se puede deshacer y cobra al acabarse el crédito.
+- **Palabras completas y normalización:** las subcadenas rechazan "computadora" y "disputa". Se normaliza lo que se usa para esquivar el filtro (repetidas, leet, letras sueltas) y se conserva la ñ ("cono" ≠ "coño").
+- **Fuera las palabras con usos inocentes comunes** ("perra", "zorra", "pinche", "coger", la raíz "verg" por "vergüenza"): un falso positivo bloquea una venta real.
+
+**Errores a evitar**
+- **La cuenta de AWS está en el plan gratuito (FREE, crédito hasta el 26-Abr-2027).** Ese plan no incluye todos los servicios: antes de agregar uno, pruébalo con el CLI (`SubscriptionRequiredException`). Rekognition, S3, SES y CloudWatch sí están incluidos.
+- **El SDK v4 de AWS no envuelve los errores de red:** llegan como `HttpRequestException`, que no es `AmazonClientException`. Atrápala junto con las de AWS.
+
 ## T25 — Detalle de un producto (06-Nov-2026, SCRUM-28, HU-11)
 
 **Qué se hizo**

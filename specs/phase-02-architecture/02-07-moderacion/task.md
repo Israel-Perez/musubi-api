@@ -15,6 +15,10 @@
 - **Qué:** statement `Moderar` en `infra/stack/iam.tf` (infra `0.3.3`), API `0.4.0-alpha.3` e `infra-up`.
 - **Estado:** 🚧 Código listo; falta `infra-up` y la prueba contra AWS.
 
+## T5 — Texto con léxico local
+- **Qué:** `SpanishLexicon` y `Moderation:TextProvider` (`Lexicon` por defecto, `Aws` opcional), porque el plan gratuito de AWS no incluye Translate ni Comprehend.
+- **Estado:** ✅ Hecho (08-Nov-2026). `SpanishLexiconTests` (32). API `0.5.0-alpha.4`.
+
 ## Pendientes
 - `NOTE (HU-13)`, `NOTE (HU-16)`, `NOTE (HU-20)` y `NOTE (HU-28)`: moderar su texto.
 - `NOTE (HU-39)`: revisión humana y `outbox` de pendientes.
