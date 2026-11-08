@@ -18,6 +18,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `db/008-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 8`.
 - Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
 - Unit 186 · Integration 103 · Security 85 · Contract 8 · Performance 4; critic PASS (31 archivos) y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- **Prueba manual (API en Development + InMemory, 08-Nov-2026):** `/health` y `/health/ready` Healthy; registro y verificación con el código del log; 4 publicaciones; filtro combinado devolvió las 2 esperadas; `priceDesc` ordenó 80k, 30k, 20k y 10k; paginación `priceAsc` 2+2 con cursor; rango/condición/orden inválidos y cursor viejo con precio devolvieron 400 con su código.
 
 **Decisiones (con su porqué)**
 - **Alcance de la maqueta, no solo Jira:** el usuario eligió `Busqueda-filtros` completa (varias categorías, condición y orden); Jira solo pedía categoría y precio.
