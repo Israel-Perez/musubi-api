@@ -90,6 +90,7 @@ Conteos reales al cerrar (07-Nov-2026): Unit 186 · Integration 103 · Security 
 ## Límites
 - **Relevancia:** no hay puntaje; `relevance` ordena como `newest`. Un orden por relevancia real queda para una HU posterior. `NOTE (HU-10)`.
 - **Orden por precio con `q`:** el índice de prefijo resuelve la búsqueda, pero el orden por precio puede hacerse en memoria sobre las coincidencias. Aceptable con `limit <= 50`; si el volumen crece, se mide y se decide con `02-02`. `NOTE (HU-10)`.
+- **Plan con `$in` de estado:** con `hideSoldOut=false` el filtro es `status: $in [active, soldOut]`; Mongo puede resolverlo con `SORT_MERGE`. Los índices cubren el orden, pero el plan real se confirma con `explain` en `DatabaseTest`/CI. `NOTE (HU-10)`.
 - **Sin tope propio de categorías:** el límite es el tamaño de la línea de petición. Si se vuelve abuso, se agrega un tope y su error. `NOTE (HU-10)`.
 - **Cursor legado:** el ObjectId crudo solo se acepta para `newest`/`relevance`; un cliente que lo reutilice con otro orden recibe `400`. Es intencional.
 - **Sin filtro por vendedor, texto libre en categoría ni rango por defecto:** la app manda los valores; la API no inventa precios.

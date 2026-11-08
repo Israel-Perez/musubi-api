@@ -87,6 +87,8 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
         // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
+        // NOTE (HU-10): con status $in y orden por precio, Mongo puede usar SORT_MERGE; el plan se
+        // confirma con explain en DatabaseTest/CI.
         var statuses = query.Search is null && query.IncludeSoldOut
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];

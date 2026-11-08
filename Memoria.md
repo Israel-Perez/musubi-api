@@ -28,6 +28,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
 - **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
 - **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).
+- **Orden por precio con `q`:** el índice de prefijo resuelve la búsqueda, pero el orden puede resolverse en memoria sobre las coincidencias; `limit <= 50` acota el costo (`NOTE (HU-10)`).
+- **Plan con `$in` de estado:** con agotados incluidos el plan puede usar `SORT_MERGE`; los índices cubren el orden y el plan real se confirma con `explain` en CI (`NOTE (HU-10)`).
 
 **Errores a evitar**
 - **El cursor viejo no sirve con otro orden:** un ObjectId crudo solo vale para `newest`/`relevance`; con `priceAsc` se rechaza con `400`.

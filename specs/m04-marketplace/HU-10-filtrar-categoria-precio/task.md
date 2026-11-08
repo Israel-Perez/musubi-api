@@ -44,5 +44,6 @@
 - `NOTE (HU-10)` — relevancia real: `relevance` hoy ordena como `newest`; una HU posterior define puntaje y cursor.
 - `NOTE (HU-10)` — orden por precio con `q`: el índice de prefijo resuelve la búsqueda, pero el orden puede resolverse en memoria sobre las coincidencias; medir con `02-02` si el volumen crece.
 - `NOTE (HU-10)` — tope de categorías: hoy lo acota la línea de petición; si se vuelve abuso, agregar tope y error propio.
+- `NOTE (HU-10)` — plan con `$in` de estado: confirmar con `explain` en `DatabaseTest`/CI que `priceAsc`/`priceDesc` usan el índice (posible `SORT_MERGE`).
 - `DatabaseTest` — índices de `db/008` y contrato compartido contra MongoDB real; lo corre el job `database` del CI.
 - Semgrep — `semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error` antes del primer push; no disponible en el entorno local.

@@ -98,6 +98,7 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(product));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(page));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(page.GetProperty("items")[0]));
+        // HU-10 R13: la forma de ProductPage no cambia con filtros ni orden.
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(filtered));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(filtered.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(searched));
