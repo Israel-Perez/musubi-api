@@ -8,6 +8,8 @@ using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Moderation;
@@ -22,14 +24,17 @@ internal sealed record ConversationStart(ConversationResponse Conversation, bool
 /// <summary>
 /// Iniciar una conversacion con el vendedor, enviar mensajes (HU-20) y la bandeja con no leidos (HU-22).
 /// Reglas: RN-21 (cada conversacion es
-/// entre dos usuarios y nace de un elemento), RN-22 (solo los participantes la leen) y 02-07 (el texto se
-/// modera antes de guardarlo). NOTE (HU-28): reportar un mensaje (RN-23) llega con los reportes.
+/// entre dos usuarios y nace de un elemento), RN-22 (solo los participantes la leen), 02-07 (el texto se
+/// modera antes de guardarlo) y HU-57 (con un bloqueo entre los dos nadie escribe). La persona del otro lado
+/// lleva su foto de perfil (M-02). Se reporta a la persona desde el chat (HU-28, M-13).
 /// </summary>
 internal sealed class ChatService(
     IConversationRepository conversations,
     IMessageRepository messages,
     IProductDirectory products,
     IMemberDirectory members,
+    IProfileDirectory profiles,
+    IBlockDirectory blocks,
     IContentModerator moderator,
     ChatNotifier notifier,
     TimeProvider time)
@@ -87,6 +92,12 @@ internal sealed class ChatService(
         if (string.Equals(product.SellerId, member.Id, StringComparison.Ordinal))
         {
             return ChatErrors.OwnProduct;
+        }
+
+        // HU-57: con un bloqueo entre los dos no se abre ni se reabre la conversacion.
+        if (await blocks.BetweenAsync(member.Id, product.SellerId, cancellationToken).ConfigureAwait(false))
+        {
+            return ChatErrors.Blocked;
         }
 
         var seller = await members.FindMemberAsync(product.SellerId, cancellationToken).ConfigureAwait(false);
@@ -182,6 +193,12 @@ internal sealed class ChatService(
             return ApiErrors.Forbidden;
         }
 
+        // HU-57: un bloqueo en cualquier direccion corta la conversacion para los dos.
+        if (await blocks.BetweenAsync(conversation.BuyerId, conversation.SellerId, cancellationToken).ConfigureAwait(false))
+        {
+            return ChatErrors.Blocked;
+        }
+
         // 02-07: el texto se modera antes de guardarlo.
         var verdicts = await moderator.CheckTextsAsync([text], cancellationToken).ConfigureAwait(false);
         if (ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("el mensaje")) is { } rejected)
@@ -240,8 +257,13 @@ internal sealed class ChatService(
 
         var size = Math.Clamp(limit ?? DefaultInboxSize, 1, MaxInboxSize);
         var page = await conversations.FindInboxPageAsync(new InboxQuery(userId, role, beforeAt, beforeId, size + 1), cancellationToken).ConfigureAwait(false);
-        var items = new List<InboxItemResponse>(Math.Min(size, page.Count));
-        foreach (var conversation in page.Take(size))
+        var shown = page.Take(size).ToList();
+        // Las fotos de toda la pagina en una sola consulta (no una por fila).
+        var photos = await profiles.FindPhotosAsync(
+            shown.Select(c => string.Equals(c.BuyerId, userId, StringComparison.Ordinal) ? c.SellerId : c.BuyerId).ToList(),
+            cancellationToken).ConfigureAwait(false);
+        var items = new List<InboxItemResponse>(shown.Count);
+        foreach (var conversation in shown)
         {
             var isBuyer = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal);
             var counterpartId = isBuyer ? conversation.SellerId : conversation.BuyerId;
@@ -252,7 +274,7 @@ internal sealed class ChatService(
             items.Add(new InboxItemResponse(
                 conversation.Id,
                 isBuyer ? BuyerRole : SellerRole,
-                new CounterpartResponse(counterpartId, name),
+                new CounterpartResponse(counterpartId, name, photos.GetValueOrDefault(counterpartId)),
                 new InboxContextResponse(conversation.Context.Type, conversation.Context.Id, conversation.Context.Title, conversation.Context.Photo),
                 new LastMessageResponse(last.SenderId, last.Text, last.At),
                 isBuyer ? conversation.BuyerUnread : conversation.SellerUnread));
@@ -324,6 +346,8 @@ internal sealed class ChatService(
         var counterpartId = isBuyer ? conversation.SellerId : conversation.BuyerId;
         var copied = isBuyer ? conversation.SellerName : conversation.BuyerName;
         var name = copied ?? (await members.FindMemberAsync(counterpartId, cancellationToken).ConfigureAwait(false))?.FullName ?? UnknownMember;
+        var photos = await profiles.FindPhotosAsync([counterpartId], cancellationToken).ConfigureAwait(false);
+        var blocked = await blocks.BetweenAsync(userId, counterpartId, cancellationToken).ConfigureAwait(false);
         // NOTE (HU-21): "En linea" / "Activa hace 5 min" segun visibility.online del perfil.
         var available = product is { Visible: true };
         var context = new ConversationContextResponse(
@@ -338,8 +362,9 @@ internal sealed class ChatService(
         return new ConversationResponse(
             conversation.Id,
             isBuyer ? BuyerRole : SellerRole,
-            new CounterpartResponse(counterpartId, name),
+            new CounterpartResponse(counterpartId, name, photos.GetValueOrDefault(counterpartId)),
             context,
-            conversation.CreatedAt);
+            conversation.CreatedAt,
+            !blocked);
     }
 }

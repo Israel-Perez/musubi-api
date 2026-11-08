@@ -139,6 +139,8 @@ internal sealed class InMemoryProductRepository : IProductRepository
         // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
         && (p.Status == ProductStatuses.Active || (query.Search is null && query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
         && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal))
+        // HU-57: sin las publicaciones de quien bloqueaste o te bloqueo.
+        && (query.ExcludeSellers is null || !query.ExcludeSellers.Contains(p.SellerId, StringComparer.Ordinal))
         && (query.Search is null || Matches(p, query.Search)));
 
     // Prefijo de palabra como en MongoDB (HU-09): compara contra las palabras ya normalizadas del documento.

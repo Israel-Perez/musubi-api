@@ -34,6 +34,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "004-perfiles");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "005-chat");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "006-chat-bandeja");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "008-reportes-bloqueos");
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
@@ -147,6 +148,35 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
         // HU-09: indice de las palabras normalizadas para la busqueda por prefijo.
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_search");
+    }
+
+    [Fact]
+    public async Task ReportsAndBlocks_HaveTheirIndexes_AndRejectAnUnknownReasonOrAnEmptyName()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_reputacion");
+        var reportIndexes = (await IndexesAsync(db, MongoSchema.Reports)).Select(i => i["name"].AsString);
+        var blockIndexes = (await IndexesAsync(db, MongoSchema.Blocks)).ToDictionary(i => i["name"].AsString);
+        var spam = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "reporterId", ObjectId.GenerateNewId() },
+            { "target", new BsonDocument("type", "general") }, { "reason", "spam" }, { "status", "open" },
+            { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+        var nameless = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "blockerId", ObjectId.GenerateNewId() },
+            { "blockedId", ObjectId.GenerateNewId() }, { "blockedName", string.Empty }, { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+
+        var badReason = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Reports).InsertOneAsync(spam, cancellationToken: Ct));
+        var badName = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Blocks).InsertOneAsync(nameless, cancellationToken: Ct));
+
+        Assert.Equal(121, badReason.WriteError.Code);
+        Assert.Equal(121, badName.WriteError.Code);
+        Assert.Contains("ix_community_status", reportIndexes);
+        Assert.Contains("ix_reporter", reportIndexes);
+        Assert.True(blockIndexes["ux_blocker_blocked"]["unique"].AsBoolean);
+        Assert.Contains("ix_blocked", blockIndexes.Keys);
     }
 
     [Fact]

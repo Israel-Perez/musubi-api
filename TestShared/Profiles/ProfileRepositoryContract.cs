@@ -113,6 +113,25 @@ public abstract class ProfileRepositoryContract
     }
 
     [Fact]
+    public async Task FindMany_ReturnsOnlyExistingProfiles_AndIgnoresBadIds()
+    {
+        var withPhoto = NewOwner();
+        var withoutPhoto = NewOwner();
+        var key = AvatarKey(withPhoto.UserId);
+        await Profiles.SetAvatarAsync(withPhoto, key, Now, Ct);
+        await Profiles.SetDetailsAsync(withoutPhoto, null, 2, Now, Ct);
+
+        var found = await Profiles.FindManyAsync([withPhoto.UserId, withoutPhoto.UserId, withPhoto.UserId, NewOwner().UserId, "no-es-un-id"], Ct);
+
+        Assert.Equal(
+            [withPhoto.UserId, withoutPhoto.UserId],
+            found.Select(p => p.Id).Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        Assert.Equal(key, found.Single(p => p.Id == withPhoto.UserId).AvatarKey);
+        Assert.Empty(await Profiles.FindManyAsync([], Ct));
+    }
+
+    [Fact]
     public async Task Delete_RemovesTheProfile_AndIsIdempotent()
     {
         var owner = NewOwner();

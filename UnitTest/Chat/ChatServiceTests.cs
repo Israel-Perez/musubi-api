@@ -5,6 +5,10 @@ using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Profiles.Data;
+using Musubi.Api.Modules.Reputation;
+using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
 using StackExchange.Redis;
@@ -13,7 +17,8 @@ namespace UnitTest.Chat;
 
 /// <summary>
 /// HU-20: reglas del chat que el flujo HTTP no alcanza facil (otro campus, publicacion pausada o quitada,
-/// cuenta suspendida) y la degradacion controlada si Redis (el backplane) no responde.
+/// cuenta suspendida), la degradacion controlada si Redis (el backplane) no responde, el bloqueo (HU-57) y la
+/// foto de la otra persona.
 /// </summary>
 public sealed class ChatServiceTests
 {
@@ -24,6 +29,8 @@ public sealed class ChatServiceTests
     private readonly InMemoryMessageRepository messages = new();
     private readonly FakeProducts products = new();
     private readonly FakeHub hub = new();
+    private readonly InMemoryProfileRepository profiles = new();
+    private readonly InMemoryBlockRepository blocks = new();
     private readonly ChatService service;
 
     public ChatServiceTests()
@@ -33,6 +40,8 @@ public sealed class ChatServiceTests
             messages,
             products,
             new MemberDirectory(new InMemoryCommunityRepository(), users),
+            new ProfileDirectory(profiles),
+            new BlockDirectory(blocks),
             new InMemoryContentModerator(),
             new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance),
             new ManualTimeProvider(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero)));
@@ -160,6 +169,57 @@ public sealed class ChatServiceTests
         Assert.Equal(ChatService.PreviewLength, (await conversations.FindByIdAsync(started.Conversation.Id, Ct))!.LastMessage!.Text.Length);
     }
 
+    [Fact]
+    public async Task Start_WithABlockInEitherDirection_IsBlocked()
+    {
+        var buyer = await MemberAsync();
+        var seller = await MemberAsync();
+        var product = Product(seller);
+        await BlockAsync(seller, buyer);
+
+        var result = await service.StartFromProductAsync(buyer, new StartConversationRequest(product.Id), Ct);
+
+        Assert.Equal(ChatErrors.Blocked, result.Error);
+    }
+
+    [Fact]
+    public async Task Send_AfterABlock_IsBlocked_NotSaved_AndTheConversationCannotBeAnswered()
+    {
+        var buyer = await MemberAsync();
+        var seller = await MemberAsync();
+        var started = (await service.StartFromProductAsync(buyer, new StartConversationRequest(Product(seller).Id), Ct)).Value!;
+        Assert.True(started.Conversation.CanReply);
+        await BlockAsync(buyer, seller);
+
+        var bySeller = await service.SendAsync(seller, started.Conversation.Id, new SendMessageRequest("Hola"), Ct);
+        var byBuyer = await service.SendAsync(buyer, started.Conversation.Id, new SendMessageRequest("Hola"), Ct);
+        var forSeller = (await service.GetAsync(seller, started.Conversation.Id, Ct)).Value!;
+
+        Assert.Equal(ChatErrors.Blocked, bySeller.Error);
+        Assert.Equal(ChatErrors.Blocked, byBuyer.Error);
+        Assert.Empty(await messages.FindPageAsync(started.Conversation.Id, null, 10, Ct));
+        Assert.False(forSeller.CanReply);
+    }
+
+    [Fact]
+    public async Task Counterpart_CarriesTheProfilePhoto_InTheConversationAndTheInbox_OrNullWithoutOne()
+    {
+        var buyer = await MemberAsync();
+        var seller = await MemberAsync(name: "Valeria Cruz");
+        var started = (await service.StartFromProductAsync(buyer, new StartConversationRequest(Product(seller).Id), Ct)).Value!;
+        await service.SendAsync(buyer, started.Conversation.Id, new SendMessageRequest("¿Sigue disponible?"), Ct);
+        var key = ProfileService.NewAvatarKey(seller);
+        await profiles.SetAvatarAsync(new ProfileOwner(seller, InMemoryCommunityRepository.UtttId, "Valeria Cruz"), key, DateTime.UtcNow, Ct);
+
+        var conversation = (await service.GetAsync(buyer, started.Conversation.Id, Ct)).Value!;
+        var inbox = (await service.InboxAsync(buyer, null, null, null, Ct)).Value!;
+        var sellerInbox = (await service.InboxAsync(seller, null, null, null, Ct)).Value!;
+
+        Assert.Equal("/" + key, conversation.Counterpart.Photo);
+        Assert.Equal("/" + key, Assert.Single(inbox.Items).Counterpart.Photo);
+        Assert.Null(Assert.Single(sellerInbox.Items).Counterpart.Photo);
+    }
+
     [Theory]
     [InlineData("no-es-un-cursor")]
     [InlineData("6716a00000000000000000zz")]
@@ -169,6 +229,11 @@ public sealed class ChatServiceTests
 
         Assert.Equal(ChatErrors.InvalidCursor, result.Error);
     }
+
+    private Task<bool> BlockAsync(string blocker, string blocked) =>
+        blocks.InsertIfAbsentAsync(
+            new BlockDocument { Id = AuthIds.New(), CommunityId = InMemoryCommunityRepository.UtttId, BlockerId = blocker, BlockedId = blocked, BlockedName = "Bloqueada" },
+            Ct);
 
     private sealed class FakeProducts : IProductDirectory
     {

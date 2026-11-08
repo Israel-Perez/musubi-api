@@ -21,6 +21,13 @@ internal static class ChatErrors
     public static readonly ApiError ConversationNotFound = new(
         "chat.conversation_not_found", StatusCodes.Status404NotFound, "No encontramos esta conversación.");
 
+    /// <summary>
+    /// Hay un bloqueo entre los dos (HU-57): no se inicia la conversacion ni se envia el mensaje. El mismo
+    /// mensaje para quien bloqueo y para quien fue bloqueado: no revela quien fue.
+    /// </summary>
+    public static readonly ApiError Blocked = new(
+        "chat.blocked", StatusCodes.Status403Forbidden, "No puedes escribirle a esta persona.");
+
     /// <summary>Mensaje vacio o de mas de 1000 caracteres.</summary>
     public static readonly ApiError InvalidMessage = new(
         "chat.invalid_message", StatusCodes.Status400BadRequest, "Escribe un mensaje de hasta 1000 caracteres.");

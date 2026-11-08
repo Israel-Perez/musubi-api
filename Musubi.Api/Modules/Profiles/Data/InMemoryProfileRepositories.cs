@@ -95,6 +95,20 @@ internal sealed class InMemoryProfileRepository : IProfileRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProfileDocument>> FindManyAsync(IReadOnlyCollection<string> userIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<ProfileDocument>>(userIds
+                .Distinct(StringComparer.Ordinal)
+                .Select(id => profiles.GetValueOrDefault(id))
+                .OfType<ProfileDocument>()
+                .ToList());
+        }
+    }
+
+    /// <inheritdoc />
     public Task<ProfileDocument> SetDetailsAsync(ProfileOwner owner, string? careerSlug, int? term, DateTime now, CancellationToken cancellationToken) =>
         Task.FromResult(Upsert(owner, now, p => With(p, now, careerSlug, term, p.AvatarKey, p.Visibility)).After);
 

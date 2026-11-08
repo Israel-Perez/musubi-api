@@ -123,6 +123,27 @@ public abstract class ListingRepositoryContract
     }
 
     [Fact]
+    public async Task ExcludedSellers_DoNotShow_InThePageOrTheCount()
+    {
+        var community = AuthIds.New();
+        var blocked = AuthIds.New();
+        var visible = AuthIds.New();
+        await Products.InsertAsync(NewProduct(community, blocked), Ct);
+        await Products.InsertAsync(NewProduct(community, visible), Ct);
+        await Products.InsertAsync(NewProduct(community, visible, title: "Calculadora graficadora"), Ct);
+
+        var page = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, ExcludeSellers: [blocked]), Ct);
+        var searched = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "calculadora", [blocked]), Ct);
+        var nobody = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, ExcludeSellers: []), Ct);
+
+        Assert.All(page, p => Assert.Equal(visible, p.SellerId));
+        Assert.Equal(2, page.Count);
+        Assert.Equal(2, searched.Count);
+        Assert.Equal(3, nobody.Count);
+        Assert.Equal(2, await Products.CountAsync(new ProductQuery(community, null, true, null, 10, ExcludeSellers: [blocked]), Ct));
+    }
+
+    [Fact]
     public async Task BySeller_ExcludesRemoved()
     {
         var seller = AuthIds.New();

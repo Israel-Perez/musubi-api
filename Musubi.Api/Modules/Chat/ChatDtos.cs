@@ -19,17 +19,23 @@ public sealed record SendMessageRequest(string Text);
 /// <param name="Counterpart">La otra persona.</param>
 /// <param name="Context">Lo que origino la conversacion.</param>
 /// <param name="CreatedAt">Creacion (UTC).</param>
+/// <param name="CanReply">
+/// <c>false</c> si hay un bloqueo entre los dos (HU-57): la app cambia la caja de texto por un aviso. No dice
+/// quien bloqueo a quien.
+/// </param>
 public sealed record ConversationResponse(
     string Id,
     string Role,
     CounterpartResponse Counterpart,
     ConversationContextResponse Context,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool CanReply);
 
-/// <summary>La otra persona de la conversacion (su foto y reputacion: <c>GET /profiles/{id}</c>).</summary>
+/// <summary>La otra persona de la conversacion (su reputacion: <c>GET /profiles/{id}</c>).</summary>
 /// <param name="Id">Id del usuario.</param>
 /// <param name="Name">Nombre completo.</param>
-public sealed record CounterpartResponse(string Id, string Name);
+/// <param name="Photo">Ruta de su foto de perfil (<c>/media/avatars/...</c>), o <c>null</c> (se ven sus iniciales).</param>
+public sealed record CounterpartResponse(string Id, string Name, string? Photo);
 
 /// <summary>
 /// Tarjeta del elemento de contexto. Precio, estado y foto son los de ahora; si la publicacion ya no se

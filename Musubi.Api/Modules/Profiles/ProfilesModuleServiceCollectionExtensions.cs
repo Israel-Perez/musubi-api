@@ -31,6 +31,7 @@ internal static class ProfilesModuleServiceCollectionExtensions
             ? profiles
             : new MongoProfileRepository(provider.GetRequiredService<IMongoDatabase>()));
 
+        services.AddSingleton<IProfileDirectory, ProfileDirectory>();
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ProfilePhotoService>();
         services.AddSingleton<IAccountDataEraser, ProfileAccountEraser>();

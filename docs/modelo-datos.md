@@ -64,7 +64,8 @@ Estados: ✅ Implementada (script aplicado y repositorio con pruebas) · 📐 Di
 | `orders` | M-08 · HU-23/24/25/26/44/55 | `communityId`, `buyerId`, `sellerId`, `item{productId, title, price}` (copia), `payment{method, status, reference}`, `deliveryCodeHash`, `status` (`pending`/`confirmed`/`completed`/`cancelled`), `history[]` (≤ 10 transiciones) | `ix_buyer_id`, `ix_seller_id` | 📐 |
 | `payoutAccounts` | M-08 · HU-55 | `_id` = `userId`, `holderName`, `bank`, `clabeCiphertext`, `clabeLast4`, `verifiedAt` | — | 📐 |
 | `ratings` | M-13 · HU-27/45 | `orderId`, `raterId`, `ratedId`, `role`, `stars`, `comment` | `ux_order_rater`, `ix_rated_id` | 📐 |
-| `reports` | M-13 · HU-28 · M-14 · HU-39 | `communityId`, `reporterId`, `target{type, id}`, `reason`, `status` | `ix_community_status` | 📐 |
+| `reports` | M-13 · HU-28 · M-14 · HU-39 | `communityId`, `reporterId`, `target { type (general/user/product), id? }`, `conversationId?`, `reason` (los 5 de la maqueta), `details?` (≤ 1000, sin moderar: no se publica), `status` (`open`), `createdAt` | `ix_community_status` (`{communityId, status, createdAt: -1}`, bandeja de HU-39), `ix_reporter` (borrado, HU-46) | ✅ (HU-28, `db/008`) |
+| `blocks` | M-13 · HU-57 | `communityId`, `blockerId`, `blockedId`, `blockedName` (copia R8), `createdAt` | `ux_blocker_blocked` (único: idempotencia y "a quiénes bloqueé"), `ix_blocked` ("quiénes me bloquearon") | ✅ (HU-57, `db/008`) |
 | `notifications` | M-09 · HU-29/30/31 | `userId`, `type`, `payload`, `readAt`, `expiresAt` | `ix_user_id`, TTL de 90 días | 📐 |
 | `deviceTokens` | M-09 · HU-31 | `userId`, `token` (FCM), `platform`, `lastSeenAt` | `ux_token`, `ix_user` | 📐 |
 | `recommendations` | M-11 · HU-35 · M-12 · HU-36/37/38 | `userId` o `productId`, `items[]` (≤ 20), `model`, `generatedAt` | `ux_subject`, TTL | 📐 |

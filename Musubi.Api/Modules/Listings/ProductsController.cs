@@ -57,7 +57,7 @@ public sealed class ProductsController : ControllerBase
         [FromQuery] int? limit,
         CancellationToken cancellationToken) =>
         this.Respond(
-            await listings.ShowcaseAsync(communityId, campus, category, q, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
+            await listings.ShowcaseAsync(new ShowcaseViewer(communityId is null ? null : userId, communityId), campus, category, q, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
     /// <summary>Mis publicaciones ("Ver mis productos").</summary>

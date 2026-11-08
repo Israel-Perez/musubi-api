@@ -3,7 +3,7 @@
     {
       "id": "6716a0000000000000000010",
       "role": "seller",
-      "counterpart": { "id": "6716a0000000000000000003", "name": "Diego Hernández" },
+      "counterpart": { "id": "6716a0000000000000000003", "name": "Diego Hernández", "photo": null },
       "context": { "type": "product", "id": "6716a0000000000000000002", "title": "Calculadora Casio fx-991ES Plus", "photo": "/media/products/6716a0000000000000000001/0123456789abcdef0123456789abcdef.webp" },
       "lastMessage": { "senderId": "6716a0000000000000000003", "text": "¡Hola, Valeria! ¿Sigue disponible la calculadora?", "sentAt": "2026-11-06T12:01:00Z" },
       "unread": 1

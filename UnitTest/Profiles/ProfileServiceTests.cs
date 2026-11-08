@@ -2,6 +2,8 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Profiles.Data;
+using Musubi.Api.Modules.Reputation;
+using Musubi.Api.Modules.Reputation.Data;
 using Musubi.TestShared;
 
 namespace UnitTest.Profiles;
@@ -13,6 +15,7 @@ public sealed class ProfileServiceTests
 
     private readonly InMemoryUserRepository users = new();
     private readonly InMemoryProfileRepository profiles = new();
+    private readonly InMemoryBlockRepository blocks = new();
     private readonly ProfileService service;
 
     public ProfileServiceTests()
@@ -21,6 +24,7 @@ public sealed class ProfileServiceTests
             profiles,
             new InMemoryCareerRepository(),
             new MemberDirectory(new InMemoryCommunityRepository(), users),
+            new BlockDirectory(blocks),
             new ManualTimeProvider(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero)));
     }
 
@@ -124,9 +128,9 @@ public sealed class ProfileServiceTests
         var owner = await MemberAsync();
         await service.UpdateAsync(owner, new UpdateProfileRequest("ing-software", 8), Ct);
 
-        var shown = (await service.PublicAsync(InMemoryCommunityRepository.UtttId, owner, Ct)).Value!;
+        var shown = (await service.PublicAsync(AuthIds.New(), InMemoryCommunityRepository.UtttId, owner, Ct)).Value!;
         await service.SetVisibilityAsync(owner, new VisibilityRequest(Career: false, Sales: false, Online: true), Ct);
-        var hidden = (await service.PublicAsync(InMemoryCommunityRepository.UtttId, owner, Ct)).Value!;
+        var hidden = (await service.PublicAsync(AuthIds.New(), InMemoryCommunityRepository.UtttId, owner, Ct)).Value!;
 
         Assert.Equal(("ing-software", 8, 0), (shown.Career?.Slug, shown.Term, shown.Stats.Sales));
         Assert.Null(hidden.Career);
@@ -144,8 +148,22 @@ public sealed class ProfileServiceTests
 
         foreach (var id in new[] { elsewhere, pending, AuthIds.New(), "no-es-un-id" })
         {
-            Assert.Equal("profiles.not_found", (await service.PublicAsync(InMemoryCommunityRepository.UtttId, id, Ct)).Error!.Code);
+            Assert.Equal("profiles.not_found", (await service.PublicAsync(AuthIds.New(), InMemoryCommunityRepository.UtttId, id, Ct)).Error?.Code);
         }
+    }
+
+    [Fact]
+    public async Task Public_WithABlockInEitherDirection_IsTheSame404()
+    {
+        var owner = await MemberAsync();
+        var blocked = await MemberAsync();
+        var blocker = await MemberAsync();
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), CommunityId = InMemoryCommunityRepository.UtttId, BlockerId = owner, BlockedId = blocked, BlockedName = "Diego" }, Ct);
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), CommunityId = InMemoryCommunityRepository.UtttId, BlockerId = blocker, BlockedId = owner, BlockedName = "Ana" }, Ct);
+
+        Assert.Equal("profiles.not_found", (await service.PublicAsync(blocked, InMemoryCommunityRepository.UtttId, owner, Ct)).Error?.Code);
+        Assert.Equal("profiles.not_found", (await service.PublicAsync(blocker, InMemoryCommunityRepository.UtttId, owner, Ct)).Error?.Code);
+        Assert.Null((await service.PublicAsync(AuthIds.New(), InMemoryCommunityRepository.UtttId, owner, Ct)).Error);
     }
 
     [Fact]
