@@ -90,4 +90,26 @@ public sealed class ModerationTests
 
         Assert.Equal(valid, result.Succeeded);
     }
+
+    [Theory]
+    [InlineData("Lexicon", true)]
+    [InlineData("Aws", true)]
+    [InlineData("Comprehend", false)]
+    public void Options_TextProvider_IsLexiconOrAws(string textProvider, bool valid)
+    {
+        IHostEnvironment host = new HostingEnvironment { EnvironmentName = "Production" };
+
+        var result = new ModerationOptionsValidator(host).Validate(null, new ModerationOptions { TextProvider = textProvider });
+
+        Assert.Equal(valid, result.Succeeded);
+        Assert.Equal(ModerationOptions.LexiconTextProvider, new ModerationOptions().TextProvider);
+    }
+
+    [Fact]
+    public async Task InMemory_AlsoRejectsTheLexicon_LikeProduction()
+    {
+        var verdicts = await new InMemoryContentModerator().CheckTextsAsync(["no seas pendejo"], Ct);
+
+        Assert.Equal([ModerationVerdict.Rejected], verdicts);
+    }
 }

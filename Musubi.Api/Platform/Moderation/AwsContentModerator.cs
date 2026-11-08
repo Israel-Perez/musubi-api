@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.Comprehend;
@@ -17,14 +18,16 @@ using Microsoft.Extensions.Options;
 namespace Musubi.Api.Platform.Moderation;
 
 /// <summary>
-/// Moderacion con AWS (02-07): Rekognition <c>DetectModerationLabels</c> para fotos y, para texto,
-/// Translate (espanol a ingles) + Comprehend <c>DetectToxicContent</c>, porque la deteccion de toxicidad de
+/// Moderacion de produccion (02-07): Rekognition <c>DetectModerationLabels</c> para fotos y, para texto, el
+/// lexico local (<see cref="SpanishLexicon"/>). Con <c>TextProvider=Aws</c>, lo que el lexico deja pasar va
+/// ademas a Translate (espanol a ingles) + Comprehend <c>DetectToxicContent</c>, porque la toxicidad de
 /// Comprehend solo acepta ingles. Si AWS no responde, la decision es <see cref="ModerationVerdict.Unavailable"/>.
 /// </summary>
 internal sealed partial class AwsContentModerator(
     IAmazonRekognition rekognition,
     IAmazonTranslate translate,
     IAmazonComprehend comprehend,
+    SpanishLexicon lexicon,
     IOptions<ModerationOptions> options,
     ILogger<AwsContentModerator> logger) : IContentModerator
 {
@@ -51,7 +54,7 @@ internal sealed partial class AwsContentModerator(
             LogRejected(logger, "imagen", blocked);
             return ModerationVerdict.Rejected;
         }
-        catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or TimeoutException)
+        catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or HttpRequestException or TimeoutException)
         {
             LogUnavailable(logger, ex, "Rekognition");
             return ModerationVerdict.Unavailable;
@@ -63,8 +66,21 @@ internal sealed partial class AwsContentModerator(
     {
         ArgumentNullException.ThrowIfNull(texts);
         var verdicts = Enumerable.Repeat(ModerationVerdict.Allowed, texts.Count).ToArray();
-        var present = Enumerable.Range(0, texts.Count).Where(i => !string.IsNullOrWhiteSpace(texts[i])).ToList();
-        if (present.Count == 0)
+        var present = new List<int>(texts.Count);
+        for (var i = 0; i < texts.Count; i++)
+        {
+            if (lexicon.IsOffensive(texts[i]))
+            {
+                verdicts[i] = ModerationVerdict.Rejected;
+                LogRejected(logger, "texto", "lexico");
+            }
+            else if (!string.IsNullOrWhiteSpace(texts[i]))
+            {
+                present.Add(i);
+            }
+        }
+
+        if (present.Count == 0 || options.Value.TextProvider != ModerationOptions.AwsProvider)
         {
             return verdicts;
         }
@@ -99,10 +115,15 @@ internal sealed partial class AwsContentModerator(
 
             return verdicts;
         }
-        catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or TimeoutException)
+        catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or HttpRequestException or TimeoutException)
         {
             LogUnavailable(logger, ex, "Translate/Comprehend");
-            return Enumerable.Repeat(ModerationVerdict.Unavailable, texts.Count).ToList();
+            foreach (var i in present)
+            {
+                verdicts[i] = ModerationVerdict.Unavailable;
+            }
+
+            return verdicts;
         }
     }
 

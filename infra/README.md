@@ -41,9 +41,11 @@ Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-
 
 ## Moderación (02-07)
 
-Cada foto subida pasa por Rekognition (`DetectModerationLabels`) y cada texto publicado por Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés). El rol de las instancias tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+Cada foto subida pasa por Rekognition (`DetectModerationLabels`). Cada texto (publicaciones y mensajes del chat) pasa por el léxico local de la API, sin costo: **el plan gratuito de AWS no incluye Translate ni Comprehend** (responden `SubscriptionRequiredException`).
 
-Costo del piloto: ~1 USD/mes con 500 fotos y 500 publicaciones. Precios de us-east-1:
+Si la cuenta pasa al plan de pago, `/musubi/prod/Moderation/TextProvider = Aws` agrega Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés) después del léxico. El rol de las instancias ya tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+
+Costo del piloto: ~0.50 USD/mes con 500 fotos (solo Rekognition). Precios de us-east-1:
 - Rekognition: 0.001 USD por imagen;
 - Translate: 15 USD por millón de caracteres;
 - Comprehend: 0.0001 USD por unidad de 100 caracteres.
