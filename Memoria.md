@@ -9,6 +9,36 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T27 — Búsqueda de productos por palabra clave (07-Nov-2026, SCRUM-26, HU-09)
+
+**Qué se hizo**
+- `GET /api/v1/products?q=` (API): coincidencia por **prefijo de palabra** en `title` y `description`, sin distinguir mayúsculas ni acentos, solo disponibles, de la más nueva a la más vieja, con el cursor `_id` de la vitrina. `calc` y `calcula` encuentran `Calculadora`.
+- Error nuevo `listings.invalid_query` (400): más de 80 caracteres o sin letras ni dígitos. `q` vacío equivale a no buscar.
+- Campo nuevo `searchWords[]` (palabras normalizadas de título y descripción) e índice `ix_community_status_search`; `db/007-busqueda.js` y esquema 7, con relleno de lo existente.
+- API `0.5.0-alpha.5` (subida al integrar `main`, que ya desplegó `0.5.0-alpha.4`). Unit 181 · Integration 100 · Security 84 · Contract 8 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+
+**Decisiones (con su porqué)**
+- **Prefijo en lugar de palabra completa:** el requisito pide encontrar `Calculadora` escribiendo `calc`; `$text` no soporta prefijos y Atlas Search no existe en MongoDB Community, así que se compara por prefijo.
+- **Campo `searchWords` indexado:** un `$regex` sobre `title`/`description` recorría toda la comunidad; con el campo multikey y el índice `ix_community_status_search` (comunidad, estado, palabras) el `^prefijo` es un rango indexado. El costo es el campo derivado y su relleno.
+- **Acentos, mayúsculas y plural resueltos al escribir:** `SearchWord.Normalize`/`Words` dejan las palabras en minúsculas, sin acentos y sin `s`/`es` final, tanto en el documento como en la consulta; no hay variantes en el índice.
+- **El campo se calcula en `ProductDocument`:** el serializador lo escribe al insertar, así no hay servicio ni *backfill* dentro de la API; el script rellena solo lo anterior.
+- **Solo disponibles cuando hay `q`, orden por `_id`:** cumple el criterio de Jira y reutiliza el cursor de la vitrina; la relevancia se difiere.
+- **La exclusión de agotados vive en el repositorio, no en el servicio:** cualquier consulta con `Search` devuelve solo `active`, aunque el llamador pida los agotados.
+- **Título y descripción, sin categoría ni vendedor:** cubre "nombre o palabra clave" y evita mezclar búsqueda con filtros (HU-10).
+- **`SearchTerms` deja solo letras, dígitos y espacios:** nada del usuario se vuelve sintaxis del patrón (OWASP API3).
+- **Sin persistir `q`:** RNF-07; el historial y las búsquedas guardadas son de HU-12. El texto sí vive hasta 30 s como clave de la caché de salida, que no es historial; queda escrito en los límites de la spec.
+- **`searchWords` se calcula al insertar:** si algún día se edita el título o la descripción hay que recalcularlo; hoy no hay edición (`NOTE (HU-09)`).
+- **Orden por `_id`:** el índice resuelve el prefijo, pero el orden de las coincidencias se hace en memoria; aceptable con `limit ≤ 50` (`NOTE (HU-09)`).
+- **`q` se acota a 5 términos:** el `$regex` se evalúa por término en dos campos y `CountAsync` repite el filtro; con 80 caracteres se llegaban a 40 términos por petición. El tope mantiene el costo acotado sin afectar el uso real (`security-reviewer`, API4).
+- **Rendimiento medido contra el *fake* en memoria:** el p95 de `PerformanceTest` no cubre el `$regex` de MongoDB; el RNF-09 real se confirma con `PERF_BASE_URL` contra el despliegue.
+- **M-04 reutiliza `Modules/Listings/`:** la vitrina, el repositorio y los DTO ya viven ahí; un módulo paralelo duplicaría el endpoint y las pruebas. Se corrigió la fila de `docs/modulos.md`.
+
+**Errores a evitar**
+- **`$text` no hace prefijos:** si alguien vuelve a "simplificar" con `$text`, `calc` deja de encontrar `Calculadora`; la decisión y su motivo están en `plan.md`.
+- **El prefijo necesita `^` y las palabras normalizadas:** un regex sin `^` no aprovecha el índice; y si el documento guarda `Calculadoras` con mayúscula o acento, el prefijo normalizado no coincide.
+- **`SearchWord.Normalize`/`Words` es compartida:** si cambia el plural o los acentos, deben cambiar juntos el API, el script `db/007` (que rellena) y la batería de `TestShared`.
+- **CA1865 rompe el build:** `EndsWith("s", StringComparison.Ordinal)` debe ser `EndsWith('s')`.
+
 ## T26 — Moderación de texto con léxico local (08-Nov-2026, SCRUM-92, 02-07)
 
 **Qué se hizo**

@@ -56,6 +56,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 06-Nov-2026 | 0.5.0-alpha.3 | `v1` | 6 | 0.5.0+6 | Prueba cerrada | 0.3.5 | Detalle de un producto (SCRUM-28, HU-11), solo la API: `GET /products/{id}` (público, con el vendedor solo con sesión; la pausada solo la ve su dueño) |
 | 06-Nov-2026 | 0.5.0-alpha.3 | `v1` | 6 | 0.5.1+7 | Prueba cerrada | 0.3.5 | Detalle del producto en la app (SCRUM-28 y SCRUM-30, HU-11 y HU-21): `Producto` desde Inicio (también para visitantes), "Mensaje" y "Comprar" al chat, y "Ver" desde el chat |
 | 08-Nov-2026 | 0.5.0-alpha.4 | `v1` | 6 | 0.5.1+7 | Prueba cerrada | 0.3.5 | Moderación de texto con léxico local (SCRUM-92, 02-07): el plan gratuito de AWS no incluye Translate ni Comprehend, y el chat y las publicaciones respondían `503 moderation.unavailable`. Las fotos siguen con Rekognition. Sin cambios en la app ni en el esquema |
+| 08-Nov-2026 | 0.5.0-alpha.5 | `v1` | 7 | 0.5.1+7 | Prueba cerrada | 0.3.5 | Buscar productos por palabra clave (SCRUM-26, HU-09), solo la API: `GET /products?q=` por prefijo de palabra en el título y la descripción, sin distinguir mayúsculas ni acentos; `searchWords` con el índice `ix_community_status_search` (`db/007-busqueda.js`, con relleno de lo existente) y `400 listings.invalid_query` |
 
 ## 4. Plan hacia la evaluación
 

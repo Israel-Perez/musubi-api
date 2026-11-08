@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
@@ -20,7 +22,7 @@ internal sealed class MongoCategoryRepository(IMongoDatabase database) : ICatego
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 }
 
-/// <summary>Publicaciones en MongoDB (indices <c>ix_community_status_id</c>, <c>ix_community_category_status_id</c>, <c>ix_seller_id</c>).</summary>
+/// <summary>Publicaciones en MongoDB (indices <c>ix_community_status_id</c>, <c>ix_community_category_status_id</c> e <c>ix_seller_id</c>).</summary>
 internal sealed class MongoProductRepository(IMongoDatabase database) : IProductRepository
 {
     private static readonly FilterDefinitionBuilder<ProductDocument> Filter = Builders<ProductDocument>.Filter;
@@ -84,10 +86,29 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
 
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
-        var statuses = query.IncludeSoldOut
+        // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
+        var statuses = query.Search is null && query.IncludeSoldOut
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId) & Filter.In(p => p.Status, statuses);
-        return query.CategorySlug is { } category ? filter & Filter.Eq(p => p.CategorySlug, category) : filter;
+        if (query.CategorySlug is { } category)
+        {
+            filter &= Filter.Eq(p => p.CategorySlug, category);
+        }
+
+        // HU-09: cada termino, ya normalizado, es un prefijo de una palabra de `searchWords` (indice
+        // ix_community_status_search); un documento coincide si alguna palabra empieza igual (OR).
+        return query.Search is { } search ? filter & SearchByPrefix(search) : filter;
+    }
+
+    private static FilterDefinition<ProductDocument> SearchByPrefix(string search)
+    {
+        var byTerm = search
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(SearchWord.Normalize)
+            .Where(term => term.Length > 0)
+            .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term), "i")))
+            .ToList();
+        return byTerm.Count == 0 ? Filter.Empty : Filter.Or(byTerm);
     }
 }

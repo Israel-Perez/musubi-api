@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,7 +17,37 @@ namespace Musubi.Api.Modules.Listings.Data;
 /// <param name="IncludeSoldOut">Incluir los agotados ("Ocultar agotados" apagado).</param>
 /// <param name="BeforeId">Cursor: solo ids menores que este.</param>
 /// <param name="Limit">Maximo de resultados.</param>
-internal sealed record ProductQuery(string CommunityId, string? CategorySlug, bool IncludeSoldOut, string? BeforeId, int Limit);
+/// <param name="Search">Palabra clave (HU-09): con ella solo salen las disponibles, sin importar <paramref name="IncludeSoldOut"/>.</param>
+internal sealed record ProductQuery(string CommunityId, string? CategorySlug, bool IncludeSoldOut, string? BeforeId, int Limit, string? Search = null);
+
+/// <summary>Normalizacion de una palabra de busqueda (HU-09): minusculas, sin acentos y sin el plural final.</summary>
+internal static class SearchWord
+{
+    /// <summary>Forma comparable: <c>Calculadoras</c> y <c>calculadora</c> quedan iguales.</summary>
+    /// <param name="word">Palabra escrita por la persona o leida del documento.</param>
+    /// <returns>La palabra normalizada.</returns>
+    public static string Normalize(string word)
+    {
+        var plain = string.Concat(word.Normalize(NormalizationForm.FormD)
+            .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark))
+            .ToLowerInvariant();
+        if (plain.Length > 3 && plain.EndsWith("es", StringComparison.Ordinal))
+        {
+            return plain[..^2];
+        }
+
+        return plain.Length > 2 && plain.EndsWith('s') ? plain[..^1] : plain;
+    }
+
+    /// <summary>Palabras de un texto, normalizadas y sin repetir, para el indice de busqueda (HU-09).</summary>
+    /// <param name="text">Titulo, descripcion o consulta.</param>
+    /// <returns>Las palabras comparables.</returns>
+    public static IReadOnlyList<string> Words(string text) =>
+        [.. text.Split(Separators, StringSplitOptions.RemoveEmptyEntries).Select(Normalize).Distinct()];
+
+    private static readonly char[] Separators =
+        [' ', '\t', '\n', '\r', ',', '.', ';', ':', '!', '?', '(', ')', '-', '/', '"', '\''];
+}
 
 /// <summary>Categorias por comunidad.</summary>
 internal interface ICategoryRepository

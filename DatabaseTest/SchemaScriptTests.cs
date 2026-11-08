@@ -145,6 +145,8 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_id");
         Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_id");
         Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
+        // HU-09: indice de las palabras normalizadas para la busqueda por prefijo.
+        Assert.Contains(indexes, i => i["name"] == "ix_community_status_search");
     }
 
     [Fact]

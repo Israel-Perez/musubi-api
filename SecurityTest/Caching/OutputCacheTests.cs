@@ -29,7 +29,7 @@ public sealed class OutputCacheTests(ProductionApiFactory production) : IClassFi
     public async Task Anonymous_IsServedFromTheCache_ButASession_NeverIs()
     {
         // Consulta propia de esta prueba: la cache de salida se comparte dentro de la fabrica.
-        const string query = "?category=libros&limit=7";
+        const string query = "?category=libros&limit=7&q=calculadora";
         var token = production.Services.GetRequiredService<AccessTokenIssuer>()
             .Issue("6716a00000000000000000aa", "000000000000000000000001", ["student"]).Token;
 

@@ -9,7 +9,7 @@ Las carpetas de código **se crean con la primera HU del módulo**; no se crean 
 | M-01 | Autenticación y usuarios | SCRUM-5 | `specs/m01-auth/` | `Musubi.Api/Modules/Auth/` | `lib/features/auth/` |
 | M-02 | Perfil | SCRUM-6 | `specs/m02-profile/` | `Musubi.Api/Modules/Profiles/` | `lib/features/profile/` |
 | M-03 | Publicaciones | SCRUM-7 | `specs/m03-listings/` | `Musubi.Api/Modules/Listings/` | `lib/features/listings/` |
-| M-04 | Marketplace | SCRUM-8 | `specs/m04-marketplace/` | `Musubi.Api/Modules/Marketplace/` | `lib/features/marketplace/` |
+| M-04 | Marketplace | SCRUM-8 | `specs/m04-marketplace/` | `Musubi.Api/Modules/Listings/` (reutiliza la vitrina de M-03) | `lib/features/marketplace/` |
 | M-05 | Solicitudes de compra | SCRUM-9 | `specs/m05-purchase-requests/` | `Musubi.Api/Modules/PurchaseRequests/` | `lib/features/purchase_requests/` |
 | M-06 | Coincidencias | SCRUM-10 | `specs/m06-matching/` | `Musubi.Api/Modules/Matching/` | `lib/features/matching/` |
 | M-07 | Chat | SCRUM-11 | `specs/m07-chat/` | `Musubi.Api/Modules/Chat/` | `lib/features/chat/` |

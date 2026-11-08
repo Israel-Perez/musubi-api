@@ -87,6 +87,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle) |
 | `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
 | `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 (cursor que no emitió la API) |
+| `listings.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-09 (búsqueda sin letras ni dígitos, o de más de 80 caracteres) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
 | `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus: no revela cuál, OWASP API1) |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
