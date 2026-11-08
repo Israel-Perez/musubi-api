@@ -192,9 +192,10 @@ internal sealed partial class ListingService(
     /// <param name="condition"><c>new</c>, <c>used</c> o todas.</param>
     /// <param name="sort">Orden de <see cref="ProductSorts"/>; <c>null</c> usa el mas nuevo.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
-    /// <param name="hideSoldOut">Ocultar agotados.</param>
+    /// <param name="hideSoldOut">Ocultar agotados; sin el, la busqueda los oculta y la vitrina no.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina.</param>
+    /// <param name="page">Pagina pedida (base 1); ignora <paramref name="cursor"/>.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina o el error.</returns>
     public async Task<Result<ProductPage>> ShowcaseAsync(
@@ -206,11 +207,18 @@ internal sealed partial class ListingService(
         string? condition,
         string? sort,
         string? q,
-        bool hideSoldOut,
+        bool? hideSoldOut,
         string? cursor,
         int? limit,
+        int? page,
         CancellationToken cancellationToken)
     {
+        // HU-10: la pagina empieza en 1.
+        if (page is < 1)
+        {
+            return ListingsErrors.InvalidPage;
+        }
+
         // HU-10 R3-R5: rango, condicion y orden tienen lista blanca antes de tocar la base.
         if (minPriceCents is < 0 or > MaxPriceCents
             || maxPriceCents is < 0 or > MaxPriceCents
@@ -231,8 +239,9 @@ internal sealed partial class ListingService(
             return ListingsErrors.InvalidSort;
         }
 
+        var byPage = page is not null;
         ProductCursor? after = null;
-        if (!string.IsNullOrWhiteSpace(cursor))
+        if (!byPage && !string.IsNullOrWhiteSpace(cursor))
         {
             if (!ProductCursorCodec.TryDecode(cursor, sortValue, MaxPriceCents, out var decoded))
             {
@@ -272,25 +281,28 @@ internal sealed partial class ListingService(
             .Where(slug => slug.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+        // HU-10: sin el parametro, la busqueda oculta los agotados (HU-09) y la vitrina los muestra.
+        var includeSoldOut = hideSoldOut is null ? search is null : !hideSoldOut.Value;
         var query = new ProductQuery(
             communityId,
             slugs.Length == 0 ? null : slugs,
-            !hideSoldOut,
-            after,
+            includeSoldOut,
+            byPage ? null : after,
             size,
             search,
             minPriceCents,
             maxPriceCents,
             conditionValue,
             sortValue,
-            hidden);
-        var page = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
+            hidden,
+            page);
+        var items = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
         var total = await products.CountAsync(query, cancellationToken).ConfigureAwait(false);
         var includeSeller = viewer.CommunityId is not null;
         string? nextCursor = null;
-        if (page.Count == size)
+        if (!byPage && items.Count == size)
         {
-            var last = page[^1];
+            var last = items[^1];
             nextCursor = ProductCursorCodec.Encode(new ProductCursor(
                 sortValue,
                 ProductSorts.IsPriceBased(sortValue) ? last.PriceCents : null,
@@ -298,7 +310,7 @@ internal sealed partial class ListingService(
         }
 
         return Result<ProductPage>.Ok(new ProductPage(
-            page.Select(p => ToResponse(p, includeSeller)).ToList(),
+            items.Select(p => ToResponse(p, includeSeller)).ToList(),
             nextCursor,
             total));
     }

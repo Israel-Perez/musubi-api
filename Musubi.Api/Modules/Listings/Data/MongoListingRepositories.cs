@@ -43,13 +43,18 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     public async Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         var filter = Showcase(query);
-        if (query.After is { } after)
+        if (query.Page is null && query.After is { } after)
         {
             filter &= CursorFilter(query.Sort, after);
         }
 
-        return await products.Find(filter)
-            .Sort(SortFor(query.Sort))
+        var find = products.Find(filter).Sort(SortFor(query.Sort));
+        if (query.Page is { } page)
+        {
+            find = find.Skip((page - 1) * query.Limit);
+        }
+
+        return await find
             .Limit(query.Limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -86,10 +91,10 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
 
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
-        // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
+        // HU-10: los agotados dependen de IncludeSoldOut; el servicio decide el valor por defecto.
         // NOTE (HU-10): con status $in y orden por precio, Mongo puede usar SORT_MERGE; el plan se
         // confirma con explain en DatabaseTest/CI.
-        var statuses = query.Search is null && query.IncludeSoldOut
+        var statuses = query.IncludeSoldOut
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId) & Filter.In(p => p.Status, statuses);

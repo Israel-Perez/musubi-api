@@ -18,12 +18,13 @@ namespace Musubi.Api.Modules.Listings.Data;
 /// <param name="IncludeSoldOut">Incluir los agotados ("Ocultar agotados" apagado).</param>
 /// <param name="After">Cursor ya validado: la pagina siguiente empieza despues de el.</param>
 /// <param name="Limit">Maximo de resultados.</param>
-/// <param name="Search">Palabra clave (HU-09): con ella solo salen las disponibles, sin importar <paramref name="IncludeSoldOut"/>.</param>
+/// <param name="Search">Palabra clave (HU-09).</param>
 /// <param name="MinPriceCents">Precio minimo, inclusivo; <c>null</c> si no hay piso (HU-10).</param>
 /// <param name="MaxPriceCents">Precio maximo, inclusivo; <c>null</c> si no hay techo (HU-10).</param>
 /// <param name="Condition"><c>new</c> o <c>used</c>; <c>null</c> para todas (HU-10).</param>
 /// <param name="Sort">Ver <see cref="ProductSorts"/> (HU-10).</param>
 /// <param name="ExcludeSellers">Vendedores que no se muestran: bloqueos de quien consulta en las dos direcciones (HU-57).</param>
+/// <param name="Page">Pagina pedida (HU-10, base 1); con ella se ignora <paramref name="After"/>.</param>
 internal sealed record ProductQuery(
     string CommunityId,
     IReadOnlyList<string>? CategorySlugs,
@@ -35,7 +36,8 @@ internal sealed record ProductQuery(
     long? MaxPriceCents = null,
     string? Condition = null,
     string Sort = ProductSorts.Newest,
-    IReadOnlyCollection<string>? ExcludeSellers = null);
+    IReadOnlyCollection<string>? ExcludeSellers = null,
+    int? Page = null);
 
 /// <summary>Ordenes de la vitrina (HU-10 R5).</summary>
 internal static class ProductSorts

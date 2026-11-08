@@ -146,6 +146,27 @@ public abstract class ListingRepositoryContract
     }
 
     [Fact]
+    public async Task Pages_ByNumber()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        for (var i = 0; i < 5; i++)
+        {
+            await Products.InsertAsync(NewProduct(community, seller, price: 10_000 + (i * 1_000)), Ct);
+        }
+
+        // HU-10: la pagina salta bloques del mismo tamano, sin repetir ids.
+        var first = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 2, Page: 1), Ct);
+        var second = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 2, Page: 2), Ct);
+        var third = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 2, Page: 3), Ct);
+
+        Assert.Equal(2, first.Count);
+        Assert.Equal(2, second.Count);
+        Assert.Single(third);
+        Assert.Empty(first.Select(p => p.Id).Intersect(second.Select(p => p.Id)));
+    }
+
+    [Fact]
     public async Task BySeller_ExcludesRemoved()
     {
         var seller = AuthIds.New();
@@ -211,14 +232,16 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Hidden), Ct);
         await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Removed), Ct);
 
-        // Con busqueda solo salen las disponibles, aunque se pidan los agotados (HU-09 R2).
-        var byTitle = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, "calculadora"), Ct);
-        var byDescription = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, "ejercicios"), Ct);
-        var ofAnotherCommunity = await Products.FindPageAsync(new ProductQuery(otherCampus, null, true, null, 10, "calculadora"), Ct);
+        // HU-09: con busqueda solo salen las disponibles; HU-10: con IncludeSoldOut tambien las agotadas.
+        var byTitle = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "calculadora"), Ct);
+        var byDescription = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "ejercicios"), Ct);
+        var ofAnotherCommunity = await Products.FindPageAsync(new ProductQuery(otherCampus, null, false, null, 10, "calculadora"), Ct);
+        var withSoldOut = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, "calculadora"), Ct);
 
         Assert.Equal(calculator.Id, Assert.Single(byTitle).Id);
         Assert.Equal(book.Id, Assert.Single(byDescription).Id);
         Assert.Equal(elsewhere.Id, Assert.Single(ofAnotherCommunity).Id);
+        Assert.Equal(2, withSoldOut.Count);
     }
 
     [Fact]

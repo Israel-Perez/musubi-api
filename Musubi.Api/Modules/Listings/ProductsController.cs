@@ -39,9 +39,10 @@ public sealed class ProductsController : ControllerBase
     /// <param name="condition"><c>new</c> o <c>used</c>.</param>
     /// <param name="sort"><c>relevance</c>, <c>newest</c>, <c>oldest</c>, <c>priceAsc</c> o <c>priceDesc</c>.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
-    /// <param name="hideSoldOut">Ocultar agotados.</param>
+    /// <param name="hideSoldOut">Ocultar agotados; sin el, la busqueda los oculta y la vitrina no.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina (1 a 50).</param>
+    /// <param name="page">Pagina (base 1); ignora <paramref name="cursor"/>.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina.</returns>
     [HttpGet]
@@ -60,9 +61,10 @@ public sealed class ProductsController : ControllerBase
         [FromQuery] string? condition,
         [FromQuery] string? sort,
         [FromQuery] string? q,
-        [FromQuery] bool hideSoldOut,
+        [FromQuery] bool? hideSoldOut,
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
+        [FromQuery] int? page,
         CancellationToken cancellationToken) =>
         this.Respond(
             await listings.ShowcaseAsync(
@@ -77,6 +79,7 @@ public sealed class ProductsController : ControllerBase
                 hideSoldOut,
                 cursor,
                 limit,
+                page,
                 cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 

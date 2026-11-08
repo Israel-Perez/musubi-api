@@ -74,11 +74,13 @@ internal sealed class InMemoryProductRepository : IProductRepository
         ArgumentNullException.ThrowIfNull(query);
         lock (gate)
         {
-            var page = Sorted(Showcase(query), query.Sort)
-                .Where(p => IsAfter(p, query))
+            var skip = query.Page is { } page ? (page - 1) * query.Limit : 0;
+            var items = Sorted(Showcase(query), query.Sort)
+                .Where(p => query.Page is not null || IsAfter(p, query))
+                .Skip(skip)
                 .Take(query.Limit)
                 .ToList();
-            return Task.FromResult<IReadOnlyList<ProductDocument>>(page);
+            return Task.FromResult<IReadOnlyList<ProductDocument>>(items);
         }
     }
 
@@ -135,8 +137,8 @@ internal sealed class InMemoryProductRepository : IProductRepository
     // Los ObjectId en hexadecimal (24 caracteres, minusculas) ordenan igual que en Mongo.
     private IEnumerable<ProductDocument> Showcase(ProductQuery query) => products.Where(p =>
         string.Equals(p.CommunityId, query.CommunityId, StringComparison.Ordinal)
-        // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
-        && (p.Status == ProductStatuses.Active || (query.Search is null && query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
+        // HU-10: los agotados dependen de IncludeSoldOut; el servicio decide el valor por defecto.
+        && (p.Status == ProductStatuses.Active || (query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
         && ((query.CategorySlugs is null or { Count: 0 }) || query.CategorySlugs.Contains(p.CategorySlug, StringComparer.Ordinal))
         && (query.Condition is null || string.Equals(p.Condition, query.Condition, StringComparison.Ordinal))
         && (query.MinPriceCents is null || p.PriceCents >= query.MinPriceCents)

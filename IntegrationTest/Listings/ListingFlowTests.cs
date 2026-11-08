@@ -371,6 +371,24 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
     }
 
     [Fact]
+    public async Task Showcase_PagesByNumber()
+    {
+        using var seller = await SignedInClientAsync();
+        var cheap = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "dibujo", priceCents: 10_000));
+        var middle = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "dibujo", priceCents: 20_000));
+        var expensive = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "dibujo", priceCents: 30_000));
+
+        var first = await GetJsonAsync(seller, "/api/v1/products?category=dibujo&sort=priceAsc&limit=2&page=1");
+        var second = await GetJsonAsync(seller, "/api/v1/products?category=dibujo&sort=priceAsc&limit=2&page=2");
+
+        // HU-10: la pagina ignora el cursor y no devuelve uno.
+        Assert.Equal([cheap, middle], first.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));
+        Assert.Equal(expensive, Assert.Single(second.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("nextCursor").ValueKind);
+        Assert.Equal(3, second.GetProperty("total").GetInt64());
+    }
+
+    [Fact]
     public async Task Showcase_RejectsInvalidFilters()
     {
         using var visitor = factory.CreateClient();
@@ -396,6 +414,10 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
             await visitor.GetAsync(new Uri("/api/v1/products?sort=roto", UriKind.Relative), Ct),
             HttpStatusCode.BadRequest,
             "listings.invalid_sort");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?page=0", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_page");
         // HU-10 R8: el ObjectId crudo solo se acepta para newest y relevance.
         await AuthFlow.AssertCodeAsync(
             await visitor.GetAsync(new Uri("/api/v1/products?sort=priceAsc&cursor=6716a0000000000000000099", UriKind.Relative), Ct),
