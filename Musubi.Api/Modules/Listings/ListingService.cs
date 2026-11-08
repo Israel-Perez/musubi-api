@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Errors;
@@ -28,6 +29,11 @@ internal sealed class CatalogOptions
     public string DefaultCampus { get; set; } = "uttt";
 }
 
+/// <summary>Quien mira la vitrina: con sesion, su usuario y comunidad; un visitante, ninguno.</summary>
+/// <param name="UserId">Usuario del token (para ocultar a quien bloqueo o lo bloqueo, HU-57), o <c>null</c>.</param>
+/// <param name="CommunityId">Comunidad del token (entonces se ve el vendedor), o <c>null</c>.</param>
+internal sealed record ShowcaseViewer(string? UserId, string? CommunityId);
+
 /// <summary>
 /// Publicar productos (HU-06, HU-50), leer la vitrina (HU-48 fase 2) y el detalle (HU-11). Reglas: RN-03 (nombre, precio,
 /// categoria, estado, cantidad y al menos una foto), RN-04 (precio mayor que cero y al menos una pieza).
@@ -38,6 +44,7 @@ internal sealed partial class ListingService(
     IMemberDirectory members,
     IMediaStorage media,
     IContentModerator moderator,
+    IBlockDirectory blocks,
     IOutputCacheStore outputCache,
     IOptions<CatalogOptions> catalog,
     TimeProvider time)
@@ -174,8 +181,11 @@ internal sealed partial class ListingService(
         return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
     }
 
-    /// <summary>Vitrina: lo recien publicado del campus, con filtros de la hoja "Filtrar" y busqueda (HU-09).</summary>
-    /// <param name="userCommunityId">Comunidad del token, si hay sesion (entonces se ve el vendedor).</param>
+    /// <summary>
+    /// Vitrina: lo recien publicado del campus, con filtros de la hoja "Filtrar" y busqueda (HU-09). Con sesion no
+    /// salen las publicaciones de quien bloqueaste o te bloqueo (HU-57).
+    /// </summary>
+    /// <param name="viewer">Quien consulta: usuario y comunidad del token, o vacios sin sesion (entonces no se ve el vendedor).</param>
     /// <param name="campus">Campus pedido por un visitante.</param>
     /// <param name="category">Slug de la categoria, o todas.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
@@ -185,7 +195,7 @@ internal sealed partial class ListingService(
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina o el error.</returns>
     public async Task<Result<ProductPage>> ShowcaseAsync(
-        string? userCommunityId,
+        ShowcaseViewer viewer,
         string? campus,
         string? category,
         string? q,
@@ -212,17 +222,19 @@ internal sealed partial class ListingService(
             search = SearchTerms(trimmed);
         }
 
-        var communityId = userCommunityId ?? await FindCampusAsync(campus, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(viewer);
+        var communityId = viewer.CommunityId ?? await FindCampusAsync(campus, cancellationToken).ConfigureAwait(false);
         if (communityId is null)
         {
             return ListingsErrors.UnknownCampus;
         }
 
         var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
-        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size, search);
+        var hidden = viewer.UserId is null ? null : await blocks.HiddenForAsync(viewer.UserId, cancellationToken).ConfigureAwait(false);
+        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size, search, hidden);
         var page = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
         var total = await products.CountAsync(query, cancellationToken).ConfigureAwait(false);
-        var includeSeller = userCommunityId is not null;
+        var includeSeller = viewer.CommunityId is not null;
         return Result<ProductPage>.Ok(new ProductPage(
             page.Select(p => ToResponse(p, includeSeller)).ToList(),
             page.Count == size ? page[^1].Id : null,
@@ -263,6 +275,12 @@ internal sealed partial class ListingService(
         // Con sesion, otro campus es como si no existiera (RNF-21, OWASP API1).
         var otherCampus = userCommunityId is not null && !string.Equals(product.CommunityId, userCommunityId, StringComparison.Ordinal);
         if (!visible || otherCampus)
+        {
+            return ListingsErrors.ProductNotFound;
+        }
+
+        // HU-57: con un bloqueo entre quien consulta y quien vende, tampoco existe para el.
+        if (!owner && userId is not null && await blocks.BetweenAsync(userId, product.SellerId, cancellationToken).ConfigureAwait(false))
         {
             return ListingsErrors.ProductNotFound;
         }

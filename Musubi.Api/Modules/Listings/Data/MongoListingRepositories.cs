@@ -96,6 +96,12 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             filter &= Filter.Eq(p => p.CategorySlug, category);
         }
 
+        // HU-57: sin las publicaciones de quien bloqueaste o te bloqueo.
+        if (query.ExcludeSellers is { Count: > 0 } excluded)
+        {
+            filter &= Filter.Nin(p => p.SellerId, excluded);
+        }
+
         // HU-09: cada termino, ya normalizado, es un prefijo de una palabra de `searchWords` (indice
         // ix_community_status_search); un documento coincide si alguna palabra empieza igual (OR).
         return query.Search is { } search ? filter & SearchByPrefix(search) : filter;

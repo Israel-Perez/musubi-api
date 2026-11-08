@@ -101,6 +101,13 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `chat.product_unavailable` | 404 | Esta publicación ya no está disponible. | HU-20 (inexistente, de otro campus, pausada o quitada: no revela cuál) |
 | `chat.own_product` | 400 | Es tu publicación: aquí te escribirán los compradores. | HU-20 (el vendedor no se escribe a sí mismo) |
 | `chat.conversation_not_found` | 404 | No encontramos esta conversación. | HU-20 (inexistente o de otras personas: no revela cuál, RN-22, OWASP API1) |
+| `chat.blocked` | 403 | No puedes escribirle a esta persona. | HU-57 (bloqueo en cualquier dirección: el mismo mensaje para los dos, no revela quién bloqueó) |
 | `chat.invalid_message` | 400 | Escribe un mensaje de hasta 1000 caracteres. | HU-20 (vacío o de más de 1000 caracteres) |
 | `chat.invalid_filter` | 400 | No pudimos aplicar ese filtro. Elige Todos, Compras o Ventas. | HU-22 (`role` que no es `buyer` ni `seller`) |
 | `chat.invalid_cursor` | 400 | No pudimos cargar más. Vuelve a abrir la lista. | HU-20 / HU-22 (cursor que no emitió la API) |
+| `reports.invalid_reason` | 400 | Elige el motivo del reporte. | HU-28 (motivo fuera de la lista de la maqueta) |
+| `reports.invalid_details` | 400 | Cuéntanos qué pasó en hasta 1000 caracteres. | HU-28 |
+| `reports.invalid_target` | 400 | No pudimos enviar este reporte. Revisa a quién o qué reportas. | HU-28 (tipo desconocido, id donde no va, reportarse a uno mismo o a su propia publicación) |
+| `reports.target_not_found` | 404 | No encontramos lo que quieres reportar. | HU-28 (persona, publicación o conversación inexistente, de otro campus o ajena: no revela cuál) |
+| `blocks.self` | 400 | No puedes bloquearte a ti mismo. | HU-57 |
+| `blocks.user_not_found` | 404 | No encontramos a esta persona. | HU-57 (inexistente o de otro campus: no revela cuál) |

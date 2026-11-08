@@ -9,6 +9,29 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T28 — Reportar y bloquear (08-Nov-2026, SCRUM-57 y SCRUM-95, HU-28 y HU-57)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/Reputation` (M-13):
+  - `POST /reports` (motivos de la maqueta; `general`, `user` con conversación opcional, `product`). Avisa al equipo por correo si existe `Reports:NotifyEmail`. Rate limit `reports` de 10/hora;
+  - `GET`/`POST /blocks` y `DELETE /blocks/{userId}`.
+- Un bloqueo en cualquier dirección:
+  - corta el chat (`403 chat.blocked`, `canReply: false`);
+  - oculta las publicaciones (vitrina y búsqueda con `ProductQuery.ExcludeSellers`, detalle 404) y el perfil público (404).
+- La foto de perfil de la otra persona en el chat (`counterpart.photo`), por lote con `IProfileDirectory`. La pidió el usuario: solo se veían iniciales.
+- Contratos entre módulos: `IBlockDirectory` (M-13), `IProfileDirectory` (M-02) e `IConversationDirectory` (M-07).
+- `db/008-reportes-bloqueos.js`, esquema 8, API `0.5.0-alpha.6`. Unit 244 · Integration 103 · Security 91 · Contract 9.
+
+**Decisiones (con su porqué)**
+- **HU-28 adelantada y HU-57 nueva:** Google Play exige reportar y bloquear en apps con contenido de usuarios antes de producción.
+- **El detalle del reporte no se modera:** se rechazaría el reporte que cita el insulto; no se publica.
+- **Bloqueo en las dos direcciones y `canReply` sin decir quién bloqueó:** evita volver a tener contacto por otra publicación y no expone a quien bloqueó.
+- **Sin caché del bloqueo:** lista corta con dos índices; desbloquear aplica al instante en las dos instancias.
+
+**Errores a evitar**
+- **`[IO.File]::ReadAllText` con ruta relativa usa el directorio del proceso, no el de PowerShell:** un script de edición falló y `WriteAllText` dejó tres `.cs` vacíos en la raíz de `Musubi.Api`. `check_endpoints` revienta con un `.cs` vacío (`Get-Content -Raw` devuelve `$null`). Usa rutas absolutas (`"$PWD\..."`).
+- **El parámetro de la ruta debe llamarse igual en el código y en `docs/endpoints.md`** (`{userId}`): `check_endpoints` compara el texto.
+
 ## T27 — Búsqueda de productos por palabra clave (07-Nov-2026, SCRUM-26, HU-09)
 
 **Qué se hizo**

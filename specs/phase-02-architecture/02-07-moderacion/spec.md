@@ -81,7 +81,7 @@ Después llegarán solicitudes (HU-13), ofertas (HU-16), mensajes (HU-20) y repo
 
 ## Límites
 - **Sin cola de pendientes:** si AWS falla se pide reintentar en lugar de guardar como pendiente. El `outbox` y la revisión humana llegan con HU-39 (`NOTE (HU-39)`).
-- **Pendientes:** `NOTE (HU-13)`, `NOTE (HU-16)`, `NOTE (HU-20)` y `NOTE (HU-28)` moderan su texto con el mismo `IContentModerator`.
+- **Pendientes:** `NOTE (HU-13)` y `NOTE (HU-16)` moderan su texto con el mismo `IContentModerator`. HU-20 ya modera cada mensaje. El detalle de un reporte (HU-28) **no** se modera: no se publica y la cita del abuso es la evidencia.
 - **Umbrales:** se ajustan con datos del piloto.
 - **El léxico no entiende contexto:** un insulto sin groserías o una amenaza con otras palabras pasa. Se completa con los reportes (HU-28) y la revisión humana (HU-39). Las palabras con usos comunes inocentes ("perra", "zorra", "pinche", "coger") quedan fuera a propósito.
 

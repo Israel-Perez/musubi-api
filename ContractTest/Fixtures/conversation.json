@@ -1,7 +1,7 @@
 {
   "id": "6716a0000000000000000010",
   "role": "buyer",
-  "counterpart": { "id": "6716a0000000000000000001", "name": "Valeria Cruz" },
+  "counterpart": { "id": "6716a0000000000000000001", "name": "Valeria Cruz", "photo": null },
   "context": {
     "type": "product",
     "id": "6716a0000000000000000002",
@@ -12,5 +12,6 @@
     "photo": "/media/products/6716a0000000000000000001/0123456789abcdef0123456789abcdef.webp",
     "available": true
   },
-  "createdAt": "2026-11-03T12:00:00Z"
+  "createdAt": "2026-11-03T12:00:00Z",
+  "canReply": true
 }

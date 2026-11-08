@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Musubi.Api.Platform.Data;
 
@@ -32,6 +34,17 @@ internal sealed class MongoProfileRepository(IMongoDatabase database) : IProfile
     /// <inheritdoc />
     public async Task<ProfileDocument?> FindAsync(string userId, CancellationToken cancellationToken) =>
         await profiles.Find(p => p.Id == userId).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileDocument>> FindManyAsync(IReadOnlyCollection<string> userIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        // Solo ids validos: un id mal formado en Filter.In haria fallar la consulta completa.
+        var ids = userIds.Where(id => ObjectId.TryParse(id, out _)).Distinct(StringComparer.Ordinal).ToList();
+        return ids.Count == 0
+            ? []
+            : await profiles.Find(Builders<ProfileDocument>.Filter.In(p => p.Id, ids)).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public Task<ProfileDocument> SetDetailsAsync(ProfileOwner owner, string? careerSlug, int? term, DateTime now, CancellationToken cancellationToken)
