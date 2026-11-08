@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Listings.Data;
@@ -103,6 +104,25 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
 
         Assert.Equal(HttpStatusCode.OK, showcase.StatusCode);
         Assert.Equal(HttpStatusCode.OK, categories.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShowcaseFilters_ArePublic_AndRespectTheCampus()
+    {
+        var seller = AuthIds.New();
+        var local = await InsertAsync(seller, InMemoryCommunityRepository.UtttId, ProductStatuses.Active);
+        var elsewhere = await InsertAsync(seller, OtherCommunity, ProductStatuses.Active);
+        using var visitor = production.CreateClient();
+
+        // HU-10: filtrar y ordenar no exige sesion y nunca cruza el campus por defecto (RNF-21).
+        var response = await visitor.GetAsync(
+            new Uri("/api/v1/products?category=calculadoras&minPriceCents=1&maxPriceCents=99999900&condition=new&sort=priceAsc", UriKind.Relative), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var ids = page.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()).ToList();
+        Assert.Contains(local, ids);
+        Assert.DoesNotContain(elsewhere, ids);
     }
 
     [Fact]

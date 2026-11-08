@@ -1,17 +1,41 @@
 # HU-10 — Filtrar por categoría y precio (tareas)
 
-## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
+## T1 — Spec detallada
+- **Qué:** Completar `spec.md` y `plan.md` con el alcance acordado (multi-categoría, precio, condición, orden, cursor e índices).
+- **Archivos:** `specs/m04-marketplace/HU-10-filtrar-categoria-precio/spec.md`, `plan.md`, `task.md`.
+- **Verificación:** encabezados de `specs/_template.md` completos; contratos enlazados a `docs/endpoints.md` y `docs/errores.md`.
+- **Estado:** ✅ Hecho.
+
+## T2 — Datos e índices
+- **Qué:** Crear `db/008-filtros-precio.js` con los dos índices de precio y subir `MongoSchema.ExpectedVersion` a 8.
+- **Archivos:** `db/008-filtros-precio.js`, `db/README.md`, `Musubi.Api/Platform/Data/MongoSchema.cs`, `docs/modelo-datos.md`, `DatabaseTest/SchemaScriptTests.cs`.
+- **Verificación:** `DatabaseTest` en CI (sin Docker local); `node --check db/008-filtros-precio.js`; `_meta.version = 8`.
 - **Estado:** ⏳ Por hacer.
 
-## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
+## T3 — Consulta y cursor
+- **Qué:** Extender `ProductQuery`, agregar `ProductCursor`, `ProductCursorCodec` y `ProductSorts`; implementar filtros, orden y cursor en Mongo e InMemory.
+- **Archivos:** `Musubi.Api/Modules/Listings/Data/ListingRepositories.cs`, `MongoListingRepositories.cs`, `InMemoryListingRepositories.cs`, `TestShared/Listings/ListingRepositoryContract.cs`.
+- **Verificación:** `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` con los casos nuevos del contrato compartido.
 - **Estado:** ⏳ Por hacer.
 
-## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
+## T4 — Servicio, errores y controller
+- **Qué:** Normalizar y validar filtros, resolver el cursor, devolver `nextCursor`; agregar `InvalidPriceRange` e `InvalidSort`; exponer los parámetros en `Showcase`.
+- **Archivos:** `ListingService.cs`, `ListingsErrors.cs`, `ProductsController.cs`.
+- **Verificación:** `IntegrationTest` cubre combinación, orden, paginación y errores 400.
 - **Estado:** ⏳ Por hacer.
 
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
+## T5 — Pruebas HTTP y contrato
+- **Qué:** Agregar flujos de integración, seguridad y contrato; confirmar que la forma JSON no cambia.
+- **Archivos:** `IntegrationTest/Listings/ListingFlowTests.cs`, `SecurityTest/Auth/ListingsAuthTests.cs`, `ContractTest/ListingsContractTests.cs`.
+- **Verificación:** `dotnet test --project IntegrationTest/...`, `SecurityTest/...` y `ContractTest/...` con `--no-build`.
+- **Estado:** ⏳ Por hacer.
+
+## T6 — Documentación y memoria
+- **Qué:** Actualizar `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `db/README.md`, `docs/trazabilidad.md` y `Memoria.md`.
+- **Verificación:** `pwsh scripts/check_endpoints.ps1` → `OK`; `docs/trazabilidad.md` con la HU al día.
+- **Estado:** ⏳ Por hacer.
+
+## T7 — Verificación y cierre
+- **Qué:** Build 0/0, suites en verde, `critic`, `endpoints`, Semgrep; conciliar conteos reales en `spec.md`; `security-reviewer` y `traceability-clerk`.
+- **Verificación:** comandos de `spec.md` → Criterios; sin fallos.
 - **Estado:** ⏳ Por hacer.

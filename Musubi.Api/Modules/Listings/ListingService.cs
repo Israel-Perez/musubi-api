@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.Options;
-using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Modules.Reputation;
@@ -182,12 +181,16 @@ internal sealed partial class ListingService(
     }
 
     /// <summary>
-    /// Vitrina: lo recien publicado del campus, con filtros de la hoja "Filtrar" y busqueda (HU-09). Con sesion no
-    /// salen las publicaciones de quien bloqueaste o te bloqueo (HU-57).
+    /// Vitrina: lo recien publicado del campus, con los filtros de "Filtrar" y "Busqueda-filtros" (HU-09, HU-10).
+    /// Con sesion no salen las publicaciones de quien bloqueaste o te bloqueo (HU-57).
     /// </summary>
     /// <param name="viewer">Quien consulta: usuario y comunidad del token, o vacios sin sesion (entonces no se ve el vendedor).</param>
     /// <param name="campus">Campus pedido por un visitante.</param>
-    /// <param name="category">Slug de la categoria, o todas.</param>
+    /// <param name="category">Slugs de las categorias (se pueden repetir), o todas.</param>
+    /// <param name="minPriceCents">Precio minimo, inclusivo.</param>
+    /// <param name="maxPriceCents">Precio maximo, inclusivo.</param>
+    /// <param name="condition"><c>new</c>, <c>used</c> o todas.</param>
+    /// <param name="sort">Orden de <see cref="ProductSorts"/>; <c>null</c> usa el mas nuevo.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
     /// <param name="hideSoldOut">Ocultar agotados.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
@@ -197,16 +200,46 @@ internal sealed partial class ListingService(
     public async Task<Result<ProductPage>> ShowcaseAsync(
         ShowcaseViewer viewer,
         string? campus,
-        string? category,
+        string[]? category,
+        long? minPriceCents,
+        long? maxPriceCents,
+        string? condition,
+        string? sort,
         string? q,
         bool hideSoldOut,
         string? cursor,
         int? limit,
         CancellationToken cancellationToken)
     {
-        if (cursor is not null && !ObjectId.TryParse(cursor, out _))
+        // HU-10 R3-R5: rango, condicion y orden tienen lista blanca antes de tocar la base.
+        if (minPriceCents is < 0 or > MaxPriceCents
+            || maxPriceCents is < 0 or > MaxPriceCents
+            || (minPriceCents is { } min && maxPriceCents is { } max && min > max))
         {
-            return ListingsErrors.InvalidCursor;
+            return ListingsErrors.InvalidPriceRange;
+        }
+
+        var conditionValue = string.IsNullOrWhiteSpace(condition) ? null : condition.Trim();
+        if (conditionValue is not null && conditionValue is not (ProductConditions.New or ProductConditions.Used))
+        {
+            return ListingsErrors.InvalidCondition;
+        }
+
+        var sortValue = string.IsNullOrWhiteSpace(sort) ? ProductSorts.Newest : sort.Trim();
+        if (!ProductSorts.IsDefined(sortValue))
+        {
+            return ListingsErrors.InvalidSort;
+        }
+
+        ProductCursor? after = null;
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            if (!ProductCursorCodec.TryDecode(cursor, sortValue, MaxPriceCents, out var decoded))
+            {
+                return ListingsErrors.InvalidCursor;
+            }
+
+            after = decoded;
         }
 
         // HU-09 R1: q vacio equivale a no buscar; con texto, hasta 80 caracteres y al menos una letra o digito.
@@ -230,14 +263,43 @@ internal sealed partial class ListingService(
         }
 
         var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
+        // HU-57: el bloqueo se resuelve una vez para la pagina y el total.
         var hidden = viewer.UserId is null ? null : await blocks.HiddenForAsync(viewer.UserId, cancellationToken).ConfigureAwait(false);
-        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size, search, hidden);
+        // HU-10 R1: varias categorias, recortadas y sin vacios; un solo valor sigue funcionando.
+        // NOTE (HU-10): sin tope propio de categorias; la linea de peticion lo acota. Si se vuelve abuso, tope + error.
+        var slugs = (category ?? [])
+            .Select(slug => slug.Trim())
+            .Where(slug => slug.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var query = new ProductQuery(
+            communityId,
+            slugs.Length == 0 ? null : slugs,
+            !hideSoldOut,
+            after,
+            size,
+            search,
+            minPriceCents,
+            maxPriceCents,
+            conditionValue,
+            sortValue,
+            hidden);
         var page = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
         var total = await products.CountAsync(query, cancellationToken).ConfigureAwait(false);
         var includeSeller = viewer.CommunityId is not null;
+        string? nextCursor = null;
+        if (page.Count == size)
+        {
+            var last = page[^1];
+            nextCursor = ProductCursorCodec.Encode(new ProductCursor(
+                sortValue,
+                ProductSorts.IsPriceBased(sortValue) ? last.PriceCents : null,
+                last.Id));
+        }
+
         return Result<ProductPage>.Ok(new ProductPage(
             page.Select(p => ToResponse(p, includeSeller)).ToList(),
-            page.Count == size ? page[^1].Id : null,
+            nextCursor,
             total));
     }
 

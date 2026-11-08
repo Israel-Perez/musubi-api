@@ -74,9 +74,8 @@ internal sealed class InMemoryProductRepository : IProductRepository
         ArgumentNullException.ThrowIfNull(query);
         lock (gate)
         {
-            var page = Showcase(query)
-                .Where(p => query.BeforeId is null || string.CompareOrdinal(p.Id, query.BeforeId) < 0)
-                .OrderByDescending(p => p.Id, StringComparer.Ordinal)
+            var page = Sorted(Showcase(query), query.Sort)
+                .Where(p => IsAfter(p, query))
                 .Take(query.Limit)
                 .ToList();
             return Task.FromResult<IReadOnlyList<ProductDocument>>(page);
@@ -138,10 +137,36 @@ internal sealed class InMemoryProductRepository : IProductRepository
         string.Equals(p.CommunityId, query.CommunityId, StringComparison.Ordinal)
         // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
         && (p.Status == ProductStatuses.Active || (query.Search is null && query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
-        && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal))
+        && ((query.CategorySlugs is null or { Count: 0 }) || query.CategorySlugs.Contains(p.CategorySlug, StringComparer.Ordinal))
+        && (query.Condition is null || string.Equals(p.Condition, query.Condition, StringComparison.Ordinal))
+        && (query.MinPriceCents is null || p.PriceCents >= query.MinPriceCents)
+        && (query.MaxPriceCents is null || p.PriceCents <= query.MaxPriceCents)
         // HU-57: sin las publicaciones de quien bloqueaste o te bloqueo.
         && (query.ExcludeSellers is null || !query.ExcludeSellers.Contains(p.SellerId, StringComparer.Ordinal))
         && (query.Search is null || Matches(p, query.Search)));
+
+    // Mismo orden que MongoDB (HU-10): en empate por precio, _id descendente.
+    private static IEnumerable<ProductDocument> Sorted(IEnumerable<ProductDocument> products, string sort) => sort switch
+    {
+        ProductSorts.Oldest => products.OrderBy(p => p.Id, StringComparer.Ordinal),
+        ProductSorts.PriceAsc => products
+            .OrderBy(p => p.PriceCents)
+            .ThenByDescending(p => p.Id, StringComparer.Ordinal),
+        ProductSorts.PriceDesc => products
+            .OrderByDescending(p => p.PriceCents)
+            .ThenByDescending(p => p.Id, StringComparer.Ordinal),
+        _ => products.OrderByDescending(p => p.Id, StringComparer.Ordinal),
+    };
+
+    private static bool IsAfter(ProductDocument product, ProductQuery query) => query.After is not { } cursor || query.Sort switch
+    {
+        ProductSorts.Oldest => string.CompareOrdinal(product.Id, cursor.Id) > 0,
+        ProductSorts.PriceAsc => product.PriceCents > cursor.PriceCents
+            || (product.PriceCents == cursor.PriceCents && string.CompareOrdinal(product.Id, cursor.Id) < 0),
+        ProductSorts.PriceDesc => product.PriceCents < cursor.PriceCents
+            || (product.PriceCents == cursor.PriceCents && string.CompareOrdinal(product.Id, cursor.Id) < 0),
+        _ => string.CompareOrdinal(product.Id, cursor.Id) < 0,
+    };
 
     // Prefijo de palabra como en MongoDB (HU-09): compara contra las palabras ya normalizadas del documento.
     private static bool Matches(ProductDocument product, string search)

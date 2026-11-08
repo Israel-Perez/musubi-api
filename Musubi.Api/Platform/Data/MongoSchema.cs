@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 8;
+    public const int ExpectedVersion = 9;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";

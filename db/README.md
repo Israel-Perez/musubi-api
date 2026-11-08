@@ -12,6 +12,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `006-chat-bandeja.js` | No leídos por lado y copia de nombres y portada en `conversations` (HU-22) | 6 |
 | `007-busqueda.js` | Palabras normalizadas en `products.searchWords` + índice `ix_community_status_search` (HU-09) | 7 |
 | `008-reportes-bloqueos.js` | `reports` (HU-28) y `blocks` (HU-57) | 8 |
+| `009-filtros-precio.js` | Índices de precio asc/desc, con y sin categoría, para ordenar sin memoria (HU-10) | 9 |
 
 ## Aplicar
 

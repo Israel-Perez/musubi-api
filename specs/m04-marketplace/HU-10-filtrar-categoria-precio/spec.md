@@ -6,44 +6,98 @@
 Jira (SCRUM-27): Como **comprador**, quiero **filtrar los resultados por categoría y precio**, para **descartar lo que no me sirve**.
 
 - Maqueta: `Busqueda`, `Busqueda-filtros`, `Busqueda-vacia`.
-- Trazabilidad: RF-13 · CU-06.
+- Trazabilidad: RF-13 · CU-06 · RNF-07 · RNF-09.
 - Origen: Propuesta inicial §11.
 
-**Depende de:** `02-01`, `02-03`, `HU-09`.
+**Depende de:** `02-01`, `02-02`, `02-03`, `HU-06`, `HU-09`, `HU-11`, `HU-48`.
+
+La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hideSoldOut`, `cursor` y `limit`. Esta HU agrega los filtros de la hoja `Busqueda-filtros`: varias categorías, rango de precio, condición y orden. No se crea un módulo nuevo: el endpoint, el repositorio y los DTO viven en `Modules/Listings/` y M-04 los reutiliza (misma decisión que HU-09). El esquema gana dos índices para ordenar por precio, creados por `db/008-filtros-precio.js`.
 
 ## Requisitos
-1. Se puede filtrar por categoría.
-2. Se puede filtrar por rango de precio.
-3. Los filtros se combinan con la búsqueda por palabra clave.
-
-RNF que aplican: se confirman al detallar.
+1. `GET /api/v1/products` acepta `category` repetido (`category=libros&category=laptops`). Los valores se recortan, se descartan los vacíos y se comparan como OR. Un solo valor sigue funcionando. Sin `category`, no hay filtro de categoría.
+2. Acepta `minPriceCents` y `maxPriceCents`, ambos opcionales e inclusivos. Sin mínimo no hay piso; sin máximo no hay techo.
+3. El rango es válido si `0 <= minPriceCents <= maxPriceCents <= 99 999 900`. Si no: `400 listings.invalid_price_range`.
+4. Acepta `condition` con `new` o `used`. Omitido o vacío significa todas. Cualquier otro valor: `400 listings.invalid_condition`.
+5. Acepta `sort` con `relevance`, `newest`, `oldest`, `priceAsc` o `priceDesc`. Omitido o vacío usa `newest`. Cualquier otro valor: `400 listings.invalid_sort`.
+6. Los filtros se combinan entre sí, con `campus`, `q` y `hideSoldOut` mediante AND. Con `q` solo salen publicaciones `active`, aunque llegue `hideSoldOut=false`.
+7. Orden:
+   - `newest`: `_id` descendente.
+   - `oldest`: `_id` ascendente.
+   - `priceAsc`: `priceCents` ascendente y, en empate, `_id` descendente.
+   - `priceDesc`: `priceCents` descendente y, en empate, `_id` descendente.
+   - `relevance`: hoy se comporta como `newest`; no hay puntaje de relevancia (HU-09 lo difirió).
+8. `nextCursor` es opaco y lleva el orden y la última clave: `newest:<id>`, `oldest:<id>`, `priceAsc:<priceCents>:<id>` o `priceDesc:<priceCents>:<id>`. Se acepta el ObjectId crudo anterior solo para `newest` y `relevance`. Un cursor malformado, de otro orden o con un id que no es ObjectId: `400 listings.invalid_cursor`.
+9. La página siguiente conserva los mismos filtros y el mismo `sort`. `total` cuenta todas las coincidencias sin aplicar el cursor; `nextCursor` es `null` si la página no se llenó.
+10. La ruta sigue `[AllowAnonymous]`, con sesión opcional, `ETag`/`304` y la caché de salida actuales. La política `showcase` varía por todos los query params, así que los nuevos entran en la clave sin cambios.
+11. Los índices `ix_community_status_price_id` y `ix_community_category_status_price_id` los crea `db/008-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `8`. El script no modifica documentos.
+12. Los filtros no se persisten ni se registran en logs o analítica (RNF-07).
+13. La respuesta no cambia: `ProductPage { items: ProductResponse[], nextCursor, total }`. No hace falta fixture nuevo.
+14. RNF-09: el orden por precio usa los índices nuevos; con `q` el orden puede resolverse en memoria sobre las coincidencias y `limit <= 50` acota el costo.
 
 ## Diseño
-- Módulo `Musubi.Api/Modules/Marketplace/` (M-04). Si es la primera HU del módulo, aquí se crea su carpeta (`Modules/README.md`).
-- Colecciones: `products` (diseño 📐 en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); el script `db/NNN-*.js` se escribe al implementar).
-- Endpoints: se definen al detallar. Cada ruta tiene su fila en `docs/endpoints.md` (`check_endpoints`) y su auth explícita.
+- **Módulo:** `Musubi.Api/Modules/Listings/` (M-03), reutilizado por M-04. No se crea `Modules/Marketplace/`.
+- **Controller:** `ProductsController.Showcase` recibe `[FromQuery] string[]? category`, `long? minPriceCents`, `long? maxPriceCents`, `string? condition` y `string? sort`. No hay lógica de negocio ni `try/catch`.
+- **Servicio:** `ListingService.ShowcaseAsync` normaliza categorías y `q`, valida rango, condición y orden, resuelve el cursor y devuelve el `nextCursor`.
+- **Consulta:** `ProductQuery` agrega `CategorySlugs`, `MinPriceCents`, `MaxPriceCents`, `Condition`, `Sort` y `After`. `After` es un `ProductCursor` ya validado.
+- **Cursor:** `ProductSorts` (constantes) y `ProductCursorCodec` (codificar/decodificar) viven junto a `ProductQuery` en `Data/ListingRepositories.cs`. El token no se firma: solo pagina y se valida.
+- **MongoDB:** `Showcase` agrega `$in` de categorías, `$gte`/`$lte` de precio y `$eq` de condición. `FindPageAsync` aplica el filtro de cursor compuesto y el `Sort` correspondiente. `CountAsync` ignora el cursor.
+- **En memoria:** `InMemoryProductRepository` aplica los mismos filtros, el mismo orden y la misma comparación de cursor que Mongo.
+- **Errores:** `ListingsErrors.InvalidPriceRange` y `ListingsErrors.InvalidSort` (400). La condición inválida reutiliza `InvalidCondition`.
+- **Índices:** `db/008-filtros-precio.js` crea `{ communityId, status, priceCents, _id }` y `{ communityId, categorySlug, status, priceCents, _id }`; sube `_meta.version` a 8.
+- **Caché:** sin cambios; `SetVaryByQuery("*")` ya incluye los parámetros nuevos.
+- **Rama:** `feature/SCRUM-27-filtrar-categoria-precio`.
 
 ## Contratos
-Por definir al detallar: filas nuevas en [`docs/endpoints.md`](../../../docs/endpoints.md), errores en [`docs/errores.md`](../../../docs/errores.md) y fixtures en `ContractTest/Fixtures/`.
+- Fila canónica: [`docs/endpoints.md`](../../../docs/endpoints.md) → `GET /api/v1/products`. Cambia a `?campus=&category=&minPriceCents=&maxPriceCents=&condition=&sort=&q=&hideSoldOut=&cursor=&limit=`. Se enlaza, no se copia la tabla.
+- Mapa para la app: `relevancia` → `relevance`, `recientes` → `newest`, `antiguos` → `oldest`, `precio-asc` → `priceAsc`, `precio-desc` → `priceDesc`; categorías como parámetros repetidos; precio en centavos; sin máximo = omitir `maxPriceCents`.
+- Respuesta sin cambios: `ProductPage`. Se reutiliza `ContractTest/Fixtures/product-page.json`.
+- Errores nuevos en [`docs/errores.md`](../../../docs/errores.md): `listings.invalid_price_range` (400) y `listings.invalid_sort` (400). `listings.invalid_condition` y `listings.invalid_cursor` se reutilizan.
+- Esquema: fila `products` de [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); agrega los dos índices de precio con `db/008`.
+- Configuración: sin claves nuevas.
 
 ## Tests
-- `UnitTest/Marketplace/`: reglas de negocio de cada criterio.
-- `IntegrationTest/Marketplace/`: un flujo por criterio de aceptación, con su código de error.
-- `SecurityTest/Auth/`: 401 sin sesión y, cuando aplique, solo el dueño actúa (RNF-03, OWASP API1).
-- `ContractTest/`: forma JSON de las respuestas nuevas.
-- `TestShared/` + `DatabaseTest/`: la batería del repositorio en memoria y en MongoDB real; índices del script.
+Conteos reales al cerrar (07-Nov-2026): pendientes de la corrida.
+
+- `TestShared/Listings/ListingRepositoryContract.cs` (corre en `UnitTest/Data/InMemoryListingRepositoryTests` y `DatabaseTest/MongoListingRepositoryTests`):
+  - `Filters_ByPriceRange_IsInclusive_AndAcceptsOnlyOneBound`.
+  - `Filters_BySeveralCategories_AndByCondition`.
+  - `Filters_CombinePriceCategoryConditionAndSearch`.
+  - `Sorts_ByNewestAndOldest_WithCursor`.
+  - `Sorts_ByPrice_WithTieBreakerAndCursor`.
+- `IntegrationTest/Listings/ListingFlowTests.cs`:
+  - `Showcase_FiltersByCategoriesPriceAndCondition`.
+  - `Showcase_SortsByPrice_AndPagesWithTheCursor`.
+  - `Showcase_RejectsInvalidFilters`.
+- `SecurityTest/Auth/ListingsAuthTests.cs`: la vitrina con filtros sigue pública; valores extraños no cruzan campus ni inyectan filtros.
+- `ContractTest/ListingsContractTests.cs`: `GET /api/v1/products` con filtros y orden mantiene la forma de `product-page.json`.
+- `DatabaseTest/SchemaScriptTests.cs`: existen los dos índices y `_meta.version` es 8.
 
 ## Criterios
-- [ ] Se puede filtrar por categoría.
-- [ ] Se puede filtrar por rango de precio.
-- [ ] Los filtros se combinan con la búsqueda por palabra clave.
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
+- [ ] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
+- [ ] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 0 fallos.
+- [ ] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → 0 fallos.
+- [ ] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → 0 fallos.
+- [ ] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → 0 fallos.
+- [ ] `GET /api/v1/products?category=libros&category=laptops&minPriceCents=10000&maxPriceCents=50000&condition=used&sort=priceAsc` devuelve solo coincidencias y en orden (`Showcase_FiltersByCategoriesPriceAndCondition`).
+- [ ] `GET /api/v1/products?minPriceCents=50000&maxPriceCents=10000` devuelve `400 listings.invalid_price_range` (`Showcase_RejectsInvalidFilters`).
+- [ ] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`.
+- [ ] `pwsh scripts/check_endpoints.ps1` → `OK` exit 0.
+- [ ] `pwsh scripts/critic-guardrails.ps1` → `PASS` exit 0.
+- [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release` en CI → 0 fallos (local sin Docker: no se corre).
 
 ## Límites
-- Spec ligera: el diseño, los contratos y las pruebas exactas se fijan al iniciar la HU (`plan.md`).
+- **Relevancia:** no hay puntaje; `relevance` ordena como `newest`. Un orden por relevancia real queda para una HU posterior. `NOTE (HU-10)`.
+- **Orden por precio con `q`:** el índice de prefijo resuelve la búsqueda, pero el orden por precio puede hacerse en memoria sobre las coincidencias. Aceptable con `limit <= 50`; si el volumen crece, se mide y se decide con `02-02`. `NOTE (HU-10)`.
+- **Sin tope propio de categorías:** el límite es el tamaño de la línea de petición. Si se vuelve abuso, se agrega un tope y su error. `NOTE (HU-10)`.
+- **Cursor legado:** el ObjectId crudo solo se acepta para `newest`/`relevance`; un cliente que lo reutilice con otro orden recibe `400`. Es intencional.
+- **Sin filtro por vendedor, texto libre en categoría ni rango por defecto:** la app manda los valores; la API no inventa precios.
+- **`hideSoldOut` conserva su valor por defecto actual (`false`):** la app manda `true` cuando la maqueta oculta agotados.
+- **Sin cambios en la app:** la contraparte Flutter implementa la hoja en su repo; esta spec cubre solo la API.
+- **DatabaseTest no corre en local sin Docker:** la evidencia de los índices es el job `database` del CI.
+- **Sin rate limit nuevo:** la vitrina sigue sin límite por IP; queda para el endurecimiento de abuso (RNF-11).
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (spec ligera)
+- **Estado:** 🚧 Borrador
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 29-Oct-2026
-- **Detalle:** generada desde Jira, la maqueta y el modelo de datos para tener todo el backlog especificado (SCRUM-86, pedido del docente). Al iniciar la HU se completan `plan.md` y `task.md` y se resuelven las decisiones pendientes.
+- **Fecha:** 07-Nov-2026
+- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. Pendiente la implementación y el revisor para pasar a "Borrador con evidencia".

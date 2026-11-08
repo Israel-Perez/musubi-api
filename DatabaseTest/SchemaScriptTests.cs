@@ -34,7 +34,9 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "004-perfiles");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "005-chat");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "006-chat-bandeja");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "007-busqueda");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "008-reportes-bloqueos");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "009-filtros-precio");
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
@@ -148,6 +150,9 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
         // HU-09: indice de las palabras normalizadas para la busqueda por prefijo.
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_search");
+        // HU-10: indices para ordenar por precio sin ordenar en memoria.
+        Assert.Contains(indexes, i => i["name"] == "ix_community_status_price_id");
+        Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_price_id");
     }
 
     [Fact]

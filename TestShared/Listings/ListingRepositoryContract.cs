@@ -28,7 +28,8 @@ public abstract class ListingRepositoryContract
         string status = ProductStatuses.Active,
         long price = 45_000,
         string? title = null,
-        string? description = null) => new()
+        string? description = null,
+        string condition = ProductConditions.Used) => new()
     {
         Id = AuthIds.New(),
         CommunityId = communityId,
@@ -38,8 +39,8 @@ public abstract class ListingRepositoryContract
         Description = description ?? "La usé un semestre.",
         CategorySlug = category,
         PriceCents = price,
-        Condition = ProductConditions.Used,
-        ConditionDetail = "likeNew",
+        Condition = condition,
+        ConditionDetail = condition == ProductConditions.Used ? "likeNew" : null,
         Stock = status == ProductStatuses.SoldOut ? 0 : 1,
         Status = status,
         Photos = [$"media/products/{sellerId}/{Guid.NewGuid():N}.webp"],
@@ -78,7 +79,8 @@ public abstract class ListingRepositoryContract
         }
 
         var first = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 2), Ct);
-        var second = await Products.FindPageAsync(new ProductQuery(community, null, true, first[^1].Id, 2), Ct);
+        var second = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, new ProductCursor(ProductSorts.Newest, null, first[^1].Id), 2), Ct);
 
         Assert.Equal([inserted[2].Id, inserted[1].Id], first.Select(p => p.Id));
         Assert.Equal([inserted[0].Id], second.Select(p => p.Id));
@@ -113,8 +115,8 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(NewProduct(community, seller, "calculadoras", ProductStatuses.SoldOut), Ct);
         await Products.InsertAsync(NewProduct(community, seller, "calculadoras", ProductStatuses.Hidden), Ct);
 
-        var calculators = await Products.FindPageAsync(new ProductQuery(community, "calculadoras", true, null, 10), Ct);
-        var available = await Products.FindPageAsync(new ProductQuery(community, "calculadoras", false, null, 10), Ct);
+        var calculators = await Products.FindPageAsync(new ProductQuery(community, ["calculadoras"], true, null, 10), Ct);
+        var available = await Products.FindPageAsync(new ProductQuery(community, ["calculadoras"], false, null, 10), Ct);
 
         Assert.Equal(2, calculators.Count);
         Assert.Single(available);
@@ -245,7 +247,7 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(book, Ct);
 
         var either = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "casio apuntes"), Ct);
-        var booksOnly = await Products.FindPageAsync(new ProductQuery(community, "libros", false, null, 10, "casio apuntes"), Ct);
+        var booksOnly = await Products.FindPageAsync(new ProductQuery(community, ["libros"], false, null, 10, "casio apuntes"), Ct);
 
         Assert.Equal(2, either.Count);
         Assert.Contains(either, p => p.Id == calculator.Id);
@@ -270,7 +272,8 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(NewProduct(community, seller, "libros", title: "Libro de Biología"), Ct);
 
         var first = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 2, "calculadora"), Ct);
-        var second = await Products.FindPageAsync(new ProductQuery(community, null, false, first[^1].Id, 2, "calculadora"), Ct);
+        var second = await Products.FindPageAsync(
+            new ProductQuery(community, null, false, new ProductCursor(ProductSorts.Newest, null, first[^1].Id), 2, "calculadora"), Ct);
 
         Assert.Equal([inserted[2].Id, inserted[1].Id], first.Select(p => p.Id));
         Assert.Equal([inserted[0].Id], second.Select(p => p.Id));
@@ -308,5 +311,163 @@ public abstract class ListingRepositoryContract
 
         // El prefijo se ancla al inicio de la palabra.
         Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "culadora"), Ct));
+    }
+
+    // HU-10: filtros de la hoja "Busqueda-filtros" (categorias en OR, rango de precio inclusivo,
+    // condicion y orden) y cursor compuesto. Mongo e InMemory tienen que comportarse igual.
+
+    [Fact]
+    public async Task Filters_ByPriceRange_IsInclusive_AndAcceptsOnlyOneBound()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var cheap = NewProduct(community, seller, price: 10_000);
+        var middle = NewProduct(community, seller, price: 20_000);
+        var expensive = NewProduct(community, seller, price: 30_000);
+        foreach (var product in new[] { cheap, middle, expensive })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        // HU-10 R2 y R3: los dos extremos son inclusivos y cada uno se puede omitir.
+        var bounded = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { MinPriceCents = 20_000, MaxPriceCents = 30_000 }, Ct);
+        var fromMiddle = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { MinPriceCents = 20_000 }, Ct);
+        var upToMiddle = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { MaxPriceCents = 20_000 }, Ct);
+
+        Assert.Equal([expensive.Id, middle.Id], bounded.Select(p => p.Id));
+        Assert.Equal([expensive.Id, middle.Id], fromMiddle.Select(p => p.Id));
+        Assert.Equal([middle.Id, cheap.Id], upToMiddle.Select(p => p.Id));
+        Assert.Equal(2, await Products.CountAsync(new ProductQuery(community, null, true, null, 10) { MinPriceCents = 20_000 }, Ct));
+    }
+
+    [Fact]
+    public async Task Filters_BySeveralCategories_AndByCondition()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var usedBook = NewProduct(community, seller, "libros", price: 12_000);
+        var newBook = NewProduct(community, seller, "libros", price: 15_000, condition: ProductConditions.New);
+        var usedLaptop = NewProduct(community, seller, "laptops", price: 80_000);
+        var usedCalculator = NewProduct(community, seller, "calculadoras", price: 18_000);
+        foreach (var product in new[] { usedBook, newBook, usedLaptop, usedCalculator })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        // HU-10 R1: las categorias se comparan como OR; R4: la condicion acota.
+        var byCategories = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { CategorySlugs = ["libros", "laptops"] }, Ct);
+        var usedOfThose = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { CategorySlugs = ["libros", "laptops"], Condition = ProductConditions.Used }, Ct);
+        var onlyNew = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { Condition = ProductConditions.New }, Ct);
+
+        Assert.Equal([usedLaptop.Id, newBook.Id, usedBook.Id], byCategories.Select(p => p.Id));
+        Assert.Equal([usedLaptop.Id, usedBook.Id], usedOfThose.Select(p => p.Id));
+        Assert.Equal(newBook.Id, Assert.Single(onlyNew).Id);
+    }
+
+    [Fact]
+    public async Task Filters_CombinePriceCategoryConditionAndSearch()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var match = NewProduct(community, seller, "libros", price: 25_000, title: "Libro de Cálculo diferencial");
+        var tooCheap = NewProduct(community, seller, "libros", price: 5_000, title: "Libro de Cálculo integral");
+        var otherCategory = NewProduct(community, seller, "laptops", price: 25_000, title: "Libro de Cálculo en PDF");
+        var otherCondition = NewProduct(community, seller, "libros", price: 25_000, title: "Libro de Cálculo nuevo", condition: ProductConditions.New);
+        var soldOut = NewProduct(community, seller, "libros", ProductStatuses.SoldOut, 25_000, "Libro de Cálculo vendido");
+        foreach (var product in new[] { match, tooCheap, otherCategory, otherCondition, soldOut })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var query = new ProductQuery(community, null, true, null, 10, "cálculo")
+        {
+            CategorySlugs = ["libros"],
+            MinPriceCents = 20_000,
+            MaxPriceCents = 30_000,
+            Condition = ProductConditions.Used,
+        };
+
+        // HU-10 R6: los filtros se combinan con AND y, con q, solo salen las disponibles.
+        Assert.Equal(match.Id, Assert.Single(await Products.FindPageAsync(query, Ct)).Id);
+        Assert.Equal(1, await Products.CountAsync(query, Ct));
+    }
+
+    [Fact]
+    public async Task Sorts_ByNewestAndOldest_WithCursor()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var oldest = NewProduct(community, seller);
+        var middle = NewProduct(community, seller);
+        var newest = NewProduct(community, seller);
+        foreach (var product in new[] { oldest, middle, newest })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        // HU-10 R7 y R8: newest es _id descendente y oldest ascendente; el cursor sigue con ese orden.
+        var newestFirst = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 2) { Sort = ProductSorts.Newest }, Ct);
+        var afterNewest = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 2)
+            {
+                Sort = ProductSorts.Newest,
+                After = new ProductCursor(ProductSorts.Newest, null, middle.Id),
+            }, Ct);
+        var oldestFirst = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 2) { Sort = ProductSorts.Oldest }, Ct);
+        var afterOldest = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 2)
+            {
+                Sort = ProductSorts.Oldest,
+                After = new ProductCursor(ProductSorts.Oldest, null, middle.Id),
+            }, Ct);
+
+        Assert.Equal([newest.Id, middle.Id], newestFirst.Select(p => p.Id));
+        Assert.Equal(oldest.Id, Assert.Single(afterNewest).Id);
+        Assert.Equal([oldest.Id, middle.Id], oldestFirst.Select(p => p.Id));
+        Assert.Equal(newest.Id, Assert.Single(afterOldest).Id);
+    }
+
+    [Fact]
+    public async Task Sorts_ByPrice_WithTieBreakerAndCursor()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var firstTie = NewProduct(community, seller, price: 30_000);
+        var middle = NewProduct(community, seller, price: 20_000);
+        var lastTie = NewProduct(community, seller, price: 30_000);
+        foreach (var product in new[] { firstTie, middle, lastTie })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        // HU-10 R7: en empate desempata _id descendente; R9: el total ignora el cursor.
+        var ascending = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { Sort = ProductSorts.PriceAsc }, Ct);
+        var descending = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10) { Sort = ProductSorts.PriceDesc }, Ct);
+        var nextAscending = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10)
+            {
+                Sort = ProductSorts.PriceAsc,
+                After = new ProductCursor(ProductSorts.PriceAsc, lastTie.PriceCents, lastTie.Id),
+            }, Ct);
+
+        Assert.Equal([middle.Id, lastTie.Id, firstTie.Id], ascending.Select(p => p.Id));
+        Assert.Equal([lastTie.Id, firstTie.Id, middle.Id], descending.Select(p => p.Id));
+        Assert.Equal(firstTie.Id, Assert.Single(nextAscending).Id);
+        Assert.Equal(3, await Products.CountAsync(
+            new ProductQuery(community, null, true, null, 1)
+            {
+                Sort = ProductSorts.PriceAsc,
+                After = new ProductCursor(ProductSorts.PriceAsc, lastTie.PriceCents, lastTie.Id),
+            }, Ct));
     }
 }

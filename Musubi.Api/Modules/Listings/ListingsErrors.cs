@@ -34,6 +34,14 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidStock = new(
         "listings.invalid_stock", StatusCodes.Status400BadRequest, "Las piezas disponibles van de 1 a 10.");
 
+    /// <summary>Rango de precio al reves o fuera de 0 a $999,999 (HU-10 R3).</summary>
+    public static readonly ApiError InvalidPriceRange = new(
+        "listings.invalid_price_range", StatusCodes.Status400BadRequest, "Revisa el rango de precio: el mínimo no puede ser mayor que el máximo.");
+
+    /// <summary>Orden que no esta en la lista de <c>ProductSorts</c> (HU-10).</summary>
+    public static readonly ApiError InvalidSort = new(
+        "listings.invalid_sort", StatusCodes.Status400BadRequest, "Elige un orden para los resultados.");
+
     /// <summary>Cursor de paginacion que no se emitio aqui.</summary>
     public static readonly ApiError InvalidCursor = new(
         "listings.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más publicaciones. Actualiza la lista.");

@@ -86,6 +86,9 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
             },
             Ct));
         var page = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?category=calculadoras", UriKind.Relative), Ct));
+        // HU-10: los filtros y el orden conservan la forma de la pagina.
+        var filtered = await BodyAsync(await client.GetAsync(
+            new Uri("/api/v1/products?category=calculadoras&minPriceCents=40000&maxPriceCents=50000&condition=used&sort=priceAsc", UriKind.Relative), Ct));
         // HU-09: la busqueda devuelve la misma forma que la vitrina (mismo fixture).
         var searched = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?q=calculadora", UriKind.Relative), Ct));
         var categories = await BodyAsync(await client.GetAsync(new Uri("/api/v1/categories", UriKind.Relative), Ct));
@@ -95,6 +98,8 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(product));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(page));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(page.GetProperty("items")[0]));
+        Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(filtered));
+        Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(filtered.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(searched));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(searched.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("category.json")), Shape(categories[0]));

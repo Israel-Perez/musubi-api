@@ -22,7 +22,7 @@ internal sealed class MongoCategoryRepository(IMongoDatabase database) : ICatego
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 }
 
-/// <summary>Publicaciones en MongoDB (indices <c>ix_community_status_id</c>, <c>ix_community_category_status_id</c> e <c>ix_seller_id</c>).</summary>
+/// <summary>Publicaciones en MongoDB (indices de vitrina, categoria, vendedor y precio; HU-06, HU-09, HU-10).</summary>
 internal sealed class MongoProductRepository(IMongoDatabase database) : IProductRepository
 {
     private static readonly FilterDefinitionBuilder<ProductDocument> Filter = Builders<ProductDocument>.Filter;
@@ -43,13 +43,13 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     public async Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         var filter = Showcase(query);
-        if (query.BeforeId is { } before)
+        if (query.After is { } after)
         {
-            filter &= Filter.Lt("_id", ObjectId.Parse(before));
+            filter &= CursorFilter(after);
         }
 
         return await products.Find(filter)
-            .SortByDescending(p => p.Id)
+            .Sort(SortFor(query.Sort))
             .Limit(query.Limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -91,9 +91,24 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId) & Filter.In(p => p.Status, statuses);
-        if (query.CategorySlug is { } category)
+        if (query.CategorySlugs is { Count: > 0 } categories)
         {
-            filter &= Filter.Eq(p => p.CategorySlug, category);
+            filter &= Filter.In(p => p.CategorySlug, categories);
+        }
+
+        if (query.Condition is { } condition)
+        {
+            filter &= Filter.Eq(p => p.Condition, condition);
+        }
+
+        if (query.MinPriceCents is { } min)
+        {
+            filter &= Filter.Gte(p => p.PriceCents, min);
+        }
+
+        if (query.MaxPriceCents is { } max)
+        {
+            filter &= Filter.Lte(p => p.PriceCents, max);
         }
 
         // HU-57: sin las publicaciones de quien bloqueaste o te bloqueo.
@@ -106,6 +121,36 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         // ix_community_status_search); un documento coincide si alguna palabra empieza igual (OR).
         return query.Search is { } search ? filter & SearchByPrefix(search) : filter;
     }
+
+    private static FilterDefinition<ProductDocument> CursorFilter(ProductCursor cursor)
+    {
+        var id = ObjectId.Parse(cursor.Id);
+        var before = Filter.Lt("_id", id);
+        return cursor.Sort switch
+        {
+            ProductSorts.Oldest => Filter.Gt("_id", id),
+            // En empate, el orden sigue con _id descendente: la pagina siguiente tiene _id menor.
+            ProductSorts.PriceAsc => Filter.Or(
+                Filter.Gt(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()),
+                Filter.And(Filter.Eq(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()), before)),
+            ProductSorts.PriceDesc => Filter.Or(
+                Filter.Lt(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()),
+                Filter.And(Filter.Eq(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()), before)),
+            _ => before,
+        };
+    }
+
+    private static SortDefinition<ProductDocument> SortFor(string sort) => sort switch
+    {
+        ProductSorts.Oldest => Builders<ProductDocument>.Sort.Ascending(p => p.Id),
+        ProductSorts.PriceAsc => Builders<ProductDocument>.Sort
+            .Ascending(p => p.PriceCents)
+            .Descending(p => p.Id),
+        ProductSorts.PriceDesc => Builders<ProductDocument>.Sort
+            .Descending(p => p.PriceCents)
+            .Descending(p => p.Id),
+        _ => Builders<ProductDocument>.Sort.Descending(p => p.Id),
+    };
 
     private static FilterDefinition<ProductDocument> SearchByPrefix(string search)
     {
