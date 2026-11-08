@@ -158,15 +158,24 @@ internal sealed class InMemoryProductRepository : IProductRepository
         _ => products.OrderByDescending(p => p.Id, StringComparer.Ordinal),
     };
 
-    private static bool IsAfter(ProductDocument product, ProductQuery query) => query.After is not { } cursor || query.Sort switch
+    private static bool IsAfter(ProductDocument product, ProductQuery query)
     {
-        ProductSorts.Oldest => string.CompareOrdinal(product.Id, cursor.Id) > 0,
-        ProductSorts.PriceAsc => product.PriceCents > cursor.PriceCents
-            || (product.PriceCents == cursor.PriceCents && string.CompareOrdinal(product.Id, cursor.Id) < 0),
-        ProductSorts.PriceDesc => product.PriceCents < cursor.PriceCents
-            || (product.PriceCents == cursor.PriceCents && string.CompareOrdinal(product.Id, cursor.Id) < 0),
-        _ => string.CompareOrdinal(product.Id, cursor.Id) < 0,
-    };
+        if (query.After is not { } cursor)
+        {
+            return true;
+        }
+
+        var price = cursor.PriceCents.GetValueOrDefault();
+        return query.Sort switch
+        {
+            ProductSorts.Oldest => string.CompareOrdinal(product.Id, cursor.Id) > 0,
+            ProductSorts.PriceAsc => product.PriceCents > price
+                || (product.PriceCents == price && string.CompareOrdinal(product.Id, cursor.Id) < 0),
+            ProductSorts.PriceDesc => product.PriceCents < price
+                || (product.PriceCents == price && string.CompareOrdinal(product.Id, cursor.Id) < 0),
+            _ => string.CompareOrdinal(product.Id, cursor.Id) < 0,
+        };
+    }
 
     // Prefijo de palabra como en MongoDB (HU-09): compara contra las palabras ya normalizadas del documento.
     private static bool Matches(ProductDocument product, string search)

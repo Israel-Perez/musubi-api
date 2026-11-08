@@ -123,6 +123,11 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
         var ids = page.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()).ToList();
         Assert.Contains(local, ids);
         Assert.DoesNotContain(elsewhere, ids);
+
+        // HU-10 R1: un valor con metacaracteres se compara como texto en $in, no como sintaxis.
+        var weird = await visitor.GetAsync(
+            new Uri("/api/v1/products?category=calc.*%7Clibros&category=%7B%22%24ne%22%3A%22x%22%7D&sort=priceAsc", UriKind.Relative), Ct);
+        Assert.Equal(HttpStatusCode.OK, weird.StatusCode);
     }
 
     [Fact]

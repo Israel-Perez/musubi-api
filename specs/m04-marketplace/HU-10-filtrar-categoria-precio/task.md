@@ -37,7 +37,7 @@
 
 ## T7 — Verificación y cierre
 - **Qué:** Build 0/0, suites en verde, `critic`, `endpoints`, Semgrep; conciliar conteos reales en `spec.md`; `security-reviewer` y `traceability-clerk`.
-- **Verificación:** comandos de `spec.md` → Criterios; sin fallos. Evidencia: Unit 186 · Integration 103 · Security 85 · Contract 8 · Performance 4; `critic` PASS (31 archivos) y `endpoints` OK. `security-reviewer` PASS con avisos; `traceability-clerk` reportó 3 gaps medios (NOTE en código/task, cursor `relevance`, índice `priceDesc`), corregidos en este PR. Semgrep no está instalado en el entorno local; queda para el CI. `DatabaseTest` queda para el CI (sin Docker local).
+- **Verificación:** comandos de `spec.md` → Criterios; sin fallos. Evidencia: Unit 205 · Integration 103 · Security 85 · Contract 8 · Performance 4; `critic` PASS (31 archivos) y `endpoints` OK. `security-reviewer` PASS con avisos; `traceability-clerk` reportó gaps medios (NOTE en código/task, cursor `relevance`, índice `priceDesc`), corregidos en este PR. Semgrep no está instalado en el entorno local; queda para el CI. `DatabaseTest` queda para el CI (sin Docker local).
 - **Estado:** ✅ Hecho con Semgrep y `DatabaseTest` pendientes del CI.
 
 ## Pendientes

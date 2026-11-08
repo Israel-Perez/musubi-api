@@ -459,10 +459,25 @@ public abstract class ListingRepositoryContract
                 Sort = ProductSorts.PriceAsc,
                 After = new ProductCursor(ProductSorts.PriceAsc, lastTie.PriceCents, lastTie.Id),
             }, Ct);
+        // El cursor descendente cruza el empate de 30 000: no debe saltar ni repetir firstTie.
+        var nextDescending = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10)
+            {
+                Sort = ProductSorts.PriceDesc,
+                After = new ProductCursor(ProductSorts.PriceDesc, firstTie.PriceCents, firstTie.Id),
+            }, Ct);
+        var afterLastDescending = await Products.FindPageAsync(
+            new ProductQuery(community, null, true, null, 10)
+            {
+                Sort = ProductSorts.PriceDesc,
+                After = new ProductCursor(ProductSorts.PriceDesc, lastTie.PriceCents, lastTie.Id),
+            }, Ct);
 
         Assert.Equal([middle.Id, lastTie.Id, firstTie.Id], ascending.Select(p => p.Id));
         Assert.Equal([lastTie.Id, firstTie.Id, middle.Id], descending.Select(p => p.Id));
         Assert.Equal(firstTie.Id, Assert.Single(nextAscending).Id);
+        Assert.Equal(middle.Id, Assert.Single(nextDescending).Id);
+        Assert.Equal([firstTie.Id, middle.Id], afterLastDescending.Select(p => p.Id));
         Assert.Equal(3, await Products.CountAsync(
             new ProductQuery(community, null, true, null, 1)
             {

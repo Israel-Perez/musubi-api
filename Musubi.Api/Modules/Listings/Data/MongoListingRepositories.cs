@@ -45,7 +45,7 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         var filter = Showcase(query);
         if (query.After is { } after)
         {
-            filter &= CursorFilter(after);
+            filter &= CursorFilter(query.Sort, after);
         }
 
         return await products.Find(filter)
@@ -124,20 +124,21 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         return query.Search is { } search ? filter & SearchByPrefix(search) : filter;
     }
 
-    private static FilterDefinition<ProductDocument> CursorFilter(ProductCursor cursor)
+    private static FilterDefinition<ProductDocument> CursorFilter(string sort, ProductCursor cursor)
     {
         var id = ObjectId.Parse(cursor.Id);
         var before = Filter.Lt("_id", id);
-        return cursor.Sort switch
+        var price = cursor.PriceCents.GetValueOrDefault();
+        return sort switch
         {
             ProductSorts.Oldest => Filter.Gt("_id", id),
             // En empate, el orden sigue con _id descendente: la pagina siguiente tiene _id menor.
             ProductSorts.PriceAsc => Filter.Or(
-                Filter.Gt(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()),
-                Filter.And(Filter.Eq(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()), before)),
+                Filter.Gt(p => p.PriceCents, price),
+                Filter.And(Filter.Eq(p => p.PriceCents, price), before)),
             ProductSorts.PriceDesc => Filter.Or(
-                Filter.Lt(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()),
-                Filter.And(Filter.Eq(p => p.PriceCents, cursor.PriceCents.GetValueOrDefault()), before)),
+                Filter.Lt(p => p.PriceCents, price),
+                Filter.And(Filter.Eq(p => p.PriceCents, price), before)),
             _ => before,
         };
     }

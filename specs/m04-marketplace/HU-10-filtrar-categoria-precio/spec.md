@@ -16,7 +16,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 ## Requisitos
 1. `GET /api/v1/products` acepta `category` repetido (`category=libros&category=laptops`). Los valores se recortan, se descartan los vacíos y se comparan como OR. Un solo valor sigue funcionando. Sin `category`, no hay filtro de categoría.
 2. Acepta `minPriceCents` y `maxPriceCents`, ambos opcionales e inclusivos. Sin mínimo no hay piso; sin máximo no hay techo.
-3. El rango es válido si `0 <= minPriceCents <= maxPriceCents <= 99 999 900`. Si no: `400 listings.invalid_price_range`.
+3. El rango es válido si `0 <= minPriceCents <= maxPriceCents <= 99 999 900`. Si no: `400 listings.invalid_price_range`. Un valor no numérico o fuera del rango de `long` lo rechaza el binding como `validation.failed`.
 4. Acepta `condition` con `new` o `used`. Omitido o vacío significa todas. Cualquier otro valor: `400 listings.invalid_condition`.
 5. Acepta `sort` con `relevance`, `newest`, `oldest`, `priceAsc` o `priceDesc`. Omitido o vacío usa `newest`. Cualquier otro valor: `400 listings.invalid_sort`.
 6. Los filtros se combinan entre sí, con `campus`, `q` y `hideSoldOut` mediante AND. Con `q` solo salen publicaciones `active`, aunque llegue `hideSoldOut=false`.
@@ -26,7 +26,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
    - `priceAsc`: `priceCents` ascendente y, en empate, `_id` descendente.
    - `priceDesc`: `priceCents` descendente y, en empate, `_id` descendente.
    - `relevance`: hoy se comporta como `newest`; no hay puntaje de relevancia (HU-09 lo difirió).
-8. `nextCursor` es opaco y lleva el orden y la última clave: `newest:<id>`, `relevance:<id>` (se comporta como `newest`), `oldest:<id>`, `priceAsc:<priceCents>:<id>` o `priceDesc:<priceCents>:<id>`. Se acepta el ObjectId crudo anterior solo para `newest` y `relevance`. Un cursor malformado, de otro orden o con un id que no es ObjectId: `400 listings.invalid_cursor`.
+8. `nextCursor` es opaco y lleva el orden y la última clave: `newest:<id>`, `relevance:<id>` (se comporta como `newest`), `oldest:<id>`, `priceAsc:<priceCents>:<id>` o `priceDesc:<priceCents>:<id>`. Se acepta el ObjectId crudo anterior solo para `newest` y `relevance`. Un cursor malformado, de otro orden o con un id que no es ObjectId: `400 listings.invalid_cursor`. Un cursor de `newest` no sirve para `relevance` ni al revés, aunque ordenen igual.
 9. La página siguiente conserva los mismos filtros y el mismo `sort`. `total` cuenta todas las coincidencias sin aplicar el cursor; `nextCursor` es `null` si la página no se llenó.
 10. La ruta sigue `[AllowAnonymous]`, con sesión opcional, `ETag`/`304` y la caché de salida actuales. La política `showcase` varía por todos los query params, así que los nuevos entran en la clave sin cambios.
 11. Los índices `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id` los crea `db/008-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `8`. El script no modifica documentos.
@@ -56,14 +56,15 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - Configuración: sin claves nuevas.
 
 ## Tests
-Conteos reales al cerrar (07-Nov-2026): Unit 186 · Integration 103 · Security 85 · Contract 8 · Performance 4. `DatabaseTest` no se corrió en local (sin Docker); lo corre el CI.
+Conteos reales al cerrar (08-Nov-2026): Unit 205 · Integration 103 · Security 85 · Contract 8 · Performance 4. `DatabaseTest` no se corrió en local (sin Docker); lo corre el CI.
 
 - `TestShared/Listings/ListingRepositoryContract.cs` (corre en `UnitTest/Data/InMemoryListingRepositoryTests` y `DatabaseTest/MongoListingRepositoryTests`):
   - `Filters_ByPriceRange_IsInclusive_AndAcceptsOnlyOneBound`.
   - `Filters_BySeveralCategories_AndByCondition`.
   - `Filters_CombinePriceCategoryConditionAndSearch`.
   - `Sorts_ByNewestAndOldest_WithCursor`.
-  - `Sorts_ByPrice_WithTieBreakerAndCursor`.
+  - `Sorts_ByPrice_WithTieBreakerAndCursor` (asc y desc, cruzando el empate de precio).
+- `UnitTest/Listings/ProductCursorCodecTests.cs`: ida y vuelta por orden; legacy aceptado solo para `newest`/`relevance`; orden ajeno, precio fuera de rango, id inválido y partes de más se rechazan; ObjectId en mayúsculas se canonicaliza.
 - `IntegrationTest/Listings/ListingFlowTests.cs`:
   - `Showcase_FiltersByCategoriesPriceAndCondition`.
   - `Showcase_SortsByPrice_AndPagesWithTheCursor`.
@@ -75,7 +76,7 @@ Conteos reales al cerrar (07-Nov-2026): Unit 186 · Integration 103 · Security 
 
 ## Criterios
 - [x] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
-- [x] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 186/186, incluidos los 5 casos nuevos del contrato compartido.
+- [x] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 205/205, incluidos los 5 casos del contrato compartido y los 19 del codec del cursor.
 - [x] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → 103/103, incluidos los 3 flujos de filtros.
 - [x] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → 85/85; incluye filtros públicos sin cruce de campus.
 - [x] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → 8/8 con la página filtrada.
@@ -103,4 +104,4 @@ Conteos reales al cerrar (07-Nov-2026): Unit 186 · Integration 103 · Security 
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 07-Nov-2026
-- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. API implementada y verificada en local (Unit 186, Integration 103, Security 85, Contract 8, Performance 4, critic PASS, endpoints OK); `DatabaseTest` queda para el CI por falta de Docker en local. Pendiente el revisor para pasar a "Aprobado".
+- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. API implementada y verificada en local (Unit 205, Integration 103, Security 85, Contract 8, Performance 4, critic PASS, endpoints OK); `DatabaseTest` queda para el CI por falta de Docker en local. Pendiente el revisor para pasar a "Aprobado".

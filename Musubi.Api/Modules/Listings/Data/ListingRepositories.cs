@@ -105,12 +105,12 @@ internal static class ProductCursorCodec
         // Compatibilidad con HU-09: el cursor crudo de ObjectId solo vale para el orden por _id descendente.
         if (!token.Contains(':', StringComparison.Ordinal))
         {
-            if (sort is not (ProductSorts.Newest or ProductSorts.Relevance) || !ObjectId.TryParse(token, out _))
+            if (sort is not (ProductSorts.Newest or ProductSorts.Relevance) || !ObjectId.TryParse(token, out var legacy))
             {
                 return false;
             }
 
-            cursor = new ProductCursor(sort, null, token);
+            cursor = new ProductCursor(sort, null, legacy.ToString());
             return true;
         }
 
@@ -126,21 +126,21 @@ internal static class ProductCursorCodec
                 || !long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var price)
                 || price < 0
                 || price > maxPriceCents
-                || !ObjectId.TryParse(parts[2], out _))
+                || !ObjectId.TryParse(parts[2], out var pricedId))
             {
                 return false;
             }
 
-            cursor = new ProductCursor(sort, price, parts[2]);
+            cursor = new ProductCursor(sort, price, pricedId.ToString());
             return true;
         }
 
-        if (parts.Length != 2 || !ObjectId.TryParse(parts[1], out _))
+        if (parts.Length != 2 || !ObjectId.TryParse(parts[1], out var id))
         {
             return false;
         }
 
-        cursor = new ProductCursor(sort, null, parts[1]);
+        cursor = new ProductCursor(sort, null, id.ToString());
         return true;
     }
 }

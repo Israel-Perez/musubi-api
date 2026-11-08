@@ -36,7 +36,7 @@ internal static class ListingsErrors
 
     /// <summary>Rango de precio al reves o fuera de 0 a $999,999 (HU-10 R3).</summary>
     public static readonly ApiError InvalidPriceRange = new(
-        "listings.invalid_price_range", StatusCodes.Status400BadRequest, "Revisa el rango de precio: el mínimo no puede ser mayor que el máximo.");
+        "listings.invalid_price_range", StatusCodes.Status400BadRequest, "Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo.");
 
     /// <summary>Orden que no esta en la lista de <c>ProductSorts</c> (HU-10).</summary>
     public static readonly ApiError InvalidSort = new(
