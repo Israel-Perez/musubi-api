@@ -9,6 +9,33 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T29 — Filtros de la búsqueda por categoría, precio, condición y orden (08-Nov-2026, SCRUM-27, HU-10)
+
+**Qué se hizo**
+- `GET /api/v1/products` acepta `category` repetido (OR), `minPriceCents`/`maxPriceCents` inclusivos, `condition` (`new`/`used`) y `sort` (`relevance`, `newest`, `oldest`, `priceAsc`, `priceDesc`). Se combinan con `q`, `campus` y `hideSoldOut`.
+- Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado) y `listings.invalid_sort`.
+- `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
+- `db/008-filtros-precio.js` crea `ix_community_status_price_id` e `ix_community_category_status_price_id`; `MongoSchema.ExpectedVersion = 8`.
+- Unit 186 · Integration 103 · Security 85 · Contract 8 · Performance 4; critic PASS (31 archivos) y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+
+**Decisiones (con su porqué)**
+- **Alcance de la maqueta, no solo Jira:** el usuario eligió `Busqueda-filtros` completa (varias categorías, condición y orden); Jira solo pedía categoría y precio.
+- **Extender `GET /products`:** la app ya consume esa ruta y comparte auth, caché, `ETag` y cursor; una ruta nueva duplicaría controller y pruebas.
+- **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados; el token lleva el orden y la clave.
+- **`relevance` es alias de `newest`:** no hay puntaje de relevancia; HU-09 lo difirió. Se conserva la etiqueta de la maqueta con un límite documentado.
+- **Índices de precio en `db/008`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices, no reescribe documentos.
+- **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
+- **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
+- **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).
+
+**Errores a evitar**
+- **El cursor viejo no sirve con otro orden:** un ObjectId crudo solo vale para `newest`/`relevance`; con `priceAsc` se rechaza con `400`.
+- **`ProductQuery` ya no tiene `CategorySlug` ni `BeforeId`:** las llamadas nuevas usan `CategorySlugs` y `After`; no reintroducir los campos viejos.
+- **El orden en Mongo y en memoria debe coincidir:** en empate por precio, `_id` descendente en ambos; si se cambia uno, la batería compartida falla.
+- **`ProductQuery.Sort` por defecto es `newest`:** no cambiar el orden de la vitrina sin actualizar `docs/endpoints.md` y la app.
+- **El precio está en centavos:** la maqueta usa pesos; la app convierte antes de llamar y omite `maxPriceCents` cuando no hay techo.
+- **S3358 rompe el build:** no anidar ternarios en `nextCursor`; usar un `if`.
+
 ## T28 — Reportar y bloquear (08-Nov-2026, SCRUM-57 y SCRUM-95, HU-28 y HU-57)
 
 **Qué se hizo**

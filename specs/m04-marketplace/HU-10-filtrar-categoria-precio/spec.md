@@ -56,7 +56,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - Configuración: sin claves nuevas.
 
 ## Tests
-Conteos reales al cerrar (07-Nov-2026): pendientes de la corrida.
+Conteos reales al cerrar (07-Nov-2026): Unit 186 · Integration 103 · Security 85 · Contract 8 · Performance 4. `DatabaseTest` no se corrió en local (sin Docker); lo corre el CI.
 
 - `TestShared/Listings/ListingRepositoryContract.cs` (corre en `UnitTest/Data/InMemoryListingRepositoryTests` y `DatabaseTest/MongoListingRepositoryTests`):
   - `Filters_ByPriceRange_IsInclusive_AndAcceptsOnlyOneBound`.
@@ -73,16 +73,17 @@ Conteos reales al cerrar (07-Nov-2026): pendientes de la corrida.
 - `DatabaseTest/SchemaScriptTests.cs`: existen los dos índices y `_meta.version` es 8.
 
 ## Criterios
-- [ ] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
-- [ ] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 0 fallos.
-- [ ] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → 0 fallos.
-- [ ] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → 0 fallos.
-- [ ] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → 0 fallos.
-- [ ] `GET /api/v1/products?category=libros&category=laptops&minPriceCents=10000&maxPriceCents=50000&condition=used&sort=priceAsc` devuelve solo coincidencias y en orden (`Showcase_FiltersByCategoriesPriceAndCondition`).
-- [ ] `GET /api/v1/products?minPriceCents=50000&maxPriceCents=10000` devuelve `400 listings.invalid_price_range` (`Showcase_RejectsInvalidFilters`).
-- [ ] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`.
-- [ ] `pwsh scripts/check_endpoints.ps1` → `OK` exit 0.
-- [ ] `pwsh scripts/critic-guardrails.ps1` → `PASS` exit 0.
+- [x] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
+- [x] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → 186/186, incluidos los 5 casos nuevos del contrato compartido.
+- [x] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → 103/103, incluidos los 3 flujos de filtros.
+- [x] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → 85/85; incluye filtros públicos sin cruce de campus.
+- [x] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → 8/8 con la página filtrada.
+- [x] `dotnet test --project PerformanceTest/PerformanceTest.csproj -c Release --no-build` → 4/4.
+- [x] `GET /api/v1/products?category=libros&category=laptops&minPriceCents=10000&maxPriceCents=50000&condition=used&sort=priceAsc` devuelve solo coincidencias y en orden (`Showcase_FiltersByCategoriesPriceAndCondition`).
+- [x] `GET /api/v1/products?minPriceCents=50000&maxPriceCents=10000` devuelve `400 listings.invalid_price_range` (`Showcase_RejectsInvalidFilters`).
+- [x] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`.
+- [x] `pwsh scripts/check_endpoints.ps1` → `OK (36 rutas con fila, 0 huerfanas)`.
+- [x] `pwsh scripts/critic-guardrails.ps1` → `PASS (31 archivos analizados, 0 avisos)`.
 - [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release` en CI → 0 fallos (local sin Docker: no se corre).
 
 ## Límites
@@ -97,7 +98,7 @@ Conteos reales al cerrar (07-Nov-2026): pendientes de la corrida.
 - **Sin rate limit nuevo:** la vitrina sigue sin límite por IP; queda para el endurecimiento de abuso (RNF-11).
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 07-Nov-2026
-- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. Pendiente la implementación y el revisor para pasar a "Borrador con evidencia".
+- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. API implementada y verificada en local (Unit 186, Integration 103, Security 85, Contract 8, Performance 4, critic PASS, endpoints OK); `DatabaseTest` queda para el CI por falta de Docker en local. Pendiente el revisor para pasar a "Aprobado".
