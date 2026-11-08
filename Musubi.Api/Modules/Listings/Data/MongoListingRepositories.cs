@@ -96,6 +96,22 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             filter &= Filter.Eq(p => p.CategorySlug, category);
         }
 
+        // HU-10: rango inclusivo y estado exacto; el orden por _id sigue usando ix_community_*_status_id.
+        if (query.MinPriceCents is { } minPrice)
+        {
+            filter &= Filter.Gte(p => p.PriceCents, minPrice);
+        }
+
+        if (query.MaxPriceCents is { } maxPrice)
+        {
+            filter &= Filter.Lte(p => p.PriceCents, maxPrice);
+        }
+
+        if (query.Condition is { } condition)
+        {
+            filter &= Filter.Eq(p => p.Condition, condition);
+        }
+
         // HU-09: cada termino, ya normalizado, es un prefijo de una palabra de `searchWords` (indice
         // ix_community_status_search); un documento coincide si alguna palabra empieza igual (OR).
         return query.Search is { } search ? filter & SearchByPrefix(search) : filter;

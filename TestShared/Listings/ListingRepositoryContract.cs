@@ -28,7 +28,8 @@ public abstract class ListingRepositoryContract
         string status = ProductStatuses.Active,
         long price = 45_000,
         string? title = null,
-        string? description = null) => new()
+        string? description = null,
+        string condition = ProductConditions.Used) => new()
     {
         Id = AuthIds.New(),
         CommunityId = communityId,
@@ -38,7 +39,7 @@ public abstract class ListingRepositoryContract
         Description = description ?? "La usé un semestre.",
         CategorySlug = category,
         PriceCents = price,
-        Condition = ProductConditions.Used,
+        Condition = condition,
         ConditionDetail = "likeNew",
         Stock = status == ProductStatuses.SoldOut ? 0 : 1,
         Status = status,
@@ -287,5 +288,80 @@ public abstract class ListingRepositoryContract
 
         // El prefijo se ancla al inicio de la palabra.
         Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "culadora"), Ct));
+    }
+
+    [Fact]
+    public async Task Filter_ByPriceRange_IsInclusive()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var cheap = NewProduct(community, seller, price: 30_000);
+        var edgeLow = NewProduct(community, seller, price: 40_000);
+        var edgeHigh = NewProduct(community, seller, price: 60_000);
+        var expensive = NewProduct(community, seller, price: 60_001);
+        foreach (var product in new[] { cheap, edgeLow, edgeHigh, expensive })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        // HU-10 R2: los dos extremos entran en el rango, y cada uno puede venir solo.
+        var bounded = await Products.FindPageAsync(
+            new ProductQuery(community, null, false, null, 10, MinPriceCents: 40_000, MaxPriceCents: 60_000), Ct);
+        var onlyMin = await Products.FindPageAsync(
+            new ProductQuery(community, null, false, null, 10, MinPriceCents: 40_000), Ct);
+        var onlyMax = await Products.FindPageAsync(
+            new ProductQuery(community, null, false, null, 10, MaxPriceCents: 40_000), Ct);
+
+        Assert.Equal([edgeHigh.Id, edgeLow.Id], bounded.Select(p => p.Id));
+        Assert.Equal([expensive.Id, edgeHigh.Id, edgeLow.Id], onlyMin.Select(p => p.Id));
+        Assert.Equal([edgeLow.Id, cheap.Id], onlyMax.Select(p => p.Id));
+        Assert.Equal(
+            2,
+            await Products.CountAsync(
+                new ProductQuery(community, null, false, null, 10, MinPriceCents: 40_000, MaxPriceCents: 60_000), Ct));
+    }
+
+    [Fact]
+    public async Task Filter_ByCondition_ReturnsOnlyThatState()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var used = NewProduct(community, seller);
+        var fresh = NewProduct(community, seller, condition: ProductConditions.New);
+        await Products.InsertAsync(used, Ct);
+        await Products.InsertAsync(fresh, Ct);
+
+        // HU-10 R4: "new" y "used" son excluyentes.
+        var usedOnly = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, Condition: ProductConditions.Used), Ct);
+        var newOnly = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, Condition: ProductConditions.New), Ct);
+
+        Assert.Equal(used.Id, Assert.Single(usedOnly).Id);
+        Assert.Equal(fresh.Id, Assert.Single(newOnly).Id);
+        Assert.Equal(1, await Products.CountAsync(new ProductQuery(community, null, false, null, 10, Condition: ProductConditions.New), Ct));
+    }
+
+    [Fact]
+    public async Task Filter_CombinesPriceConditionCategoryAndSearch()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var match = NewProduct(community, seller, price: 40_000, title: "Calculadora Casio nueva", condition: ProductConditions.New);
+        var wrongCondition = NewProduct(community, seller, price: 40_000, title: "Calculadora Casio usada");
+        var wrongCategory = NewProduct(community, seller, "libros", price: 40_000, title: "Calculadora dentro de un libro", condition: ProductConditions.New);
+        var wrongPrice = NewProduct(community, seller, price: 90_000, title: "Calculadora Casio premium", condition: ProductConditions.New);
+        foreach (var product in new[] { match, wrongCondition, wrongCategory, wrongPrice })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        // HU-10 R5: categoria, busqueda, precio y estado acotan el mismo conjunto (AND).
+        var page = await Products.FindPageAsync(
+            new ProductQuery(community, "calculadoras", false, null, 10, "casio", 35_000, 45_000, ProductConditions.New), Ct);
+
+        Assert.Equal(match.Id, Assert.Single(page).Id);
+        Assert.Equal(
+            0,
+            await Products.CountAsync(
+                new ProductQuery(community, "libros", false, null, 10, "casio", 35_000, 45_000, ProductConditions.New), Ct));
     }
 }

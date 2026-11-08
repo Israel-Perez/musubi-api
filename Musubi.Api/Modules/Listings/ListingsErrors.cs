@@ -22,6 +22,10 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidPrice = new(
         "listings.invalid_price", StatusCodes.Status400BadRequest, "Ponle un precio a tu producto.");
 
+    /// <summary>Rango de precio negativo, fuera de los limites o con el minimo arriba del maximo (HU-10).</summary>
+    public static readonly ApiError InvalidPriceRange = new(
+        "listings.invalid_price_range", StatusCodes.Status400BadRequest, "Revisa el rango de precio.");
+
     /// <summary>Categoria que no existe en la comunidad.</summary>
     public static readonly ApiError InvalidCategory = new(
         "listings.invalid_category", StatusCodes.Status400BadRequest, "Elige una categoría.");

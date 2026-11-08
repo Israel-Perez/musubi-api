@@ -83,8 +83,9 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_title` | 400 | Escribe el nombre del producto. | HU-06 (3 a 80 caracteres) |
 | `listings.invalid_description` | 400 | La descripción puede tener hasta 500 caracteres. | HU-06 |
 | `listings.invalid_price` | 400 | Ponle un precio a tu producto. | HU-06 (RN-04: mayor que cero; hasta $999,999) |
+| `listings.invalid_price_range` | 400 | Revisa el rango de precio. | HU-10 (mínimo mayor que máximo, negativo o fuera de $999,999) |
 | `listings.invalid_category` | 400 | Elige una categoría. | HU-06 |
-| `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle) |
+| `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle) y HU-10 (filtro `condition`) |
 | `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
 | `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 (cursor que no emitió la API) |
 | `listings.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-09 (búsqueda sin letras ni dígitos, o de más de 80 caracteres) |

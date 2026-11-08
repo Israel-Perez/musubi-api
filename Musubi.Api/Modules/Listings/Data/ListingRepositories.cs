@@ -18,7 +18,19 @@ namespace Musubi.Api.Modules.Listings.Data;
 /// <param name="BeforeId">Cursor: solo ids menores que este.</param>
 /// <param name="Limit">Maximo de resultados.</param>
 /// <param name="Search">Palabra clave (HU-09): con ella solo salen las disponibles, sin importar <paramref name="IncludeSoldOut"/>.</param>
-internal sealed record ProductQuery(string CommunityId, string? CategorySlug, bool IncludeSoldOut, string? BeforeId, int Limit, string? Search = null);
+/// <param name="MinPriceCents">Precio minimo inclusivo, o <c>null</c> (HU-10).</param>
+/// <param name="MaxPriceCents">Precio maximo inclusivo, o <c>null</c> (HU-10).</param>
+/// <param name="Condition">Estado exacto (<c>new</c> o <c>used</c>), o <c>null</c> (HU-10).</param>
+internal sealed record ProductQuery(
+    string CommunityId,
+    string? CategorySlug,
+    bool IncludeSoldOut,
+    string? BeforeId,
+    int Limit,
+    string? Search = null,
+    long? MinPriceCents = null,
+    long? MaxPriceCents = null,
+    string? Condition = null);
 
 /// <summary>Normalizacion de una palabra de busqueda (HU-09): minusculas, sin acentos y sin el plural final.</summary>
 internal static class SearchWord

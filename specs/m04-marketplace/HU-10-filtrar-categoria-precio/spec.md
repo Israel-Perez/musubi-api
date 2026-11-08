@@ -60,19 +60,19 @@ RNF que aplican: RNF-09 (filtros en tiempo aceptable) y RNF-07 (la búsqueda y s
 - `UnitTest`: la validación de rango y estado se cubre por los flujos HTTP; si se extrae a un validador propio, se prueba en `UnitTest/Listings/`.
 
 ## Criterios
-- [ ] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
-- [ ] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → verde, incluidos los casos nuevos de `TestShared`.
-- [ ] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → verde, incluidos los 4 flujos de filtros.
-- [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release --no-build` → verde (Docker).
-- [ ] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → verde.
-- [ ] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → verde con la consulta filtrada.
-- [ ] `dotnet test --project PerformanceTest/PerformanceTest.csproj -c Release --no-build` → p95 ≤ 100 ms en la ruta filtrada.
-- [ ] `pwsh scripts/check_endpoints.ps1` → `OK` (la fila existente sigue cubriendo la ruta).
-- [ ] `pwsh scripts/critic-guardrails.ps1` → `PASS` exit 0.
-- [ ] `GET /api/v1/products?minPriceCents=10000&maxPriceCents=60000` devuelve solo publicaciones dentro del rango, con `total` correcto.
-- [ ] `GET /api/v1/products?condition=used` devuelve solo usadas; `condition=roto` responde `400 listings.invalid_condition`.
-- [ ] `GET /api/v1/products?minPriceCents=60000&maxPriceCents=10000` responde `400 listings.invalid_price_range`.
-- [ ] Los filtros se combinan con `q` y `category`: la intersección es la esperada.
+- [x] `dotnet build Musubi.slnx -c Release` → 0 errores, 0 advertencias.
+- [x] `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` → verde (184; +3 de `TestShared`).
+- [x] `dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build` → verde (104; +4 flujos de filtros).
+- [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release --no-build` → verde (Docker). Sin Docker en local; lo corre el CI sobre el mismo `TestShared`.
+- [x] `dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build` → verde (84).
+- [x] `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build` → verde (8) con la consulta filtrada.
+- [x] `dotnet test --project PerformanceTest/PerformanceTest.csproj -c Release --no-build` → p95 ≤ 100 ms en la ruta filtrada (5).
+- [x] `pwsh scripts/check_endpoints.ps1` → `OK` (36 rutas con fila, 0 huérfanas).
+- [x] `pwsh scripts/critic-guardrails.ps1` → `PASS` exit 0.
+- [x] `GET /api/v1/products?minPriceCents=10000&maxPriceCents=60000` devuelve solo publicaciones dentro del rango, con `total` correcto (`Filter_WithOnlyOnePriceExtremum_IsAccepted`).
+- [x] `GET /api/v1/products?condition=used` devuelve solo usadas; `condition=roto` responde `400 listings.invalid_condition` (`Filter_WithAnUnknownCondition_IsRejected`).
+- [x] `GET /api/v1/products?minPriceCents=60000&maxPriceCents=10000` responde `400 listings.invalid_price_range` (`Filter_WithAnInvalidRange_IsRejected`).
+- [x] Los filtros se combinan con `q` y `category`: la intersección es la esperada (`Filter_CombinesPriceConditionCategoryAndSearch`, `Filter_ByPriceAndCondition_CombinesWithSearch`).
 
 ## Límites
 - **Sin índice propio para el precio:** el rango es un predicado residual sobre las coincidencias de comunidad/categoría/estado; el `count` recorre esas coincidencias. Con el piloto (decenas de miles de documentos) y `limit ≤ 50` es aceptable; si `products` crece, se evalúa `(communityId, categorySlug, status, priceCents)`, a costa del orden por `_id`. `NOTE (HU-10)`.
@@ -84,7 +84,7 @@ RNF que aplican: RNF-09 (filtros en tiempo aceptable) y RNF-07 (la búsqueda y s
 - **Spec de la app:** la contraparte Flutter (`Busqueda-filtros`) ya existe en `musubi-app`; esta spec cubre solo la API.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia (implementada en la rama apilada sobre HU-09; pasa a Aprobado con revisión)
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 07-Nov-2026
 - **Detalle:** decisiones acordadas con el usuario: parámetros `minPriceCents`/`maxPriceCents`, filtro de estado de la maqueta (`condition`), `400` con código propio para el rango y reutilización de `listings.invalid_condition`, y sin índice nuevo. Depende de que HU-09 esté fusionada antes de implementar.

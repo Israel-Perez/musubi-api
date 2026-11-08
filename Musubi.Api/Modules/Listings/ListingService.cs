@@ -179,6 +179,9 @@ internal sealed partial class ListingService(
     /// <param name="campus">Campus pedido por un visitante.</param>
     /// <param name="category">Slug de la categoria, o todas.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
+    /// <param name="minPriceCents">Precio minimo inclusivo, o <c>null</c> (HU-10).</param>
+    /// <param name="maxPriceCents">Precio maximo inclusivo, o <c>null</c> (HU-10).</param>
+    /// <param name="condition">Estado <c>new</c> o <c>used</c>, o <c>null</c> (HU-10).</param>
     /// <param name="hideSoldOut">Ocultar agotados.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina.</param>
@@ -189,6 +192,9 @@ internal sealed partial class ListingService(
         string? campus,
         string? category,
         string? q,
+        long? minPriceCents,
+        long? maxPriceCents,
+        string? condition,
         bool hideSoldOut,
         string? cursor,
         int? limit,
@@ -197,6 +203,25 @@ internal sealed partial class ListingService(
         if (cursor is not null && !ObjectId.TryParse(cursor, out _))
         {
             return ListingsErrors.InvalidCursor;
+        }
+
+        // HU-10 R3: rango inclusivo dentro de los limites de la API y con el minimo por debajo del maximo.
+        if (minPriceCents is < 0 or > MaxPriceCents
+            || maxPriceCents is < 0 or > MaxPriceCents
+            || (minPriceCents is { } min && maxPriceCents is { } max && min > max))
+        {
+            return ListingsErrors.InvalidPriceRange;
+        }
+
+        // HU-10 R4: mismo catalogo que al publicar; vacio equivale a no filtrar.
+        string? conditionFilter = null;
+        if (!string.IsNullOrWhiteSpace(condition))
+        {
+            conditionFilter = condition.Trim().ToLowerInvariant();
+            if (conditionFilter is not (ProductConditions.New or ProductConditions.Used))
+            {
+                return ListingsErrors.InvalidCondition;
+            }
         }
 
         // HU-09 R1: q vacio equivale a no buscar; con texto, hasta 80 caracteres y al menos una letra o digito.
@@ -219,7 +244,7 @@ internal sealed partial class ListingService(
         }
 
         var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
-        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size, search);
+        var query = new ProductQuery(communityId, string.IsNullOrWhiteSpace(category) ? null : category, !hideSoldOut, cursor, size, search, minPriceCents, maxPriceCents, conditionFilter);
         var page = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
         var total = await products.CountAsync(query, cancellationToken).ConfigureAwait(false);
         var includeSeller = userCommunityId is not null;

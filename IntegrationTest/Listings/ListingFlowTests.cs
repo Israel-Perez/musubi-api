@@ -286,6 +286,74 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
     }
 
     [Fact]
+    public async Task Filter_ByPriceAndCondition_CombinesWithSearch()
+    {
+        using var seller = await SignedInClientAsync();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var inRange = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], priceCents: 40_000, condition: "new", detail: null, title: $"Filtro {tag} nueva"));
+        var otherCondition = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], priceCents: 40_000, condition: "used", title: $"Filtro {tag} usada"));
+        var outOfRange = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], priceCents: 90_000, condition: "new", detail: null, title: $"Filtro {tag} cara"));
+        Assert.Equal(HttpStatusCode.Created, inRange.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, otherCondition.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, outOfRange.StatusCode);
+        var inRangeId = (await AuthFlow.JsonAsync(inRange)).GetProperty("id").GetString();
+
+        // HU-10 R5: el rango, el estado y la busqueda se combinan con AND.
+        var page = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&minPriceCents=39000&maxPriceCents=41000&condition=new");
+        var items = page.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Equal(1, page.GetProperty("total").GetInt64());
+        Assert.Equal(inRangeId, Assert.Single(items).GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task Filter_WithOnlyOnePriceExtremum_IsAccepted()
+    {
+        using var seller = await SignedInClientAsync();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var cheap = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], priceCents: 20_000, title: $"Rango {tag} barata"));
+        var expensive = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], priceCents: 80_000, title: $"Rango {tag} cara"));
+        Assert.Equal(HttpStatusCode.Created, cheap.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, expensive.StatusCode);
+        var cheapId = (await AuthFlow.JsonAsync(cheap)).GetProperty("id").GetString();
+        var expensiveId = (await AuthFlow.JsonAsync(expensive)).GetProperty("id").GetString();
+
+        // HU-10 R2: cada extremo puede venir solo.
+        var from = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&minPriceCents=70000");
+        var upTo = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&maxPriceCents=30000");
+
+        Assert.Equal(expensiveId, Assert.Single(from.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
+        Assert.Equal(cheapId, Assert.Single(upTo.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task Filter_WithAnInvalidRange_IsRejected()
+    {
+        using var visitor = factory.CreateClient();
+
+        // HU-10 R3: invertido, negativo o fuera del maximo de la API.
+        foreach (var query in new[] { "minPriceCents=60000&maxPriceCents=10000", "minPriceCents=-1", "maxPriceCents=100000000" })
+        {
+            await AuthFlow.AssertCodeAsync(
+                await visitor.GetAsync(new Uri($"/api/v1/products?{query}", UriKind.Relative), Ct),
+                HttpStatusCode.BadRequest,
+                "listings.invalid_price_range");
+        }
+    }
+
+    [Fact]
+    public async Task Filter_WithAnUnknownCondition_IsRejected()
+    {
+        using var visitor = factory.CreateClient();
+
+        // HU-10 R4: solo new o used.
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?condition=roto", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_condition");
+    }
+
+    [Fact]
     public async Task Categories_AreTheMockupOnes_AndAnUnknownCampusIs404()
     {
         using var anonymous = factory.CreateClient();

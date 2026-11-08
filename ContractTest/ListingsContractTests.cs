@@ -88,6 +88,8 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         var page = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?category=calculadoras", UriKind.Relative), Ct));
         // HU-09: la busqueda devuelve la misma forma que la vitrina (mismo fixture).
         var searched = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?q=calculadora", UriKind.Relative), Ct));
+        // HU-10: los filtros de precio y estado devuelven la misma forma que la vitrina.
+        var filtered = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?minPriceCents=10000&maxPriceCents=60000&condition=used", UriKind.Relative), Ct));
         var categories = await BodyAsync(await client.GetAsync(new Uri("/api/v1/categories", UriKind.Relative), Ct));
         var detail = await BodyAsync(await client.GetAsync(new Uri($"/api/v1/products/{product.GetProperty("id").GetString()}", UriKind.Relative), Ct));
 
@@ -97,6 +99,8 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(page.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(searched));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(searched.GetProperty("items")[0]));
+        Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(filtered));
+        Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(filtered.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("category.json")), Shape(categories[0]));
         Assert.Equal(Shape(await FixtureAsync("product-detail.json")), Shape(detail));
     }

@@ -139,6 +139,10 @@ internal sealed class InMemoryProductRepository : IProductRepository
         // HU-09: con busqueda solo salen las disponibles, aunque se pidan los agotados.
         && (p.Status == ProductStatuses.Active || (query.Search is null && query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
         && (query.CategorySlug is null || string.Equals(p.CategorySlug, query.CategorySlug, StringComparison.Ordinal))
+        // HU-10: rango inclusivo y estado exacto, como en Mongo.
+        && (query.MinPriceCents is null || p.PriceCents >= query.MinPriceCents)
+        && (query.MaxPriceCents is null || p.PriceCents <= query.MaxPriceCents)
+        && (query.Condition is null || string.Equals(p.Condition, query.Condition, StringComparison.Ordinal))
         && (query.Search is null || Matches(p, query.Search)));
 
     // Prefijo de palabra como en MongoDB (HU-09): compara contra las palabras ya normalizadas del documento.

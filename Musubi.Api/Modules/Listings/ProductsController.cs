@@ -35,6 +35,9 @@ public sealed class ProductsController : ControllerBase
     /// <param name="campus">Campus del visitante (sin sesion; por defecto el del piloto).</param>
     /// <param name="category">Slug de la categoria.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
+    /// <param name="minPriceCents">Precio minimo inclusivo, en centavos (HU-10).</param>
+    /// <param name="maxPriceCents">Precio maximo inclusivo, en centavos (HU-10).</param>
+    /// <param name="condition">Estado <c>new</c> o <c>used</c> (HU-10).</param>
     /// <param name="hideSoldOut">Ocultar agotados.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina (1 a 50).</param>
@@ -52,12 +55,15 @@ public sealed class ProductsController : ControllerBase
         [FromQuery] string? campus,
         [FromQuery] string? category,
         [FromQuery] string? q,
+        [FromQuery] long? minPriceCents,
+        [FromQuery] long? maxPriceCents,
+        [FromQuery] string? condition,
         [FromQuery] bool hideSoldOut,
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
         CancellationToken cancellationToken) =>
         this.Respond(
-            await listings.ShowcaseAsync(communityId, campus, category, q, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
+            await listings.ShowcaseAsync(communityId, campus, category, q, minPriceCents, maxPriceCents, condition, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
     /// <summary>Mis publicaciones ("Ver mis productos").</summary>

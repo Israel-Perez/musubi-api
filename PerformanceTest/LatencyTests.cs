@@ -45,6 +45,8 @@ public sealed class LatencyTests(PerformanceApiFactory factory) : IClassFixture<
         "/api/v1/products?limit=20",
         // HU-09 (RNF-09): la busqueda por palabra clave.
         "/api/v1/products?q=calc",
+        // HU-10 (RNF-09): rango de precio y estado.
+        "/api/v1/products?category=calculadoras&minPriceCents=10000&maxPriceCents=60000&condition=used",
     };
 
     private HttpClient Client()

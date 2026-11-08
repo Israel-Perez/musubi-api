@@ -6,21 +6,21 @@
 - **Cambiar:** `InMemoryListingRepositories.cs` → mismas comparaciones dentro de `Showcase`.
 - **Pruebas:** `TestShared/Listings/ListingRepositoryContract.cs` con los 3 casos de `spec.md` → `Tests`; corren en `UnitTest` y `DatabaseTest`.
 - **Verificar:** `dotnet test --project UnitTest/UnitTest.csproj -c Release` y `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release` (Docker).
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (Unit 184; Database pendiente en local sin Docker, lo corre el CI).
 
 ## T2 — Servicio, error y controller
 - **Cambiar:** `ListingService.ShowcaseAsync` → parámetros `long? minPriceCents`, `long? maxPriceCents`, `string? condition`; valida `0..MaxPriceCents`, `min ≤ max` y estado.
 - **Cambiar:** `ListingsErrors.cs` → `InvalidPriceRange` (`listings.invalid_price_range`, 400); reutiliza `InvalidCondition`.
 - **Cambiar:** `ProductsController.Showcase` → los tres `[FromQuery]`.
 - **Verificar:** `dotnet build Musubi.slnx -c Release` 0/0.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho.
 
 ## T3 — Pruebas de flujo, contrato y rendimiento
 - **Cambiar:** `IntegrationTest/Listings/ListingFlowTests.cs` → `Filter_ByPriceAndCondition_CombinesWithSearch`, `Filter_WithOnlyOnePriceExtremum_IsAccepted`, `Filter_WithAnInvalidRange_IsRejected`, `Filter_WithAnUnknownCondition_IsRejected`.
 - **Cambiar:** `ContractTest/ListingsContractTests.cs` → consulta con `minPriceCents`, `maxPriceCents` y `condition` contra los fixtures.
 - **Cambiar:** `PerformanceTest/LatencyTests.cs` → la ruta filtrada en `PublicRoutes()`.
 - **Verificar:** Integration, Contract y Performance en verde.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (Integration 104, Contract 8, Performance 5).
 
 ## T4 — Documentación
 - **Actualizar:** fila `GET /api/v1/products` de `docs/endpoints.md` (parámetros nuevos y `400 listings.invalid_price_range`).
@@ -28,7 +28,7 @@
 - **Actualizar:** `docs/trazabilidad.md` (estado y pruebas de HU-10) y `Memoria.md`.
 - **Sin cambios:** `docs/modelo-datos.md` (no hay campo ni índice nuevo) y `db/README.md` (no hay script nuevo).
 - **Verificar:** `pwsh scripts/check_endpoints.ps1` → `OK`; `pwsh scripts/critic-guardrails.ps1` → `PASS`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (endpoints OK, critic PASS).
 
 ## T5 — Cierre
 - **Verificar:** build 0/0; Unit, Integration, Security, Contract, Database y Performance en verde; Semgrep limpio.

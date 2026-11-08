@@ -9,6 +9,26 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T27 — Filtros por categoría y precio (07-Nov-2026, SCRUM-27, HU-10)
+
+**Qué se hizo**
+- `GET /api/v1/products` acepta `minPriceCents`, `maxPriceCents` (rango inclusivo) y `condition` (`new`/`used`); se combinan con AND con `category`, `q`, `hideSoldOut`, `campus`, cursor y límite.
+- Error nuevo `listings.invalid_price_range` (400); el estado desconocido reutiliza `listings.invalid_condition`.
+- Sin esquema ni índice nuevos: precio y estado son predicados residuales sobre `ix_community_status_id` / `ix_community_category_status_id`, y el orden por `_id` no cambia.
+- Unit 184 · Integration 104 · Security 84 · Contract 8 · Performance 5; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+
+**Decisiones (con su porqué)**
+- **Extender la vitrina en lugar de una ruta nueva:** comparte auth anónima, caché de salida, `ETag`, cursor y `total`; una ruta `/products/filter` duplicaría controller y política de caché.
+- **Precio en centavos:** toda la API ya expone `priceCents`, `lowCents` y `highCents`; la app convierte desde pesos.
+- **`condition` aunque Jira no lo enumere:** la hoja "Filtros" de `Busqueda-filtros` muestra Todos/Nuevo/Usado y el lineamiento 4 prohíbe quitar funciones de la maqueta.
+- **Validar en el servicio:** las dos implementaciones del repositorio comparten las reglas de frontera.
+- **Sin índice con `priceCents`:** rompería el orden por `_id` (sort bloqueante) y encarece cada inserción; el rango se filtra sobre las coincidencias de comunidad/categoría. Con el piloto y `limit ≤ 50` es aceptable (`NOTE (HU-10)`).
+- **Rama apilada y PR Draft #50:** `main` aún no tiene `q` (HU-09, #49); al fusionarse #49 el PR se retargetea solo a `main`.
+
+**Errores a evitar**
+- **`new` no lleva detalle:** `conditionDetail` solo aplica a `used`; mandar `likeNew` con `new` responde `400` (`ValidCondition`). En las pruebas se usa `detail: null`.
+- **El rango no se recorta ni se ignora:** `min > max`, negativo o fuera de `MaxPriceCents` responde `400`; devolver resultados como si no hubiera filtro oculta el error de la app.
+
 ## T26 — Búsqueda de productos por palabra clave (07-Nov-2026, SCRUM-26, HU-09)
 
 **Qué se hizo**
