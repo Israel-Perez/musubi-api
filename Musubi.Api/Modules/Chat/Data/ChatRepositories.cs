@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +7,14 @@ namespace Musubi.Api.Modules.Chat.Data;
 
 // Contratos de persistencia de M-07 (HU-20). Mongo* (nube y local) e InMemory* (UseInMemoryDatabase=true)
 // pasan la misma bateria de pruebas (TestShared/Chat).
+
+/// <summary>Consulta de la bandeja (HU-22).</summary>
+/// <param name="UserId">Participante.</param>
+/// <param name="Role">Solo donde es comprador (<c>buyer</c>), vendedor (<c>seller</c>), o ambas (<c>null</c>).</param>
+/// <param name="BeforeAt">Cursor: actividad de la ultima conversacion de la pagina anterior.</param>
+/// <param name="BeforeId">Cursor: id de esa conversacion (desempata la misma hora).</param>
+/// <param name="Limit">Maximo de resultados.</param>
+internal sealed record InboxQuery(string UserId, string? Role, DateTime? BeforeAt, string? BeforeId, int Limit);
 
 /// <summary>Conversaciones.</summary>
 internal interface IConversationRepository
@@ -25,12 +34,32 @@ internal interface IConversationRepository
     /// <returns>La conversacion o <c>null</c> (tambien si el id no es un ObjectId).</returns>
     Task<ConversationDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
 
-    /// <summary>Guarda la copia del ultimo mensaje y la hora de actividad.</summary>
+    /// <summary>
+    /// Registra un mensaje en la conversacion: guarda la copia del ultimo mensaje, adelanta la hora de
+    /// actividad (nunca la regresa) y suma uno a los no leidos de quien lo recibe (HU-22).
+    /// </summary>
     /// <param name="id">Conversacion.</param>
     /// <param name="last">El mensaje.</param>
+    /// <param name="recipientRole">Quien lo recibe: <see cref="ChatService.BuyerRole"/> o <see cref="ChatService.SellerRole"/>.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
-    Task SetLastMessageAsync(string id, LastMessage last, CancellationToken cancellationToken);
+    Task RecordMessageAsync(string id, LastMessage last, string recipientRole, CancellationToken cancellationToken);
+
+    /// <summary>Deja en cero los no leidos de un lado de la conversacion (HU-22).</summary>
+    /// <param name="id">Conversacion.</param>
+    /// <param name="role">Quien leyo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task MarkReadAsync(string id, string role, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Bandeja (HU-22): conversaciones con al menos un mensaje donde participa el usuario, de la mas
+    /// reciente a la mas vieja (por <c>lastMessageAt</c> y luego por id), paginadas por cursor.
+    /// </summary>
+    /// <param name="query">La consulta.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las conversaciones.</returns>
+    Task<IReadOnlyList<ConversationDocument>> FindInboxPageAsync(InboxQuery query, CancellationToken cancellationToken);
 
     /// <summary>Ids de las conversaciones donde participa el usuario.</summary>
     /// <param name="userId">Usuario.</param>

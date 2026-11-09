@@ -46,7 +46,7 @@ Hay un tercer repo, [`musubi-landing`](https://github.com/Israel-Perez/musubi-la
 - **App:** `cd musubi-app` → `Copy-Item config/dev.example.json config/dev.json` → `flutter test` → `flutter run --dart-define-from-file=config/dev.json`.
 
 ### Conecta los MCP (opcional, recomendado)
-Con el MCP de Atlassian tu agente lee la HU en Jira y deja la evidencia en la tarea. Con el de AWS consulta precios y documentación. La configuración para Claude Code y OpenCode está en [`mcp.md`](mcp.md).
+Con el MCP de Atlassian tu agente lee la HU en Jira, mueve la tarea de estado, deja la evidencia en ella y documenta la HU en Confluence (pasos 0, 8 y 9). Con el de AWS consulta precios y documentación. La configuración para Claude Code y OpenCode está en [`musubi-api/docs/mcp.md`](https://github.com/Israel-Perez/musubi-api/blob/main/docs/mcp.md).
 
 ---
 
@@ -136,13 +136,14 @@ Corrige lo que marquen como **FAIL** antes del PR.
 - **Título:** `SCRUM-NN HU-NN Título: resumen (conteos de pruebas, critic PASS)`. La plantilla del PR trae el checklist y es obligatoria.
 - **Contraparte:** primero el PR del back y después el de la app; cada uno enlaza al otro.
 - **Jira:** mueve la HU a **En revisión** y comenta los enlaces de los PR.
+- **Confluence:** tu agente crea o actualiza la página `HU-NN — <título>` debajo de la página de su módulo. Lleva un resumen simple, las decisiones y los enlaces a las specs, los PR y Jira; nunca copia las tablas del repo. Detalle en `mcp.md`.
 - **Aprobación:** `main` exige **1 aprobación de otra persona** y todos los checks del CI en verde.
 - **Orden de fusión:** primero el back, después la app. Si tu rama sale de otra rama sin fusionar (PR apilado), fusiona en orden y rebasa la hija (sección 5).
 
 ### Paso 9 · Despliegue y cierre
 1. El responsable de la nube sube la versión, corre `infra-up` y aplica el script de la base.
 2. Prueba en tu celular contra AWS (sección 6).
-3. Si todo funciona, mueve la HU a **Finalizado**.
+3. Si todo funciona, mueve la HU a **Finalizado** y marca su página de Confluence como desplegada (versión y fecha).
 
 ---
 

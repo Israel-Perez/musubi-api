@@ -64,10 +64,18 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         return (await AuthFlow.JsonAsync(response).ConfigureAwait(false)).GetProperty("key").GetString()!;
     }
 
-    private static object Product(IEnumerable<string> photos, string category = "calculadoras", long priceCents = 45_000, string condition = "used", string? detail = "likeNew", int stock = 1) => new
+    private static object Product(
+        IEnumerable<string> photos,
+        string category = "calculadoras",
+        long priceCents = 45_000,
+        string condition = "used",
+        string? detail = "likeNew",
+        int stock = 1,
+        string? title = null,
+        string? description = null) => new
     {
-        title = "Calculadora científica Casio fx-991ES Plus",
-        description = "La usé un semestre para Cálculo y Física.",
+        title = title ?? "Calculadora científica Casio fx-991ES Plus",
+        description = description ?? "La usé un semestre para Cálculo y Física.",
         category,
         priceCents,
         condition,
@@ -84,6 +92,13 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         var response = await client.GetAsync(new Uri(path, UriKind.Relative), Ct).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await AuthFlow.JsonAsync(response).ConfigureAwait(false);
+    }
+
+    private static async Task<string> PublishIdAsync(HttpClient client, object body)
+    {
+        var response = await PublishAsync(client, body).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return (await AuthFlow.JsonAsync(response).ConfigureAwait(false)).GetProperty("id").GetString()!;
     }
 
     [Fact]
@@ -117,6 +132,39 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         Assert.Equal(JsonValueKind.Null, showcase.GetProperty("items")[0].GetProperty("seller").ValueKind);
         Assert.Equal("Ana P.", asMember.GetProperty("items")[0].GetProperty("seller").GetProperty("name").GetString());
         Assert.Contains(mine.GetProperty("items").EnumerateArray(), p => p.GetProperty("id").GetString() == id);
+    }
+
+    [Fact]
+    public async Task Detail_ShowsEverything_AndTheSellerOnlyWithASession()
+    {
+        using var seller = await SignedInClientAsync();
+        var published = await PublishAsync(seller, Product([await UploadKeyAsync(seller), await UploadKeyAsync(seller)]));
+        var id = (await AuthFlow.JsonAsync(published)).GetProperty("id").GetString();
+        using var visitor = factory.CreateClient();
+        using var buyer = await SignedInClientAsync();
+
+        var anonymous = await GetJsonAsync(visitor, $"/api/v1/products/{id}");
+        var member = await GetJsonAsync(buyer, $"/api/v1/products/{id}");
+
+        Assert.Equal("Calculadora científica Casio fx-991ES Plus", anonymous.GetProperty("title").GetString());
+        Assert.Equal("La usé un semestre para Cálculo y Física.", anonymous.GetProperty("description").GetString());
+        Assert.Equal("Calculadoras", anonymous.GetProperty("category").GetProperty("name").GetString());
+        Assert.Equal(2, anonymous.GetProperty("photos").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, anonymous.GetProperty("seller").ValueKind);
+        Assert.Equal("Ana P.", member.GetProperty("seller").GetProperty("name").GetString());
+        Assert.False(string.IsNullOrEmpty(member.GetProperty("seller").GetProperty("id").GetString()));
+    }
+
+    [Theory]
+    [InlineData("6716a0000000000000000099")]
+    [InlineData("no-es-un-id")]
+    public async Task Detail_OfAnUnknownProduct_Is404(string id)
+    {
+        using var visitor = factory.CreateClient();
+
+        var response = await visitor.GetAsync(new Uri($"/api/v1/products/{id}", UriKind.Relative), Ct);
+
+        await AuthFlow.AssertCodeAsync(response, HttpStatusCode.NotFound, "listings.product_not_found");
     }
 
     [Fact]
@@ -177,6 +225,74 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
     }
 
     [Fact]
+    public async Task Search_FindsProductsByTitleAndDescription_NewestFirst()
+    {
+        using var seller = await SignedInClientAsync();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var first = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Microscopio {tag}"));
+        var second = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], title: "Libro de biología", description: $"Incluye el código {tag}."));
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        var firstId = (await AuthFlow.JsonAsync(first)).GetProperty("id").GetString();
+        var secondId = (await AuthFlow.JsonAsync(second)).GetProperty("id").GetString();
+
+        // HU-09 R3 y R5: por el titulo o por la descripcion, de la mas nueva a la mas vieja.
+        var page = await GetJsonAsync(seller, $"/api/v1/products?q={tag}");
+
+        Assert.Equal(2, page.GetProperty("total").GetInt64());
+        Assert.Equal(new[] { secondId, firstId }, page.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));
+        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
+    }
+
+    [Fact]
+    public async Task Search_WithoutMatches_ReturnsAnEmptyPage()
+    {
+        using var visitor = factory.CreateClient();
+
+        var page = await GetJsonAsync(visitor, "/api/v1/products?q=zzzzqqqq");
+
+        // HU-09 R7: sin resultados no hay error; la app muestra las opciones de HU-12.
+        Assert.Equal(0, page.GetProperty("items").GetArrayLength());
+        Assert.Equal(0, page.GetProperty("total").GetInt64());
+        Assert.Equal(JsonValueKind.Null, page.GetProperty("nextCursor").ValueKind);
+    }
+
+    [Fact]
+    public async Task Search_WithAnInvalidQuery_IsRejected_AndAnEmptyOneIsTheShowcase()
+    {
+        using var visitor = factory.CreateClient();
+
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri($"/api/v1/products?q={new string('a', 81)}", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_query");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?q=%21%3F%2D", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_query");
+
+        // HU-09 R8: q vacio equivale a no buscar.
+        Assert.Equal(HttpStatusCode.OK, (await visitor.GetAsync(new Uri("/api/v1/products?q=", UriKind.Relative), Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Search_MatchesWordPrefixes()
+    {
+        using var seller = await SignedInClientAsync();
+        var published = await PublishAsync(seller, Product([await UploadKeyAsync(seller)], title: "Calculadora Casio fx-991ES"));
+        Assert.Equal(HttpStatusCode.Created, published.StatusCode);
+        var id = (await AuthFlow.JsonAsync(published)).GetProperty("id").GetString();
+
+        // HU-09: "calc" y "calcula" encuentran "Calculadora"; el prefijo no distingue mayusculas.
+        foreach (var q in new[] { "calc", "calcula", "CASI" })
+        {
+            var page = await GetJsonAsync(seller, $"/api/v1/products?q={q}");
+
+            Assert.Contains(page.GetProperty("items").EnumerateArray(), p => p.GetProperty("id").GetString() == id);
+        }
+    }
+
+    [Fact]
     public async Task Categories_AreTheMockupOnes_AndAnUnknownCampusIs404()
     {
         using var anonymous = factory.CreateClient();
@@ -205,5 +321,116 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         // Percentiles 25 y 75 interpolados entre $180, $250 y $320.
         Assert.Equal(21_500, range.GetProperty("lowCents").GetInt64());
         Assert.Equal(28_500, range.GetProperty("highCents").GetInt64());
+    }
+
+    // HU-10: filtros de la hoja "Busqueda-filtros" (categorias varias, precio, condicion y orden).
+
+    [Fact]
+    public async Task Showcase_FiltersByCategoriesPriceAndCondition()
+    {
+        using var seller = await SignedInClientAsync();
+        var usedBook = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "libros", priceCents: 10_000));
+        var usedLaptop = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "laptops", priceCents: 30_000));
+        await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "laptops", priceCents: 80_000, condition: "new", detail: null));
+        await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "calculadoras", priceCents: 20_000));
+
+        var page = await GetJsonAsync(
+            seller,
+            "/api/v1/products?category=libros&category=laptops&minPriceCents=10000&maxPriceCents=50000&condition=used&sort=priceAsc");
+        var items = page.GetProperty("items").EnumerateArray().ToList();
+
+        // HU-10 R1, R2, R4 y R7: OR de categorias, rango inclusivo, condicion y orden por precio.
+        Assert.Equal([usedBook, usedLaptop], items.Select(p => p.GetProperty("id").GetString()));
+        Assert.All(items, p => Assert.Equal("used", p.GetProperty("condition").GetString()));
+        Assert.All(items, p => Assert.InRange(p.GetProperty("priceCents").GetInt64(), 10_000, 50_000));
+        Assert.True(page.GetProperty("total").GetInt64() >= 2);
+    }
+
+    [Fact]
+    public async Task Showcase_SortsByPrice_AndPagesWithTheCursor()
+    {
+        using var seller = await SignedInClientAsync();
+        var cheap = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "electronica", priceCents: 10_000));
+        var middle = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "electronica", priceCents: 20_000));
+        var expensive = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], category: "electronica", priceCents: 30_000));
+
+        var first = await GetJsonAsync(seller, "/api/v1/products?category=electronica&sort=priceAsc&limit=2");
+        var cursor = first.GetProperty("nextCursor").GetString();
+        var second = await GetJsonAsync(seller, $"/api/v1/products?category=electronica&sort=priceAsc&limit=2&cursor={Uri.EscapeDataString(cursor!)}");
+        var descending = await GetJsonAsync(seller, "/api/v1/products?category=electronica&sort=priceDesc");
+
+        // HU-10 R7 y R8: el cursor es opaco, lleva el orden y conserva los filtros.
+        Assert.StartsWith("priceAsc:", cursor, StringComparison.Ordinal);
+        Assert.Equal([cheap, middle], first.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));
+        Assert.Equal(expensive, Assert.Single(second.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
+        Assert.Equal(3, second.GetProperty("total").GetInt64());
+        Assert.Equal(
+            [expensive, middle, cheap],
+            descending.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));
+    }
+
+    [Fact]
+    public async Task Showcase_PagesByNumber()
+    {
+        using var seller = await SignedInClientAsync();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var cheap = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Pagina {tag}", priceCents: 10_000));
+        var middle = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Pagina {tag}", priceCents: 20_000));
+        var expensive = await PublishIdAsync(seller, Product([await UploadKeyAsync(seller)], title: $"Pagina {tag}", priceCents: 30_000));
+
+        var first = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&sort=priceAsc&limit=2&page=1");
+        var second = await GetJsonAsync(seller, $"/api/v1/products?q={tag}&sort=priceAsc&limit=2&page=2");
+
+        // HU-10: la pagina ignora el cursor y no devuelve uno.
+        Assert.Equal([cheap, middle], first.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()));
+        Assert.Equal(expensive, Assert.Single(second.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("nextCursor").ValueKind);
+        Assert.Equal(3, second.GetProperty("total").GetInt64());
+    }
+
+    [Fact]
+    public async Task Showcase_RejectsInvalidFilters()
+    {
+        using var visitor = factory.CreateClient();
+
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?minPriceCents=50000&maxPriceCents=10000", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_price_range");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?minPriceCents=-1", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_price_range");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?maxPriceCents=99999901", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_price_range");
+        // HU-10 R4 y R5: condicion y orden tienen lista blanca.
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?condition=roto", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_condition");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?sort=roto", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_sort");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?page=0", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_page");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?page=51", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_page");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?page=50000000", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_page");
+        // HU-10 R8: el ObjectId crudo solo se acepta para newest y relevance.
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?sort=priceAsc&cursor=6716a0000000000000000099", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_cursor");
     }
 }

@@ -14,7 +14,7 @@ using Musubi.Api.Platform.Errors;
 namespace Musubi.Api.Modules.Listings;
 
 /// <summary>
-/// Publicar productos (HU-06, HU-50) y la vitrina publica (HU-48 fase 2). Filas canonicas en docs/endpoints.md.
+/// Publicar productos (HU-06, HU-50), la vitrina publica (HU-48 fase 2) y el detalle (HU-11). Filas canonicas en docs/endpoints.md.
 /// Con sesion por defecto; la vitrina es anonima y entonces no muestra al vendedor (RNF-05).
 /// </summary>
 [ApiController]
@@ -31,12 +31,18 @@ public sealed class ProductsController : ControllerBase
 
     private string? communityId => User.FindFirst(MusubiClaims.Community)?.Value;
 
-    /// <summary>Vitrina: lo recien publicado del campus (maqueta <c>Inicio-visitante</c>, <c>Inicio</c>, "Filtrar").</summary>
+    /// <summary>Vitrina y busqueda con filtros (maqueta <c>Inicio-visitante</c>, <c>Inicio</c>, "Filtrar", <c>Busqueda</c> y <c>Busqueda-filtros</c>; HU-09, HU-10).</summary>
     /// <param name="campus">Campus del visitante (sin sesion; por defecto el del piloto).</param>
-    /// <param name="category">Slug de la categoria.</param>
-    /// <param name="hideSoldOut">Ocultar agotados.</param>
+    /// <param name="category">Slugs de las categorias (se puede repetir el parametro).</param>
+    /// <param name="minPriceCents">Precio minimo, inclusivo.</param>
+    /// <param name="maxPriceCents">Precio maximo, inclusivo.</param>
+    /// <param name="condition"><c>new</c> o <c>used</c>.</param>
+    /// <param name="sort"><c>relevance</c>, <c>newest</c>, <c>oldest</c>, <c>priceAsc</c> o <c>priceDesc</c>.</param>
+    /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
+    /// <param name="hideSoldOut">Ocultar agotados; sin el, la busqueda los oculta y la vitrina no.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina (1 a 50).</param>
+    /// <param name="page">Pagina (base 1); ignora <paramref name="cursor"/>.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina.</returns>
     [HttpGet]
@@ -49,13 +55,32 @@ public sealed class ProductsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Showcase(
         [FromQuery] string? campus,
-        [FromQuery] string? category,
-        [FromQuery] bool hideSoldOut,
+        [FromQuery] string[]? category,
+        [FromQuery] long? minPriceCents,
+        [FromQuery] long? maxPriceCents,
+        [FromQuery] string? condition,
+        [FromQuery] string? sort,
+        [FromQuery] string? q,
+        [FromQuery] bool? hideSoldOut,
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
+        [FromQuery] int? page,
         CancellationToken cancellationToken) =>
         this.Respond(
-            await listings.ShowcaseAsync(communityId, campus, category, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
+            await listings.ShowcaseAsync(
+                new ShowcaseViewer(communityId is null ? null : userId, communityId),
+                campus,
+                category,
+                minPriceCents,
+                maxPriceCents,
+                condition,
+                sort,
+                q,
+                hideSoldOut,
+                cursor,
+                limit,
+                page,
+                cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
     /// <summary>Mis publicaciones ("Ver mis productos").</summary>
@@ -77,6 +102,25 @@ public sealed class ProductsController : ControllerBase
     {
         var range = await listings.PriceRangeAsync(communityId ?? string.Empty, category ?? string.Empty, cancellationToken).ConfigureAwait(false);
         return range is null ? NoContent() : Ok(range);
+    }
+
+    /// <summary>Detalle de una publicacion (maqueta <c>Producto</c> y <c>Producto-visitante</c>, HU-11).</summary>
+    /// <param name="id">Publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El detalle; sin sesion, sin el vendedor (RNF-05).</returns>
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    [ConditionalGet]
+    [ProducesResponseType<ProductDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Detail(string id, CancellationToken cancellationToken)
+    {
+        // Con [AllowAnonymous] la sesion es opcional: si viene, se usa.
+        var viewer = string.IsNullOrEmpty(userId) ? null : userId;
+        return this.Respond(
+            await listings.DetailAsync(viewer, communityId, id, cancellationToken).ConfigureAwait(false),
+            StatusCodes.Status200OK);
     }
 
     /// <summary>Publica un producto (maqueta <c>Vender-4</c> → <c>Vender-listo</c>).</summary>

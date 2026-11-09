@@ -18,7 +18,7 @@
 
 ## T4 — Documentación y versión
 - **Actualizar:** `docs/endpoints.md` (4 filas y el total), `docs/errores.md`, `docs/modelo-datos.md` (uso de `products`), `docs/versionado.md` + `<Version>`, la fila de HU-07 en `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ✅ Hecho (05-Nov-2026): `0.5.0-alpha.2`.
+- **Estado:** ✅ Hecho (09-Nov-2026): `0.5.0-alpha.12`, tras fusionar main (HU-09 a HU-17).
 
 ## T5 — Revisión y PR
 - **Qué:** build, suites, critic, `check_endpoints`, `check_shared_sections`, Semgrep, `security-reviewer`, `traceability-clerk`; PR con la plantilla; Jira a "En revisión".

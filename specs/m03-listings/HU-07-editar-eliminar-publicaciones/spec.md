@@ -1,6 +1,6 @@
 # HU-07 — Editar o eliminar mis publicaciones
 
-**HU / Jira / Sprint / Módulo / Contraparte:** HU-07 / SCRUM-24 / Sprint 3 (26 oct – 8 nov 2026) / M-03 / [musubi-app:HU-07](https://github.com/Israel-Perez/musubi-app/tree/main/specs/m03-listings/HU-07-editar-eliminar-publicaciones)
+**HU / Jira / Sprint / Módulo / Contraparte:** HU-07 / SCRUM-24 / Sprint 4 / M-03 / [musubi-app:HU-07](https://github.com/Israel-Perez/musubi-app/tree/main/specs/m03-listings/HU-07-editar-eliminar-publicaciones)
 
 ## Contexto
 Jira (SCRUM-24): Como **vendedor**, quiero **editar o eliminar mis publicaciones**, para **que la información siempre sea correcta**.
@@ -47,9 +47,9 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
   - `POST /api/v1/products/{id}/pause` → `ProductResponse` (`status: hidden`);
   - `POST /api/v1/products/{id}/resume` → `ProductResponse` (`status: active` o `soldOut`);
   - `DELETE /api/v1/products/{id}` → 204.
-- **Error nuevo** en [`docs/errores.md`](../../../docs/errores.md): `listings.product_not_found` (404, "No encontramos esta publicación."). Los demás ya existen (`listings.invalid_*`, `moderation.*`, `auth.forbidden`).
+- **Errores:** reutiliza `listings.product_not_found` (404, "Esta publicación ya no está disponible."), que HU-11 creó con el mismo sentido; la fila de [`docs/errores.md`](../../../docs/errores.md) nombra las dos HU. Los demás ya existen (`listings.invalid_*`, `moderation.*`, `auth.forbidden`, `request.too_large`).
 - **Fixtures:** las tres respuestas con cuerpo usan la forma de `ContractTest/Fixtures/product.json` (sin cambios).
-- **Coordinación con HU-11:** `GET /api/v1/products/{id}` (detalle) es de HU-11 y no se crea aquí. Comparte la plantilla `{id}` con otro verbo, así que no chocan.
+- **Coordinación con HU-11 y HU-09:** `GET /api/v1/products/{id}` (detalle, HU-11) comparte la plantilla `{id}` con otro verbo, así que no chocan; una publicación pausada solo la ve su dueño en el detalle. Editar recalcula `searchWords` (búsqueda de HU-09) en la misma operación.
 
 ## Tests
 - `TestShared/Listings/ListingRepositoryContract.cs` (en memoria en `UnitTest` y en MongoDB real en `DatabaseTest`):
@@ -78,7 +78,7 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - [x] Editar aplica las reglas de publicar y modera solo el texto que cambió: `MyListingsServiceTests` (10) y `MyListingsFlowTests` (5).
 - [x] Pausar, reactivar y eliminar se reflejan en la vitrina anónima en la siguiente consulta: `MyListingsFlowTests`. Si la etiqueta de la caché cambia, 3 pruebas quedan en rojo (mutación comprobada).
 - [x] RF-08 y RN-07 quedan con `NOTE (HU-18)` y `NOTE (HU-23)` en `MyListingsService`, esta spec, `task.md` y `Memoria.md` (T24).
-- [x] Build Release 0/0 · Unit 186 · Integration 92 · Security 98 · Contract 8 (100 %) · `check_endpoints` OK (37 rutas) · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real) corre en el CI.
+- [x] Build Release 0/0 · Unit 365 · Integration 134 · Security 124 · Contract 13 (100 %, con main del 09-Nov-2026 fusionado) · `check_endpoints` OK (54 rutas) · `check_shared_sections` OK · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real, incluida `UpdateDetails_TheSearchFindsTheNewNameAndNotTheOldOne`) corre en el CI.
 
 ## Límites
 - **Fotos:** no se editan en esta HU (la maqueta no muestra `Vender-1` al editar).

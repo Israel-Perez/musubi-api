@@ -12,7 +12,7 @@ using SkiaSharp;
 namespace ContractTest;
 
 /// <summary>
-/// HU-20: formas JSON de /api/v1/conversations que consume musubi-app. <c>message.json</c> es tambien la
+/// HU-20 y HU-22: formas JSON de /api/v1/conversations que consume musubi-app. <c>message.json</c> es tambien la
 /// carga del evento <c>messageCreated</c> del hub. Cambiar un fixture = cambio de contrato: actualizar
 /// docs/endpoints.md y avisar al front.
 /// </summary>
@@ -71,7 +71,7 @@ public sealed class ChatContractTests(ContractApiFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task ConversationMessageAndMessagePage_MatchTheirFixtures()
+    public async Task ConversationMessageMessagePageAndInbox_MatchTheirFixtures()
     {
         var emails = new RecordingEmailSender();
         using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
@@ -103,6 +103,8 @@ public sealed class ChatContractTests(ContractApiFactory factory) : IClassFixtur
             new Uri($"/api/v1/conversations/{id}/messages", UriKind.Relative), new { text = "¡Hola, Valeria! ¿Sigue disponible la calculadora?" }, Ct);
         var page = await BodyAsync(await seller.GetAsync(new Uri($"/api/v1/conversations/{id}/messages", UriKind.Relative), Ct));
         var pageFixture = await FixtureAsync("message-page.json");
+        var inbox = await BodyAsync(await seller.GetAsync(new Uri("/api/v1/conversations", UriKind.Relative), Ct));
+        var inboxFixture = await FixtureAsync("inbox-page.json");
 
         Assert.Equal(HttpStatusCode.Created, started.StatusCode);
         Assert.Equal(HttpStatusCode.Created, sent.StatusCode);
@@ -110,5 +112,7 @@ public sealed class ChatContractTests(ContractApiFactory factory) : IClassFixtur
         Assert.Equal(Shape(await FixtureAsync("message.json")), Shape(await BodyAsync(sent)));
         Assert.Equal(Shape(pageFixture), Shape(page));
         Assert.Equal(Shape(pageFixture.GetProperty("items")[0]), Shape(page.GetProperty("items")[0]));
+        Assert.Equal(Shape(inboxFixture), Shape(inbox));
+        Assert.Equal(Shape(inboxFixture.GetProperty("items")[0]), Shape(inbox.GetProperty("items")[0]));
     }
 }

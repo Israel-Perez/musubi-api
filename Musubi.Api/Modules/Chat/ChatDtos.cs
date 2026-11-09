@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Musubi.Api.Modules.Chat;
 
-// Contratos HTTP y de tiempo real de M-07 (HU-20). Filas canonicas en docs/endpoints.md.
+// Contratos HTTP y de tiempo real de M-07 (HU-20, HU-22). Filas canonicas en docs/endpoints.md.
 
 /// <summary>Iniciar una conversacion desde una publicacion (maqueta <c>Producto</c> → "Mensaje").</summary>
 /// <param name="ProductId">Id de la publicacion.</param>
@@ -19,17 +19,23 @@ public sealed record SendMessageRequest(string Text);
 /// <param name="Counterpart">La otra persona.</param>
 /// <param name="Context">Lo que origino la conversacion.</param>
 /// <param name="CreatedAt">Creacion (UTC).</param>
+/// <param name="CanReply">
+/// <c>false</c> si hay un bloqueo entre los dos (HU-57): la app cambia la caja de texto por un aviso. No dice
+/// quien bloqueo a quien.
+/// </param>
 public sealed record ConversationResponse(
     string Id,
     string Role,
     CounterpartResponse Counterpart,
     ConversationContextResponse Context,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool CanReply);
 
-/// <summary>La otra persona de la conversacion (su foto y reputacion: <c>GET /profiles/{id}</c>).</summary>
+/// <summary>La otra persona de la conversacion (su reputacion: <c>GET /profiles/{id}</c>).</summary>
 /// <param name="Id">Id del usuario.</param>
 /// <param name="Name">Nombre completo.</param>
-public sealed record CounterpartResponse(string Id, string Name);
+/// <param name="Photo">Ruta de su foto de perfil (<c>/media/avatars/...</c>), o <c>null</c> (se ven sus iniciales).</param>
+public sealed record CounterpartResponse(string Id, string Name, string? Photo);
 
 /// <summary>
 /// Tarjeta del elemento de contexto. Precio, estado y foto son los de ahora; si la publicacion ya no se
@@ -65,3 +71,36 @@ public sealed record MessageResponse(string Id, string ConversationId, string Se
 /// <param name="Items">Mensajes.</param>
 /// <param name="NextCursor">Cursor para los anteriores, o <c>null</c> si no hay mas.</param>
 public sealed record MessagePage(IReadOnlyList<MessageResponse> Items, string? NextCursor);
+
+/// <summary>Una fila de la bandeja (maqueta <c>Mensajes</c>, HU-22).</summary>
+/// <param name="Id">Conversacion.</param>
+/// <param name="Role">Papel de quien consulta: <c>buyer</c> ("Compra") o <c>seller</c> ("Venta").</param>
+/// <param name="Counterpart">La otra persona.</param>
+/// <param name="Context">Lo que origino la conversacion (tipo, id y nombre guardado).</param>
+/// <param name="LastMessage">El ultimo mensaje (inicio del texto).</param>
+/// <param name="Unread">Mensajes sin leer de quien consulta.</param>
+public sealed record InboxItemResponse(
+    string Id,
+    string Role,
+    CounterpartResponse Counterpart,
+    InboxContextResponse Context,
+    LastMessageResponse LastMessage,
+    int Unread);
+
+/// <summary>Contexto de una fila de la bandeja ("Compra · Casio fx-991ES Plus").</summary>
+/// <param name="Type"><c>product</c>.</param>
+/// <param name="Id">Id del elemento.</param>
+/// <param name="Title">Nombre guardado al iniciar la conversacion.</param>
+/// <param name="Photo">Portada guardada (<c>/media/...</c>), o <c>null</c>.</param>
+public sealed record InboxContextResponse(string Type, string Id, string Title, string? Photo);
+
+/// <summary>El ultimo mensaje de una conversacion.</summary>
+/// <param name="SenderId">Quien lo envio.</param>
+/// <param name="Text">Inicio del texto (hasta 120 caracteres).</param>
+/// <param name="SentAt">Envio (UTC).</param>
+public sealed record LastMessageResponse(string SenderId, string Text, DateTime SentAt);
+
+/// <summary>Pagina de la bandeja, de la conversacion mas reciente a la mas vieja.</summary>
+/// <param name="Items">Conversaciones.</param>
+/// <param name="NextCursor">Cursor para las anteriores, o <c>null</c> si no hay mas.</param>
+public sealed record InboxPage(IReadOnlyList<InboxItemResponse> Items, string? NextCursor);

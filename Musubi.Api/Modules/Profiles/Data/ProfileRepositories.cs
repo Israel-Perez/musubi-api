@@ -33,6 +33,12 @@ internal interface IProfileRepository
     /// <returns>El perfil o <c>null</c>.</returns>
     Task<ProfileDocument?> FindAsync(string userId, CancellationToken cancellationToken);
 
+    /// <summary>Los perfiles que existan de varias personas (fotos del chat y de los bloqueados, HU-22/57).</summary>
+    /// <param name="userIds">Ids de los usuarios (los que no tengan perfil no aparecen).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los perfiles encontrados, en cualquier orden.</returns>
+    Task<IReadOnlyList<ProfileDocument>> FindManyAsync(IReadOnlyCollection<string> userIds, CancellationToken cancellationToken);
+
     /// <summary>Guarda carrera y periodo ("Datos personales"); <c>null</c> los borra.</summary>
     /// <param name="owner">Dueno.</param>
     /// <param name="careerSlug">Carrera o <c>null</c>.</param>

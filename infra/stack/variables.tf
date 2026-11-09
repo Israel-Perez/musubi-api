@@ -49,3 +49,14 @@ variable "alert_email" {
   type        = string
   default     = "contacto@musubiapp.com.mx"
 }
+
+variable "redis_port" {
+  description = "Puerto TCP de la base de Redis Cloud (parte del Public endpoint host:puerto). La cadena completa vive en /musubi/prod/Cache/ConnectionString."
+  type        = number
+  default     = 15092
+
+  validation {
+    condition     = var.redis_port >= 1024 && var.redis_port <= 65535
+    error_message = "redis_port debe ser un puerto no privilegiado (1024 a 65535)."
+  }
+}

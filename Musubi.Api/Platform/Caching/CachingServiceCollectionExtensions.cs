@@ -27,6 +27,12 @@ internal static class CachingServiceCollectionExtensions
     /// <summary>Etiqueta de las respuestas de la vitrina (se borran al publicar o eliminar una cuenta).</summary>
     public const string ShowcaseTag = "showcase";
 
+    /// <summary>Politica de salida del tablero "Se busca" del visitante (HU-15): vida corta, se invalida al publicar.</summary>
+    public const string WantedBoardPolicy = "wanted-board";
+
+    /// <summary>Etiqueta de las respuestas del tablero (se borran al publicar una solicitud o eliminar una cuenta).</summary>
+    public const string WantedBoardTag = "wanted-board";
+
     /// <summary>Vida de los catalogos en cache.</summary>
     public static readonly TimeSpan CatalogTtl = TimeSpan.FromMinutes(10);
 
@@ -65,6 +71,7 @@ internal static class CachingServiceCollectionExtensions
         {
             options.AddPolicy(CatalogPolicy, policy => policy.Expire(CatalogTtl).SetVaryByQuery("campus"));
             options.AddPolicy(ShowcasePolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(ShowcaseTag));
+            options.AddPolicy(WantedBoardPolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(WantedBoardTag));
         });
     }
 }

@@ -33,6 +33,14 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "003-dominio-revision");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "004-perfiles");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "005-chat");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "006-chat-bandeja");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "007-busqueda");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "008-reportes-bloqueos");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "009-solicitudes");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "010-filtros-precio");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "011-ofertas");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "012-ofertas-chat");
+        Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(indexesBefore, (await IndexesAsync(db, MongoSchema.Users)).Count);
@@ -74,6 +82,16 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
 
         Assert.Equal(121, third.WriteError.Code);
         Assert.Equal(121, blank.WriteError.Code);
+
+        // 006 (HU-22): los no leidos nunca son negativos.
+        var negative = new BsonDocument(crowded)
+        {
+            ["_id"] = ObjectId.GenerateNewId(),
+            ["participants"] = new BsonArray { buyer, seller },
+            ["sellerUnread"] = -1,
+        };
+        var below = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Conversations).InsertOneAsync(negative, cancellationToken: Ct));
+        Assert.Equal(121, below.WriteError.Code);
     }
 
     [Fact]
@@ -134,6 +152,74 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(indexes, i => i["name"] == "ix_community_status_id");
         Assert.Contains(indexes, i => i["name"] == "ix_community_category_status_id");
         Assert.Contains(indexes, i => i["name"] == "ix_seller_id");
+        // HU-09: indice de las palabras normalizadas para la busqueda por prefijo.
+        Assert.Contains(indexes, i => i["name"] == "ix_community_status_search");
+        // HU-10: indices para ordenar por precio sin ordenar en memoria; la direccion de _id es parte del contrato.
+        var byName = indexes.ToDictionary(i => i["name"].AsString);
+        Assert.Equal(
+            new BsonDocument { { "communityId", 1 }, { "status", 1 }, { "priceCents", 1 }, { "_id", -1 } },
+            byName["ix_community_status_price_id"]["key"].AsBsonDocument);
+        Assert.Equal(
+            new BsonDocument { { "communityId", 1 }, { "status", 1 }, { "priceCents", -1 }, { "_id", -1 } },
+            byName["ix_community_status_price_desc_id"]["key"].AsBsonDocument);
+        Assert.Equal(
+            new BsonDocument { { "communityId", 1 }, { "categorySlug", 1 }, { "status", 1 }, { "priceCents", 1 }, { "_id", -1 } },
+            byName["ix_community_category_status_price_id"]["key"].AsBsonDocument);
+        Assert.Equal(
+            new BsonDocument { { "communityId", 1 }, { "categorySlug", 1 }, { "status", 1 }, { "priceCents", -1 }, { "_id", -1 } },
+            byName["ix_community_category_status_price_desc_id"]["key"].AsBsonDocument);
+    }
+
+    [Fact]
+    public async Task ReportsAndBlocks_HaveTheirIndexes_AndRejectAnUnknownReasonOrAnEmptyName()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_reputacion");
+        var reportIndexes = (await IndexesAsync(db, MongoSchema.Reports)).Select(i => i["name"].AsString);
+        var blockIndexes = (await IndexesAsync(db, MongoSchema.Blocks)).ToDictionary(i => i["name"].AsString);
+        var spam = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "reporterId", ObjectId.GenerateNewId() },
+            { "target", new BsonDocument("type", "general") }, { "reason", "spam" }, { "status", "open" },
+            { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+        var nameless = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "blockerId", ObjectId.GenerateNewId() },
+            { "blockedId", ObjectId.GenerateNewId() }, { "blockedName", string.Empty }, { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+
+        var badReason = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Reports).InsertOneAsync(spam, cancellationToken: Ct));
+        var badName = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.Blocks).InsertOneAsync(nameless, cancellationToken: Ct));
+
+        Assert.Equal(121, badReason.WriteError.Code);
+        Assert.Equal(121, badName.WriteError.Code);
+        Assert.Contains("ix_community_status", reportIndexes);
+        Assert.Contains("ix_reporter", reportIndexes);
+        Assert.True(blockIndexes["ux_blocker_blocked"]["unique"].AsBoolean);
+        Assert.Contains("ix_blocked", blockIndexes.Keys);
+    }
+
+    [Fact]
+    public async Task WantedRequests_HaveTheirIndexes_AndRejectAZeroBudgetOrAnUnknownStatus()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_solicitudes");
+        var indexes = (await IndexesAsync(db, MongoSchema.WantedRequests)).Select(i => i["name"].AsString).ToList();
+        BsonDocument Wanted(long budget, string status) => new()
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "requesterId", ObjectId.GenerateNewId() },
+            { "requesterName", "Ana R." }, { "title", "Calculadora" }, { "categorySlug", "calculadoras" }, { "categoryName", "Calculadoras" },
+            { "features", new BsonArray() }, { "budgetCents", budget }, { "quantity", 1 }, { "expiresAt", DateTime.UtcNow.AddDays(30) },
+            { "status", status }, { "offersCount", 0 }, { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+
+        var free = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.WantedRequests).InsertOneAsync(Wanted(0L, "active"), cancellationToken: Ct));
+        var unknown = await Assert.ThrowsAsync<MongoWriteException>(() => db.GetCollection<BsonDocument>(MongoSchema.WantedRequests).InsertOneAsync(Wanted(60_000L, "expired"), cancellationToken: Ct));
+        await db.GetCollection<BsonDocument>(MongoSchema.WantedRequests).InsertOneAsync(Wanted(60_000L, "active"), cancellationToken: Ct);
+
+        Assert.Equal(121, free.WriteError.Code);
+        Assert.Equal(121, unknown.WriteError.Code);
+        Assert.Contains("ix_community_status_id", indexes);
+        Assert.Contains("ix_requester_id", indexes);
     }
 
     [Fact]

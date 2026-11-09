@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
@@ -21,7 +22,7 @@ internal sealed class MongoCategoryRepository(IMongoDatabase database) : ICatego
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 }
 
-/// <summary>Publicaciones en MongoDB (indices <c>ix_community_status_id</c>, <c>ix_community_category_status_id</c>, <c>ix_seller_id</c>).</summary>
+/// <summary>Publicaciones en MongoDB (indices de vitrina, categoria, vendedor y precio; HU-06, HU-09, HU-10).</summary>
 internal sealed class MongoProductRepository(IMongoDatabase database) : IProductRepository
 {
     private static readonly FilterDefinitionBuilder<ProductDocument> Filter = Builders<ProductDocument>.Filter;
@@ -42,13 +43,19 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     public async Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         var filter = Showcase(query);
-        if (query.BeforeId is { } before)
+        if (query.Page is null && query.After is { } after)
         {
-            filter &= Filter.Lt("_id", ObjectId.Parse(before));
+            filter &= CursorFilter(query.Sort, after);
         }
 
-        return await products.Find(filter)
-            .SortByDescending(p => p.Id)
+        var find = products.Find(filter).Sort(SortFor(query.Sort));
+        if (query.Page is { } page)
+        {
+            // El tope de pagina se valida en el servicio; aqui se calcula en long para no desbordar.
+            find = find.Skip((int)Math.Min((long)(page - 1) * query.Limit, int.MaxValue));
+        }
+
+        return await find
             .Limit(query.Limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -72,7 +79,10 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .Set(p => p.CategorySlug, details.CategorySlug)
             .Set(p => p.PriceCents, details.PriceCents)
             .Set(p => p.Condition, details.Condition)
-            .Set(p => p.UpdatedAt, now);
+            .Set(p => p.UpdatedAt, now)
+            // HU-09: las palabras de la busqueda salen del nombre y la descripcion; sin esto, la busqueda
+            // seguiria encontrando el nombre viejo. El documento las calcula al insertar, no al actualizar.
+            .Set(p => p.SearchWords, SearchWord.Words($"{details.Title} {details.Description}"));
         // El $jsonSchema no acepta null: en un producto nuevo el detalle se quita.
         update = details.ConditionDetail is { } detail
             ? update.Set(p => p.ConditionDetail, detail)
@@ -142,10 +152,85 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
 
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
+        // HU-10: los agotados dependen de IncludeSoldOut; el servicio decide el valor por defecto.
+        // NOTE (HU-10): con status $in y orden por precio, Mongo puede usar SORT_MERGE; confirmar el
+        // plan con explain en CI queda pendiente.
         var statuses = query.IncludeSoldOut
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId) & Filter.In(p => p.Status, statuses);
-        return query.CategorySlug is { } category ? filter & Filter.Eq(p => p.CategorySlug, category) : filter;
+        if (query.CategorySlugs is { Count: > 0 } categories)
+        {
+            filter &= Filter.In(p => p.CategorySlug, categories);
+        }
+
+        if (query.Condition is { } condition)
+        {
+            filter &= Filter.Eq(p => p.Condition, condition);
+        }
+
+        if (query.MinPriceCents is { } min)
+        {
+            filter &= Filter.Gte(p => p.PriceCents, min);
+        }
+
+        if (query.MaxPriceCents is { } max)
+        {
+            filter &= Filter.Lte(p => p.PriceCents, max);
+        }
+
+        // HU-57: sin las publicaciones de quien bloqueaste o te bloqueo.
+        if (query.ExcludeSellers is { Count: > 0 } excluded)
+        {
+            filter &= Filter.Nin(p => p.SellerId, excluded);
+        }
+
+        // HU-09: cada termino, ya normalizado, es un prefijo de una palabra de `searchWords` (indice
+        // ix_community_status_search); un documento coincide si alguna palabra empieza igual (OR).
+        return query.Search is { } search ? filter & SearchByPrefix(search) : filter;
+    }
+
+    private static FilterDefinition<ProductDocument> CursorFilter(string sort, ProductCursor cursor)
+    {
+        var id = ObjectId.Parse(cursor.Id);
+        var before = Filter.Lt("_id", id);
+        var price = cursor.PriceCents.GetValueOrDefault();
+        return sort switch
+        {
+            ProductSorts.Oldest => Filter.Gt("_id", id),
+            // En empate, el orden sigue con _id descendente: la pagina siguiente tiene _id menor.
+            ProductSorts.PriceAsc => Filter.Or(
+                Filter.Gt(p => p.PriceCents, price),
+                Filter.And(Filter.Eq(p => p.PriceCents, price), before)),
+            ProductSorts.PriceDesc => Filter.Or(
+                Filter.Lt(p => p.PriceCents, price),
+                Filter.And(Filter.Eq(p => p.PriceCents, price), before)),
+            _ => before,
+        };
+    }
+
+    // NOTE (HU-10): con q, el indice de prefijo resuelve la busqueda pero el orden por precio puede
+    // resolverse en memoria sobre las coincidencias; limit <= 50 acota el costo.
+    private static SortDefinition<ProductDocument> SortFor(string sort) => sort switch
+    {
+        ProductSorts.Oldest => Builders<ProductDocument>.Sort.Ascending(p => p.Id),
+        ProductSorts.PriceAsc => Builders<ProductDocument>.Sort
+            .Ascending(p => p.PriceCents)
+            .Descending(p => p.Id),
+        ProductSorts.PriceDesc => Builders<ProductDocument>.Sort
+            .Descending(p => p.PriceCents)
+            .Descending(p => p.Id),
+        _ => Builders<ProductDocument>.Sort.Descending(p => p.Id),
+    };
+
+    private static FilterDefinition<ProductDocument> SearchByPrefix(string search)
+    {
+        var byTerm = search
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(SearchWord.Normalize)
+            .Where(term => term.Length > 0)
+            .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term))))
+            .ToList();
+        return byTerm.Count == 0 ? Filter.Empty : Filter.Or(byTerm);
     }
 }

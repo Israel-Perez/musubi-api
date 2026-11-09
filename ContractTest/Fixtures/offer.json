@@ -1,0 +1,15 @@
+{
+  "id": "6716a0000000000000000040",
+  "requestId": "6716a0000000000000000031",
+  "kind": "listing",
+  "productId": "6716a0000000000000000050",
+  "title": "Bata de laboratorio blanca, talla M",
+  "priceCents": 25000,
+  "condition": "used",
+  "photo": "/media/products/6716a0000000000000000002/0123456789abcdef0123456789abcdef.webp",
+  "message": "¡Hola! Te la llevo al edificio de laboratorios.",
+  "status": "sent",
+  "overBudget": false,
+  "createdAt": "2026-11-09T18:00:00Z",
+  "updatedAt": "2026-11-09T18:00:00Z"
+}

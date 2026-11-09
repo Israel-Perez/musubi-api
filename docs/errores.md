@@ -45,7 +45,7 @@ Cada error es `application/problem+json` (RFC 9457):
 | code | HTTP | Mensaje | HU |
 |---|---|---|---|
 | `moderation.image_rejected` | 422 | Esta foto no cumple las reglas de la comunidad. Usa otra. | 02-07 (Rekognition; fotos de productos y de perfil). La foto nunca llega a S3 |
-| `moderation.text_rejected` | 422 | Revisa el nombre del producto / la descripción: no cumple las reglas de la comunidad. | 02-07 (Translate + Comprehend). El mensaje nombra el campo |
+| `moderation.text_rejected` | 422 | Revisa el nombre del producto / la descripción: no cumple las reglas de la comunidad. | 02-07 (léxico local; Translate + Comprehend con `Moderation:TextProvider=Aws`). El mensaje nombra el campo |
 | `moderation.unavailable` | 503 | No pudimos revisar tu contenido. Inténtalo en unos minutos. | 02-07: si AWS no responde no se guarda nada (nunca se publica sin moderar) |
 
 ## M-01 · Autenticación y usuarios (`Modules/Auth/AuthErrors.cs`)
@@ -84,11 +84,15 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_description` | 400 | La descripción puede tener hasta 500 caracteres. | HU-06 |
 | `listings.invalid_price` | 400 | Ponle un precio a tu producto. | HU-06 (RN-04: mayor que cero; hasta $999,999) |
 | `listings.invalid_category` | 400 | Elige una categoría. | HU-06 |
-| `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle) |
+| `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle); HU-10 (filtro) |
 | `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
-| `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 (cursor que no emitió la API) |
+| `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 / HU-10 (cursor que no emitió la API o de otro orden) |
+| `listings.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-09 (búsqueda sin letras ni dígitos, o de más de 80 caracteres) |
+| `listings.invalid_price_range` | 400 | Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-10 (mínimo negativo, máximo fuera de rango o mínimo mayor que el máximo) |
+| `listings.invalid_sort` | 400 | Elige un orden para los resultados. | HU-10 (orden fuera de la lista permitida) |
+| `listings.invalid_page` | 400 | Elige una página del 1 al 50. | HU-10 (`page` menor que 1 o mayor que 50; acota el `skip` de Mongo, OWASP API4) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
-| `listings.product_not_found` | 404 | No encontramos esta publicación. | HU-07 (inexistente, de otra persona o quitada por moderación: no revela cuál, OWASP API1) |
+| `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus) y HU-07 (editar, pausar, reactivar o eliminar una publicación ajena): no revela cuál, OWASP API1 |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |
@@ -100,5 +104,38 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `chat.product_unavailable` | 404 | Esta publicación ya no está disponible. | HU-20 (inexistente, de otro campus, pausada o quitada: no revela cuál) |
 | `chat.own_product` | 400 | Es tu publicación: aquí te escribirán los compradores. | HU-20 (el vendedor no se escribe a sí mismo) |
 | `chat.conversation_not_found` | 404 | No encontramos esta conversación. | HU-20 (inexistente o de otras personas: no revela cuál, RN-22, OWASP API1) |
+| `chat.blocked` | 403 | No puedes escribirle a esta persona. | HU-57 (bloqueo en cualquier dirección: el mismo mensaje para los dos, no revela quién bloqueó) |
 | `chat.invalid_message` | 400 | Escribe un mensaje de hasta 1000 caracteres. | HU-20 (vacío o de más de 1000 caracteres) |
-| `chat.invalid_cursor` | 400 | No pudimos cargar mensajes anteriores. Vuelve a abrir la conversación. | HU-20 (cursor que no emitió la API) |
+| `chat.invalid_filter` | 400 | No pudimos aplicar ese filtro. Elige Todos, Compras o Ventas. | HU-22 (`role` que no es `buyer` ni `seller`) |
+| `chat.invalid_cursor` | 400 | No pudimos cargar más. Vuelve a abrir la lista. | HU-20 / HU-22 (cursor que no emitió la API) |
+| `reports.invalid_reason` | 400 | Elige el motivo del reporte. | HU-28 (motivo fuera de la lista de la maqueta) |
+| `reports.invalid_details` | 400 | Cuéntanos qué pasó en hasta 1000 caracteres. | HU-28 |
+| `reports.invalid_target` | 400 | No pudimos enviar este reporte. Revisa a quién o qué reportas. | HU-28 (tipo desconocido, id donde no va, reportarse a uno mismo o a su propia publicación) |
+| `reports.target_not_found` | 404 | No encontramos lo que quieres reportar. | HU-28 (persona, publicación o conversación inexistente, de otro campus o ajena: no revela cuál) |
+| `blocks.self` | 400 | No puedes bloquearte a ti mismo. | HU-57 |
+| `blocks.user_not_found` | 404 | No encontramos a esta persona. | HU-57 (inexistente o de otro campus: no revela cuál) |
+| `wanted.invalid_title` | 400 | Escribe qué buscas, de 3 a 80 caracteres. | HU-13 (RN-09) |
+| `wanted.invalid_category` | 400 | Elige una categoría. | HU-13 (RN-09; slug del campus u "otro") |
+| `wanted.invalid_description` | 400 | La descripción puede tener hasta 300 caracteres. | HU-13 |
+| `wanted.invalid_features` | 400 | Agrega hasta 5 características de hasta 40 caracteres. | HU-13 |
+| `wanted.invalid_budget` | 400 | Indica tu presupuesto máximo, de $1 a $999,999. | HU-13 (RN-09) |
+| `wanted.invalid_quantity` | 400 | La cantidad va de 1 a 10 piezas. | HU-13 (RN-09) |
+| `wanted.invalid_date` | 400 | Elige una fecha de hoy a 60 días. | HU-13 (día del campus, UTC-6) |
+| `wanted.too_many_active` | 409 | Ya tienes 5 solicitudes activas. Espera a que alguna termine para publicar otra. | HU-13 (RN-12) |
+| `wanted.invalid_budget_range` | 400 | Revisa el rango de presupuesto: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-15 ("Presupuesto" de "Filtrar solicitudes") |
+| `wanted.invalid_deadline` | 400 | Elige una fecha límite de 1 a 60 días. | HU-15 ("Fecha límite") |
+| `wanted.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-15 (más de 80 caracteres o sin letras ni dígitos) |
+| `wanted.invalid_cursor` | 400 | No pudimos cargar más solicitudes. Actualiza la lista. | HU-15 (cursor que no es el id de una solicitud) |
+| `offers.own_request` | 409 | No puedes ofrecer en tu propia solicitud. | HU-16 (RN-06) |
+| `offers.product_unavailable` | 400 | Elige una de tus publicaciones disponibles. | HU-16 (no es tuya, no está disponible o es de otro campus) |
+| `offers.invalid_description` | 400 | Describe lo que ofreces, de 3 a 300 caracteres. | HU-16 (oferta directa) |
+| `offers.invalid_price` | 400 | Escribe tu precio, de $1 a $999,999. | HU-16 (oferta directa) |
+| `offers.invalid_condition` | 400 | Elige si es nuevo o usado. | HU-16 (oferta directa) |
+| `offers.invalid_photo` | 400 | Vuelve a agregar la foto. | HU-16 (llave que no subió esa persona o que no existe, OWASP API1) |
+| `offers.invalid_message` | 400 | El mensaje puede tener hasta 300 caracteres. | HU-16 |
+| `offers.not_editable` | 409 | Ya no puedes cambiar esta oferta: quien busca ya la eligió o la rechazó. | HU-17 |
+| `offers.offer_not_found` | 404 | No encontramos esta oferta. | HU-17 (no es de esa solicitud o hay un bloqueo con quien la hizo) |
+| `offers.not_pending` | 409 | Esta oferta ya no está pendiente. | HU-17 (ya aceptada o rechazada) |
+| `offers.request_closed` | 409 | Tu solicitud ya no está activa. | HU-17 (aceptar en una solicitud cerrada, cancelada o vencida) |
+| `offers.not_found` | 404 | Todavía no has ofrecido nada en esta solicitud. | HU-16 (`GET .../offers/mine`) |
+| `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |

@@ -2,22 +2,29 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (05-Nov-2026)
+## Estado actual (09-Nov-2026)
 
-- **En producción (03-Nov-2026):** API `0.4.0-alpha.4`, infra `0.3.4` y esquema 4 en `https://api.musubiapp.com.mx` (`infra-up` 41743342605). Incluye HU-46, HU-04 (perfil), caché (02-02), moderación (02-07) y observabilidad (02-06). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
-- **App en Google Play:** `0.4.0+5` en la prueba cerrada (HU-04), publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
-- **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
-- **En curso (04-Nov-2026):** HU-20 (chat), API `0.5.0-alpha.1` lista en su PR; falta la app.
-- **En curso (05-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.2` en `feature/SCRUM-24-editar-eliminar-publicaciones`; falta la app.
+- **En producción:** API `0.5.0-alpha.11`, infra `0.3.5` y esquema 12 en `https://api.musubiapp.com.mx` (`infra-up` del 09-Nov-2026), con Redis Cloud en las 2 instancias. Incluye:
+  - chat y bandeja (HU-20, HU-22), detalle (HU-11), búsqueda (HU-09) y filtros (HU-10);
+  - reportar y bloquear (HU-28, HU-57), con aviso de reportes a `/musubi/prod/Reports/NotifyEmail`;
+  - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
+  - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
+- **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
+- **Siguiente:** HU-14 (editar, cerrar y cancelar la solicitud) y luego Pedidos (HU-23 a HU-25).
+- **Pendientes del usuario:**
+  - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
+  - validar con el equipo la lista de carreras de la UTTT;
+  - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
+- **En curso (09-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.12` en `feature/SCRUM-24-editar-eliminar-publicaciones`, ya con main fusionado; editar recalcula `searchWords` (HU-09). Falta la app.
 
-## T24 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
+## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
 
 **Qué se hizo**
 - `MyProductsController` con 4 rutas: `PUT /products/{id}`, `POST /products/{id}/pause`, `POST /products/{id}/resume` y `DELETE /products/{id}`.
 - `MyListingsService`, y `ProductRules`, que reúne las reglas que comparten publicar y editar.
 - `IProductRepository`: `UpdateDetailsAsync`, `SetPausedAsync` y `DeleteAsync`, en Mongo y en memoria.
-- Error nuevo: `listings.product_not_found`. Sin script en `db/`: el esquema ya aceptaba `hidden`.
-- API `0.5.0-alpha.2`. Unit 186 · Integration 92 · Security 98 · Contract 8 · endpoints 37.
+- Reutiliza `listings.product_not_found` (HU-11). Sin script en `db/`: el esquema ya aceptaba `hidden`.
+- API `0.5.0-alpha.12`. Conteos al final de la fusión con main (ver el PR).
 
 **Decisiones (con su porqué)** (aprobadas por el usuario)
 - **`PUT` con los campos editables completos:** la app ya los tiene de "Mis productos", y no hay que adivinar qué significa un `null`.
@@ -39,6 +46,238 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-18)`: volver a buscar coincidencias al editar el nombre, la categoría, el precio o la descripción (RF-08).
 - `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
 - `NOTE (02-05)`: fotos de una publicación eliminada que quedan en S3 si el borrado falla a medias. La regla de ciclo de vida del bucket (pendiente desde HU-06 para las fotos que nunca se publican) debe cubrir también este caso.
+## T33 — Ver y elegir ofertas (09-Nov-2026, SCRUM-39, HU-17)
+
+**Qué se hizo**
+- `GET /wanted/{requestId}/offers` (solo quien publicó; pendientes y aceptadas, sin bloqueados) con nombre, foto, carrera visible y reputación de quien ofrece.
+- `POST .../offers/{offerId}/reject`, `accept` (abre la conversación) y `chat` (la abre sin decidir).
+- M-07:
+  - `IConversationOpener` y `context.type` `offer`;
+  - quien busca es el comprador;
+  - el contexto copia nombre y foto, y `ChatService` no busca publicación para él.
+- Una oferta aceptada o rechazada ya no se edita (`409 offers.not_editable`). `db/012-ofertas-chat.js` (esquema 12).
+- API `0.5.0-alpha.11`. Unit 350 · Integration 129 · Security 106 · Contract 13; critic PASS y endpoints OK (50 filas).
+
+**Decisiones (con su porqué)**
+- **Aceptar abre el chat y el pedido es HU-23:** así lo muestra la maqueta ("Abriremos el chat para que acuerden la entrega").
+- **Decisión atómica desde `sent`:** evita aceptar y rechazar la misma oferta a la vez.
+- **"Deshacer" del rechazo en la app:** la API rechaza de forma definitiva; la app espera a que termine el aviso.
+- **Orden en la app:** pocas ofertas por solicitud y los tres órdenes de la maqueta usan datos que la app ya tiene.
+
+**Errores a evitar**
+- **Al ampliar un validador de Mongo, se repite el validador completo:** `collMod` reemplaza el anterior; `db/012` copia `db/006` (conversaciones) y `db/011` (ofertas) con los cambios.
+- **Un helper `async` de las pruebas también necesita `ConfigureAwait(false)`:** CA2007 rompe el build aunque no sea un `[Fact]`.
+
+## T32 — "Yo tengo este producto" (09-Nov-2026, SCRUM-38, HU-16)
+
+**Qué se hizo**
+- `GET` y `PUT /api/v1/wanted/{requestId}/offers/mine`: vincular una publicación propia disponible (copia nombre, precio, estado y portada) u ofrecer sin publicar (descripción, precio, estado y foto opcional de `POST /products/photos`).
+- Reglas:
+  - una por persona y solicitud, editable (RN-14): la primera da 201 y suma `offersCount`, las siguientes la reemplazan (200);
+  - nunca a la propia (`409 offers.own_request`, RN-06);
+  - solicitud no visible → `404 wanted.not_found`;
+  - `overBudget` si el precio pasa el presupuesto (se permite);
+  - descripción y mensaje moderados.
+- `offers` (`db/011-ofertas.js`, esquema 11) con `ux_request_seller`; `IListingPhotos` y `ProductSummary.Available`/`PhotoKey` en M-03; borrado de cuenta de las ofertas hechas y recibidas.
+- API `0.5.0-alpha.10`. Unit 342 · Integration 127 · Security 102 · Contract 12; critic PASS y endpoints OK (46 filas).
+
+**Decisiones (con su porqué)**
+- **`PUT` que crea o reemplaza:** RN-14 deja una oferta editable por persona; la app no necesita distinguir "nueva" de "editar" y el índice único resuelve dos envíos a la vez (el perdedor queda como edición).
+- **Sin conversación al enviar:** `Yo-tengo-enviada` dice "te escribirá por el chat"; quien busca la abre desde la oferta en HU-17.
+- **Foto por la subida de productos:** reutiliza moderación, WebP y el prefijo por usuario; la oferta solo valida que la llave sea suya.
+- **Aviso RF-40 en HU-30:** sin notificaciones push todavía.
+
+**Errores a evitar**
+- **`ProductSummary` creció con parámetros opcionales:** `Available` y `PhotoKey` tienen valor por defecto para no romper los fakes de `IProductDirectory` en las pruebas del chat y de reputación.
+- **S3358 también salta con un ternario dentro del `new` de otro ternario:** en `ProductDirectory.FindAsync` se usa `if` y una variable.
+
+## T31 — Tablero "Se busca" (09-Nov-2026, SCRUM-37, HU-15)
+
+**Qué se hizo**
+- `GET /api/v1/wanted` público con sesión opcional (`Se-busca` y `Se-busca-visitante`): solo activas y sin vencer del campus, de la más nueva a la más vieja, con `category` repetido, `minBudgetCents`/`maxBudgetCents`, `neededWithinDays`, `q`, `cursor` y `limit`.
+- Con sesión: el campus del token, sin las propias (RN-06) ni las de personas bloqueadas (HU-57), y `requester` con nombre completo, foto y carrera visible. Visitante: nombre corto, sin id, foto ni carrera (RNF-05).
+- Lecturas en lote nuevas: `IUserRepository.FindManyAsync` + `IMemberDirectory.FindMembersAsync` (nombres) e `IProfileDirectory.FindCardsAsync` (foto y carrera visible).
+- Caché de salida `wanted-board` (30 s) para el visitante, que se borra al publicar una solicitud y al eliminar una cuenta; `ETag` en todas.
+- Errores `wanted.invalid_budget_range`, `wanted.invalid_deadline`, `wanted.invalid_query` e `wanted.invalid_cursor`; `listings.unknown_campus` reutilizado.
+- API `0.5.0-alpha.9`, esquema 10 sin cambios. Unit 317 · Integration 121 · Security 99 · Contract 11; critic PASS y endpoints OK (44 filas; `AGENTS.md` decía 36 desde hace varias HU).
+- La columna Sprint de `docs/trazabilidad.md` pasa a S4 en las 13 HU del Sprint 4 (Jira, 09-Nov-2026).
+
+**Decisiones (con su porqué)**
+- **Nombre completo y carrera solo con sesión:** así lo muestran las maquetas (`Se-busca` frente a `Se-busca-visitante`) y es lo que ya da `GET /profiles/{id}` dentro del campus. La decisión de HU-13 ("el tablero no lee otras colecciones") se cambió por fidelidad: se leen en lote, dos consultas por página.
+- **Sin las propias:** RN-06 no deja ofertar a una solicitud propia y ya están en "Mis solicitudes".
+- **Presupuesto con mínimo y máximo:** los rangos de la maqueta los arma la app; la API no los fija.
+- **Búsqueda sin `searchWords`:** el tablero de un campus es chico (RN-12) y ya va acotado por `ix_community_status_id`; así no hubo script ni relleno. Si crece, se hace como `db/007-busqueda.js`.
+- **Patrón con clases de vocales acentuadas y separadores explícitos:** `\b` y `\p{L}` dependen de UTF/UCP en PCRE; la consulta solo deja letras y dígitos (hasta 5 términos).
+
+**Errores a evitar**
+- **`ProfileDirectory` ahora pide `ICareerRepository`:** las pruebas que lo construyen a mano pasan `new InMemoryCareerRepository()`.
+- **`WantedRequesterResponse.Id` es anulable:** en `mine` y `{id}` siempre trae el id; solo el visitante del tablero lo recibe en `null`.
+- **`ShortName` usa la inicial del último apellido:** "Fernanda Ortiz Salinas" → "Fernanda S."; las pruebas del visitante deben usar nombres de dos palabras si esperan "Fernanda O.".
+
+## T30 — Filtros de la búsqueda por categoría, precio, condición y orden (08-Nov-2026, SCRUM-27, HU-10)
+
+**Qué se hizo**
+- `GET /api/v1/products` acepta `category` repetido (OR), `minPriceCents`/`maxPriceCents` inclusivos, `condition` (`new`/`used`) y `sort` (`relevance`, `newest`, `oldest`, `priceAsc`, `priceDesc`). Se combinan con `q`, `campus` y `hideSoldOut`.
+- Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado), `listings.invalid_sort` e `listings.invalid_page`.
+- `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
+- `db/010-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 10`.
+- Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
+- `page` (base 1, máximo 50) suma paginación por número para la app: `skip = (page - 1) * limit` en `long`, ignora `cursor` y devuelve `nextCursor: null`; fuera de 1 a 50 es `listings.invalid_page`. El tope acota el costo de `skip` (OWASP API4).
+- `hideSoldOut` pasa a opcional: sin el parámetro la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
+- API `0.5.0-alpha.8`, esquema 10 y fila en `docs/versionado.md`. Se renumeró de `db/009`/`alpha.7` a `db/010`/`alpha.8` porque HU-13 (musubi-api#54) se fusionó antes con ese número (09-Nov-2026). Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- **Prueba manual (API en Development + InMemory, 08-Nov-2026):** `/health` y `/health/ready` Healthy; registro y verificación con el código del log; 4 publicaciones; filtro combinado devolvió las 2 esperadas; `priceDesc` ordenó 80k, 30k, 20k y 10k; paginación `priceAsc` 2+2 con cursor; rango/condición/orden inválidos y cursor viejo con precio devolvieron 400 con su código.
+- **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó a 269 al rebasar sobre HU-28/HU-57, con 19 casos del codec, el cursor `priceDesc` y el tope de página.
+
+**Decisiones (con su porqué)**
+- **Alcance de la maqueta, no solo Jira:** el usuario eligió `Busqueda-filtros` completa (varias categorías, condición y orden); Jira solo pedía categoría y precio.
+- **Extender `GET /products`:** la app ya consume esa ruta y comparte auth, caché, `ETag` y cursor; una ruta nueva duplicaría controller y pruebas.
+- **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados; el token lleva el orden y la clave.
+- **`page` y `cursor` son excluyentes:** la app usa `page` para la barra numérica y el scroll continuo usa `cursor`; si llegan ambos, gana `page` (`NOTE (HU-10)`).
+- **`relevance` es alias de `newest`:** no hay puntaje de relevancia; HU-09 lo difirió. Se conserva la etiqueta de la maqueta con un límite documentado.
+- **Índices de precio en `db/010`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
+- **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
+- **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
+- **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).
+- **Orden por precio con `q`:** el índice de prefijo resuelve la búsqueda, pero el orden puede resolverse en memoria sobre las coincidencias; `limit <= 50` acota el costo (`NOTE (HU-10)`).
+- **Plan con `$in` de estado:** con agotados incluidos el plan puede usar `SORT_MERGE`; los índices cubren el orden y confirmar el plan con `explain` en CI queda pendiente (`NOTE (HU-10)`).
+
+**Errores a evitar**
+- **El cursor viejo no sirve con otro orden:** un ObjectId crudo solo vale para `newest`/`relevance`; con `priceAsc` se rechaza con `400`.
+- **`ProductQuery` ya no tiene `CategorySlug` ni `BeforeId`:** las llamadas nuevas usan `CategorySlugs` y `After`; no reintroducir los campos viejos.
+- **El orden en Mongo y en memoria debe coincidir:** en empate por precio, `_id` descendente en ambos; si se cambia uno, la batería compartida falla.
+- **`ProductQuery.Sort` por defecto es `newest`:** no cambiar el orden de la vitrina sin actualizar `docs/endpoints.md` y la app.
+- **El precio está en centavos:** la maqueta usa pesos; la app convierte antes de llamar y omite `maxPriceCents` cuando no hay techo.
+- **S3358 rompe el build:** no anidar ternarios en `nextCursor`; usar un `if`.
+## T29 — Publicar lo que necesito (09-Nov-2026, SCRUM-35, HU-13)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/PurchaseRequests` (M-05):
+  - `POST /wanted`, `GET /wanted/mine` y `GET /wanted/{id}`;
+  - `wantedRequests` (`db/009-solicitudes.js`, esquema 9);
+  - `ICategoryDirectory` (M-03) para validar la categoría.
+- Reglas:
+  - RN-09: producto, categoría, presupuesto y cantidad son obligatorios;
+  - RN-10: vence al terminar `neededBy` en el campus (UTC-6) o a los 30 días; el vencimiento se calcula al leer;
+  - RN-12: máximo 5 activas;
+  - el texto se modera (02-07);
+  - otro campus, vencida o con bloqueo responde 404 para quien no es el dueño.
+- API `0.5.0-alpha.7`. Unit 274 · Integration 110 · Security 95 · Contract 10.
+
+**Decisiones (con su porqué)**
+- **Los valores [POR DEFINIR] de la spec:** 5 activas (RN-12) y 30 días sin fecha (RN-10). Son conservadores para el piloto; se ajustan con datos.
+- **"Vencida" no se guarda:** se calcula con `expiresAt`. No hace falta un proceso en segundo plano y el conteo de RN-12 la excluye solo.
+- **El día del campus es UTC-6 fijo:** México quitó el horario de verano en 2022. No depende de `tzdata` en la imagen chiseled.
+- **"Otro" como categoría:** la maqueta lo ofrece en `Necesidad-1` aunque no es una categoría de publicaciones.
+
+**Errores a evitar**
+- **`SchemaVersionTests` exige scripts consecutivos:** un `010` sin `009` rompe la prueba. Si dos ramas crean el mismo número, la que se fusione después renumera.
+
+## T28 — Reportar y bloquear (08-Nov-2026, SCRUM-57 y SCRUM-95, HU-28 y HU-57)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/Reputation` (M-13):
+  - `POST /reports` (motivos de la maqueta; `general`, `user` con conversación opcional, `product`). Avisa al equipo por correo si existe `Reports:NotifyEmail`. Rate limit `reports` de 10/hora;
+  - `GET`/`POST /blocks` y `DELETE /blocks/{userId}`.
+- Un bloqueo en cualquier dirección:
+  - corta el chat (`403 chat.blocked`, `canReply: false`);
+  - oculta las publicaciones (vitrina y búsqueda con `ProductQuery.ExcludeSellers`, detalle 404) y el perfil público (404).
+- La foto de perfil de la otra persona en el chat (`counterpart.photo`), por lote con `IProfileDirectory`. La pidió el usuario: solo se veían iniciales.
+- Contratos entre módulos: `IBlockDirectory` (M-13), `IProfileDirectory` (M-02) e `IConversationDirectory` (M-07).
+- `db/008-reportes-bloqueos.js`, esquema 8, API `0.5.0-alpha.6`. Unit 244 · Integration 103 · Security 91 · Contract 9.
+
+**Decisiones (con su porqué)**
+- **HU-28 adelantada y HU-57 nueva:** Google Play exige reportar y bloquear en apps con contenido de usuarios antes de producción.
+- **El detalle del reporte no se modera:** se rechazaría el reporte que cita el insulto; no se publica.
+- **Bloqueo en las dos direcciones y `canReply` sin decir quién bloqueó:** evita volver a tener contacto por otra publicación y no expone a quien bloqueó.
+- **Sin caché del bloqueo:** lista corta con dos índices; desbloquear aplica al instante en las dos instancias.
+
+**Errores a evitar**
+- **`[IO.File]::ReadAllText` con ruta relativa usa el directorio del proceso, no el de PowerShell:** un script de edición falló y `WriteAllText` dejó tres `.cs` vacíos en la raíz de `Musubi.Api`. `check_endpoints` revienta con un `.cs` vacío (`Get-Content -Raw` devuelve `$null`). Usa rutas absolutas (`"$PWD\..."`).
+- **El parámetro de la ruta debe llamarse igual en el código y en `docs/endpoints.md`** (`{userId}`): `check_endpoints` compara el texto.
+
+## T27 — Búsqueda de productos por palabra clave (07-Nov-2026, SCRUM-26, HU-09)
+
+**Qué se hizo**
+- `GET /api/v1/products?q=` (API): coincidencia por **prefijo de palabra** en `title` y `description`, sin distinguir mayúsculas ni acentos, solo disponibles, de la más nueva a la más vieja, con el cursor `_id` de la vitrina. `calc` y `calcula` encuentran `Calculadora`.
+- Error nuevo `listings.invalid_query` (400): más de 80 caracteres o sin letras ni dígitos. `q` vacío equivale a no buscar.
+- Campo nuevo `searchWords[]` (palabras normalizadas de título y descripción) e índice `ix_community_status_search`; `db/007-busqueda.js` y esquema 7, con relleno de lo existente.
+- API `0.5.0-alpha.5` (subida al integrar `main`, que ya desplegó `0.5.0-alpha.4`). Unit 181 · Integration 100 · Security 84 · Contract 8 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+
+**Decisiones (con su porqué)**
+- **Prefijo en lugar de palabra completa:** el requisito pide encontrar `Calculadora` escribiendo `calc`; `$text` no soporta prefijos y Atlas Search no existe en MongoDB Community, así que se compara por prefijo.
+- **Campo `searchWords` indexado:** un `$regex` sobre `title`/`description` recorría toda la comunidad; con el campo multikey y el índice `ix_community_status_search` (comunidad, estado, palabras) el `^prefijo` es un rango indexado. El costo es el campo derivado y su relleno.
+- **Acentos, mayúsculas y plural resueltos al escribir:** `SearchWord.Normalize`/`Words` dejan las palabras en minúsculas, sin acentos y sin `s`/`es` final, tanto en el documento como en la consulta; no hay variantes en el índice.
+- **El campo se calcula en `ProductDocument`:** el serializador lo escribe al insertar, así no hay servicio ni *backfill* dentro de la API; el script rellena solo lo anterior.
+- **Solo disponibles cuando hay `q`, orden por `_id`:** cumple el criterio de Jira y reutiliza el cursor de la vitrina; la relevancia se difiere.
+- **La exclusión de agotados vive en el repositorio, no en el servicio:** cualquier consulta con `Search` devuelve solo `active`, aunque el llamador pida los agotados.
+- **Título y descripción, sin categoría ni vendedor:** cubre "nombre o palabra clave" y evita mezclar búsqueda con filtros (HU-10).
+- **`SearchTerms` deja solo letras, dígitos y espacios:** nada del usuario se vuelve sintaxis del patrón (OWASP API3).
+- **Sin persistir `q`:** RNF-07; el historial y las búsquedas guardadas son de HU-12. El texto sí vive hasta 30 s como clave de la caché de salida, que no es historial; queda escrito en los límites de la spec.
+- **`searchWords` se calcula al insertar:** si algún día se edita el título o la descripción hay que recalcularlo; hoy no hay edición (`NOTE (HU-09)`).
+- **Orden por `_id`:** el índice resuelve el prefijo, pero el orden de las coincidencias se hace en memoria; aceptable con `limit ≤ 50` (`NOTE (HU-09)`).
+- **`q` se acota a 5 términos:** el `$regex` se evalúa por término en dos campos y `CountAsync` repite el filtro; con 80 caracteres se llegaban a 40 términos por petición. El tope mantiene el costo acotado sin afectar el uso real (`security-reviewer`, API4).
+- **Rendimiento medido contra el *fake* en memoria:** el p95 de `PerformanceTest` no cubre el `$regex` de MongoDB; el RNF-09 real se confirma con `PERF_BASE_URL` contra el despliegue.
+- **M-04 reutiliza `Modules/Listings/`:** la vitrina, el repositorio y los DTO ya viven ahí; un módulo paralelo duplicaría el endpoint y las pruebas. Se corrigió la fila de `docs/modulos.md`.
+
+**Errores a evitar**
+- **`$text` no hace prefijos:** si alguien vuelve a "simplificar" con `$text`, `calc` deja de encontrar `Calculadora`; la decisión y su motivo están en `plan.md`.
+- **El prefijo necesita `^` y las palabras normalizadas:** un regex sin `^` no aprovecha el índice; y si el documento guarda `Calculadoras` con mayúscula o acento, el prefijo normalizado no coincide.
+- **`SearchWord.Normalize`/`Words` es compartida:** si cambia el plural o los acentos, deben cambiar juntos el API, el script `db/007` (que rellena) y la batería de `TestShared`.
+- **CA1865 rompe el build:** `EndsWith("s", StringComparison.Ordinal)` debe ser `EndsWith('s')`.
+
+## T26 — Moderación de texto con léxico local (08-Nov-2026, SCRUM-92, 02-07)
+
+**Qué se hizo**
+- En producción, el chat y las publicaciones respondían `503 moderation.unavailable`. El log decía `AmazonTranslateException: The AWS Access Key Id needs a subscription for the service`, y Comprehend daba lo mismo.
+- `SpanishLexicon` modera el texto sin costo. `Moderation:TextProvider` vale `Lexicon` por defecto; con `Aws`, el texto pasa por el léxico y después por Translate + Comprehend. `Moderation:ExtraBlockedTerms` suma términos sin desplegar.
+- El moderador en memoria también aplica el léxico.
+- `HttpRequestException` también da `503`.
+- API `0.5.0-alpha.4`. Unit 210 · Integration 96 · Security 83 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **Léxico local en lugar del plan de pago de AWS:** lo eligió el usuario por el lineamiento de costo cero. Pasar al plan de pago no se puede deshacer y cobra al acabarse el crédito.
+- **Palabras completas y normalización:** las subcadenas rechazan "computadora" y "disputa". Se normaliza lo que se usa para esquivar el filtro (repetidas, leet, letras sueltas) y se conserva la ñ ("cono" ≠ "coño").
+- **Fuera las palabras con usos inocentes comunes** ("perra", "zorra", "pinche", "coger", la raíz "verg" por "vergüenza"): un falso positivo bloquea una venta real.
+
+**Errores a evitar**
+- **La cuenta de AWS está en el plan gratuito (FREE, crédito hasta el 26-Abr-2027).** Ese plan no incluye todos los servicios: antes de agregar uno, pruébalo con el CLI (`SubscriptionRequiredException`). Rekognition, S3, SES y CloudWatch sí están incluidos.
+- **El SDK v4 de AWS no envuelve los errores de red:** llegan como `HttpRequestException`, que no es `AmazonClientException`. Atrápala junto con las de AWS.
+
+## T25 — Detalle de un producto (06-Nov-2026, SCRUM-28, HU-11)
+
+**Qué se hizo**
+- `GET /api/v1/products/{id}`:
+  - es público, y el vendedor `{ id, name }` solo aparece con sesión;
+  - la publicación pausada solo la ve su dueño;
+  - la quitada, o la de otro campus con sesión, responde `404 listings.product_not_found`.
+- API `0.5.0-alpha.3`. Unit 174 · Integration 96 · Security 83 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **El vendedor solo con `{ id, name }`:** su tarjeta completa sale de `GET /profiles/{id}`, y así M-03 no lee perfiles. "Quién te ve" (HU-04) se respeta en un solo lugar.
+
+**Errores a evitar**
+- **En un controller con la propiedad `userId`, una variable local `userId` rompe el build** (Sonar S1117): usa otro nombre (`viewer`).
+
+## T24 — Bandeja de conversaciones (06-Nov-2026, SCRUM-31, HU-22)
+
+**Qué se hizo**
+- `GET /conversations`: Todos, Compras y Ventas, ordenados por actividad, con cursor y no leídos.
+- `POST /conversations/{id}/read`.
+- `db/006-chat-bandeja.js` (esquema 6): no leídos por lado y copia de los nombres.
+- API `0.5.0-alpha.2`. Unit 174 · Integration 93 · Security 82 · Contract 8.
+
+**Decisiones (con su porqué)**
+- **Solo conversaciones con mensajes en la bandeja:** tocar "Mensaje" sin escribir no llena la bandeja del vendedor.
+- **No leídos por lado (`buyerUnread` / `sellerUnread`) con `$inc`:** atómico entre las 2 instancias y validable con `$jsonSchema`.
+- **Copia de los nombres (R8):** la bandeja no consulta `users` por fila.
+
+**Errores a evitar**
+- **Redis en producción (06-Nov-2026):** quedaron tres fallas encadenadas, todas resueltas.
+  - En Parameter Store iba el comando `redis-cli` en vez de la cadena, y la contraseña terminó en los logs.
+  - El grupo de seguridad no dejaba salir al puerto de Redis Cloud.
+  - La contraseña guardada no era la vigente: `NOAUTH`, que se diagnosticó reproduciendo la conexión con la misma librería.
+- **Para diagnosticar Redis sin entrar a las instancias:** un programa local con StackExchange.Redis y la cadena de Parameter Store, con la contraseña tapada en la salida. El log de la conexión dice exactamente en qué paso falla.
+- **El plan gratuito de Redis Cloud no tiene TLS:** la caché y los mensajes del backplane viajan sin cifrar entre AWS y Redis Cloud (ambos en us-east-1), protegidos por la contraseña. Riesgo aceptado para el piloto.
 
 ## T23 — Iniciar una conversación con el vendedor (04-Nov-2026, SCRUM-29, HU-20)
 
@@ -64,6 +303,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Sonar S1135 lee "Todo" en español como un TODO:** en un comentario que empieza con "Todo con sesión", escribe "Siempre con sesión".
 - **`IHubContext<T>.Clients` y `IHubClients.Clients(...)` chocan en un fake** que implementa los dos: implementa los miembros de `IHubContext` de forma explícita.
 - **Un `Id` en un subdocumento se guarda como `_id`** (convención de id del driver de C#). La validación de `db/005-chat.js` pedía `context.id` y rechazó la conversación, pero solo en `DatabaseTest` (CI): los repositorios en memoria no serializan. Se resolvió con `[BsonNoId]` + `[BsonElement("id")]` y con `MongoConventionsTests.Conversation_KeepsContextIdAsId_AndParticipantsAsObjectIds`, que no necesita Docker.
+- **El grupo de seguridad de la API solo dejaba salir 443, 27017 y 80:** Redis Cloud (puerto 15092) respondía `UnableToConnect (0-read, 0-sent)`. Se agregó la salida `api_redis` con la variable `redis_port` (infra `0.3.5`).
+- **En Parameter Store va la cadena de StackExchange.Redis, no el comando `redis-cli -u redis://default:<clave>@host:puerto`** que muestra Redis Cloud. Con el comando, la API lo toma como nombre de host y **la contraseña termina en los logs** dentro del mensaje de error. Hubo que rotarla (06-Nov-2026).
 - **La prueba del hub tiene que morder:** se comprobó que falla (timeout) si cambia el nombre del evento.
 
 ## T22 — Mutación y rendimiento (03-Nov-2026, SCRUM-94, 02-09)

@@ -114,6 +114,20 @@ public abstract class AuthRepositoryContract
     }
 
     [Fact]
+    public async Task Users_FindMany_ReturnsTheOnesThatExist_IgnoringBadIds()
+    {
+        var ana = await NewUserAsync();
+        var luis = await NewUserAsync();
+        Assert.True(await Users.TryInsertAsync(ana, Ct));
+        Assert.True(await Users.TryInsertAsync(luis, Ct));
+
+        var found = await Users.FindManyAsync([ana.Id, luis.Id, ana.Id, AuthIds.New(), "no-es-un-id"], Ct);
+
+        Assert.Equal(new[] { ana.Id, luis.Id }.Order(StringComparer.Ordinal), found.Select(u => u.Id).Order(StringComparer.Ordinal));
+        Assert.Empty(await Users.FindManyAsync([], Ct));
+    }
+
+    [Fact]
     public async Task Users_InsertSameEmailTwice_SecondReturnsFalse()
     {
         var email = UniqueEmail();

@@ -6,7 +6,8 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Musubi.Api.Modules.Chat.Data;
 
-// Documentos de persistencia de M-07 (HU-20). La validacion del servidor vive en db/005-chat.js;
+// Documentos de persistencia de M-07 (HU-20, HU-22). La validacion del servidor vive en los scripts
+// 005-chat y 006-chat-bandeja de db/;
 // fila canonica en docs/modelo-datos.md.
 
 /// <summary>Conversacion entre un comprador y un vendedor sobre un elemento (RN-21).</summary>
@@ -33,8 +34,20 @@ internal sealed class ConversationDocument
     [BsonRepresentation(BsonType.ObjectId)]
     public IReadOnlyList<string> Participants { get; init; } = [];
 
+    /// <summary>Copia del nombre del comprador (R8: el nombre no se edita). Bandeja sin consultar usuarios (HU-22).</summary>
+    public string? BuyerName { get; init; }
+
+    /// <summary>Copia del nombre del vendedor (R8).</summary>
+    public string? SellerName { get; init; }
+
     /// <summary>Lo que origino la conversacion.</summary>
     public ConversationContext Context { get; init; } = new();
+
+    /// <summary>Mensajes que el comprador no ha leido (HU-22).</summary>
+    public int BuyerUnread { get; init; }
+
+    /// <summary>Mensajes que el vendedor no ha leido (HU-22).</summary>
+    public int SellerUnread { get; init; }
 
     /// <summary>Copia del ultimo mensaje para la bandeja (R8); <c>null</c> mientras no haya mensajes.</summary>
     public LastMessage? LastMessage { get; init; }
@@ -67,6 +80,9 @@ internal sealed class ConversationContext
 
     /// <summary>Copia del nombre (R8): se sigue viendo aunque la publicacion se quite.</summary>
     public string Title { get; init; } = string.Empty;
+
+    /// <summary>Copia de la ruta de la portada (<c>/media/...</c>, R8) para la bandeja (HU-22).</summary>
+    public string? Photo { get; init; }
 }
 
 /// <summary>Copia del ultimo mensaje.</summary>
@@ -113,9 +129,14 @@ internal sealed class MessageDocument
     public int SchemaVersion { get; init; } = 1;
 }
 
-/// <summary>Tipos de contexto de una conversacion (RN-21). NOTE (HU-16): solicitudes y ofertas (Sprint 3).</summary>
+/// <summary>Tipos de contexto de una conversacion (RN-21).</summary>
 internal static class ConversationContextTypes
 {
     /// <summary>Una publicacion (HU-20, Sprint 2).</summary>
     public const string Product = "product";
+
+    /// <summary>
+    /// Una oferta "Yo tengo este producto" (HU-17): la abre quien busca (comprador) con quien ofrece (vendedor).
+    /// </summary>
+    public const string Offer = "offer";
 }

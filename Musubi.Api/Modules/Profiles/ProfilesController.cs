@@ -96,6 +96,6 @@ public sealed class ProfilesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Public(string id, CancellationToken cancellationToken) =>
         this.Respond(
-            await profiles.PublicAsync(User.FindFirst(MusubiClaims.Community)?.Value, id, cancellationToken).ConfigureAwait(false),
+            await profiles.PublicAsync(userId, User.FindFirst(MusubiClaims.Community)?.Value, id, cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 }

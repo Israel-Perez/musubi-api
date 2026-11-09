@@ -77,7 +77,7 @@
 | Documentación de API | OpenAPI + Scalar, solo en Development |
 | Contenedores y nube | Docker (multi-stage, usuario no root); AWS con Terraform: ALB + 2 EC2 (Auto Scaling Group) + CloudFront, imágenes en S3 + CloudFront — `NOTE (02-05)` |
 | Imágenes | Amazon S3 (AWSSDK.S3) detrás de CloudFront; SkiaSharp (MIT) normaliza cada foto a WebP sin metadatos (HU-06, excepción de 00-01 del 27-Oct-2026) |
-| Moderación de contenido | APIs de AWS (Rekognition para imágenes, Comprehend para texto) antes de guardar — `NOTE (02-07)` |
+| Moderación de contenido | Antes de guardar: Rekognition (AWS) para imágenes y léxico local para texto (el plan gratuito de AWS no incluye Comprehend; `Moderation:TextProvider=Aws` lo reactiva) — 02-07 |
 | Pruebas | xUnit v3 (Microsoft.Testing.Platform), WebApplicationFactory, coverlet; Testcontainers.MongoDb (`DatabaseTest`, job `database`) |
 | Calidad y seguridad | Analizadores .NET (AnalysisMode=All) + SonarAnalyzer.CSharp, NuGetAudit, Semgrep, critic-guardrails; SonarCloud, Trivy y OWASP ZAP en fases posteriores |
 | CI | GitHub Actions (actions fijadas por SHA) + Dependabot |

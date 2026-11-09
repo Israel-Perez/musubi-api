@@ -8,6 +8,14 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `002-publicaciones.js` | `categories` (+ 6 de la UTTT), `products` | 2 |
 | `003-dominio-revision.js` | Dominio `musubiapp.com.mx` en la UTTT, para la cuenta de los revisores de Google Play (SCRUM-88) | 3 |
 | `004-perfiles.js` | `profiles`, `careers` (+ 38 de la UTTT, a validar) y `communities.academicTerm` (UTTT: 11 cuatrimestres) (HU-04) | 4 |
+| `005-chat.js` | `conversations` y `messages` (HU-20) | 5 |
+| `006-chat-bandeja.js` | No leídos por lado y copia de nombres y portada en `conversations` (HU-22) | 6 |
+| `007-busqueda.js` | Palabras normalizadas en `products.searchWords` + índice `ix_community_status_search` (HU-09) | 7 |
+| `008-reportes-bloqueos.js` | `reports` (HU-28) y `blocks` (HU-57) | 8 |
+| `009-solicitudes.js` | `wantedRequests` (HU-13) | 9 |
+| `010-filtros-precio.js` | Índices de precio asc/desc, con y sin categoría, para ordenar sin memoria (HU-10) | 10 |
+| `011-ofertas.js` | `offers` ("Yo tengo este producto", HU-16): una por persona y solicitud | 11 |
+| `012-ofertas-chat.js` | Conversaciones de una oferta (`context.type` `offer`) y ofertas aceptadas o rechazadas (HU-17) | 12 |
 
 ## Aplicar
 

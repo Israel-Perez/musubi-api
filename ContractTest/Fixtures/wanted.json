@@ -1,0 +1,15 @@
+{
+  "id": "6716a0000000000000000030",
+  "title": "Calculadora Casio fx-991ES Plus",
+  "category": { "slug": "calculadoras", "name": "Calculadoras" },
+  "description": "La necesito para Cálculo Integral y Física.",
+  "features": ["Modelo fx-991ES Plus", "Con tapa"],
+  "budgetCents": 60000,
+  "quantity": 1,
+  "neededBy": "2026-11-13",
+  "expiresAt": "2026-11-14T06:00:00Z",
+  "status": "active",
+  "offersCount": 0,
+  "requester": { "id": "6716a0000000000000000001", "name": "Ana R.", "photo": null, "career": null },
+  "createdAt": "2026-11-09T12:00:00Z"
+}

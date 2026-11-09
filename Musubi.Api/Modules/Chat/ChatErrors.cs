@@ -21,11 +21,22 @@ internal static class ChatErrors
     public static readonly ApiError ConversationNotFound = new(
         "chat.conversation_not_found", StatusCodes.Status404NotFound, "No encontramos esta conversación.");
 
+    /// <summary>
+    /// Hay un bloqueo entre los dos (HU-57): no se inicia la conversacion ni se envia el mensaje. El mismo
+    /// mensaje para quien bloqueo y para quien fue bloqueado: no revela quien fue.
+    /// </summary>
+    public static readonly ApiError Blocked = new(
+        "chat.blocked", StatusCodes.Status403Forbidden, "No puedes escribirle a esta persona.");
+
     /// <summary>Mensaje vacio o de mas de 1000 caracteres.</summary>
     public static readonly ApiError InvalidMessage = new(
         "chat.invalid_message", StatusCodes.Status400BadRequest, "Escribe un mensaje de hasta 1000 caracteres.");
 
+    /// <summary>Filtro de la bandeja que no es <c>buyer</c> ni <c>seller</c> (HU-22).</summary>
+    public static readonly ApiError InvalidFilter = new(
+        "chat.invalid_filter", StatusCodes.Status400BadRequest, "No pudimos aplicar ese filtro. Elige Todos, Compras o Ventas.");
+
     /// <summary>Cursor de paginacion que no se emitio aqui.</summary>
     public static readonly ApiError InvalidCursor = new(
-        "chat.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar mensajes anteriores. Vuelve a abrir la conversación.");
+        "chat.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más. Vuelve a abrir la lista.");
 }

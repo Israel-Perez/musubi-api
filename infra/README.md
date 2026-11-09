@@ -28,7 +28,7 @@ Cada parámetro `/musubi/prod/A/B` llega a la API como la variable `A__B` (= `A:
 | `/musubi/prod/ConnectionStrings/Mongo` | SecureString | Cadena `mongodb+srv://` de Atlas |
 | `/musubi/prod/Jwt/SigningKey` | SecureString | Llave HS256 (base64, 64 bytes) |
 | `/musubi/prod/Email/From` | String | Remitente verificado en SES |
-| `/musubi/prod/Cache/ConnectionString` | SecureString | **Opcional** (02-02): Redis compartido por las 2 instancias, p. ej. Redis Cloud gratuito (`host:puerto,password=...,ssl=True`). Sin él, cada instancia usa su memoria |
+| `/musubi/prod/Cache/ConnectionString` | SecureString | Redis Cloud gratuito (02-02 y HU-20): caché compartida y backplane del chat en tiempo real. Formato de StackExchange.Redis: `host:puerto,user=default,password=...,abortConnect=false` (+ `,ssl=true` con TLS). **No** el comando `redis-cli -u redis://...` que muestra Redis Cloud. El puerto debe coincidir con la variable `redis_port` de Terraform (salida del grupo de seguridad). Sin el parámetro, cada instancia usa su memoria y el chat solo entrega en tiempo real dentro de su instancia |
 
 Para guardar un secreto sin que quede en el historial de la terminal:
 
@@ -41,9 +41,11 @@ Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-
 
 ## Moderación (02-07)
 
-Cada foto subida pasa por Rekognition (`DetectModerationLabels`) y cada texto publicado por Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés). El rol de las instancias tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+Cada foto subida pasa por Rekognition (`DetectModerationLabels`). Cada texto (publicaciones y mensajes del chat) pasa por el léxico local de la API, sin costo: **el plan gratuito de AWS no incluye Translate ni Comprehend** (responden `SubscriptionRequiredException`).
 
-Costo del piloto: ~1 USD/mes con 500 fotos y 500 publicaciones. Precios de us-east-1:
+Si la cuenta pasa al plan de pago, `/musubi/prod/Moderation/TextProvider = Aws` agrega Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés) después del léxico. El rol de las instancias ya tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+
+Costo del piloto: ~0.50 USD/mes con 500 fotos (solo Rekognition). Precios de us-east-1:
 - Rekognition: 0.001 USD por imagen;
 - Translate: 15 USD por millón de caracteres;
 - Comprehend: 0.0001 USD por unidad de 100 caracteres.

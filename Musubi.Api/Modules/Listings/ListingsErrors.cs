@@ -34,17 +34,37 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidStock = new(
         "listings.invalid_stock", StatusCodes.Status400BadRequest, "Las piezas disponibles van de 1 a 10.");
 
+    /// <summary>Rango de precio al reves o fuera de 0 a $999,999 (HU-10 R3).</summary>
+    public static readonly ApiError InvalidPriceRange = new(
+        "listings.invalid_price_range", StatusCodes.Status400BadRequest, "Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo.");
+
+    /// <summary>Orden que no esta en la lista de <c>ProductSorts</c> (HU-10).</summary>
+    public static readonly ApiError InvalidSort = new(
+        "listings.invalid_sort", StatusCodes.Status400BadRequest, "Elige un orden para los resultados.");
+
+    /// <summary>Pagina fuera de 1 a 50 (HU-10).</summary>
+    public static readonly ApiError InvalidPage = new(
+        "listings.invalid_page", StatusCodes.Status400BadRequest, "Elige una página del 1 al 50.");
+
     /// <summary>Cursor de paginacion que no se emitio aqui.</summary>
     public static readonly ApiError InvalidCursor = new(
         "listings.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más publicaciones. Actualiza la lista.");
 
+    /// <summary>Texto de busqueda sin letras ni digitos, o de mas de 80 caracteres (HU-09).</summary>
+    public static readonly ApiError InvalidQuery = new(
+        "listings.invalid_query", StatusCodes.Status400BadRequest, "Escribe lo que quieres buscar.");
+
+    /// <summary>
+    /// La publicacion no existe, se quito, esta pausada (para quien no es su dueno) o es de otro campus
+    /// (con sesion). Tambien al editar, pausar, reactivar o eliminar una publicacion ajena (HU-07). Misma
+    /// respuesta en todos los casos: no se revela cual (OWASP API1).
+    /// </summary>
+    public static readonly ApiError ProductNotFound = new(
+        "listings.product_not_found", StatusCodes.Status404NotFound, "Esta publicación ya no está disponible.");
+
     /// <summary>Campus desconocido en la vitrina publica.</summary>
     public static readonly ApiError UnknownCampus = new(
         "listings.unknown_campus", StatusCodes.Status404NotFound, "No encontramos ese campus.");
-
-    /// <summary>Publicacion inexistente, de otra persona o quitada por moderacion: no revela cual (HU-07, OWASP API1).</summary>
-    public static readonly ApiError ProductNotFound = new(
-        "listings.product_not_found", StatusCodes.Status404NotFound, "No encontramos esta publicación.");
 
     /// <summary>Archivo que no es una imagen que se pueda leer.</summary>
     public static readonly ApiError PhotoUnsupported = new(

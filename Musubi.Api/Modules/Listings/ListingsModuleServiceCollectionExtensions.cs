@@ -36,11 +36,13 @@ internal static class ListingsModuleServiceCollectionExtensions
             : new MongoProductRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
+        services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
         services.AddSingleton<ListingService>();
         services.AddSingleton<MyListingsService>();
         services.AddSingleton<PhotoUploadService>();
         services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
         services.AddSingleton<IProductDirectory, ProductDirectory>();
+        services.AddSingleton<IListingPhotos, ListingPhotos>();
 
         // Subir fotos cuesta CPU (SkiaSharp) y espacio en S3: un tope por usuario evita el abuso (OWASP API4).
         services.AddOptions<RateLimiterOptions>().Configure<IConfiguration>((options, config) =>

@@ -25,16 +25,19 @@ internal static class ModerationServiceCollectionExtensions
         services.AddSingleton<IContentModerator>(provider =>
         {
             var options = provider.GetRequiredService<IOptions<ModerationOptions>>();
+            var lexicon = new SpanishLexicon(options.Value.ExtraBlockedTerms);
             if (options.Value.Provider == ModerationOptions.InMemoryProvider)
             {
-                return new InMemoryContentModerator();
+                return new InMemoryContentModerator(lexicon);
             }
 
+            // Crear los clientes no llama a AWS: Translate y Comprehend solo se usan con TextProvider=Aws.
             var region = RegionEndpoint.GetBySystemName(options.Value.Region);
             return new AwsContentModerator(
                 new AmazonRekognitionClient(region),
                 new AmazonTranslateClient(region),
                 new AmazonComprehendClient(region),
+                lexicon,
                 options,
                 provider.GetRequiredService<ILogger<AwsContentModerator>>());
         });

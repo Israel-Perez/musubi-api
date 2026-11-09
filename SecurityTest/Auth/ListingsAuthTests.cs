@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Platform.Auth;
 using SecurityTest.Common;
 
@@ -38,6 +41,60 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
     }
 
     [Fact]
+    public async Task Detail_HidesPausedProductsFromOthers_AndProductsOfAnotherCampusFromMembers()
+    {
+        var owner = AuthIds.New();
+        var paused = await InsertAsync(owner, InMemoryCommunityRepository.UtttId, ProductStatuses.Hidden);
+        var removed = await InsertAsync(owner, InMemoryCommunityRepository.UtttId, ProductStatuses.Removed);
+        var elsewhere = await InsertAsync(AuthIds.New(), OtherCommunity, ProductStatuses.Active);
+        using var visitor = production.CreateClient();
+        using var stranger = ClientFor(AuthIds.New(), InMemoryCommunityRepository.UtttId);
+        using var mine = ClientFor(owner, InMemoryCommunityRepository.UtttId);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync(new Uri($"/api/v1/products/{paused}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync(new Uri($"/api/v1/products/{paused}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await mine.GetAsync(new Uri($"/api/v1/products/{paused}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await mine.GetAsync(new Uri($"/api/v1/products/{removed}", UriKind.Relative), Ct)).StatusCode);
+        // Con sesion, otro campus es como si no existiera; sin sesion, una publicacion visible es publica (HU-48).
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync(new Uri($"/api/v1/products/{elsewhere}", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await visitor.GetAsync(new Uri($"/api/v1/products/{elsewhere}", UriKind.Relative), Ct)).StatusCode);
+    }
+
+    private const string OtherCommunity = "000000000000000000000002";
+
+    private async Task<string> InsertAsync(string sellerId, string communityId, string status)
+    {
+        var id = AuthIds.New();
+        await production.Services.GetRequiredService<IProductRepository>().InsertAsync(
+            new ProductDocument
+            {
+                Id = id,
+                CommunityId = communityId,
+                SellerId = sellerId,
+                Seller = new ProductSeller { Name = "Ana R." },
+                Title = "Calculadora Casio",
+                CategorySlug = "calculadoras",
+                PriceCents = 45_000,
+                Condition = ProductConditions.New,
+                Stock = 1,
+                Status = status,
+                Photos = [$"media/products/{sellerId}/{Guid.NewGuid():N}.webp"],
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+            Ct).ConfigureAwait(false);
+        return id;
+    }
+
+    private HttpClient ClientFor(string userId, string communityId)
+    {
+        var token = production.Services.GetRequiredService<AccessTokenIssuer>().Issue(userId, communityId, ["student"]);
+        var client = production.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+        return client;
+    }
+
+    [Fact]
     public async Task ShowcaseAndCategories_ArePublic()
     {
         using var client = production.CreateClient();
@@ -47,6 +104,45 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
 
         Assert.Equal(HttpStatusCode.OK, showcase.StatusCode);
         Assert.Equal(HttpStatusCode.OK, categories.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShowcaseFilters_ArePublic_AndRespectTheCampus()
+    {
+        var seller = AuthIds.New();
+        var local = await InsertAsync(seller, InMemoryCommunityRepository.UtttId, ProductStatuses.Active);
+        var elsewhere = await InsertAsync(seller, OtherCommunity, ProductStatuses.Active);
+        using var visitor = production.CreateClient();
+
+        // HU-10: filtrar y ordenar no exige sesion y nunca cruza el campus por defecto (RNF-21).
+        var response = await visitor.GetAsync(
+            new Uri("/api/v1/products?category=calculadoras&minPriceCents=1&maxPriceCents=99999900&condition=new&sort=priceAsc", UriKind.Relative), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var ids = page.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()).ToList();
+        Assert.Contains(local, ids);
+        Assert.DoesNotContain(elsewhere, ids);
+
+        // HU-10 R1: un valor con metacaracteres se compara como texto en $in, no como sintaxis.
+        var weird = await visitor.GetAsync(
+            new Uri("/api/v1/products?category=calc.*%7Clibros&category=%7B%22%24ne%22%3A%22x%22%7D&sort=priceAsc", UriKind.Relative), Ct);
+        Assert.Equal(HttpStatusCode.OK, weird.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShowcaseSearch_WithMetacharactersOrManyTerms_IsStillAPage()
+    {
+        using var client = production.CreateClient();
+        var manyTerms = "q=" + string.Join('+', Enumerable.Repeat("calc", 16));
+
+        foreach (var query in new[] { "q=a.%2A%7Cb", manyTerms })
+        {
+            var response = await client.GetAsync(new Uri("/api/v1/products?" + query, UriKind.Relative), Ct);
+
+            // HU-09: el texto se sanea (no hay inyeccion de regex) y los terminos se acotan (OWASP API3/API4).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
     }
 
     [Fact]

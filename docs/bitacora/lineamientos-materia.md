@@ -59,7 +59,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-15j | Patrones de integración | Adaptadores detrás de interfaces (constitución §7) | Por HU | 🟡 |
 | L-15k | Paso automatizado para crear/desplegar y para eliminar | Workflows `infra-up` / `infra-down` (OIDC, entorno `produccion`) | 02-05 | 🟡 |
 | L-16a | Despliegue de GitHub a Google Play | Workflow con la API de Google Play | app:02-02 | ⏳ |
-| L-16b | Moderación de texto, imágenes y video antes de guardar | Amazon Rekognition (imágenes) y Comprehend (texto) en el back antes de persistir | 02-07 · HU-06/13/20 | ⏳ |
+| L-16b | Moderación de texto, imágenes y video antes de guardar | Amazon Rekognition (imágenes) y léxico local (texto; Comprehend con `TextProvider=Aws`) en el back antes de persistir | 02-07 · HU-06/13/20 | ⏳ |
 | L-16c | Push en los procesos principales | FCM | HU-31 | ⏳ |
 | L-16d | Aviso de privacidad en la app y en la landing | Pantallas de la maqueta + página de la landing | HU-47 | ⏳ |
 | L-16e | Eliminar cuenta | Flujo de la maqueta | HU-46 | ⏳ |

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Profiles.Data;
+using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Profiles;
@@ -20,6 +21,7 @@ internal sealed class ProfileService(
     IProfileRepository profiles,
     ICareerRepository careers,
     IMemberDirectory members,
+    IBlockDirectory blocks,
     TimeProvider time)
 {
     /// <summary>Prefijo de las fotos de perfil de un usuario (HU-46 las borra por prefijo).</summary>
@@ -117,14 +119,16 @@ internal sealed class ProfileService(
     }
 
     /// <summary>
-    /// Perfil de otra persona del mismo campus. Inexistente, inactiva o de otro campus responde lo mismo (404),
-    /// sin revelar si la cuenta existe. Lee el documento directo: un cambio se ve en la siguiente consulta.
+    /// Perfil de otra persona del mismo campus. Inexistente, inactiva, de otro campus o con un bloqueo entre las
+    /// dos (HU-57) responde lo mismo (404), sin revelar si la cuenta existe. Lee el documento directo: un cambio
+    /// se ve en la siguiente consulta.
     /// </summary>
+    /// <param name="viewerId">Id del token de quien consulta.</param>
     /// <param name="viewerCommunityId">Comunidad del token de quien consulta.</param>
     /// <param name="id">Id del perfil.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El perfil o el error.</returns>
-    public async Task<Result<PublicProfileResponse>> PublicAsync(string? viewerCommunityId, string id, CancellationToken cancellationToken)
+    public async Task<Result<PublicProfileResponse>> PublicAsync(string? viewerId, string? viewerCommunityId, string id, CancellationToken cancellationToken)
     {
         if (!ObjectId.TryParse(id, out _))
         {
@@ -132,7 +136,9 @@ internal sealed class ProfileService(
         }
 
         var account = await members.FindAccountAsync(id, cancellationToken).ConfigureAwait(false);
-        if (account is not { Active: true } || !string.Equals(account.CommunityId, viewerCommunityId, StringComparison.Ordinal))
+        if (account is not { Active: true }
+            || !string.Equals(account.CommunityId, viewerCommunityId, StringComparison.Ordinal)
+            || await blocks.BetweenAsync(viewerId ?? string.Empty, account.Id, cancellationToken).ConfigureAwait(false))
         {
             return ProfilesErrors.NotFound;
         }
@@ -217,7 +223,10 @@ internal sealed class ProfileService(
         return career is null ? null : new CareerResponse(career.Slug, career.Name, career.ShortName, career.FirstTerm, career.LastTerm);
     }
 
-    private static string? PhotoPath(string? key) => key is null ? null : "/" + key;
+    /// <summary>Ruta publica de una foto de perfil (<c>/media/avatars/...</c>), o <c>null</c>.</summary>
+    /// <param name="key">Llave en el bucket.</param>
+    /// <returns>La ruta o <c>null</c>.</returns>
+    public static string? PhotoPath(string? key) => key is null ? null : "/" + key;
 
     private DateTime Now() => time.GetUtcNow().UtcDateTime;
 }
