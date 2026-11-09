@@ -111,3 +111,12 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `reports.target_not_found` | 404 | No encontramos lo que quieres reportar. | HU-28 (persona, publicación o conversación inexistente, de otro campus o ajena: no revela cuál) |
 | `blocks.self` | 400 | No puedes bloquearte a ti mismo. | HU-57 |
 | `blocks.user_not_found` | 404 | No encontramos a esta persona. | HU-57 (inexistente o de otro campus: no revela cuál) |
+| `wanted.invalid_title` | 400 | Escribe qué buscas, de 3 a 80 caracteres. | HU-13 (RN-09) |
+| `wanted.invalid_category` | 400 | Elige una categoría. | HU-13 (RN-09; slug del campus u "otro") |
+| `wanted.invalid_description` | 400 | La descripción puede tener hasta 300 caracteres. | HU-13 |
+| `wanted.invalid_features` | 400 | Agrega hasta 5 características de hasta 40 caracteres. | HU-13 |
+| `wanted.invalid_budget` | 400 | Indica tu presupuesto máximo, de $1 a $999,999. | HU-13 (RN-09) |
+| `wanted.invalid_quantity` | 400 | La cantidad va de 1 a 10 piezas. | HU-13 (RN-09) |
+| `wanted.invalid_date` | 400 | Elige una fecha de hoy a 60 días. | HU-13 (día del campus, UTC-6) |
+| `wanted.too_many_active` | 409 | Ya tienes 5 solicitudes activas. Espera a que alguna termine para publicar otra. | HU-13 (RN-12) |
+| `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |
