@@ -46,7 +46,7 @@ Jira (SCRUM-35): Como **comprador**, quiero **publicar una solicitud indicando e
 - [x] Máximo de 5 activas (R5).
 - [x] Vence en su fecha o a los 30 días (R6).
 - [x] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
-- [ ] `DatabaseTest` en el CI.
+- [x] `DatabaseTest` en el CI (job `database`, PR #54).
 
 ## Límites
 - `NOTE (HU-14)`: editar, cerrar y cancelar.

@@ -2,12 +2,20 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (04-Nov-2026)
+## Estado actual (09-Nov-2026)
 
-- **En producción (03-Nov-2026):** API `0.4.0-alpha.4`, infra `0.3.4` y esquema 4 en `https://api.musubiapp.com.mx` (`infra-up` 41743342605). Incluye HU-46, HU-04 (perfil), caché (02-02), moderación (02-07) y observabilidad (02-06). SES envía desde `no-reply@musubiapp.com.mx`, y el sitio `musubiapp.com.mx` lo sirve el repo `musubi-landing`.
-- **App en Google Play:** `0.4.0+5` en la prueba cerrada (HU-04), publicada desde `release-play` (musubi-app). La solicitud de producción se puede enviar desde el ~13-Nov.
-- **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
-- **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
+- **En producción:** API `0.5.0-alpha.8`, infra `0.3.5` y esquema 10 en `https://api.musubiapp.com.mx`, con Redis Cloud en las 2 instancias. Incluye:
+  - chat y bandeja (HU-20, HU-22), detalle (HU-11), búsqueda (HU-09) y filtros (HU-10);
+  - reportar y bloquear (HU-28, HU-57), con aviso de reportes a `/musubi/prod/Reports/NotifyEmail`;
+  - solicitudes de compra (HU-13).
+  - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
+- **App en Google Play:** `0.5.1+7` en la prueba cerrada. Las HU nuevas van en un lote; ver la Memoria de musubi-app.
+- **Siguiente:** HU-15 (tablero "Se busca"), HU-16 y HU-14.
+- **Pendientes del usuario:**
+  - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
+  - validar con el equipo la lista de carreras de la UTTT;
+  - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
+- **Pendiente con dueño:** `feature/SCRUM-24-editar-eliminar-publicaciones` (HU-07, Kazumi) tiene conflictos. Al editar hay que recalcular `searchWords` (HU-09). No se toca sin el OK del usuario.
 
 ## T31 — Tablero "Se busca" (09-Nov-2026, SCRUM-37, HU-15)
 
