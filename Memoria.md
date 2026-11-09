@@ -4,13 +4,13 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 ## Estado actual (09-Nov-2026)
 
-- **En producción:** API `0.5.0-alpha.8`, infra `0.3.5` y esquema 10 en `https://api.musubiapp.com.mx`, con Redis Cloud en las 2 instancias. Incluye:
+- **En producción:** API `0.5.0-alpha.11`, infra `0.3.5` y esquema 12 en `https://api.musubiapp.com.mx` (`infra-up` del 09-Nov-2026), con Redis Cloud en las 2 instancias. Incluye:
   - chat y bandeja (HU-20, HU-22), detalle (HU-11), búsqueda (HU-09) y filtros (HU-10);
   - reportar y bloquear (HU-28, HU-57), con aviso de reportes a `/musubi/prod/Reports/NotifyEmail`;
-  - solicitudes de compra (HU-13).
+  - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
-- **App en Google Play:** `0.5.1+7` en la prueba cerrada. Las HU nuevas van en un lote; ver la Memoria de musubi-app.
-- **Siguiente:** HU-15 (tablero "Se busca"), HU-16 y HU-14.
+- **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
+- **Siguiente:** HU-14 (editar, cerrar y cancelar la solicitud) y luego Pedidos (HU-23 a HU-25).
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
