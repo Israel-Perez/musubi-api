@@ -133,5 +133,9 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `offers.invalid_condition` | 400 | Elige si es nuevo o usado. | HU-16 (oferta directa) |
 | `offers.invalid_photo` | 400 | Vuelve a agregar la foto. | HU-16 (llave que no subió esa persona o que no existe, OWASP API1) |
 | `offers.invalid_message` | 400 | El mensaje puede tener hasta 300 caracteres. | HU-16 |
+| `offers.not_editable` | 409 | Ya no puedes cambiar esta oferta: quien busca ya la eligió o la rechazó. | HU-17 |
+| `offers.offer_not_found` | 404 | No encontramos esta oferta. | HU-17 (no es de esa solicitud o hay un bloqueo con quien la hizo) |
+| `offers.not_pending` | 409 | Esta oferta ya no está pendiente. | HU-17 (ya aceptada o rechazada) |
+| `offers.request_closed` | 409 | Tu solicitud ya no está activa. | HU-17 (aceptar en una solicitud cerrada, cancelada o vencida) |
 | `offers.not_found` | 404 | Todavía no has ofrecido nada en esta solicitud. | HU-16 (`GET .../offers/mine`) |
 | `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |

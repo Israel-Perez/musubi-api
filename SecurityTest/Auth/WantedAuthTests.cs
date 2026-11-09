@@ -25,6 +25,10 @@ public sealed class WantedAuthTests(ProductionApiFactory production) : IClassFix
         { "GET", "/api/v1/wanted/6716a0000000000000000001" },
         { "GET", "/api/v1/wanted/6716a0000000000000000001/offers/mine" },
         { "PUT", "/api/v1/wanted/6716a0000000000000000001/offers/mine" },
+        { "GET", "/api/v1/wanted/6716a0000000000000000001/offers" },
+        { "POST", "/api/v1/wanted/6716a0000000000000000001/offers/6716a0000000000000000002/reject" },
+        { "POST", "/api/v1/wanted/6716a0000000000000000001/offers/6716a0000000000000000002/accept" },
+        { "POST", "/api/v1/wanted/6716a0000000000000000001/offers/6716a0000000000000000002/chat" },
     };
 
     [Theory]

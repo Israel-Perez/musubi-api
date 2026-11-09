@@ -134,7 +134,10 @@ internal sealed class ChatService(
             return ChatErrors.ConversationNotFound;
         }
 
-        var product = await products.FindAsync(conversation.Context.Id, cancellationToken).ConfigureAwait(false);
+        // HU-17: una conversacion de una oferta no tiene publicacion que leer (el contexto es la copia R8).
+        var product = conversation.Context.Type == ConversationContextTypes.Product
+            ? await products.FindAsync(conversation.Context.Id, cancellationToken).ConfigureAwait(false)
+            : null;
         return Result<ConversationResponse>.Ok(await ToResponseAsync(conversation, userId, product, cancellationToken).ConfigureAwait(false));
     }
 
@@ -340,6 +343,25 @@ internal sealed class ChatService(
         return conversation is not null && conversation.Participants.Contains(userId, StringComparer.Ordinal) ? conversation : null;
     }
 
+    /// <summary>Una publicacion: precio, estado y foto de ahora; si ya no se ve, solo el nombre guardado.</summary>
+    private static ConversationContextResponse ProductContext(ConversationContext context, ProductSummary? product)
+    {
+        var available = product is { Visible: true };
+        return new ConversationContextResponse(
+            context.Type,
+            context.Id,
+            available ? product!.Title : context.Title,
+            available ? product!.PriceCents : null,
+            available ? product!.Condition : null,
+            available ? product!.ConditionDetail : null,
+            available ? product!.Photo : null,
+            available);
+    }
+
+    /// <summary>Una oferta (HU-17): el nombre y la foto copiados al abrir la conversacion (R8).</summary>
+    private static ConversationContextResponse OfferContext(ConversationContext context) =>
+        new(context.Type, context.Id, context.Title, null, null, null, context.Photo, true);
+
     private async Task<ConversationResponse> ToResponseAsync(ConversationDocument conversation, string userId, ProductSummary? product, CancellationToken cancellationToken)
     {
         var isBuyer = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal);
@@ -349,16 +371,9 @@ internal sealed class ChatService(
         var photos = await profiles.FindPhotosAsync([counterpartId], cancellationToken).ConfigureAwait(false);
         var blocked = await blocks.BetweenAsync(userId, counterpartId, cancellationToken).ConfigureAwait(false);
         // NOTE (HU-21): "En linea" / "Activa hace 5 min" segun visibility.online del perfil.
-        var available = product is { Visible: true };
-        var context = new ConversationContextResponse(
-            conversation.Context.Type,
-            conversation.Context.Id,
-            available ? product!.Title : conversation.Context.Title,
-            available ? product!.PriceCents : null,
-            available ? product!.Condition : null,
-            available ? product!.ConditionDetail : null,
-            available ? product!.Photo : null,
-            available);
+        var context = conversation.Context.Type == ConversationContextTypes.Offer
+            ? OfferContext(conversation.Context)
+            : ProductContext(conversation.Context, product);
         return new ConversationResponse(
             conversation.Id,
             isBuyer ? BuyerRole : SellerRole,

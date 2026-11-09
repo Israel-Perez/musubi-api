@@ -37,6 +37,7 @@ internal static class ChatModuleServiceCollectionExtensions
             : new MongoMessageRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddSingleton<IConversationDirectory, ConversationDirectory>();
+        services.AddSingleton<IConversationOpener, ConversationOpener>();
         services.AddSingleton<ChatNotifier>();
         services.AddSingleton<ChatService>();
         services.AddSingleton<IAccountDataEraser, ChatAccountEraser>();

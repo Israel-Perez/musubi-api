@@ -1,17 +1,21 @@
 # HU-17 — Ver y elegir ofertas recibidas (tareas)
 
 ## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (09-Nov-2026): aceptar abre el chat, el pedido es HU-23 y el orden lo hace la app.
 
 ## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+- **Crear:** `db/012-ofertas-chat.js`; `FindByIdAsync`, `FindByRequestAsync` y `TryDecideAsync`.
+- **Verificar:** `OfferRepositoryContract` (en memoria; en Mongo en el CI) y `SchemaScriptTests`.
+- **Estado:** ✅ Hecho (09-Nov-2026).
 
 ## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+- **Crear:** `ReceivedAsync`, `RejectAsync`, `AcceptAsync`, `ChatAsync`, las 4 rutas e `IConversationOpener`.
+- **Verificar:** `OfferServiceTests`, `OfferFlowTests`, `WantedAuthTests` y `WantedContractTests`.
+- **Estado:** ✅ Hecho (09-Nov-2026).
 
 ## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (09-Nov-2026).
+
+## Pendientes
+- La app: `musubi-app:HU-17`.
+- `NOTE (HU-23)` y `NOTE (HU-30)`.

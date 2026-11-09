@@ -138,4 +138,32 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
             Shape(fixture).Select(p => p is "productId:String" or "photo:String" ? p.Replace("String", "Null", StringComparison.Ordinal) : p),
             Shape(body));
     }
+
+    [Fact]
+    public async Task ReceivedOffers_AndAccept_MatchTheFixture()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        using var fernanda = await SignedInAsync(app, emails);
+        using var valeria = await SignedInAsync(app, emails);
+        var requestId = (await BodyAsync(await fernanda.PostAsJsonAsync(
+            new Uri("/api/v1/wanted", UriKind.Relative),
+            new { title = "Bata de laboratorio talla M", category = "laboratorio", budgetCents = 30_000, quantity = 1 },
+            Ct))).GetProperty("id").GetString();
+        var offerId = (await BodyAsync(await valeria.PutAsJsonAsync(
+            new Uri($"/api/v1/wanted/{requestId}/offers/mine", UriKind.Relative),
+            new { description = "Bata blanca de algodón, talla M", priceCents = 28_000, condition = "used", message = "Te la llevo." },
+            Ct))).GetProperty("id").GetString();
+        var fixture = await FixtureAsync("received-offers.json");
+
+        var list = await BodyAsync(await fernanda.GetAsync(new Uri($"/api/v1/wanted/{requestId}/offers", UriKind.Relative), Ct));
+        var accepted = await BodyAsync(await fernanda.PostAsync(new Uri($"/api/v1/wanted/{requestId}/offers/{offerId}/accept", UriKind.Relative), null, Ct));
+
+        // Oferta directa, sin publicacion ni foto, y quien ofrece aun sin perfil, carrera ni calificaciones.
+        string[] nulls = ["productId", "conditionDetail", "photo", "offerer.photo", "offerer.career", "offerer.ratingAvg"];
+        Assert.Equal(
+            Shape(fixture.GetProperty("items")[0]).Select(p => nulls.Any(n => p.StartsWith(n + ":", StringComparison.Ordinal)) ? p[..p.IndexOf(':', StringComparison.Ordinal)] + ":Null" : p),
+            Shape(list.GetProperty("items")[0]));
+        Assert.Equal(["conversationId:String"], Shape(accepted));
+    }
 }

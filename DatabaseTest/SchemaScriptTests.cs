@@ -39,6 +39,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "009-solicitudes");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "010-filtros-precio");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "011-ofertas");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "012-ofertas-chat");
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
