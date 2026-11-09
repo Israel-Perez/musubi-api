@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.PurchaseRequests.Data;
 using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
@@ -34,6 +35,7 @@ internal static class PurchaseRequestsModuleServiceCollectionExtensions
             : new MongoOfferRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<OfferService>();
         services.AddSingleton<IAccountDataEraser, OfferAccountEraser>();
+        services.AddSingleton<IListingPhotoReferences, OfferPhotoReferences>();
     }
 }
 

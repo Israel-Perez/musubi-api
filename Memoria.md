@@ -28,6 +28,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 **Decisiones (con su porqué)** (aprobadas por el usuario)
 - **`PUT` con los campos editables completos:** la app ya los tiene de "Mis productos", y no hay que adivinar qué significa un `null`.
+- **Al eliminar no se borra la foto que copió una oferta vinculada (HU-16)** (usuario, 09-Nov-2026): Listings pregunta con `IListingPhotoReferences` y las ofertas responden (índice `ix_seller`, sin script).
 - **Eliminar es borrado real, con las fotos de S3 (una por llave):** la maqueta dice "no se puede deshacer". El chat ya muestra `available: false` y el pedido guardará su copia (HU-23).
 - **Las fotos y las piezas no se editan:** la maqueta no muestra `Vender-1`, y "Reponer" es de HU-50. Así la edición no pisa el descuento atómico de un pedido (R7).
 - **Pausar entra en la API aunque la maqueta no lo tenga:** `hidden` ya existía; la app decide si lo muestra.

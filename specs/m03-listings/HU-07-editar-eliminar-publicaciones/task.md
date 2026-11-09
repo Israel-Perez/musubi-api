@@ -20,6 +20,12 @@
 - **Actualizar:** `docs/endpoints.md` (4 filas y el total), `docs/errores.md`, `docs/modelo-datos.md` (uso de `products`), `docs/versionado.md` + `<Version>`, la fila de HU-07 en `docs/trazabilidad.md` y `Memoria.md`.
 - **Estado:** ✅ Hecho (09-Nov-2026): `0.5.0-alpha.12`, tras fusionar main (HU-09 a HU-17).
 
+## T6 — Fotos que una oferta sigue mostrando (09-Nov-2026)
+- **Qué:** al eliminar, no se borra la foto que copió una oferta vinculada (HU-16). Decisión del usuario.
+- **Crear:** `IListingPhotoReferences`, `OfferPhotoReferences` y `IOfferRepository.FindPhotoKeysInUseAsync`.
+- **Verificar:** `Delete_KeepsThePhotosThatAnOfferStillShows` (Unit), `Delete_KeepsTheCoverThatALinkedOfferStillShows` (Integration) y `PhotoKeysInUse_OnlyAmongThatSellersOffers` (batería de ofertas, también en MongoDB real). Mutación: ignorar las fotos en uso → 1 Unit y 1 Integration en rojo.
+- **Estado:** ✅ Hecho.
+
 ## T5 — Revisión y PR
 - **Qué:** build, suites, critic, `check_endpoints`, `check_shared_sections`, Semgrep, `security-reviewer`, `traceability-clerk`; PR con la plantilla; Jira a "En revisión".
 - **Estado:** ⏳ Por hacer.

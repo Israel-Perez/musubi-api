@@ -24,6 +24,7 @@ public sealed class MyListingsServiceTests
     private readonly InMemoryMediaStorage media = new();
     private readonly RecordingModerator moderator = new();
     private readonly CountingOutputCache outputCache = new();
+    private readonly FakePhotoReferences photoReferences = new();
     private readonly ManualTimeProvider clock = new(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
     private readonly MyListingsService service;
 
@@ -36,6 +37,7 @@ public sealed class MyListingsServiceTests
             media,
             moderator,
             outputCache,
+            [photoReferences],
             clock);
     }
 
@@ -213,6 +215,21 @@ public sealed class MyListingsServiceTests
     }
 
     [Fact]
+    public async Task Delete_KeepsThePhotosThatAnOfferStillShows()
+    {
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller, photos: 2);
+        // HU-16: una oferta vinculada copio la portada.
+        photoReferences.InUse.Add(product.Photos[0]);
+
+        Assert.Null((await service.DeleteAsync(seller, product.Id, Ct)).Error);
+
+        Assert.True(await media.ExistsAsync(product.Photos[0], Ct));
+        Assert.False(await media.ExistsAsync(product.Photos[1], Ct));
+        Assert.Equal((seller, 2), (photoReferences.AskedFor, photoReferences.AskedKeys));
+    }
+
+    [Fact]
     public async Task SomeoneElse_CannotPauseOrDelete()
     {
         var product = await ProductAsync(await MemberAsync());
@@ -250,6 +267,23 @@ public sealed class MyListingsServiceTests
         {
             Checked.AddRange(texts);
             return inner.CheckTextsAsync(texts, cancellationToken);
+        }
+    }
+
+    /// <summary>Fotos que "otro modulo" sigue mostrando.</summary>
+    private sealed class FakePhotoReferences : IListingPhotoReferences
+    {
+        public HashSet<string> InUse { get; } = new(StringComparer.Ordinal);
+
+        public string? AskedFor { get; private set; }
+
+        public int AskedKeys { get; private set; }
+
+        public Task<IReadOnlyCollection<string>> InUseAsync(string sellerId, IReadOnlyCollection<string> keys, CancellationToken cancellationToken)
+        {
+            AskedFor = sellerId;
+            AskedKeys = keys.Count;
+            return Task.FromResult<IReadOnlyCollection<string>>(keys.Where(InUse.Contains).ToList());
         }
     }
 

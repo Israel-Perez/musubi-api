@@ -20,7 +20,7 @@ Jira (SCRUM-24): Como **vendedor**, quiero **editar o eliminar mis publicaciones
 2. **Editar** (`Vender-2…4`): nombre, descripción, precio, categoría y estado (nuevo, o usado con su detalle), con las mismas reglas que al publicar (RN-03, RN-04). No cambia las fotos, las piezas ni el estado de la publicación.
 3. **Moderación (02-07):** el nombre y la descripción que cambian pasan por `IContentModerator` antes de guardarse; lo inapropiado responde `422 moderation.text_rejected` y no se guarda nada.
 4. **Pausar y reactivar:** pausar deja la publicación en `hidden` (sale de la vitrina y del chat, sigue en "Mis productos"); reactivar la regresa a `active`, o a `soldOut` si no tiene piezas. Las dos son idempotentes.
-5. **Eliminar:** borrado real de la publicación y de sus fotos en S3 ("Esta acción no se puede deshacer"). Una conversación sobre ella sigue existiendo y muestra `available: false` con el nombre guardado (HU-20).
+5. **Eliminar:** borrado real de la publicación y de sus fotos en S3 ("Esta acción no se puede deshacer"), salvo las que una oferta vinculada sigue mostrando (HU-16 copia la llave de la portada). Una conversación sobre ella sigue existiendo y muestra `available: false` con el nombre guardado (HU-20).
 6. **Vitrina al día:** editar, pausar, reactivar o eliminar borra la vitrina de la caché de salida (`EvictByTagAsync`, igual que al publicar).
 7. **Coincidencias (RF-08):** si cambian el nombre, la categoría, el precio o la descripción, el sistema vuelve a buscar coincidencias. Las coincidencias no existen todavía: `NOTE (HU-18)`.
 8. **Pedidos abiertos (RN-07):** una publicación con pedidos **Pendientes** o **Confirmados** no se puede eliminar. Los pedidos no existen todavía: `NOTE (HU-23)`.
@@ -37,6 +37,7 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
   - `UpdateDetailsAsync(id, sellerId, details, now)` → el documento nuevo o `null`;
   - `SetPausedAsync(id, sellerId, paused, now)` → el documento nuevo o `null`; reactivar calcula `active`/`soldOut` con las piezas en la misma operación (update con pipeline en Mongo);
   - `DeleteAsync(id, sellerId)` → el documento borrado (para saber sus fotos) o `null`.
+- **Fotos en uso por otro módulo:** `IListingPhotoReferences` (Listings define la pregunta) lo implementa `OfferPhotoReferences` (M-05) con `IOfferRepository.FindPhotoKeysInUseAsync`, sobre el índice `ix_seller`. Listings no lee la colección `offers`.
 - **Fotos:** al eliminar, `IMediaStorage.DeleteAsync` por cada llave de la publicación. Primero se borra el documento y después las fotos: si S3 falla a medias, la publicación ya no se ve y las fotos huérfanas quedan para la regla de ciclo de vida del bucket (`NOTE (02-05)`). Es un caso nuevo: HU-06 solo registró las fotos que nunca se publican.
 - **Datos:** sin script nuevo en `db/`. El `$jsonSchema` de `products` ya acepta `hidden` y `updatedAt`; `MongoSchema.ExpectedVersion` sigue en 5. Fila de `products` en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md): se agrega HU-07 al uso.
 - **Pendientes en el código:** `NOTE (HU-18)` en `MyListingsService.UpdateAsync` y `NOTE (HU-23)` en `MyListingsService.DeleteAsync`.
@@ -78,7 +79,7 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - [x] Editar aplica las reglas de publicar y modera solo el texto que cambió: `MyListingsServiceTests` (10) y `MyListingsFlowTests` (5).
 - [x] Pausar, reactivar y eliminar se reflejan en la vitrina anónima en la siguiente consulta: `MyListingsFlowTests`. Si la etiqueta de la caché cambia, 3 pruebas quedan en rojo (mutación comprobada).
 - [x] RF-08 y RN-07 quedan con `NOTE (HU-18)` y `NOTE (HU-23)` en `MyListingsService`, esta spec, `task.md` y `Memoria.md` (T24).
-- [x] Build Release 0/0 · Unit 365 · Integration 134 · Security 124 · Contract 13 (100 %, con main del 09-Nov-2026 fusionado) · `check_endpoints` OK (54 rutas) · `check_shared_sections` OK · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real, incluida `UpdateDetails_TheSearchFindsTheNewNameAndNotTheOldOne`) corre en el CI.
+- [x] Build Release 0/0 · Unit 367 · Integration 135 · Security 124 · Contract 13 (100 %, con main del 09-Nov-2026 fusionado) · `check_endpoints` OK (54 rutas) · `check_shared_sections` OK · critic PASS. `DatabaseTest` (batería del repositorio contra MongoDB real, incluida `UpdateDetails_TheSearchFindsTheNewNameAndNotTheOldOne`) corre en el CI.
 
 ## Límites
 - **Fotos:** no se editan en esta HU (la maqueta no muestra `Vender-1` al editar).

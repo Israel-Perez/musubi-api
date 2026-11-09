@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.OutputCaching;
@@ -23,6 +24,7 @@ internal sealed class MyListingsService(
     IMediaStorage media,
     IContentModerator moderator,
     IOutputCacheStore outputCache,
+    IEnumerable<IListingPhotoReferences> photoReferences,
     TimeProvider time)
 {
     /// <summary>Cambia los datos de una publicacion (maqueta <c>Vender-2…4</c>, "Editar publicacion").</summary>
@@ -118,9 +120,10 @@ internal sealed class MyListingsService(
         }
 
         // Primero el documento (deja de verse) y despues las fotos, una por llave: el prefijo es de todas las
-        // publicaciones del vendedor. NOTE (02-05): si S3 falla a medias, la regla de ciclo de vida del bucket
-        // limpia las huerfanas.
-        foreach (var key in deleted.Photos)
+        // publicaciones del vendedor. Una foto que otro modulo sigue mostrando (la portada en una oferta, HU-16)
+        // se queda. NOTE (02-05): si S3 falla a medias, la regla de ciclo de vida del bucket limpia las huerfanas.
+        var inUse = await PhotosInUseAsync(deleted.SellerId, deleted.Photos, cancellationToken).ConfigureAwait(false);
+        foreach (var key in deleted.Photos.Where(key => !inUse.Contains(key)))
         {
             await media.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
         }
@@ -163,6 +166,17 @@ internal sealed class MyListingsService(
         }
 
         return null;
+    }
+
+    private async Task<HashSet<string>> PhotosInUseAsync(string sellerId, IReadOnlyList<string> keys, CancellationToken cancellationToken)
+    {
+        var inUse = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var references in photoReferences)
+        {
+            inUse.UnionWith(await references.InUseAsync(sellerId, keys, cancellationToken).ConfigureAwait(false));
+        }
+
+        return inUse;
     }
 
     private async Task<bool> IsActiveMemberAsync(string userId, CancellationToken cancellationToken) =>

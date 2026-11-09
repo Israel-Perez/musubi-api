@@ -54,6 +54,13 @@ internal interface IOfferRepository
     /// <returns><c>false</c> si ya no estaba enviada.</returns>
     Task<bool> TryDecideAsync(string id, string status, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>Cuales de estas llaves de foto usa alguna oferta de ese vendedor (HU-07; indice <c>ix_seller</c>).</summary>
+    /// <param name="sellerId">Quien ofrece.</param>
+    /// <param name="photoKeys">Llaves a revisar.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las llaves en uso, sin repetir.</returns>
+    Task<IReadOnlyCollection<string>> FindPhotoKeysInUseAsync(string sellerId, IReadOnlyCollection<string> photoKeys, CancellationToken cancellationToken);
+
     /// <summary>Borra las ofertas que hizo alguien y las que recibio en sus solicitudes (HU-46, R11).</summary>
     /// <param name="userId">La persona.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -114,6 +121,21 @@ internal sealed class MongoOfferRepository(IMongoDatabase database) : IOfferRepo
             Builders<OfferDocument>.Update.Set(o => o.Status, status).Set(o => o.DecidedAt, now),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<string>> FindPhotoKeysInUseAsync(string sellerId, IReadOnlyCollection<string> photoKeys, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(photoKeys);
+        if (photoKeys.Count == 0 || !ObjectId.TryParse(sellerId, out _))
+        {
+            return [];
+        }
+
+        var filter = Builders<OfferDocument>.Filter.Eq(o => o.SellerId, sellerId)
+            & Builders<OfferDocument>.Filter.In(o => o.PhotoKey, photoKeys);
+        var keys = await offers.Find(filter).Project(o => o.PhotoKey).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return keys.OfType<string>().Distinct(StringComparer.Ordinal).ToList();
     }
 
     /// <inheritdoc />
@@ -216,6 +238,21 @@ internal sealed class InMemoryOfferRepository : IOfferRepository
                 CreatedAt = o.CreatedAt, UpdatedAt = o.UpdatedAt, SchemaVersion = o.SchemaVersion,
             };
             return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyCollection<string>> FindPhotoKeysInUseAsync(string sellerId, IReadOnlyCollection<string> photoKeys, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(photoKeys);
+        lock (gate)
+        {
+            IReadOnlyCollection<string> keys = offers
+                .Where(o => string.Equals(o.SellerId, sellerId, StringComparison.Ordinal) && o.PhotoKey is not null && photoKeys.Contains(o.PhotoKey))
+                .Select(o => o.PhotoKey!)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            return Task.FromResult(keys);
         }
     }
 

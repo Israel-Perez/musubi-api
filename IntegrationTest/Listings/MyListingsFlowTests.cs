@@ -187,6 +187,30 @@ public sealed class MyListingsFlowTests(AuthApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Delete_KeepsTheCoverThatALinkedOfferStillShows()
+    {
+        using var seller = await SignedInClientAsync();
+        using var requester = await SignedInClientAsync();
+        var (id, photo) = await PublishAsync(seller);
+        var wanted = await requester.PostAsJsonAsync(
+            new Uri("/api/v1/wanted", UriKind.Relative),
+            new { title = "Calculadora científica", category = "calculadoras", budgetCents = 50_000, quantity = 1 },
+            Ct);
+        var requestId = (await AuthFlow.JsonAsync(wanted)).GetProperty("id").GetString();
+        var offer = await seller.PutAsJsonAsync(new Uri($"/api/v1/wanted/{requestId}/offers/mine", UriKind.Relative), new { productId = id }, Ct);
+        Assert.Equal(HttpStatusCode.Created, offer.StatusCode);
+
+        var deleted = await seller.DeleteAsync(new Uri($"/api/v1/products/{id}", UriKind.Relative), Ct);
+
+        // HU-16 copio la portada en la oferta: la foto se queda para que la oferta la siga mostrando.
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync(new Uri("/" + photo, UriKind.Relative), Ct)).StatusCode);
+        var mine = await AuthFlow.JsonAsync(await seller.GetAsync(new Uri($"/api/v1/wanted/{requestId}/offers/mine", UriKind.Relative), Ct));
+        Assert.Equal("/" + photo, mine.GetProperty("photo").GetString());
+    }
+
+    [Fact]
     public async Task Delete_RemovesItEverywhere_AndTheChatShowsItAsUnavailable()
     {
         using var seller = await SignedInClientAsync();
