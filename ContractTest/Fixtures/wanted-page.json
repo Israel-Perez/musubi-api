@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "6716a0000000000000000031",
+      "title": "Bata de laboratorio talla M, manga larga",
+      "category": { "slug": "laboratorio", "name": "Laboratorio" },
+      "description": "De preferencia de algodón.",
+      "features": ["Talla M"],
+      "budgetCents": 30000,
+      "quantity": 1,
+      "neededBy": "2026-11-13",
+      "expiresAt": "2026-11-14T06:00:00Z",
+      "status": "active",
+      "offersCount": 0,
+      "requester": { "id": "6716a0000000000000000001", "name": "Fernanda Ortiz", "photo": null, "career": null },
+      "createdAt": "2026-11-09T12:00:00Z"
+    }
+  ],
+  "nextCursor": null
+}

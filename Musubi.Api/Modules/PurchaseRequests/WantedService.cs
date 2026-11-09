@@ -1,11 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.PurchaseRequests.Data;
 using Musubi.Api.Modules.Reputation;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Moderation;
@@ -15,18 +22,32 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 /// <summary>
 /// Publicar lo que necesito y "Mis solicitudes" (HU-13, RF-16, RF-22). Reglas: RN-09 (producto, categoria,
 /// presupuesto y cantidad obligatorios), RN-10 (vence en su fecha o a los 30 dias), RN-12 (maximo de activas) y
-/// 02-07 (el texto se modera antes de guardarlo).
-/// NOTE (HU-14): editar, cerrar y cancelar. NOTE (HU-15): el tablero "Se busca" del campus.
-/// NOTE (HU-18): avisar a quien tenga algo parecido.
+/// 02-07 (el texto se modera antes de guardarlo). Tablero "Se busca" del campus (HU-15, RF-19).
+/// NOTE (HU-14): editar, cerrar y cancelar. NOTE (HU-18): avisar a quien tenga algo parecido ("Coincide con tu ...").
 /// </summary>
 internal sealed class WantedService(
     IWantedRepository requests,
     IMemberDirectory members,
     ICategoryDirectory categories,
     IBlockDirectory blocks,
+    IProfileDirectory profiles,
     IContentModerator moderator,
+    IOutputCacheStore outputCache,
+    IOptions<CatalogOptions> catalog,
     TimeProvider time)
 {
+    /// <summary>Solicitudes por pagina del tablero si no se pide otro tamano (como la vitrina).</summary>
+    public const int DefaultPageSize = 20;
+
+    /// <summary>Tamano maximo de pagina del tablero.</summary>
+    public const int MaxPageSize = 50;
+
+    /// <summary>Largo maximo de la busqueda del tablero.</summary>
+    public const int MaxSearchLength = 80;
+
+    /// <summary>Terminos de busqueda como maximo (acota el costo de los patrones, OWASP API4).</summary>
+    public const int MaxSearchTerms = 5;
+
     /// <summary>Solicitudes activas por persona (RN-12).</summary>
     public const int MaxActive = 5;
 
@@ -167,6 +188,8 @@ internal sealed class WantedService(
             CreatedAt = now,
         };
         await requests.InsertAsync(document, cancellationToken).ConfigureAwait(false);
+        // El tablero del visitante vive en la cache de salida (HU-15): una solicitud nueva se ve al instante.
+        await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.WantedBoardTag, cancellationToken).ConfigureAwait(false);
         return Result<WantedResponse>.Ok(ToResponse(document, now));
     }
 
@@ -212,6 +235,117 @@ internal sealed class WantedService(
         return Result<WantedResponse>.Ok(response);
     }
 
+    /// <summary>
+    /// Tablero "Se busca" del campus (HU-15, RF-19): solo activas y sin vencer, de la mas nueva a la mas vieja. Con
+    /// sesion, el campus del token, sin las propias (RN-06) ni las de quien bloqueaste o te bloqueo (HU-57), y con el
+    /// nombre completo, la foto y la carrera visible de quien busca. Un visitante ve el campus que pide (o el del
+    /// piloto) y solo el nombre corto (RNF-05).
+    /// </summary>
+    /// <param name="viewer">Quien mira (del token) o un visitante.</param>
+    /// <param name="filter">Filtros de la maqueta y pagina.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina o el error de validacion.</returns>
+    public async Task<Result<WantedPage>> BoardAsync(ShowcaseViewer viewer, WantedBoardFilter filter, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(viewer);
+        ArgumentNullException.ThrowIfNull(filter);
+        if (filter.MinBudgetCents is < 0 or > MaxBudgetCents
+            || filter.MaxBudgetCents is < 0 or > MaxBudgetCents
+            || filter.MinBudgetCents > filter.MaxBudgetCents)
+        {
+            return WantedErrors.InvalidBudgetRange;
+        }
+
+        if (filter.NeededWithinDays is < 1 or > MaxDaysAhead)
+        {
+            return WantedErrors.InvalidDeadline;
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Cursor) && !ObjectId.TryParse(filter.Cursor, out _))
+        {
+            return WantedErrors.InvalidCursor;
+        }
+
+        string? search = null;
+        var trimmed = filter.Q?.Trim();
+        if (!string.IsNullOrEmpty(trimmed))
+        {
+            if (trimmed.Length > MaxSearchLength || !trimmed.Any(char.IsLetterOrDigit))
+            {
+                return WantedErrors.InvalidQuery;
+            }
+
+            search = SearchTerms(trimmed);
+        }
+
+        var communityId = viewer.CommunityId ?? await FindCampusAsync(filter.Campus, cancellationToken).ConfigureAwait(false);
+        if (communityId is null)
+        {
+            return ListingsErrors.UnknownCampus;
+        }
+
+        // RN-06 y HU-57: con sesion no salen las propias ni las de quien bloqueaste o te bloqueo.
+        List<string>? excluded = null;
+        if (viewer.UserId is { } userId)
+        {
+            excluded = [userId, .. await blocks.HiddenForAsync(userId, cancellationToken).ConfigureAwait(false)];
+        }
+
+        var now = time.GetUtcNow().UtcDateTime;
+        DateTime? until = filter.NeededWithinDays is { } days
+            ? DateOnly.FromDateTime(now + CampusOffset).AddDays(days).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+            : null;
+        var slugs = (filter.Category ?? [])
+            .Select(slug => slug.Trim())
+            .Where(slug => slug.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var size = Math.Clamp(filter.Limit ?? DefaultPageSize, 1, MaxPageSize);
+        var page = await requests.FindBoardAsync(
+            new WantedBoardQuery(
+                communityId,
+                now,
+                slugs.Length == 0 ? null : slugs,
+                filter.MinBudgetCents,
+                filter.MaxBudgetCents,
+                until,
+                search,
+                excluded,
+                string.IsNullOrWhiteSpace(filter.Cursor) ? null : filter.Cursor,
+                size),
+            cancellationToken).ConfigureAwait(false);
+
+        var people = page.Select(r => r.RequesterId).Distinct(StringComparer.Ordinal).ToList();
+        IReadOnlyDictionary<string, MemberSummary> names = new Dictionary<string, MemberSummary>(StringComparer.Ordinal);
+        IReadOnlyDictionary<string, ProfileCard> cards = new Dictionary<string, ProfileCard>(StringComparer.Ordinal);
+        if (viewer.UserId is not null && people.Count > 0)
+        {
+            names = await members.FindMembersAsync(people, cancellationToken).ConfigureAwait(false);
+            cards = await profiles.FindCardsAsync(communityId, people, cancellationToken).ConfigureAwait(false);
+        }
+
+        var signedIn = viewer.UserId is not null;
+        var items = page.Select(r => ToResponse(r, now, Requester(r, signedIn, names, cards))).ToList();
+        return Result<WantedPage>.Ok(new WantedPage(items, page.Count == size ? page[^1].Id : null));
+    }
+
+    /// <summary>Quien busca en el tablero: el visitante solo ve el nombre corto (RNF-05).</summary>
+    private static WantedRequesterResponse Requester(
+        WantedRequestDocument r,
+        bool signedIn,
+        IReadOnlyDictionary<string, MemberSummary> names,
+        IReadOnlyDictionary<string, ProfileCard> cards)
+    {
+        if (!signedIn)
+        {
+            return new WantedRequesterResponse(null, r.RequesterName);
+        }
+
+        var name = names.TryGetValue(r.RequesterId, out var member) ? member.FullName : r.RequesterName;
+        var card = cards.GetValueOrDefault(r.RequesterId);
+        return new WantedRequesterResponse(r.RequesterId, name, card?.Photo, card?.Career);
+    }
+
     /// <summary>El estado de ahora: una activa que paso su fecha esta vencida (RN-10).</summary>
     /// <param name="request">La solicitud.</param>
     /// <param name="now">Ahora (UTC).</param>
@@ -222,7 +356,28 @@ internal sealed class WantedService(
         return request.Status == WantedStatuses.Active && request.ExpiresAt <= now ? WantedStatuses.Expired : request.Status;
     }
 
-    private static WantedResponse ToResponse(WantedRequestDocument r, DateTime now) => new(
+    /// <summary>
+    /// Terminos seguros para los patrones: solo letras y digitos, normalizados como la busqueda de productos (HU-09) y
+    /// como maximo <see cref="MaxSearchTerms"/>. Nada de lo escrito se vuelve sintaxis (OWASP API3, API4).
+    /// </summary>
+    private static string SearchTerms(string query) =>
+        string.Join(' ', query
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => SearchWord.Normalize(string.Concat(word.Where(char.IsLetterOrDigit))))
+            .Where(word => word.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Take(MaxSearchTerms));
+
+    private async Task<string?> FindCampusAsync(string? campus, CancellationToken cancellationToken)
+    {
+        var slug = string.IsNullOrWhiteSpace(campus) ? catalog.Value.DefaultCampus : campus.Trim().ToLowerInvariant();
+        return await members.FindCommunityIdAsync(slug, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static WantedResponse ToResponse(WantedRequestDocument r, DateTime now) =>
+        ToResponse(r, now, new WantedRequesterResponse(r.RequesterId, r.RequesterName));
+
+    private static WantedResponse ToResponse(WantedRequestDocument r, DateTime now, WantedRequesterResponse requester) => new(
         r.Id,
         r.Title,
         new WantedCategoryResponse(r.CategorySlug, r.CategoryName),
@@ -234,6 +389,6 @@ internal sealed class WantedService(
         r.ExpiresAt,
         EffectiveStatus(r, now),
         r.OffersCount,
-        new WantedRequesterResponse(r.RequesterId, r.RequesterName),
+        requester,
         r.CreatedAt);
 }

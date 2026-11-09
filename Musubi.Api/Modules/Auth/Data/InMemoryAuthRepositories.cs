@@ -78,6 +78,20 @@ internal sealed class InMemoryUserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<UserDocument>> FindManyAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<UserDocument>>(ids
+                .Distinct(StringComparer.Ordinal)
+                .Select(id => users.GetValueOrDefault(id))
+                .OfType<UserDocument>()
+                .ToList());
+        }
+    }
+
+    /// <inheritdoc />
     public Task<UserDocument?> FindByEmailAsync(string emailNormalized, CancellationToken cancellationToken)
     {
         lock (gate)

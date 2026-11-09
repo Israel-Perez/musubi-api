@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Musubi.Api.Platform.Data;
 
@@ -48,6 +51,17 @@ internal sealed class MongoUserRepository(IMongoDatabase database) : IUserReposi
     /// <inheritdoc />
     public async Task<UserDocument?> FindByIdAsync(string id, CancellationToken cancellationToken) =>
         await users.Find(u => u.Id == id).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserDocument>> FindManyAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        // Solo ids validos: un id mal formado en Filter.In haria fallar la consulta completa.
+        var valid = ids.Where(id => ObjectId.TryParse(id, out _)).Distinct(StringComparer.Ordinal).ToList();
+        return valid.Count == 0
+            ? []
+            : await users.Find(Builders<UserDocument>.Filter.In(u => u.Id, valid)).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public async Task<UserDocument?> FindByEmailAsync(string emailNormalized, CancellationToken cancellationToken) =>

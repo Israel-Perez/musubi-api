@@ -1,13 +1,15 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using IntegrationTest.Auth;
 
 namespace IntegrationTest.PurchaseRequests;
 
 /// <summary>
 /// HU-13: "Publicar solicitud" (maqueta <c>Necesidad-1…3</c>) la deja activa, aparece en "Mis solicitudes" y la
-/// ve otra persona del campus; lo que falta o no cumple responde con su codigo.
+/// ve otra persona del campus; lo que falta o no cumple responde con su codigo. HU-15: el tablero "Se busca" con
+/// sesion y como visitante, con sus filtros.
 /// </summary>
 public sealed class WantedFlowTests(AuthApiFactory factory) : IClassFixture<AuthApiFactory>
 {
@@ -101,5 +103,59 @@ public sealed class WantedFlowTests(AuthApiFactory factory) : IClassFixture<Auth
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("wanted.not_found", (await AuthFlow.JsonAsync(response)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Board_ShowsItToTheCampus_WithTheFullName_ButNotToItsOwner()
+    {
+        using var ana = await MemberAsync();
+        using var diego = await MemberAsync();
+        var title = "Bata " + Guid.NewGuid().ToString("N")[..8];
+        var id = (await AuthFlow.JsonAsync(await ana.PostAsJsonAsync(new Uri("/api/v1/wanted", UriKind.Relative), Request(title, "laboratorio"), Ct)))
+            .GetProperty("id").GetString();
+
+        var seen = await diego.GetAsync(new Uri("/api/v1/wanted?category=laboratorio&maxBudgetCents=60000&q=bata", UriKind.Relative), Ct);
+        var page = await AuthFlow.JsonAsync(seen);
+        var own = await AuthFlow.JsonAsync(await ana.GetAsync(new Uri("/api/v1/wanted?q=bata", UriKind.Relative), Ct));
+
+        Assert.Equal(HttpStatusCode.OK, seen.StatusCode);
+        var item = page.GetProperty("items").EnumerateArray().Single(r => r.GetProperty("id").GetString() == id);
+        Assert.Equal("Ana Sofía Prueba", item.GetProperty("requester").GetProperty("name").GetString());
+        Assert.False(string.IsNullOrEmpty(item.GetProperty("requester").GetProperty("id").GetString()));
+        // RN-06: la propia no sale en el tablero de quien la publico.
+        Assert.DoesNotContain(own.GetProperty("items").EnumerateArray(), r => r.GetProperty("id").GetString() == id);
+    }
+
+    [Fact]
+    public async Task Board_AVisitorSeesIt_WithTheShortNameOnly()
+    {
+        using var ana = await MemberAsync();
+        var title = "Escuadras " + Guid.NewGuid().ToString("N")[..8];
+        var id = (await AuthFlow.JsonAsync(await ana.PostAsJsonAsync(new Uri("/api/v1/wanted", UriKind.Relative), Request(title, "dibujo"), Ct)))
+            .GetProperty("id").GetString();
+        using var visitor = factory.CreateClient();
+
+        var page = await AuthFlow.JsonAsync(await visitor.GetAsync(new Uri("/api/v1/wanted?campus=uttt&category=dibujo&limit=50", UriKind.Relative), Ct));
+
+        var requester = page.GetProperty("items").EnumerateArray().Single(r => r.GetProperty("id").GetString() == id).GetProperty("requester");
+        Assert.Equal(JsonValueKind.Null, requester.GetProperty("id").ValueKind);
+        Assert.Equal("Ana P.", requester.GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, requester.GetProperty("career").ValueKind);
+    }
+
+    [Theory]
+    [InlineData("minBudgetCents=50000&maxBudgetCents=100", "wanted.invalid_budget_range")]
+    [InlineData("neededWithinDays=0", "wanted.invalid_deadline")]
+    [InlineData("q=%3F%3F", "wanted.invalid_query")]
+    [InlineData("cursor=abc", "wanted.invalid_cursor")]
+    [InlineData("campus=unam", "listings.unknown_campus")]
+    public async Task Board_InvalidFilters_AreAnswered_WithTheirCode(string query, string code)
+    {
+        using var visitor = factory.CreateClient();
+
+        var response = await visitor.GetAsync(new Uri("/api/v1/wanted?" + query, UriKind.Relative), Ct);
+
+        Assert.Equal(code == "listings.unknown_campus" ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(code, (await AuthFlow.JsonAsync(response)).GetProperty("code").GetString());
     }
 }

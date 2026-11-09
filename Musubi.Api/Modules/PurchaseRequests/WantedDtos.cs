@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Musubi.Api.Modules.PurchaseRequests;
 
-// Contratos HTTP de M-05 (HU-13). Filas canonicas en docs/endpoints.md.
+// Contratos HTTP de M-05 (HU-13, HU-15). Filas canonicas en docs/endpoints.md.
 
 /// <summary>Publicar una solicitud (maqueta <c>Necesidad-1…3</c>).</summary>
 /// <param name="Title">"Producto que buscas" (3 a 80 caracteres).</param>
@@ -57,9 +57,38 @@ public sealed record WantedResponse(
 public sealed record WantedCategoryResponse(string Slug, string Name);
 
 /// <summary>Quien busca.</summary>
-/// <param name="Id">Id del usuario.</param>
-/// <param name="Name">Nombre corto ("Ana R.").</param>
-public sealed record WantedRequesterResponse(string Id, string Name);
+/// <param name="Id">Id del usuario; <c>null</c> para un visitante (RNF-05).</param>
+/// <param name="Name">
+/// Nombre completo en el tablero con sesion ("Fernanda Ortiz", como el perfil publico); nombre corto ("Fernanda O.")
+/// para un visitante y en "Mis solicitudes".
+/// </param>
+/// <param name="Photo">Ruta de la foto (<c>/media/avatars/...</c>) en el tablero con sesion, o <c>null</c>.</param>
+/// <param name="Career">Carrera corta ("Ing. Software") en el tablero con sesion si la muestra (HU-04), o <c>null</c>.</param>
+public sealed record WantedRequesterResponse(string? Id, string Name, string? Photo = null, string? Career = null);
+
+/// <summary>Filtros del tablero "Se busca" (HU-15): la hoja "Filtrar solicitudes" y la lupa de la maqueta.</summary>
+/// <param name="Campus">Campus del visitante (sin sesion; por defecto el del piloto).</param>
+/// <param name="Category">Slugs de las categorias (OR; se puede repetir el parametro).</param>
+/// <param name="MinBudgetCents">Presupuesto minimo, inclusivo.</param>
+/// <param name="MaxBudgetCents">Presupuesto maximo, inclusivo.</param>
+/// <param name="NeededWithinDays">"Fecha limite": solo las que tienen fecha y la necesitan en este numero de dias.</param>
+/// <param name="Q">Palabras del producto o de la descripcion.</param>
+/// <param name="Cursor">Cursor de la pagina anterior.</param>
+/// <param name="Limit">Tamano de pagina (1 a 50).</param>
+public sealed record WantedBoardFilter(
+    string? Campus = null,
+    IReadOnlyList<string>? Category = null,
+    long? MinBudgetCents = null,
+    long? MaxBudgetCents = null,
+    int? NeededWithinDays = null,
+    string? Q = null,
+    string? Cursor = null,
+    int? Limit = null);
+
+/// <summary>Una pagina del tablero "Se busca" (HU-15; maquetas <c>Se-busca</c> y <c>Se-busca-visitante</c>).</summary>
+/// <param name="Items">Solicitudes activas, de la mas nueva a la mas vieja.</param>
+/// <param name="NextCursor">Cursor de la pagina siguiente, o <c>null</c> si no hay mas.</param>
+public sealed record WantedPage(IReadOnlyList<WantedResponse> Items, string? NextCursor);
 
 /// <summary>"Mis solicitudes", de la mas nueva a la mas vieja.</summary>
 /// <param name="Items">Las solicitudes.</param>

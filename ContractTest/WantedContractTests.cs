@@ -11,12 +11,14 @@ using Musubi.TestShared;
 namespace ContractTest;
 
 /// <summary>
-/// HU-13: forma JSON de /api/v1/wanted que consume musubi-app. Cambiar el fixture = cambio de contrato:
+/// HU-13 y HU-15: forma JSON de /api/v1/wanted (publicar, "Mis solicitudes" y el tablero) que consume musubi-app. Cambiar el fixture = cambio de contrato:
 /// actualizar docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
 {
     private static readonly string[] Features = ["Modelo fx-991ES Plus", "Con tapa"];
+
+    private static readonly string[] Size = ["Talla M"];
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -82,5 +84,32 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
         Assert.Equal(HttpStatusCode.Created, published.StatusCode);
         Assert.Equal(Shape(fixture), Shape(await BodyAsync(published)));
         Assert.Equal(Shape(fixture), Shape(mine.GetProperty("items")[0]));
+    }
+
+    [Fact]
+    public async Task Board_MatchesTheFixture_WithSessionAndAsAVisitor()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        using var ana = await SignedInAsync(app, emails);
+        using var diego = await SignedInAsync(app, emails);
+        using var visitor = app.CreateClient();
+        var neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        await ana.PostAsJsonAsync(
+            new Uri("/api/v1/wanted", UriKind.Relative),
+            new { title = "Bata de laboratorio talla M", category = "laboratorio", description = "De algodón.", features = Size, budgetCents = 30_000, quantity = 1, neededBy },
+            Ct);
+        var fixture = await FixtureAsync("wanted-page.json");
+
+        var member = await BodyAsync(await diego.GetAsync(new Uri("/api/v1/wanted?category=laboratorio", UriKind.Relative), Ct));
+        var guest = await BodyAsync(await visitor.GetAsync(new Uri("/api/v1/wanted?category=laboratorio", UriKind.Relative), Ct));
+
+        Assert.Equal(Shape(fixture), Shape(member));
+        Assert.Equal(Shape(fixture.GetProperty("items")[0]), Shape(member.GetProperty("items")[0]));
+        // Visitante: misma forma, con id en null (RNF-05).
+        var guestItem = guest.GetProperty("items")[0];
+        Assert.Equal(
+            Shape(fixture.GetProperty("items")[0]).Select(p => p == "requester.id:String" ? "requester.id:Null" : p),
+            Shape(guestItem));
     }
 }

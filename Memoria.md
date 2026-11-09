@@ -9,6 +9,29 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T31 — Tablero "Se busca" (09-Nov-2026, SCRUM-37, HU-15)
+
+**Qué se hizo**
+- `GET /api/v1/wanted` público con sesión opcional (`Se-busca` y `Se-busca-visitante`): solo activas y sin vencer del campus, de la más nueva a la más vieja, con `category` repetido, `minBudgetCents`/`maxBudgetCents`, `neededWithinDays`, `q`, `cursor` y `limit`.
+- Con sesión: el campus del token, sin las propias (RN-06) ni las de personas bloqueadas (HU-57), y `requester` con nombre completo, foto y carrera visible. Visitante: nombre corto, sin id, foto ni carrera (RNF-05).
+- Lecturas en lote nuevas: `IUserRepository.FindManyAsync` + `IMemberDirectory.FindMembersAsync` (nombres) e `IProfileDirectory.FindCardsAsync` (foto y carrera visible).
+- Caché de salida `wanted-board` (30 s) para el visitante, que se borra al publicar una solicitud y al eliminar una cuenta; `ETag` en todas.
+- Errores `wanted.invalid_budget_range`, `wanted.invalid_deadline`, `wanted.invalid_query` e `wanted.invalid_cursor`; `listings.unknown_campus` reutilizado.
+- API `0.5.0-alpha.9`, esquema 10 sin cambios. Unit 317 · Integration 121 · Security 99 · Contract 11; critic PASS y endpoints OK (44 filas; `AGENTS.md` decía 36 desde hace varias HU).
+- La columna Sprint de `docs/trazabilidad.md` pasa a S4 en las 13 HU del Sprint 4 (Jira, 09-Nov-2026).
+
+**Decisiones (con su porqué)**
+- **Nombre completo y carrera solo con sesión:** así lo muestran las maquetas (`Se-busca` frente a `Se-busca-visitante`) y es lo que ya da `GET /profiles/{id}` dentro del campus. La decisión de HU-13 ("el tablero no lee otras colecciones") se cambió por fidelidad: se leen en lote, dos consultas por página.
+- **Sin las propias:** RN-06 no deja ofertar a una solicitud propia y ya están en "Mis solicitudes".
+- **Presupuesto con mínimo y máximo:** los rangos de la maqueta los arma la app; la API no los fija.
+- **Búsqueda sin `searchWords`:** el tablero de un campus es chico (RN-12) y ya va acotado por `ix_community_status_id`; así no hubo script ni relleno. Si crece, se hace como `db/007-busqueda.js`.
+- **Patrón con clases de vocales acentuadas y separadores explícitos:** `\b` y `\p{L}` dependen de UTF/UCP en PCRE; la consulta solo deja letras y dígitos (hasta 5 términos).
+
+**Errores a evitar**
+- **`ProfileDirectory` ahora pide `ICareerRepository`:** las pruebas que lo construyen a mano pasan `new InMemoryCareerRepository()`.
+- **`WantedRequesterResponse.Id` es anulable:** en `mine` y `{id}` siempre trae el id; solo el visitante del tablero lo recibe en `null`.
+- **`ShortName` usa la inicial del último apellido:** "Fernanda Ortiz Salinas" → "Fernanda S."; las pruebas del visitante deben usar nombres de dos palabras si esperan "Fernanda O.".
+
 ## T30 — Filtros de la búsqueda por categoría, precio, condición y orden (08-Nov-2026, SCRUM-27, HU-10)
 
 **Qué se hizo**

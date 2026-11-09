@@ -4,7 +4,7 @@ using Musubi.Api.Modules.PurchaseRequests.Data;
 namespace Musubi.TestShared.PurchaseRequests;
 
 /// <summary>
-/// HU-13: comportamiento esperado del repositorio de solicitudes. Corre contra el fake en memoria (UnitTest) y
+/// HU-13 y HU-15 (tablero): comportamiento esperado del repositorio de solicitudes. Corre contra el fake en memoria (UnitTest) y
 /// contra MongoDB real con db/ aplicado (DatabaseTest).
 /// </summary>
 public abstract class WantedRepositoryContract
@@ -114,5 +114,95 @@ public abstract class WantedRepositoryContract
         Assert.Equal(2, await Requests.DeleteByRequesterAsync(leaving, Ct));
         Assert.Empty(await Requests.FindByRequesterAsync(leaving, 10, Ct));
         Assert.Single(await Requests.FindByRequesterAsync(other, 10, Ct));
+    }
+
+    private static WantedRequestDocument OnBoard(
+        string community,
+        string title,
+        string category = "calculadoras",
+        long budget = 60_000,
+        DateTime? neededBy = null,
+        string? description = null,
+        string? requester = null,
+        DateTime? expiresAt = null,
+        string status = WantedStatuses.Active) => new()
+    {
+        Id = AuthIds.New(),
+        CommunityId = community,
+        RequesterId = requester ?? AuthIds.New(),
+        RequesterName = "Ana R.",
+        Title = title,
+        CategorySlug = category,
+        CategoryName = category,
+        Description = description,
+        BudgetCents = budget,
+        Quantity = 1,
+        NeededBy = neededBy,
+        ExpiresAt = expiresAt ?? Now.AddDays(20),
+        Status = status,
+        CreatedAt = Now,
+    };
+
+    private static WantedBoardQuery Board(
+        string community,
+        IReadOnlyCollection<string>? categories = null,
+        long? min = null,
+        long? max = null,
+        DateTime? until = null,
+        string? search = null,
+        IReadOnlyCollection<string>? exclude = null,
+        string? before = null,
+        int limit = 20) =>
+        new(community, Now, categories, min, max, until, search, exclude, before, limit);
+
+    [Fact]
+    public async Task FindBoard_OnlyActiveAndCurrent_FromTheCampus_NewestFirst()
+    {
+        var campus = AuthIds.New();
+        var older = OnBoard(campus, "Bata de laboratorio");
+        var expired = OnBoard(campus, "Escuadras", expiresAt: Now.AddMinutes(-1));
+        var closed = OnBoard(campus, "Compás", status: WantedStatuses.Closed);
+        var elsewhere = OnBoard(AuthIds.New(), "Laptop");
+        var newer = OnBoard(campus, "Kit de disección");
+        foreach (var r in new[] { older, expired, closed, elsewhere, newer })
+        {
+            await Requests.InsertAsync(r, Ct);
+        }
+
+        var page = await Requests.FindBoardAsync(Board(campus), Ct);
+
+        Assert.Equal([newer.Id, older.Id], page.Select(r => r.Id));
+    }
+
+    [Fact]
+    public async Task FindBoard_Filters_AndPaginates()
+    {
+        var campus = AuthIds.New();
+        var me = AuthIds.New();
+        var bata = OnBoard(campus, "Bata de laboratorio talla M", "laboratorio", 30_000, new DateTime(2026, 11, 10, 0, 0, 0, DateTimeKind.Utc));
+        var laptop = OnBoard(campus, "Laptop para programación", "laptops", 1_200_000, new DateTime(2026, 11, 16, 0, 0, 0, DateTimeKind.Utc), "Con 16 GB de RAM");
+        var fisica = OnBoard(campus, "Física Universitaria", "libros", 40_000);
+        var mine = OnBoard(campus, "Calculadora graficadora", requester: me);
+        foreach (var r in new[] { bata, laptop, fisica, mine })
+        {
+            await Requests.InsertAsync(r, Ct);
+        }
+
+        async Task<IEnumerable<string>> Ids(WantedBoardQuery query) =>
+            (await Requests.FindBoardAsync(query, Ct).ConfigureAwait(false)).Select(r => r.Id);
+
+        Assert.Equal([fisica.Id, bata.Id], await Ids(Board(campus, categories: ["libros", "laboratorio"])));
+        Assert.Equal([fisica.Id, bata.Id], await Ids(Board(campus, min: 30_000, max: 40_000)));
+        Assert.Equal([laptop.Id, bata.Id], await Ids(Board(campus, until: new DateTime(2026, 11, 16, 0, 0, 0, DateTimeKind.Utc))));
+        Assert.Equal([bata.Id], await Ids(Board(campus, until: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc))));
+        Assert.Equal([fisica.Id, laptop.Id, bata.Id], await Ids(Board(campus, exclude: [me, "no-es-un-id"])));
+        // Busqueda: inicio de palabra, sin acentos ni mayusculas, en el producto o la descripcion (OR entre terminos).
+        Assert.Equal([fisica.Id], await Ids(Board(campus, search: "fisica")));
+        Assert.Equal([laptop.Id], await Ids(Board(campus, search: "ram")));
+        Assert.Equal([mine.Id, bata.Id], await Ids(Board(campus, search: "bata calculadora")));
+        Assert.Empty(await Ids(Board(campus, search: "boratorio")));
+        // Pagina: el cursor es el id de la ultima.
+        Assert.Equal([mine.Id, fisica.Id], await Ids(Board(campus, limit: 2)));
+        Assert.Equal([laptop.Id, bata.Id], await Ids(Board(campus, before: fisica.Id, limit: 2)));
     }
 }
