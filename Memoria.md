@@ -9,6 +9,30 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T29 — Publicar lo que necesito (09-Nov-2026, SCRUM-35, HU-13)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/PurchaseRequests` (M-05):
+  - `POST /wanted`, `GET /wanted/mine` y `GET /wanted/{id}`;
+  - `wantedRequests` (`db/009-solicitudes.js`, esquema 9);
+  - `ICategoryDirectory` (M-03) para validar la categoría.
+- Reglas:
+  - RN-09: producto, categoría, presupuesto y cantidad son obligatorios;
+  - RN-10: vence al terminar `neededBy` en el campus (UTC-6) o a los 30 días; el vencimiento se calcula al leer;
+  - RN-12: máximo 5 activas;
+  - el texto se modera (02-07);
+  - otro campus, vencida o con bloqueo responde 404 para quien no es el dueño.
+- API `0.5.0-alpha.7`. Unit 274 · Integration 110 · Security 95 · Contract 10.
+
+**Decisiones (con su porqué)**
+- **Los valores [POR DEFINIR] de la spec:** 5 activas (RN-12) y 30 días sin fecha (RN-10). Son conservadores para el piloto; se ajustan con datos.
+- **"Vencida" no se guarda:** se calcula con `expiresAt`. No hace falta un proceso en segundo plano y el conteo de RN-12 la excluye solo.
+- **El día del campus es UTC-6 fijo:** México quitó el horario de verano en 2022. No depende de `tzdata` en la imagen chiseled.
+- **"Otro" como categoría:** la maqueta lo ofrece en `Necesidad-1` aunque no es una categoría de publicaciones.
+
+**Errores a evitar**
+- **`SchemaVersionTests` exige scripts consecutivos:** un `010` sin `009` rompe la prueba. Si dos ramas crean el mismo número, la que se fusione después renumera.
+
 ## T28 — Reportar y bloquear (08-Nov-2026, SCRUM-57 y SCRUM-95, HU-28 y HU-57)
 
 **Qué se hizo**

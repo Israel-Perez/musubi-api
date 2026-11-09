@@ -3,6 +3,7 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.PurchaseRequests;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Hosting;
 using Musubi.Api.Platform.Observability;
@@ -17,6 +18,7 @@ builder.Services.AddListingsModule();
 builder.Services.AddProfilesModule();
 builder.Services.AddChatModule();
 builder.Services.AddReputationModule();
+builder.Services.AddPurchaseRequestsModule();
 
 var app = builder.Build();
 
