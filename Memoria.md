@@ -27,13 +27,14 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Alcance de la maqueta, no solo Jira:** el usuario eligió `Busqueda-filtros` completa (varias categorías, condición y orden); Jira solo pedía categoría y precio.
 - **Extender `GET /products`:** la app ya consume esa ruta y comparte auth, caché, `ETag` y cursor; una ruta nueva duplicaría controller y pruebas.
 - **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados; el token lleva el orden y la clave.
+- **`page` y `cursor` son excluyentes:** la app usa `page` para la barra numérica y el scroll continuo usa `cursor`; si llegan ambos, gana `page` (`NOTE (HU-10)`).
 - **`relevance` es alias de `newest`:** no hay puntaje de relevancia; HU-09 lo difirió. Se conserva la etiqueta de la maqueta con un límite documentado.
 - **Índices de precio en `db/009`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
 - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
 - **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
 - **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).
 - **Orden por precio con `q`:** el índice de prefijo resuelve la búsqueda, pero el orden puede resolverse en memoria sobre las coincidencias; `limit <= 50` acota el costo (`NOTE (HU-10)`).
-- **Plan con `$in` de estado:** con agotados incluidos el plan puede usar `SORT_MERGE`; los índices cubren el orden y el plan real se confirma con `explain` en CI (`NOTE (HU-10)`).
+- **Plan con `$in` de estado:** con agotados incluidos el plan puede usar `SORT_MERGE`; los índices cubren el orden y confirmar el plan con `explain` en CI queda pendiente (`NOTE (HU-10)`).
 
 **Errores a evitar**
 - **El cursor viejo no sirve con otro orden:** un ObjectId crudo solo vale para `newest`/`relevance`; con `priceAsc` se rechaza con `400`.

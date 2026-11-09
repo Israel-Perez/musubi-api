@@ -37,22 +37,22 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 
 ## Diseño
 - **Módulo:** `Musubi.Api/Modules/Listings/` (M-03), reutilizado por M-04. No se crea `Modules/Marketplace/`.
-- **Controller:** `ProductsController.Showcase` recibe `[FromQuery] string[]? category`, `long? minPriceCents`, `long? maxPriceCents`, `string? condition` y `string? sort`. No hay lógica de negocio ni `try/catch`.
-- **Servicio:** `ListingService.ShowcaseAsync` normaliza categorías y `q`, valida rango, condición y orden, resuelve el cursor y devuelve el `nextCursor`.
-- **Consulta:** `ProductQuery` agrega `CategorySlugs`, `MinPriceCents`, `MaxPriceCents`, `Condition`, `Sort` y `After`. `After` es un `ProductCursor` ya validado.
+- **Controller:** `ProductsController.Showcase` recibe `[FromQuery] string[]? category`, `long? minPriceCents`, `long? maxPriceCents`, `string? condition`, `string? sort` y `int? page`. No hay lógica de negocio ni `try/catch`.
+- **Servicio:** `ListingService.ShowcaseAsync` normaliza categorías y `q`, valida rango, condición, orden y `page` (1 a 50), resuelve el cursor y devuelve el `nextCursor` (`null` con `page`).
+- **Consulta:** `ProductQuery` agrega `CategorySlugs`, `MinPriceCents`, `MaxPriceCents`, `Condition`, `Sort`, `After` y `Page`. `After` es un `ProductCursor` ya validado; con `Page` se ignora.
 - **Cursor:** `ProductSorts` (constantes) y `ProductCursorCodec` (codificar/decodificar) viven junto a `ProductQuery` en `Data/ListingRepositories.cs`. El token no se firma: solo pagina y se valida.
 - **MongoDB:** `Showcase` agrega `$in` de categorías, `$gte`/`$lte` de precio y `$eq` de condición. `FindPageAsync` aplica el filtro de cursor compuesto y el `Sort` correspondiente. `CountAsync` ignora el cursor.
 - **En memoria:** `InMemoryProductRepository` aplica los mismos filtros, el mismo orden y la misma comparación de cursor que Mongo.
-- **Errores:** `ListingsErrors.InvalidPriceRange` y `ListingsErrors.InvalidSort` (400). La condición inválida reutiliza `InvalidCondition`.
+- **Errores:** `ListingsErrors.InvalidPriceRange`, `InvalidSort` e `InvalidPage` (400). La condición inválida reutiliza `InvalidCondition`.
 - **Índices:** `db/009-filtros-precio.js` crea `{ communityId, status, priceCents: 1, _id: -1 }`, `{ communityId, status, priceCents: -1, _id: -1 }`, `{ communityId, categorySlug, status, priceCents: 1, _id: -1 }` y `{ communityId, categorySlug, status, priceCents: -1, _id: -1 }`; sube `_meta.version` a 9.
 - **Caché:** sin cambios; `SetVaryByQuery("*")` ya incluye los parámetros nuevos.
-- **Rama:** `feature/SCRUM-27-filtrar-categoria-precio`.
+- **Rama:** `feature/SCRUM-27-filtros-categoria-precio`.
 
 ## Contratos
-- Fila canónica: [`docs/endpoints.md`](../../../docs/endpoints.md) → `GET /api/v1/products`. Cambia a `?campus=&category=&minPriceCents=&maxPriceCents=&condition=&sort=&q=&hideSoldOut=&cursor=&limit=`. Se enlaza, no se copia la tabla.
+- Fila canónica: [`docs/endpoints.md`](../../../docs/endpoints.md) → `GET /api/v1/products`. Cambia a `?campus=&category=&minPriceCents=&maxPriceCents=&condition=&sort=&q=&hideSoldOut=&cursor=&limit=&page=`. Se enlaza, no se copia la tabla.
 - Mapa para la app: `relevancia` → `relevance`, `recientes` → `newest`, `antiguos` → `oldest`, `precio-asc` → `priceAsc`, `precio-desc` → `priceDesc`; categorías como parámetros repetidos; precio en centavos; sin máximo = omitir `maxPriceCents`.
 - Respuesta sin cambios: `ProductPage`. Se reutiliza `ContractTest/Fixtures/product-page.json`.
-- Errores nuevos en [`docs/errores.md`](../../../docs/errores.md): `listings.invalid_price_range` (400) y `listings.invalid_sort` (400). `listings.invalid_condition` y `listings.invalid_cursor` se reutilizan.
+- Errores nuevos en [`docs/errores.md`](../../../docs/errores.md): `listings.invalid_price_range`, `listings.invalid_sort` y `listings.invalid_page` (400). `listings.invalid_condition` y `listings.invalid_cursor` se reutilizan.
 - Esquema: fila `products` de [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); agrega los cuatro índices de precio con `db/009`.
 - Configuración: sin claves nuevas.
 
@@ -95,9 +95,10 @@ Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 269 · Integra
 ## Límites
 - **Relevancia:** no hay puntaje; `relevance` ordena como `newest`. Un orden por relevancia real queda para una HU posterior. `NOTE (HU-10)`.
 - **Orden por precio con `q`:** el índice de prefijo resuelve la búsqueda, pero el orden por precio puede hacerse en memoria sobre las coincidencias. Aceptable con `limit <= 50`; si el volumen crece, se mide y se decide con `02-02`. `NOTE (HU-10)`.
-- **Plan con `$in` de estado:** con `hideSoldOut=false` el filtro es `status: $in [active, soldOut]`; Mongo puede resolverlo con `SORT_MERGE`. Los índices cubren el orden, pero el plan real se confirma con `explain` en `DatabaseTest`/CI. `NOTE (HU-10)`.
+- **Plan con `$in` de estado:** con `hideSoldOut=false` el filtro es `status: $in [active, soldOut]`; Mongo puede resolverlo con `SORT_MERGE`. Los índices cubren el orden; confirmar el plan con `explain` en CI queda pendiente. `NOTE (HU-10)`.
 - **Sin tope propio de categorías:** el límite es el tamaño de la línea de petición. Si se vuelve abuso, se agrega un tope y su error. `NOTE (HU-10)`.
 - **Cursor legado:** el ObjectId crudo solo se acepta para `newest`/`relevance`; un cliente que lo reutilice con otro orden recibe `400`. Es intencional.
+- **`page` y `cursor` son excluyentes:** la app usa `page` para la barra numérica y el scroll continuo usa `cursor`; si llegan ambos, gana `page` e `nextCursor` es `null`. `NOTE (HU-10)`.
 - **Sin filtro por vendedor, texto libre en categoría ni rango por defecto:** la app manda los valores; la API no inventa precios.
 - **`hideSoldOut` conserva su valor por defecto actual (`false`):** la app manda `true` cuando la maqueta oculta agotados.
 - **Sin cambios en la app:** la contraparte Flutter implementa la hoja en su repo; esta spec cubre solo la API.

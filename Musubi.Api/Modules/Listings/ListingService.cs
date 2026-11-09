@@ -242,6 +242,7 @@ internal sealed partial class ListingService(
             return ListingsErrors.InvalidSort;
         }
 
+        // NOTE (HU-10): page y cursor son excluyentes; la app usa page y el scroll continuo usa cursor.
         var byPage = page is not null;
         ProductCursor? after = null;
         if (!byPage && !string.IsNullOrWhiteSpace(cursor))

@@ -93,8 +93,8 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
         // HU-10: los agotados dependen de IncludeSoldOut; el servicio decide el valor por defecto.
-        // NOTE (HU-10): con status $in y orden por precio, Mongo puede usar SORT_MERGE; el plan se
-        // confirma con explain en DatabaseTest/CI.
+        // NOTE (HU-10): con status $in y orden por precio, Mongo puede usar SORT_MERGE; confirmar el
+        // plan con explain en CI queda pendiente.
         var statuses = query.IncludeSoldOut
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
