@@ -50,3 +50,47 @@ public sealed record OfferResponse(
     bool OverBudget,
     DateTime CreatedAt,
     DateTime UpdatedAt);
+
+/// <summary>Una oferta recibida (HU-17, "Compara las ofertas" de <c>Mis-solicitudes</c>).</summary>
+/// <param name="Id">Id.</param>
+/// <param name="Kind"><c>listing</c> ("Su publicación") o <c>direct</c> ("Oferta directa").</param>
+/// <param name="ProductId">Publicacion vinculada, o <c>null</c>.</param>
+/// <param name="Title">Nombre de la publicacion o descripcion de la oferta directa.</param>
+/// <param name="PriceCents">Precio en centavos.</param>
+/// <param name="Condition"><c>new</c> o <c>used</c>.</param>
+/// <param name="ConditionDetail">Detalle del usado de la publicacion ("como nueva"), o <c>null</c>.</param>
+/// <param name="Photo">Ruta de la foto, o <c>null</c>.</param>
+/// <param name="Message">Mensaje de quien ofrece, o <c>null</c>.</param>
+/// <param name="Status"><c>sent</c> o <c>accepted</c> (las rechazadas no se listan).</param>
+/// <param name="Offerer">Quien ofrece.</param>
+/// <param name="CreatedAt">Envio (UTC).</param>
+public sealed record ReceivedOfferResponse(
+    string Id,
+    string Kind,
+    string? ProductId,
+    string Title,
+    long PriceCents,
+    string Condition,
+    string? ConditionDetail,
+    string? Photo,
+    string? Message,
+    string Status,
+    OffererResponse Offerer,
+    DateTime CreatedAt);
+
+/// <summary>Quien ofrece, con su reputacion (HU-27) y carrera visible (HU-04).</summary>
+/// <param name="Id">Id del usuario.</param>
+/// <param name="Name">Nombre completo.</param>
+/// <param name="Photo">Ruta de la foto, o <c>null</c>.</param>
+/// <param name="Career">Carrera corta si la muestra, o <c>null</c>.</param>
+/// <param name="RatingAvg">Promedio de calificaciones, o <c>null</c> sin calificaciones.</param>
+/// <param name="RatingCount">Numero de calificaciones.</param>
+public sealed record OffererResponse(string Id, string Name, string? Photo, string? Career, double? RatingAvg, int RatingCount);
+
+/// <summary>Las ofertas recibidas en una solicitud, de la mas nueva a la mas vieja.</summary>
+/// <param name="Items">Las ofertas pendientes y aceptadas.</param>
+public sealed record ReceivedOffersResponse(System.Collections.Generic.IReadOnlyList<ReceivedOfferResponse> Items);
+
+/// <summary>La conversacion con quien ofrece ("Abrir chat" o "Aceptar", HU-17).</summary>
+/// <param name="ConversationId">Id de la conversacion (<c>GET /conversations/{id}</c>).</param>
+public sealed record OfferChatResponse(string ConversationId);

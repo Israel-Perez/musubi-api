@@ -1,7 +1,11 @@
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Chat;
+using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.PurchaseRequests;
 using Musubi.Api.Modules.PurchaseRequests.Data;
 using Musubi.Api.Modules.Reputation;
@@ -15,7 +19,8 @@ namespace UnitTest.PurchaseRequests;
 /// <summary>
 /// HU-16: vincular una publicacion propia disponible u ofrecer sin publicar; una por persona y solicitud, editable
 /// (RN-14); nunca a una propia (RN-06); presupuesto rebasado se permite y se marca; moderacion (02-07); quien no
-/// puede ver la solicitud recibe <c>wanted.not_found</c>.
+/// puede ver la solicitud recibe <c>wanted.not_found</c>. HU-17: quien busca ve las ofertas, las rechaza, las
+/// acepta (se abre la conversacion) o abre el chat.
 /// </summary>
 public sealed class OfferServiceTests
 {
@@ -30,18 +35,23 @@ public sealed class OfferServiceTests
     private readonly InMemoryProductRepository products = new();
     private readonly InMemoryMediaStorage media = new();
     private readonly InMemoryBlockRepository blocks = new();
+    private readonly InMemoryProfileRepository profiles = new();
+    private readonly InMemoryConversationRepository conversations = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly OfferService service;
 
     public OfferServiceTests()
     {
+        var members = new MemberDirectory(new InMemoryCommunityRepository(), users);
         service = new OfferService(
             offers,
             requests,
-            new MemberDirectory(new InMemoryCommunityRepository(), users),
+            members,
             new ProductDirectory(products),
             new ListingPhotos(media),
             new BlockDirectory(blocks),
+            new ProfileDirectory(profiles, new InMemoryCareerRepository()),
+            new ConversationOpener(conversations, members, time),
             new InMemoryContentModerator(),
             time);
     }
@@ -108,6 +118,7 @@ public sealed class OfferServiceTests
                 CategorySlug = "laboratorio",
                 PriceCents = 25_000,
                 Condition = ProductConditions.Used,
+                ConditionDetail = "good",
                 Stock = 1,
                 Status = status,
                 Photos = [$"media/products/{seller}/0123456789abcdef0123456789abcdef.webp"],
@@ -285,5 +296,114 @@ public sealed class OfferServiceTests
         Assert.Equal("moderation.text_rejected", result.Error?.Code);
         Assert.Contains(field, result.Error!.Message, StringComparison.Ordinal);
         Assert.Empty(offers.All());
+    }
+
+    /// <summary>Fernanda busca; Valeria y Diego le ofrecen (Diego vincula una publicacion "como nueva").</summary>
+    private async Task<(string Fernanda, WantedRequestDocument Request, string Valeria, OfferResponse ValeriaOffer, string Diego, OfferResponse DiegoOffer)> OffersAsync()
+    {
+        var fernanda = await MemberAsync(name: "Fernanda Ortiz").ConfigureAwait(false);
+        var valeria = await MemberAsync(name: "Valeria Cruz").ConfigureAwait(false);
+        var diego = await MemberAsync(name: "Diego Hernández").ConfigureAwait(false);
+        var request = await RequestAsync(fernanda).ConfigureAwait(false);
+        var valeriaOffer = (await service.SaveAsync(valeria, Uttt, request.Id, Direct(price: 28_000, message: "Te la llevo."), Ct).ConfigureAwait(false)).Value.Offer;
+        var product = await ProductAsync(diego).ConfigureAwait(false);
+        var diegoOffer = (await service.SaveAsync(diego, Uttt, request.Id, new OfferRequest(product, null, null, null, null, null), Ct).ConfigureAwait(false)).Value.Offer;
+        return (fernanda, request, valeria, valeriaOffer, diego, diegoOffer);
+    }
+
+    [Fact]
+    public async Task Received_ListsTheOffersOfMyRequest_WithWhoOffers_NewestFirst()
+    {
+        var (fernanda, request, valeria, valeriaOffer, diego, diegoOffer) = await OffersAsync();
+        await profiles.SetDetailsAsync(new ProfileOwner(diego, Uttt, "Diego Hernández"), "ing-software", 9, Now.UtcDateTime, Ct);
+
+        var items = (await service.ReceivedAsync(fernanda, request.Id, Ct)).Value!.Items;
+
+        Assert.Equal([diegoOffer.Id, valeriaOffer.Id], items.Select(o => o.Id));
+        var first = items[0];
+        Assert.Equal(("listing", "used", "sent"), (first.Kind, first.Condition, first.Status));
+        Assert.Equal(new OffererResponse(diego, "Diego Hernández", null, "Ing. Software", null, 0), first.Offerer);
+        Assert.Equal(("Valeria Cruz", "Te la llevo.", 28_000L), (items[1].Offerer.Name, items[1].Message, items[1].PriceCents));
+        Assert.Equal(valeria, items[1].Offerer.Id);
+    }
+
+    [Fact]
+    public async Task Received_IsOnlyForTheOwner_AndHidesRejectedAndBlocked()
+    {
+        var (fernanda, request, valeria, valeriaOffer, diego, diegoOffer) = await OffersAsync();
+        Assert.True((await service.RejectAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Value);
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), CommunityId = Uttt, BlockerId = diego, BlockedId = fernanda, BlockedName = "Fernanda" }, Ct);
+
+        Assert.Empty((await service.ReceivedAsync(fernanda, request.Id, Ct)).Value!.Items);
+        Assert.Equal(WantedErrors.NotFound, (await service.ReceivedAsync(valeria, request.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotFound, (await service.ReceivedAsync(fernanda, "no-es-un-id", Ct)).Error);
+        Assert.Equal(OfferErrors.OfferNotFound, (await service.ChatAsync(fernanda, request.Id, diegoOffer.Id, Ct)).Error);
+    }
+
+    [Fact]
+    public async Task Reject_OnlyOnce_AndTheOffererCanNoLongerEditIt()
+    {
+        var (fernanda, request, valeria, valeriaOffer, _, _) = await OffersAsync();
+
+        Assert.True((await service.RejectAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Value);
+
+        Assert.Equal(OfferErrors.NotPending, (await service.RejectAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Error);
+        Assert.Equal(OfferErrors.NotPending, (await service.AcceptAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Error);
+        Assert.Equal(OfferErrors.NotEditable, (await service.SaveAsync(valeria, Uttt, request.Id, Direct(), Ct)).Error);
+        Assert.Equal("rejected", (await service.MineAsync(valeria, Uttt, request.Id, Ct)).Value!.Status);
+    }
+
+    [Fact]
+    public async Task Accept_OpensTheConversation_BuyerIsWhoAsks_AndItIsIdempotent()
+    {
+        var (fernanda, request, _, _, diego, diegoOffer) = await OffersAsync();
+
+        var first = (await service.AcceptAsync(fernanda, request.Id, diegoOffer.Id, Ct)).Value!;
+        var again = (await service.AcceptAsync(fernanda, request.Id, diegoOffer.Id, Ct)).Value!;
+        var chat = (await service.ChatAsync(fernanda, request.Id, diegoOffer.Id, Ct)).Value!;
+        var conversation = (await conversations.FindByIdAsync(first.ConversationId, Ct))!;
+
+        Assert.Equal(first.ConversationId, again.ConversationId);
+        Assert.Equal(first.ConversationId, chat.ConversationId);
+        Assert.Equal((fernanda, diego), (conversation.BuyerId, conversation.SellerId));
+        Assert.Equal(("offer", diegoOffer.Id, "Bata de laboratorio blanca, talla M"), (conversation.Context.Type, conversation.Context.Id, conversation.Context.Title));
+        Assert.Equal(diegoOffer.Photo, conversation.Context.Photo);
+        Assert.Equal(("Fernanda Ortiz", "Diego Hernández"), (conversation.BuyerName, conversation.SellerName));
+        Assert.Equal("accepted", (await service.ReceivedAsync(fernanda, request.Id, Ct)).Value!.Items.Single(o => o.Id == diegoOffer.Id).Status);
+        Assert.Equal(OfferErrors.NotEditable, (await service.SaveAsync(diego, Uttt, request.Id, Direct(), Ct)).Error);
+    }
+
+    [Fact]
+    public async Task Chat_DoesNotDecide_AndAnOfferOfAnotherRequest_IsNotFound()
+    {
+        var (fernanda, request, valeria, valeriaOffer, _, _) = await OffersAsync();
+        var other = await RequestAsync(fernanda);
+
+        var chat = (await service.ChatAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Value!;
+
+        Assert.False(string.IsNullOrEmpty(chat.ConversationId));
+        Assert.Equal("sent", (await service.MineAsync(valeria, Uttt, request.Id, Ct)).Value!.Status);
+        Assert.Equal(OfferErrors.OfferNotFound, (await service.AcceptAsync(fernanda, other.Id, valeriaOffer.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotFound, (await service.AcceptAsync(valeria, request.Id, valeriaOffer.Id, Ct)).Error);
+    }
+
+    [Fact]
+    public async Task Accept_OnAnExpiredRequest_IsRequestClosed_ButTheChatStillOpens()
+    {
+        var (fernanda, request, _, valeriaOffer, _, _) = await OffersAsync();
+        time.Advance(TimeSpan.FromDays(6));
+
+        Assert.Equal(OfferErrors.RequestClosed, (await service.AcceptAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Error);
+        Assert.Null((await service.ChatAsync(fernanda, request.Id, valeriaOffer.Id, Ct)).Error);
+    }
+
+    [Fact]
+    public async Task ALinkedListing_KeepsItsConditionDetail()
+    {
+        var (fernanda, request, _, _, _, diegoOffer) = await OffersAsync();
+
+        var item = (await service.ReceivedAsync(fernanda, request.Id, Ct)).Value!.Items.Single(o => o.Id == diegoOffer.Id);
+
+        Assert.Equal("good", item.ConditionDetail);
     }
 }

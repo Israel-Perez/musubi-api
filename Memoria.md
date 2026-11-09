@@ -17,6 +17,28 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
 - **Pendiente con dueño:** `feature/SCRUM-24-editar-eliminar-publicaciones` (HU-07, Kazumi) tiene conflictos. Al editar hay que recalcular `searchWords` (HU-09). No se toca sin el OK del usuario.
 
+## T33 — Ver y elegir ofertas (09-Nov-2026, SCRUM-39, HU-17)
+
+**Qué se hizo**
+- `GET /wanted/{requestId}/offers` (solo quien publicó; pendientes y aceptadas, sin bloqueados) con nombre, foto, carrera visible y reputación de quien ofrece.
+- `POST .../offers/{offerId}/reject`, `accept` (abre la conversación) y `chat` (la abre sin decidir).
+- M-07:
+  - `IConversationOpener` y `context.type` `offer`;
+  - quien busca es el comprador;
+  - el contexto copia nombre y foto, y `ChatService` no busca publicación para él.
+- Una oferta aceptada o rechazada ya no se edita (`409 offers.not_editable`). `db/012-ofertas-chat.js` (esquema 12).
+- API `0.5.0-alpha.11`. Unit 350 · Integration 129 · Security 106 · Contract 13; critic PASS y endpoints OK (50 filas).
+
+**Decisiones (con su porqué)**
+- **Aceptar abre el chat y el pedido es HU-23:** así lo muestra la maqueta ("Abriremos el chat para que acuerden la entrega").
+- **Decisión atómica desde `sent`:** evita aceptar y rechazar la misma oferta a la vez.
+- **"Deshacer" del rechazo en la app:** la API rechaza de forma definitiva; la app espera a que termine el aviso.
+- **Orden en la app:** pocas ofertas por solicitud y los tres órdenes de la maqueta usan datos que la app ya tiene.
+
+**Errores a evitar**
+- **Al ampliar un validador de Mongo, se repite el validador completo:** `collMod` reemplaza el anterior; `db/012` copia `db/006` (conversaciones) y `db/011` (ofertas) con los cambios.
+- **Un helper `async` de las pruebas también necesita `ConfigureAwait(false)`:** CA2007 rompe el build aunque no sea un `[Fact]`.
+
 ## T32 — "Yo tengo este producto" (09-Nov-2026, SCRUM-38, HU-16)
 
 **Qué se hizo**

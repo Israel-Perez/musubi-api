@@ -33,6 +33,27 @@ internal interface IOfferRepository
     /// <returns>Tarea.</returns>
     Task ReplaceAsync(OfferDocument offer, CancellationToken cancellationToken);
 
+    /// <summary>Una oferta por id, o <c>null</c>.</summary>
+    /// <param name="id">Id.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La oferta o <c>null</c>.</returns>
+    Task<OfferDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>Las ofertas de una solicitud, de la mas nueva a la mas vieja (HU-17).</summary>
+    /// <param name="requestId">La solicitud.</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las ofertas.</returns>
+    Task<IReadOnlyList<OfferDocument>> FindByRequestAsync(string requestId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Acepta o rechaza una oferta que sigue enviada, de forma atomica (HU-17).</summary>
+    /// <param name="id">La oferta.</param>
+    /// <param name="status"><see cref="OfferStatuses.Accepted"/> o <see cref="OfferStatuses.Rejected"/>.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>false</c> si ya no estaba enviada.</returns>
+    Task<bool> TryDecideAsync(string id, string status, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Borra las ofertas que hizo alguien y las que recibio en sus solicitudes (HU-46, R11).</summary>
     /// <param name="userId">La persona.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -71,6 +92,28 @@ internal sealed class MongoOfferRepository(IMongoDatabase database) : IOfferRepo
     {
         ArgumentNullException.ThrowIfNull(offer);
         return offers.ReplaceOneAsync(o => o.Id == offer.Id, offer, cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<OfferDocument?> FindByIdAsync(string id, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await offers.Find(o => o.Id == id).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OfferDocument>> FindByRequestAsync(string requestId, int limit, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(requestId, out _)
+            ? await offers.Find(o => o.RequestId == requestId).SortByDescending(o => o.Id).Limit(limit).ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+
+    /// <inheritdoc />
+    public async Task<bool> TryDecideAsync(string id, string status, DateTime now, CancellationToken cancellationToken)
+    {
+        var result = await offers.UpdateOneAsync(
+            o => o.Id == id && o.Status == OfferStatuses.Sent,
+            Builders<OfferDocument>.Update.Set(o => o.Status, status).Set(o => o.DecidedAt, now),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount == 1;
     }
 
     /// <inheritdoc />
@@ -128,6 +171,52 @@ internal sealed class InMemoryOfferRepository : IOfferRepository
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<OfferDocument?> FindByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult(offers.Find(o => string.Equals(o.Id, id, StringComparison.Ordinal)));
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OfferDocument>> FindByRequestAsync(string requestId, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<OfferDocument>>(offers
+                .Where(o => string.Equals(o.RequestId, requestId, StringComparison.Ordinal))
+                .OrderByDescending(o => o.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList());
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> TryDecideAsync(string id, string status, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var i = offers.FindIndex(o => string.Equals(o.Id, id, StringComparison.Ordinal) && o.Status == OfferStatuses.Sent);
+            if (i < 0)
+            {
+                return Task.FromResult(false);
+            }
+
+            var o = offers[i];
+            offers[i] = new OfferDocument
+            {
+                Id = o.Id, CommunityId = o.CommunityId, RequestId = o.RequestId, RequesterId = o.RequesterId,
+                SellerId = o.SellerId, SellerName = o.SellerName, Kind = o.Kind, ProductId = o.ProductId,
+                Title = o.Title, PriceCents = o.PriceCents, Condition = o.Condition, ConditionDetail = o.ConditionDetail,
+                PhotoKey = o.PhotoKey, Message = o.Message, Status = status, DecidedAt = now,
+                CreatedAt = o.CreatedAt, UpdatedAt = o.UpdatedAt, SchemaVersion = o.SchemaVersion,
+            };
+            return Task.FromResult(true);
+        }
     }
 
     /// <inheritdoc />

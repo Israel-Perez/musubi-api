@@ -129,9 +129,14 @@ internal sealed class MessageDocument
     public int SchemaVersion { get; init; } = 1;
 }
 
-/// <summary>Tipos de contexto de una conversacion (RN-21). NOTE (HU-16): solicitudes y ofertas (Sprint 3).</summary>
+/// <summary>Tipos de contexto de una conversacion (RN-21).</summary>
 internal static class ConversationContextTypes
 {
     /// <summary>Una publicacion (HU-20, Sprint 2).</summary>
     public const string Product = "product";
+
+    /// <summary>
+    /// Una oferta "Yo tengo este producto" (HU-17): la abre quien busca (comprador) con quien ofrece (vendedor).
+    /// </summary>
+    public const string Offer = "offer";
 }

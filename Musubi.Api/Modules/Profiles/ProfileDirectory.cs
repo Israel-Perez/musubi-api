@@ -34,10 +34,12 @@ internal interface IProfileDirectory
         CancellationToken cancellationToken);
 }
 
-/// <summary>Lo que se muestra de una persona en una tarjeta (HU-15).</summary>
+/// <summary>Lo que se muestra de una persona en una tarjeta (HU-15; HU-17 suma la reputacion).</summary>
 /// <param name="Photo">Ruta de la foto (<c>/media/avatars/...</c>), o <c>null</c>.</param>
 /// <param name="Career">Nombre corto de la carrera ("Ing. Software"), o <c>null</c> si no la tiene o la oculta.</param>
-internal sealed record ProfileCard(string? Photo, string? Career);
+/// <param name="RatingAvg">Promedio de calificaciones (HU-27), o <c>null</c> sin calificaciones.</param>
+/// <param name="RatingCount">Numero de calificaciones.</param>
+internal sealed record ProfileCard(string? Photo, string? Career, double? RatingAvg = null, int RatingCount = 0);
 
 /// <summary>Implementacion sobre el repositorio de perfiles (lectura directa: una foto nueva se ve al instante).</summary>
 internal sealed class ProfileDirectory(IProfileRepository profiles, ICareerRepository careers) : IProfileDirectory
@@ -63,7 +65,9 @@ internal sealed class ProfileDirectory(IProfileRepository profiles, ICareerRepos
                 ProfileService.PhotoPath(p.AvatarKey),
                 p.Visibility.Career && p.CareerSlug is { } slug
                     ? list.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.Ordinal))?.ShortName
-                    : null),
+                    : null,
+                p.Stats.RatingAvg,
+                p.Stats.RatingCount),
             StringComparer.Ordinal);
     }
 

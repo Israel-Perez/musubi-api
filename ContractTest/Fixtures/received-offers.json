@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": "6716a0000000000000000040",
+      "kind": "direct",
+      "productId": "6716a0000000000000000050",
+      "title": "Bata blanca de algodón, talla M",
+      "priceCents": 28000,
+      "condition": "used",
+      "conditionDetail": "good",
+      "photo": "/media/products/6716a0000000000000000002/0123456789abcdef0123456789abcdef.webp",
+      "message": "Te la llevo.",
+      "status": "sent",
+      "offerer": {
+        "id": "6716a0000000000000000002",
+        "name": "Valeria Cruz",
+        "photo": "/media/avatars/6716a0000000000000000002.webp",
+        "career": "Arquitectura",
+        "ratingAvg": 4.6,
+        "ratingCount": 18
+      },
+      "createdAt": "2026-11-09T18:00:00Z"
+    }
+  ]
+}

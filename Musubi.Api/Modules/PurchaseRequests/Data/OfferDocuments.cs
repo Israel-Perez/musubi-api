@@ -56,6 +56,9 @@ internal sealed class OfferDocument
     /// <summary><c>new</c> o <c>used</c>.</summary>
     public string Condition { get; init; } = "used";
 
+    /// <summary>Detalle de un usado de la publicacion vinculada ("como nueva", copia R8), o <c>null</c>.</summary>
+    public string? ConditionDetail { get; init; }
+
     /// <summary>Llave de la foto (<c>media/products/...</c>): la portada de la publicacion o la de la oferta directa.</summary>
     public string? PhotoKey { get; init; }
 
@@ -64,6 +67,9 @@ internal sealed class OfferDocument
 
     /// <summary><see cref="OfferStatuses.Sent"/>; HU-17 la acepta o la rechaza.</summary>
     public string Status { get; init; } = OfferStatuses.Sent;
+
+    /// <summary>Cuando quien busca la acepto o la rechazo (HU-17), o <c>null</c>.</summary>
+    public DateTime? DecidedAt { get; init; }
 
     /// <summary>Creacion (UTC).</summary>
     public DateTime CreatedAt { get; init; }
@@ -90,4 +96,10 @@ internal static class OfferStatuses
 {
     /// <summary>Enviada; quien busca aun no decide (HU-17).</summary>
     public const string Sent = "sent";
+
+    /// <summary>Quien busca la acepto (HU-17): el pedido sale de ella (HU-23).</summary>
+    public const string Accepted = "accepted";
+
+    /// <summary>Quien busca la rechazo (HU-17): ya no se muestra ni se edita.</summary>
+    public const string Rejected = "rejected";
 }

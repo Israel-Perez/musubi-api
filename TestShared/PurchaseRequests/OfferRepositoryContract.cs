@@ -93,4 +93,28 @@ public abstract class OfferRepositoryContract
         Assert.Null(await Offers.FindMineAsync(made.RequestId, me, Ct));
         Assert.NotNull(await Offers.FindMineAsync(others.RequestId, others.SellerId, Ct));
     }
+
+    [Fact]
+    public async Task FindByRequest_NewestFirst_AndDecideOnlyOnce()
+    {
+        var request = AuthIds.New();
+        var older = Offer(request, AuthIds.New());
+        var newer = Offer(request, AuthIds.New());
+        var elsewhere = Offer(AuthIds.New(), AuthIds.New());
+        foreach (var o in new[] { older, newer, elsewhere })
+        {
+            Assert.True(await Offers.TryInsertAsync(o, Ct));
+        }
+
+        Assert.Equal([newer.Id, older.Id], (await Offers.FindByRequestAsync(request, 10, Ct)).Select(o => o.Id));
+        Assert.Equal([newer.Id], (await Offers.FindByRequestAsync(request, 1, Ct)).Select(o => o.Id));
+        Assert.Empty(await Offers.FindByRequestAsync("no-es-un-id", 10, Ct));
+
+        Assert.True(await Offers.TryDecideAsync(older.Id, OfferStatuses.Accepted, Now.AddHours(2), Ct));
+        Assert.False(await Offers.TryDecideAsync(older.Id, OfferStatuses.Rejected, Now.AddHours(3), Ct));
+        var decided = (await Offers.FindByIdAsync(older.Id, Ct))!;
+        Assert.Equal((OfferStatuses.Accepted, Now.AddHours(2)), (decided.Status, decided.DecidedAt));
+        Assert.Null(await Offers.FindByIdAsync("no-es-un-id", Ct));
+        Assert.Null(await Offers.FindByIdAsync(AuthIds.New(), Ct));
+    }
 }
