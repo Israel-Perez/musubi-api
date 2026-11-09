@@ -31,13 +31,18 @@ public sealed class ProductsController : ControllerBase
 
     private string? communityId => User.FindFirst(MusubiClaims.Community)?.Value;
 
-    /// <summary>Vitrina y busqueda por palabra clave (maqueta <c>Inicio-visitante</c>, <c>Inicio</c>, "Filtrar", <c>Busqueda</c>; HU-09).</summary>
+    /// <summary>Vitrina y busqueda con filtros (maqueta <c>Inicio-visitante</c>, <c>Inicio</c>, "Filtrar", <c>Busqueda</c> y <c>Busqueda-filtros</c>; HU-09, HU-10).</summary>
     /// <param name="campus">Campus del visitante (sin sesion; por defecto el del piloto).</param>
-    /// <param name="category">Slug de la categoria.</param>
+    /// <param name="category">Slugs de las categorias (se puede repetir el parametro).</param>
+    /// <param name="minPriceCents">Precio minimo, inclusivo.</param>
+    /// <param name="maxPriceCents">Precio maximo, inclusivo.</param>
+    /// <param name="condition"><c>new</c> o <c>used</c>.</param>
+    /// <param name="sort"><c>relevance</c>, <c>newest</c>, <c>oldest</c>, <c>priceAsc</c> o <c>priceDesc</c>.</param>
     /// <param name="q">Palabra clave: con ella solo salen las disponibles.</param>
-    /// <param name="hideSoldOut">Ocultar agotados.</param>
+    /// <param name="hideSoldOut">Ocultar agotados; sin el, la busqueda los oculta y la vitrina no.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina (1 a 50).</param>
+    /// <param name="page">Pagina (base 1); ignora <paramref name="cursor"/>.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina.</returns>
     [HttpGet]
@@ -50,14 +55,32 @@ public sealed class ProductsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Showcase(
         [FromQuery] string? campus,
-        [FromQuery] string? category,
+        [FromQuery] string[]? category,
+        [FromQuery] long? minPriceCents,
+        [FromQuery] long? maxPriceCents,
+        [FromQuery] string? condition,
+        [FromQuery] string? sort,
         [FromQuery] string? q,
-        [FromQuery] bool hideSoldOut,
+        [FromQuery] bool? hideSoldOut,
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
+        [FromQuery] int? page,
         CancellationToken cancellationToken) =>
         this.Respond(
-            await listings.ShowcaseAsync(new ShowcaseViewer(communityId is null ? null : userId, communityId), campus, category, q, hideSoldOut, cursor, limit, cancellationToken).ConfigureAwait(false),
+            await listings.ShowcaseAsync(
+                new ShowcaseViewer(communityId is null ? null : userId, communityId),
+                campus,
+                category,
+                minPriceCents,
+                maxPriceCents,
+                condition,
+                sort,
+                q,
+                hideSoldOut,
+                cursor,
+                limit,
+                page,
+                cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
     /// <summary>Mis publicaciones ("Ver mis productos").</summary>

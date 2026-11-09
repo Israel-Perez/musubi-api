@@ -13,6 +13,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `007-busqueda.js` | Palabras normalizadas en `products.searchWords` + índice `ix_community_status_search` (HU-09) | 7 |
 | `008-reportes-bloqueos.js` | `reports` (HU-28) y `blocks` (HU-57) | 8 |
 | `009-solicitudes.js` | `wantedRequests` (HU-13) | 9 |
+| `010-filtros-precio.js` | Índices de precio asc/desc, con y sin categoría, para ordenar sin memoria (HU-10) | 10 |
 
 ## Aplicar
 

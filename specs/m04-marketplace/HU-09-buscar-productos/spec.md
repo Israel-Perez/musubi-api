@@ -92,6 +92,7 @@ Evidencia del 07-Nov-2026 (rama `feature/SCRUM-26-buscar-productos`):
 
 ## Límites
 - **Orden por relevancia diferido:** se usa `_id` descendente. Un orden por puntaje y un cursor compuesto quedan para una HU posterior. `NOTE (HU-09)`.
+- **Cursor de HU-10:** `nextCursor` pasó a token opaco (`newest:<id>`, `priceAsc:<precio>:<id>`); el ObjectId crudo de esta HU se sigue aceptando para `newest`/`relevance`. La fila canónica es `docs/endpoints.md`.
 - **Sin coincidencia a mitad de palabra:** `culadora` no encuentra `Calculadora`; la coincidencia es por prefijo. Si el PO pide infijo, hace falta otro campo normalizado y su *backfill*. `NOTE (HU-09)`.
 - **`searchWords` se calcula al insertar:** una edición futura del título o la descripción debe recalcularlo (hoy no hay edición; `NOTE (HU-09)`). Si quedara desactualizado, la búsqueda lo ignora en silencio.
 - **Orden por `_id` con índice de prefijo:** el índice resuelve la coincidencia, pero el orden por `_id` se hace en memoria sobre las coincidencias; con `limit ≤ 50` y un prefijo razonable es aceptable. `NOTE (HU-09)`.
