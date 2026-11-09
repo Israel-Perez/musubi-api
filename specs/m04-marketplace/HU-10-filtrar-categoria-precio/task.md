@@ -19,7 +19,7 @@
 - **Estado:** ✅ Hecho.
 
 ## T4 — Servicio, errores y controller
-- **Qué:** Normalizar y validar filtros, resolver el cursor y `page`, devolver `nextCursor`; agregar `InvalidPriceRange`, `InvalidSort` e `InvalidPage`; exponer los parámetros en `Showcase`.
+- **Qué:** Normalizar y validar filtros, resolver el cursor y `page` (1 a 50), devolver `nextCursor`; agregar `InvalidPriceRange`, `InvalidSort` e `InvalidPage`; exponer los parámetros en `Showcase`.
 - **Archivos:** `ListingService.cs`, `ListingsErrors.cs`, `ProductsController.cs`.
 - **Verificación:** `IntegrationTest` cubre combinación, orden, paginación y errores 400.
 - **Estado:** ✅ Hecho.

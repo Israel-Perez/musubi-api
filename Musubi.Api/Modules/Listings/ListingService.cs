@@ -63,6 +63,9 @@ internal sealed partial class ListingService(
     /// <summary>Tamano de pagina maximo.</summary>
     public const int MaxPageSize = 50;
 
+    /// <summary>Pagina maxima: 50 con 20 por defecto son 1 000 resultados; acota el costo de `skip` (OWASP API4).</summary>
+    public const int MaxPage = 50;
+
     /// <summary>Caracteres maximos del texto de busqueda (HU-09).</summary>
     public const int MaxSearchLength = 80;
 
@@ -213,8 +216,8 @@ internal sealed partial class ListingService(
         int? page,
         CancellationToken cancellationToken)
     {
-        // HU-10: la pagina empieza en 1.
-        if (page is < 1)
+        // HU-10: la pagina empieza en 1 y tiene tope para que skip no crezca sin control.
+        if (page is < 1 or > MaxPage)
         {
             return ListingsErrors.InvalidPage;
         }

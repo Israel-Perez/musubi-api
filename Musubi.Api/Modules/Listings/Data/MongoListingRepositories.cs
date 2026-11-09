@@ -51,7 +51,8 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         var find = products.Find(filter).Sort(SortFor(query.Sort));
         if (query.Page is { } page)
         {
-            find = find.Skip((page - 1) * query.Limit);
+            // El tope de pagina se valida en el servicio; aqui se calcula en long para no desbordar.
+            find = find.Skip((int)Math.Min((long)(page - 1) * query.Limit, int.MaxValue));
         }
 
         return await find

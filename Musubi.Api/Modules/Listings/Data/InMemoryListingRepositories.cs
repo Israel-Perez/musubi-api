@@ -74,7 +74,10 @@ internal sealed class InMemoryProductRepository : IProductRepository
         ArgumentNullException.ThrowIfNull(query);
         lock (gate)
         {
-            var skip = query.Page is { } page ? (page - 1) * query.Limit : 0;
+            // El tope de pagina se valida en el servicio; aqui se calcula en long para no desbordar.
+            var skip = query.Page is { } page
+                ? (int)Math.Min((long)(page - 1) * query.Limit, int.MaxValue)
+                : 0;
             var items = Sorted(Showcase(query), query.Sort)
                 .Where(p => query.Page is not null || IsAfter(p, query))
                 .Skip(skip)

@@ -13,15 +13,15 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 **Qué se hizo**
 - `GET /api/v1/products` acepta `category` repetido (OR), `minPriceCents`/`maxPriceCents` inclusivos, `condition` (`new`/`used`) y `sort` (`relevance`, `newest`, `oldest`, `priceAsc`, `priceDesc`). Se combinan con `q`, `campus` y `hideSoldOut`.
-- Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado) y `listings.invalid_sort`.
+- Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado), `listings.invalid_sort` e `listings.invalid_page`.
 - `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
 - `db/009-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 9`.
 - Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
-- `page` (base 1) suma paginación por número para la app: `skip = (page - 1) * limit`, ignora `cursor` y devuelve `nextCursor: null`; `page < 1` es `listings.invalid_page`.
+- `page` (base 1, máximo 50) suma paginación por número para la app: `skip = (page - 1) * limit` en `long`, ignora `cursor` y devuelve `nextCursor: null`; fuera de 1 a 50 es `listings.invalid_page`. El tope acota el costo de `skip` (OWASP API4).
 - `hideSoldOut` pasa a opcional: sin el parámetro la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
-- Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- API `0.5.0-alpha.7`, esquema 9 y fila en `docs/versionado.md`. Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
 - **Prueba manual (API en Development + InMemory, 08-Nov-2026):** `/health` y `/health/ready` Healthy; registro y verificación con el código del log; 4 publicaciones; filtro combinado devolvió las 2 esperadas; `priceDesc` ordenó 80k, 30k, 20k y 10k; paginación `priceAsc` 2+2 con cursor; rango/condición/orden inválidos y cursor viejo con precio devolvieron 400 con su código.
-- **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó a 268 al rebasar sobre HU-28/HU-57, con 19 casos del codec y el cursor `priceDesc`.
+- **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó a 269 al rebasar sobre HU-28/HU-57, con 19 casos del codec, el cursor `priceDesc` y el tope de página.
 
 **Decisiones (con su porqué)**
 - **Alcance de la maqueta, no solo Jira:** el usuario eligió `Busqueda-filtros` completa (varias categorías, condición y orden); Jira solo pedía categoría y precio.

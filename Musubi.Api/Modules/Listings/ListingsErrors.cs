@@ -42,9 +42,9 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidSort = new(
         "listings.invalid_sort", StatusCodes.Status400BadRequest, "Elige un orden para los resultados.");
 
-    /// <summary>Pagina menor que 1 (HU-10).</summary>
+    /// <summary>Pagina fuera de 1 a 50 (HU-10).</summary>
     public static readonly ApiError InvalidPage = new(
-        "listings.invalid_page", StatusCodes.Status400BadRequest, "Elige una página válida.");
+        "listings.invalid_page", StatusCodes.Status400BadRequest, "Elige una página del 1 al 50.");
 
     /// <summary>Cursor de paginacion que no se emitio aqui.</summary>
     public static readonly ApiError InvalidCursor = new(

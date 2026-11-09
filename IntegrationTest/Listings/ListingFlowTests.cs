@@ -419,6 +419,14 @@ public sealed class ListingFlowTests(AuthApiFactory factory) : IClassFixture<Aut
             await visitor.GetAsync(new Uri("/api/v1/products?page=0", UriKind.Relative), Ct),
             HttpStatusCode.BadRequest,
             "listings.invalid_page");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?page=51", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_page");
+        await AuthFlow.AssertCodeAsync(
+            await visitor.GetAsync(new Uri("/api/v1/products?page=50000000", UriKind.Relative), Ct),
+            HttpStatusCode.BadRequest,
+            "listings.invalid_page");
         // HU-10 R8: el ObjectId crudo solo se acepta para newest y relevance.
         await AuthFlow.AssertCodeAsync(
             await visitor.GetAsync(new Uri("/api/v1/products?sort=priceAsc&cursor=6716a0000000000000000099", UriKind.Relative), Ct),

@@ -20,7 +20,7 @@
    - **Índices de precio en `db/009`:** sin ellos, `priceAsc`/`priceDesc` ordenan en memoria. El script solo crea índices; no reescribe documentos.
    - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo en publicación y filtro; no se duplica un código.
    - **Tope de precio con `MaxPriceCents`:** reutiliza el máximo de publicación (99 999 900) para que el rango nunca pida valores imposibles.
-   - **`page` para la barra de paginación:** `skip = (page - 1) * limit`, ignora `cursor` y no devuelve uno; la app muestra números de página. `cursor` queda para el desplazamiento continuo.
+   - **`page` para la barra de paginación:** `skip = (page - 1) * limit` en `long`, con `MaxPage = 50`; ignora `cursor` y no devuelve uno. `cursor` queda para el desplazamiento continuo.
    - **`hideSoldOut` opcional:** sin el parámetro la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
 
 3. **Excepciones al stack (00-01):** ninguna. Se usa MongoDB, ASP.NET y lo ya instalado.
