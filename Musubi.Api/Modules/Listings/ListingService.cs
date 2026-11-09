@@ -473,6 +473,13 @@ internal sealed partial class ListingService(
     [GeneratedRegex("^media/products/[0-9a-f]{24}/[0-9a-f]{32}\\.webp$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 100)]
     private static partial Regex PhotoKeyPattern();
 
+    /// <summary>La llave tiene la forma de una foto subida por esa persona (sin revisar que el archivo exista).</summary>
+    /// <param name="userId">Quien la usa.</param>
+    /// <param name="key">Llave.</param>
+    /// <returns><c>true</c> si la forma y el prefijo son suyos.</returns>
+    public static bool IsOwnPhotoKey(string userId, string? key) =>
+        key is not null && PhotoKeyPattern().IsMatch(key) && key.StartsWith(PhotoPrefix(userId), StringComparison.Ordinal);
+
     private async Task<bool> ValidPhotosAsync(string userId, IReadOnlyList<string> photos, CancellationToken cancellationToken)
     {
         if (photos is null || photos.Count is < 1 or > MaxPhotos || photos.Distinct(StringComparer.Ordinal).Count() != photos.Count)
@@ -481,11 +488,9 @@ internal sealed partial class ListingService(
         }
 
         // Solo fotos que el mismo usuario subio por POST /products/photos (OWASP API1): la llave lleva su id.
-        var prefix = PhotoPrefix(userId);
         foreach (var key in photos)
         {
-            if (key is null || !PhotoKeyPattern().IsMatch(key) || !key.StartsWith(prefix, StringComparison.Ordinal)
-                || !await media.ExistsAsync(key, cancellationToken).ConfigureAwait(false))
+            if (!IsOwnPhotoKey(userId, key) || !await media.ExistsAsync(key, cancellationToken).ConfigureAwait(false))
             {
                 return false;
             }

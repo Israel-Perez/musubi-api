@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Platform.Media;
 
 namespace Musubi.Api.Modules.Listings;
 
@@ -15,6 +16,8 @@ namespace Musubi.Api.Modules.Listings;
 /// <param name="ConditionDetail">Detalle de un usado.</param>
 /// <param name="Photo">Ruta de la portada (<c>/media/...</c>).</param>
 /// <param name="Visible">Se puede ver en la vitrina: disponible o agotada (no pausada ni quitada).</param>
+/// <param name="Available">Disponible: se puede comprar o vincular a una oferta (HU-16).</param>
+/// <param name="PhotoKey">Llave de la portada (<c>media/products/...</c>), o <c>null</c>.</param>
 internal sealed record ProductSummary(
     string Id,
     string CommunityId,
@@ -24,11 +27,14 @@ internal sealed record ProductSummary(
     string Condition,
     string? ConditionDetail,
     string? Photo,
-    bool Visible);
+    bool Visible,
+    bool Available = false,
+    string? PhotoKey = null);
 
 /// <summary>
 /// Contrato publico de M-03 para los demas modulos (Modules/README: un modulo no lee las colecciones de
-/// otro). Lo usa el chat (HU-20) para abrir una conversacion desde una publicacion.
+/// otro). Lo usan el chat (HU-20) para abrir una conversacion desde una publicacion y las ofertas (HU-16) para
+/// vincular una publicacion propia.
 /// </summary>
 internal interface IProductDirectory
 {
@@ -46,17 +52,42 @@ internal sealed class ProductDirectory(IProductRepository products) : IProductDi
     public async Task<ProductSummary?> FindAsync(string productId, CancellationToken cancellationToken)
     {
         var product = await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
-        return product is null
-            ? null
-            : new ProductSummary(
-                product.Id,
-                product.CommunityId,
-                product.SellerId,
-                product.Title,
-                product.PriceCents,
-                product.Condition,
-                product.ConditionDetail,
-                product.Photos.Select(ListingService.PhotoUrl).FirstOrDefault(),
-                product.Status is ProductStatuses.Active or ProductStatuses.SoldOut);
+        if (product is null)
+        {
+            return null;
+        }
+
+        var cover = product.Photos.Count > 0 ? product.Photos[0] : null;
+        return new ProductSummary(
+            product.Id,
+            product.CommunityId,
+            product.SellerId,
+            product.Title,
+            product.PriceCents,
+            product.Condition,
+            product.ConditionDetail,
+            product.Photos.Select(ListingService.PhotoUrl).FirstOrDefault(),
+            product.Status is ProductStatuses.Active or ProductStatuses.SoldOut,
+            product.Status == ProductStatuses.Active,
+            cover);
     }
+}
+
+/// <summary>Fotos que una persona subio por <c>POST /products/photos</c> (HU-16: la foto de una oferta directa).</summary>
+internal interface IListingPhotos
+{
+    /// <summary>La llave es de una foto que ya subio esa persona (OWASP API1).</summary>
+    /// <param name="userId">Quien la usa.</param>
+    /// <param name="key">Llave (<c>media/products/{userId}/{hex}.webp</c>).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si la llave es suya y el archivo existe.</returns>
+    Task<bool> OwnsAsync(string userId, string key, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion con la misma regla que las fotos de una publicacion.</summary>
+internal sealed class ListingPhotos(IMediaStorage media) : IListingPhotos
+{
+    /// <inheritdoc />
+    public async Task<bool> OwnsAsync(string userId, string key, CancellationToken cancellationToken) =>
+        ListingService.IsOwnPhotoKey(userId, key) && await media.ExistsAsync(key, cancellationToken).ConfigureAwait(false);
 }

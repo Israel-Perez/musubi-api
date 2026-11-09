@@ -26,6 +26,14 @@ internal static class PurchaseRequestsModuleServiceCollectionExtensions
             : new MongoWantedRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<WantedService>();
         services.AddSingleton<IAccountDataEraser, WantedAccountEraser>();
+
+        // HU-16: ofertas "Yo tengo este producto".
+        var offers = new InMemoryOfferRepository();
+        services.AddSingleton<IOfferRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? offers
+            : new MongoOfferRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<OfferService>();
+        services.AddSingleton<IAccountDataEraser, OfferAccountEraser>();
     }
 }
 
@@ -38,4 +46,12 @@ internal sealed class WantedAccountEraser(IWantedRepository requests, IOutputCac
         await requests.DeleteByRequesterAsync(userId, cancellationToken).ConfigureAwait(false);
         await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.WantedBoardTag, cancellationToken).ConfigureAwait(false);
     }
+}
+
+/// <summary>Borra las ofertas que hizo una cuenta y las que recibio en sus solicitudes (HU-46, R11).</summary>
+internal sealed class OfferAccountEraser(IOfferRepository offers) : IAccountDataEraser
+{
+    /// <inheritdoc />
+    public Task EraseAsync(string userId, CancellationToken cancellationToken) =>
+        offers.DeleteByPersonAsync(userId, cancellationToken);
 }

@@ -14,6 +14,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `008-reportes-bloqueos.js` | `reports` (HU-28) y `blocks` (HU-57) | 8 |
 | `009-solicitudes.js` | `wantedRequests` (HU-13) | 9 |
 | `010-filtros-precio.js` | Índices de precio asc/desc, con y sin categoría, para ordenar sin memoria (HU-10) | 10 |
+| `011-ofertas.js` | `offers` ("Yo tengo este producto", HU-16): una por persona y solicitud | 11 |
 
 ## Aplicar
 

@@ -107,6 +107,12 @@ internal interface IWantedRepository
     /// <returns>Las solicitudes.</returns>
     Task<IReadOnlyList<WantedRequestDocument>> FindByRequesterAsync(string requesterId, int limit, CancellationToken cancellationToken);
 
+    /// <summary>Suma una oferta a <c>offersCount</c> (HU-16, <c>$inc</c>).</summary>
+    /// <param name="id">La solicitud.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task IncrementOffersAsync(string id, CancellationToken cancellationToken);
+
     /// <summary>Una pagina del tablero "Se busca" (HU-15).</summary>
     /// <param name="query">Filtros, cursor y tamano.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -147,6 +153,10 @@ internal sealed class MongoWantedRepository(IMongoDatabase database) : IWantedRe
             .SortByDescending(r => r.Id)
             .Limit(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public Task IncrementOffersAsync(string id, CancellationToken cancellationToken) =>
+        requests.UpdateOneAsync(r => r.Id == id, Builders<WantedRequestDocument>.Update.Inc(r => r.OffersCount, 1), cancellationToken: cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<WantedRequestDocument>> FindBoardAsync(WantedBoardQuery query, CancellationToken cancellationToken)
@@ -262,6 +272,41 @@ internal sealed class InMemoryWantedRepository : IWantedRepository
                 .Take(limit)
                 .ToList());
         }
+    }
+
+    /// <inheritdoc />
+    public Task IncrementOffersAsync(string id, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var i = requests.FindIndex(r => string.Equals(r.Id, id, StringComparison.Ordinal));
+            if (i >= 0)
+            {
+                var r = requests[i];
+                requests[i] = new WantedRequestDocument
+                {
+                    Id = r.Id,
+                    CommunityId = r.CommunityId,
+                    RequesterId = r.RequesterId,
+                    RequesterName = r.RequesterName,
+                    Title = r.Title,
+                    CategorySlug = r.CategorySlug,
+                    CategoryName = r.CategoryName,
+                    Description = r.Description,
+                    Features = r.Features,
+                    BudgetCents = r.BudgetCents,
+                    Quantity = r.Quantity,
+                    NeededBy = r.NeededBy,
+                    ExpiresAt = r.ExpiresAt,
+                    Status = r.Status,
+                    OffersCount = r.OffersCount + 1,
+                    CreatedAt = r.CreatedAt,
+                    SchemaVersion = r.SchemaVersion,
+                };
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
