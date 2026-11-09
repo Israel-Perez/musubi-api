@@ -89,7 +89,7 @@ Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 269 · Integra
 - [x] `GET /api/v1/products?condition=roto` devuelve `400 listings.invalid_condition` y `sort=roto` devuelve `400 listings.invalid_sort`; `page=0`, `page=51` y `page=50000000`, `400 listings.invalid_page` (`Showcase_RejectsInvalidFilters`).
 - [x] `?limit=2&page=1` y `?limit=2&page=2` no repiten publicaciones y `nextCursor` es `null` (`Pages_ByNumber`, `Showcase_PagesByNumber`).
 - [x] `pwsh scripts/check_endpoints.ps1` → `OK (40 rutas con fila, 0 huerfanas)`.
-- [x] `pwsh scripts/critic-guardrails.ps1` → `PASS (24 archivos analizados, 0 avisos)`.
+- [x] `pwsh scripts/critic-guardrails.ps1` → `PASS (26 archivos analizados, 0 avisos)`.
 - [ ] `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release` en CI → 0 fallos (local sin Docker: no se corre).
 
 ## Límites
