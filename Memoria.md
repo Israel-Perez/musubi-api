@@ -9,6 +9,29 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
+## T32 — "Yo tengo este producto" (09-Nov-2026, SCRUM-38, HU-16)
+
+**Qué se hizo**
+- `GET` y `PUT /api/v1/wanted/{requestId}/offers/mine`: vincular una publicación propia disponible (copia nombre, precio, estado y portada) u ofrecer sin publicar (descripción, precio, estado y foto opcional de `POST /products/photos`).
+- Reglas:
+  - una por persona y solicitud, editable (RN-14): la primera da 201 y suma `offersCount`, las siguientes la reemplazan (200);
+  - nunca a la propia (`409 offers.own_request`, RN-06);
+  - solicitud no visible → `404 wanted.not_found`;
+  - `overBudget` si el precio pasa el presupuesto (se permite);
+  - descripción y mensaje moderados.
+- `offers` (`db/011-ofertas.js`, esquema 11) con `ux_request_seller`; `IListingPhotos` y `ProductSummary.Available`/`PhotoKey` en M-03; borrado de cuenta de las ofertas hechas y recibidas.
+- API `0.5.0-alpha.10`. Unit 342 · Integration 127 · Security 102 · Contract 12; critic PASS y endpoints OK (46 filas).
+
+**Decisiones (con su porqué)**
+- **`PUT` que crea o reemplaza:** RN-14 deja una oferta editable por persona; la app no necesita distinguir "nueva" de "editar" y el índice único resuelve dos envíos a la vez (el perdedor queda como edición).
+- **Sin conversación al enviar:** `Yo-tengo-enviada` dice "te escribirá por el chat"; quien busca la abre desde la oferta en HU-17.
+- **Foto por la subida de productos:** reutiliza moderación, WebP y el prefijo por usuario; la oferta solo valida que la llave sea suya.
+- **Aviso RF-40 en HU-30:** sin notificaciones push todavía.
+
+**Errores a evitar**
+- **`ProductSummary` creció con parámetros opcionales:** `Available` y `PhotoKey` tienen valor por defecto para no romper los fakes de `IProductDirectory` en las pruebas del chat y de reputación.
+- **S3358 también salta con un ternario dentro del `new` de otro ternario:** en `ProductDirectory.FindAsync` se usa `if` y una variable.
+
 ## T31 — Tablero "Se busca" (09-Nov-2026, SCRUM-37, HU-15)
 
 **Qué se hizo**

@@ -126,4 +126,12 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `wanted.invalid_deadline` | 400 | Elige una fecha límite de 1 a 60 días. | HU-15 ("Fecha límite") |
 | `wanted.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-15 (más de 80 caracteres o sin letras ni dígitos) |
 | `wanted.invalid_cursor` | 400 | No pudimos cargar más solicitudes. Actualiza la lista. | HU-15 (cursor que no es el id de una solicitud) |
+| `offers.own_request` | 409 | No puedes ofrecer en tu propia solicitud. | HU-16 (RN-06) |
+| `offers.product_unavailable` | 400 | Elige una de tus publicaciones disponibles. | HU-16 (no es tuya, no está disponible o es de otro campus) |
+| `offers.invalid_description` | 400 | Describe lo que ofreces, de 3 a 300 caracteres. | HU-16 (oferta directa) |
+| `offers.invalid_price` | 400 | Escribe tu precio, de $1 a $999,999. | HU-16 (oferta directa) |
+| `offers.invalid_condition` | 400 | Elige si es nuevo o usado. | HU-16 (oferta directa) |
+| `offers.invalid_photo` | 400 | Vuelve a agregar la foto. | HU-16 (llave que no subió esa persona o que no existe, OWASP API1) |
+| `offers.invalid_message` | 400 | El mensaje puede tener hasta 300 caracteres. | HU-16 |
+| `offers.not_found` | 404 | Todavía no has ofrecido nada en esta solicitud. | HU-16 (`GET .../offers/mine`) |
 | `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |

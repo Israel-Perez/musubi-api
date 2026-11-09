@@ -205,4 +205,17 @@ public abstract class WantedRepositoryContract
         Assert.Equal([mine.Id, fisica.Id], await Ids(Board(campus, limit: 2)));
         Assert.Equal([laptop.Id, bata.Id], await Ids(Board(campus, before: fisica.Id, limit: 2)));
     }
+
+    [Fact]
+    public async Task IncrementOffers_AddsOne_WithoutTouchingTheRest()
+    {
+        var request = Request(AuthIds.New());
+        await Requests.InsertAsync(request, Ct);
+
+        await Requests.IncrementOffersAsync(request.Id, Ct);
+        await Requests.IncrementOffersAsync(request.Id, Ct);
+        var read = (await Requests.FindByIdAsync(request.Id, Ct))!;
+
+        Assert.Equal((2, request.Title, request.BudgetCents), (read.OffersCount, read.Title, read.BudgetCents));
+    }
 }

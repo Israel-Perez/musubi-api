@@ -112,4 +112,30 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
             Shape(fixture.GetProperty("items")[0]).Select(p => p == "requester.id:String" ? "requester.id:Null" : p),
             Shape(guestItem));
     }
+
+    [Fact]
+    public async Task Offer_MatchesTheFixture()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        using var fernanda = await SignedInAsync(app, emails);
+        using var valeria = await SignedInAsync(app, emails);
+        var request = await BodyAsync(await fernanda.PostAsJsonAsync(
+            new Uri("/api/v1/wanted", UriKind.Relative),
+            new { title = "Bata de laboratorio talla M", category = "laboratorio", budgetCents = 30_000, quantity = 1 },
+            Ct));
+        var fixture = await FixtureAsync("offer.json");
+
+        var sent = await valeria.PutAsJsonAsync(
+            new Uri($"/api/v1/wanted/{request.GetProperty("id").GetString()}/offers/mine", UriKind.Relative),
+            new { description = "Bata blanca de algodón, talla M", priceCents = 28_000, condition = "used", message = "Te la llevo." },
+            Ct);
+        var body = await BodyAsync(sent);
+
+        Assert.Equal(HttpStatusCode.Created, sent.StatusCode);
+        // Oferta directa sin foto ni publicacion: productId y photo van en null.
+        Assert.Equal(
+            Shape(fixture).Select(p => p is "productId:String" or "photo:String" ? p.Replace("String", "Null", StringComparison.Ordinal) : p),
+            Shape(body));
+    }
 }
