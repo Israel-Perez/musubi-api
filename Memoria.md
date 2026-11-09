@@ -9,17 +9,17 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Pendientes del usuario:** confirmar el correo de suscripción de SNS (alarmas), **Redis Cloud** (`/musubi/prod/Cache/ConnectionString`: desde HU-20 lo necesita el chat en tiempo real entre las 2 instancias), proveedor de IA (HU-32) y proyecto de Firebase (HU-31). La lista de carreras de la UTTT está pendiente de validar con el equipo.
 - **En producción (06-Nov-2026):** API `0.5.0-alpha.1` con el chat (HU-20), infra `0.3.5` y Redis Cloud conectado en las 2 instancias. **En curso:** HU-22 (bandeja, API `0.5.0-alpha.2`) y la app del chat.
 
-## T29 — Filtros de la búsqueda por categoría, precio, condición y orden (08-Nov-2026, SCRUM-27, HU-10)
+## T30 — Filtros de la búsqueda por categoría, precio, condición y orden (08-Nov-2026, SCRUM-27, HU-10)
 
 **Qué se hizo**
 - `GET /api/v1/products` acepta `category` repetido (OR), `minPriceCents`/`maxPriceCents` inclusivos, `condition` (`new`/`used`) y `sort` (`relevance`, `newest`, `oldest`, `priceAsc`, `priceDesc`). Se combinan con `q`, `campus` y `hideSoldOut`.
 - Validación de borde: `400 listings.invalid_price_range`, `listings.invalid_condition` (reutilizado), `listings.invalid_sort` e `listings.invalid_page`.
 - `nextCursor` pasa a token con el orden (`newest:<id>`, `priceAsc:<priceCents>:<id>`); el ObjectId crudo anterior solo se acepta para `newest`/`relevance`.
-- `db/009-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 9`.
+- `db/010-filtros-precio.js` crea cuatro índices: `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id`; `MongoSchema.ExpectedVersion = 10`.
 - Se quitó la opción `"i"` del regex de `searchWords` (las palabras ya están normalizadas) y el fake en memoria usa `StartsWith` ordinal; el `security-reviewer` lo señaló como aviso de rendimiento/fidelidad.
 - `page` (base 1, máximo 50) suma paginación por número para la app: `skip = (page - 1) * limit` en `long`, ignora `cursor` y devuelve `nextCursor: null`; fuera de 1 a 50 es `listings.invalid_page`. El tope acota el costo de `skip` (OWASP API4).
 - `hideSoldOut` pasa a opcional: sin el parámetro la búsqueda oculta los agotados (HU-09) y la vitrina los muestra; `false` explícito los incluye aunque haya `q`.
-- API `0.5.0-alpha.7`, esquema 9 y fila en `docs/versionado.md`. Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
+- API `0.5.0-alpha.8`, esquema 10 y fila en `docs/versionado.md`. Se renumeró de `db/009`/`alpha.7` a `db/010`/`alpha.8` porque HU-13 (musubi-api#54) se fusionó antes con ese número (09-Nov-2026). Unit 269 · Integration 107 · Security 92 · Contract 9 · Performance 4; critic PASS y endpoints OK. `DatabaseTest` sin Docker en local: lo corre el CI.
 - **Prueba manual (API en Development + InMemory, 08-Nov-2026):** `/health` y `/health/ready` Healthy; registro y verificación con el código del log; 4 publicaciones; filtro combinado devolvió las 2 esperadas; `priceDesc` ordenó 80k, 30k, 20k y 10k; paginación `priceAsc` 2+2 con cursor; rango/condición/orden inválidos y cursor viejo con precio devolvieron 400 con su código.
 - **Code review (08-Nov-2026):** se agregó el caso de cursor `priceDesc` que cruza el empate, 19 pruebas del codec (legacy, orden ajeno, precio fuera de rango, id inválido, mayúsculas canonicalizadas), aserciones de la dirección de los cuatro índices y el valor extraño de categoría en seguridad. Unit pasó a 269 al rebasar sobre HU-28/HU-57, con 19 casos del codec, el cursor `priceDesc` y el tope de página.
 
@@ -29,7 +29,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **Cursor compuesto:** ordenar por precio con un cursor solo de `_id` salta o repite resultados; el token lleva el orden y la clave.
 - **`page` y `cursor` son excluyentes:** la app usa `page` para la barra numérica y el scroll continuo usa `cursor`; si llegan ambos, gana `page` (`NOTE (HU-10)`).
 - **`relevance` es alias de `newest`:** no hay puntaje de relevancia; HU-09 lo difirió. Se conserva la etiqueta de la maqueta con un límite documentado.
-- **Índices de precio en `db/009`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
+- **Índices de precio en `db/010`:** sin ellos `priceAsc`/`priceDesc` ordenan en memoria. Hacen falta las dos direcciones porque el desempate es `_id` descendente en ambos; un solo índice asc no cubre `priceDesc`. El script solo crea índices, no reescribe documentos.
 - **Reutilizar `listings.invalid_condition`:** el valor inválido es el mismo al publicar y al filtrar; no se duplica el código.
 - **`category` repetido en lugar de coma:** una sola categoría sigue funcionando y no hay formato que parsear.
 - **Sin tope propio de categorías:** el límite es la línea de petición; si se vuelve abuso, se agrega tope y error (`NOTE (HU-10)`).
@@ -43,6 +43,29 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **`ProductQuery.Sort` por defecto es `newest`:** no cambiar el orden de la vitrina sin actualizar `docs/endpoints.md` y la app.
 - **El precio está en centavos:** la maqueta usa pesos; la app convierte antes de llamar y omite `maxPriceCents` cuando no hay techo.
 - **S3358 rompe el build:** no anidar ternarios en `nextCursor`; usar un `if`.
+## T29 — Publicar lo que necesito (09-Nov-2026, SCRUM-35, HU-13)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/PurchaseRequests` (M-05):
+  - `POST /wanted`, `GET /wanted/mine` y `GET /wanted/{id}`;
+  - `wantedRequests` (`db/009-solicitudes.js`, esquema 9);
+  - `ICategoryDirectory` (M-03) para validar la categoría.
+- Reglas:
+  - RN-09: producto, categoría, presupuesto y cantidad son obligatorios;
+  - RN-10: vence al terminar `neededBy` en el campus (UTC-6) o a los 30 días; el vencimiento se calcula al leer;
+  - RN-12: máximo 5 activas;
+  - el texto se modera (02-07);
+  - otro campus, vencida o con bloqueo responde 404 para quien no es el dueño.
+- API `0.5.0-alpha.7`. Unit 274 · Integration 110 · Security 95 · Contract 10.
+
+**Decisiones (con su porqué)**
+- **Los valores [POR DEFINIR] de la spec:** 5 activas (RN-12) y 30 días sin fecha (RN-10). Son conservadores para el piloto; se ajustan con datos.
+- **"Vencida" no se guarda:** se calcula con `expiresAt`. No hace falta un proceso en segundo plano y el conteo de RN-12 la excluye solo.
+- **El día del campus es UTC-6 fijo:** México quitó el horario de verano en 2022. No depende de `tzdata` en la imagen chiseled.
+- **"Otro" como categoría:** la maqueta lo ofrece en `Necesidad-1` aunque no es una categoría de publicaciones.
+
+**Errores a evitar**
+- **`SchemaVersionTests` exige scripts consecutivos:** un `010` sin `009` rompe la prueba. Si dos ramas crean el mismo número, la que se fusione después renumera.
 
 ## T28 — Reportar y bloquear (08-Nov-2026, SCRUM-57 y SCRUM-95, HU-28 y HU-57)
 

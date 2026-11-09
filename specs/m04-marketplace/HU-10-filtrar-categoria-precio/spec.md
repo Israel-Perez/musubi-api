@@ -11,7 +11,7 @@ Jira (SCRUM-27): Como **comprador**, quiero **filtrar los resultados por categor
 
 **Depende de:** `02-01`, `02-02`, `02-03`, `HU-06`, `HU-09`, `HU-11`, `HU-48`.
 
-La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hideSoldOut`, `cursor` y `limit`. Esta HU agrega los filtros de la hoja `Busqueda-filtros`: varias categorías, rango de precio, condición y orden. No se crea un módulo nuevo: el endpoint, el repositorio y los DTO viven en `Modules/Listings/` y M-04 los reutiliza (misma decisión que HU-09). El esquema gana cuatro índices para ordenar por precio (asc/desc, con y sin categoría), creados por `db/009-filtros-precio.js`.
+La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hideSoldOut`, `cursor` y `limit`. Esta HU agrega los filtros de la hoja `Busqueda-filtros`: varias categorías, rango de precio, condición y orden. No se crea un módulo nuevo: el endpoint, el repositorio y los DTO viven en `Modules/Listings/` y M-04 los reutiliza (misma decisión que HU-09). El esquema gana cuatro índices para ordenar por precio (asc/desc, con y sin categoría), creados por `db/010-filtros-precio.js`.
 
 ## Requisitos
 1. `GET /api/v1/products` acepta `category` repetido (`category=libros&category=laptops`). Los valores se recortan, se descartan los vacíos y se comparan como OR. Un solo valor sigue funcionando. Sin `category`, no hay filtro de categoría.
@@ -30,7 +30,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 9. La página siguiente conserva los mismos filtros y el mismo `sort`. `total` cuenta todas las coincidencias sin aplicar el cursor; `nextCursor` es `null` si la página no se llenó.
 10. `page` (base 1, máximo 50) salta a esa página con `skip = (page - 1) * limit` calculado en `long`, ignora `cursor` y devuelve `nextCursor: null`. `page < 1` o `page > 50` devuelve `400 listings.invalid_page`; el tope evita que Mongo recorra una página sin límite (OWASP API4).
 11. La ruta sigue `[AllowAnonymous]`, con sesión opcional, `ETag`/`304` y la caché de salida actuales. La política `showcase` varía por todos los query params, así que los nuevos entran en la clave sin cambios.
-12. Los índices `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id` los crea `db/009-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `9`. El script no modifica documentos.
+12. Los índices `ix_community_status_price_id`, `ix_community_status_price_desc_id`, `ix_community_category_status_price_id` e `ix_community_category_status_price_desc_id` los crea `db/010-filtros-precio.js`; `MongoSchema.ExpectedVersion` pasa a `10`. El script no modifica documentos.
 13. Los filtros no se persisten ni se registran en logs o analítica (RNF-07).
 14. La respuesta no cambia: `ProductPage { items: ProductResponse[], nextCursor, total }`. No hace falta fixture nuevo.
 15. RNF-09: `priceAsc` y `priceDesc` usan sus índices (asc/desc, con desempate `_id` incluido); con `q` el orden puede resolverse en memoria sobre las coincidencias y `limit <= 50` acota el costo.
@@ -44,7 +44,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - **MongoDB:** `Showcase` agrega `$in` de categorías, `$gte`/`$lte` de precio y `$eq` de condición. `FindPageAsync` aplica el filtro de cursor compuesto y el `Sort` correspondiente. `CountAsync` ignora el cursor.
 - **En memoria:** `InMemoryProductRepository` aplica los mismos filtros, el mismo orden y la misma comparación de cursor que Mongo.
 - **Errores:** `ListingsErrors.InvalidPriceRange`, `InvalidSort` e `InvalidPage` (400). La condición inválida reutiliza `InvalidCondition`.
-- **Índices:** `db/009-filtros-precio.js` crea `{ communityId, status, priceCents: 1, _id: -1 }`, `{ communityId, status, priceCents: -1, _id: -1 }`, `{ communityId, categorySlug, status, priceCents: 1, _id: -1 }` y `{ communityId, categorySlug, status, priceCents: -1, _id: -1 }`; sube `_meta.version` a 9.
+- **Índices:** `db/010-filtros-precio.js` crea `{ communityId, status, priceCents: 1, _id: -1 }`, `{ communityId, status, priceCents: -1, _id: -1 }`, `{ communityId, categorySlug, status, priceCents: 1, _id: -1 }` y `{ communityId, categorySlug, status, priceCents: -1, _id: -1 }`; sube `_meta.version` a 10.
 - **Caché:** sin cambios; `SetVaryByQuery("*")` ya incluye los parámetros nuevos.
 - **Rama:** `feature/SCRUM-27-filtros-categoria-precio`.
 
@@ -53,7 +53,7 @@ La vitrina `GET /api/v1/products` ya existe con `campus`, `category`, `q`, `hide
 - Mapa para la app: `relevancia` → `relevance`, `recientes` → `newest`, `antiguos` → `oldest`, `precio-asc` → `priceAsc`, `precio-desc` → `priceDesc`; categorías como parámetros repetidos; precio en centavos; sin máximo = omitir `maxPriceCents`.
 - Respuesta sin cambios: `ProductPage`. Se reutiliza `ContractTest/Fixtures/product-page.json`.
 - Errores nuevos en [`docs/errores.md`](../../../docs/errores.md): `listings.invalid_price_range`, `listings.invalid_sort` y `listings.invalid_page` (400). `listings.invalid_condition` y `listings.invalid_cursor` se reutilizan.
-- Esquema: fila `products` de [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); agrega los cuatro índices de precio con `db/009`.
+- Esquema: fila `products` de [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); agrega los cuatro índices de precio con `db/010`.
 - Configuración: sin claves nuevas.
 
 ## Tests
@@ -109,4 +109,4 @@ Conteos reales al cerrar (08-Nov-2026, rebasado sobre main): Unit 269 · Integra
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 07-Nov-2026
-- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. API 0.5.0-alpha.7 implementada y verificada en local (Unit 269, Integration 107, Security 92, Contract 9, Performance 4, critic PASS, endpoints OK); `DatabaseTest` queda para el CI por falta de Docker en local. Pendiente el revisor para pasar a "Aprobado".
+- **Detalle:** alcance acordado con el usuario: filtros completos de la maqueta `Busqueda-filtros` (multi-categoría, precio, condición y orden), no solo los tres criterios de Jira. Se reutiliza `Modules/Listings/`, se agrega cursor compuesto e índices de precio. API 0.5.0-alpha.8 (esquema 10; renumerada tras HU-13, que tomó `db/009` y `alpha.7`) implementada y verificada en local (Unit 269, Integration 107, Security 92, Contract 9, Performance 4, critic PASS, endpoints OK); `DatabaseTest` queda para el CI por falta de Docker en local. Pendiente el revisor para pasar a "Aprobado".

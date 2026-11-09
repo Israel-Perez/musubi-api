@@ -1,9 +1,9 @@
-// 009-filtros-precio (HU-10): indices para ordenar la vitrina por precio (priceAsc/priceDesc).
-// Idempotente: se puede correr N veces despues de 008-reportes-bloqueos.js. Catalogo canonico: docs/modelo-datos.md.
+// 010-filtros-precio (HU-10): indices para ordenar la vitrina por precio (priceAsc/priceDesc).
+// Idempotente: se puede correr N veces despues de 009-solicitudes.js. Catalogo canonico: docs/modelo-datos.md.
 // No modifica documentos: solo crea indices.
 
-const SCRIPT_ID = '009-filtros-precio';
-const SCHEMA_VERSION = 9;
+const SCRIPT_ID = '010-filtros-precio';
+const SCHEMA_VERSION = 10;
 
 // Vitrina por precio ascendente: igualdad (comunidad, estado) y luego la clave de orden, regla ESR (R5).
 db.products.createIndex(

@@ -7,9 +7,9 @@
 - **Estado:** ✅ Hecho.
 
 ## T2 — Datos e índices
-- **Qué:** Crear `db/009-filtros-precio.js` con los cuatro índices de precio (asc/desc, con y sin categoría) y subir `MongoSchema.ExpectedVersion` a 9.
-- **Archivos:** `db/009-filtros-precio.js`, `db/README.md`, `Musubi.Api/Platform/Data/MongoSchema.cs`, `docs/modelo-datos.md`, `DatabaseTest/SchemaScriptTests.cs`.
-- **Verificación:** `DatabaseTest` en CI (sin Docker local); `node --check db/009-filtros-precio.js`; `_meta.version = 9`.
+- **Qué:** Crear `db/010-filtros-precio.js` con los cuatro índices de precio (asc/desc, con y sin categoría) y subir `MongoSchema.ExpectedVersion` a 10.
+- **Archivos:** `db/010-filtros-precio.js`, `db/README.md`, `Musubi.Api/Platform/Data/MongoSchema.cs`, `docs/modelo-datos.md`, `DatabaseTest/SchemaScriptTests.cs`.
+- **Verificación:** `DatabaseTest` en CI (sin Docker local); `node --check db/010-filtros-precio.js`; `_meta.version = 10`.
 - **Estado:** ✅ Hecho.
 
 ## T3 — Consulta y cursor
@@ -46,5 +46,5 @@
 - `NOTE (HU-10)` — tope de categorías: hoy lo acota la línea de petición; si se vuelve abuso, agregar tope y error propio.
 - `NOTE (HU-10)` — plan con `$in` de estado: confirmar con `explain` en `DatabaseTest`/CI que `priceAsc`/`priceDesc` usan el índice (posible `SORT_MERGE`).
 - `NOTE (HU-10)` — `page` y `cursor` son excluyentes: la app usa `page`; si una HU futura quiere scroll continuo con orden por precio, reutiliza el cursor compuesto.
-- `DatabaseTest` — índices de `db/009` y contrato compartido contra MongoDB real; lo corre el job `database` del CI.
+- `DatabaseTest` — índices de `db/010` y contrato compartido contra MongoDB real; lo corre el job `database` del CI.
 - Semgrep — `semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error` antes del primer push; no disponible en el entorno local.
