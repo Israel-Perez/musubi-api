@@ -122,4 +122,8 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `wanted.invalid_quantity` | 400 | La cantidad va de 1 a 10 piezas. | HU-13 (RN-09) |
 | `wanted.invalid_date` | 400 | Elige una fecha de hoy a 60 días. | HU-13 (día del campus, UTC-6) |
 | `wanted.too_many_active` | 409 | Ya tienes 5 solicitudes activas. Espera a que alguna termine para publicar otra. | HU-13 (RN-12) |
+| `wanted.invalid_budget_range` | 400 | Revisa el rango de presupuesto: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-15 ("Presupuesto" de "Filtrar solicitudes") |
+| `wanted.invalid_deadline` | 400 | Elige una fecha límite de 1 a 60 días. | HU-15 ("Fecha límite") |
+| `wanted.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-15 (más de 80 caracteres o sin letras ni dígitos) |
+| `wanted.invalid_cursor` | 400 | No pudimos cargar más solicitudes. Actualiza la lista. | HU-15 (cursor que no es el id de una solicitud) |
 | `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |

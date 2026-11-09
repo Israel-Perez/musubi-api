@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth.Data;
@@ -58,6 +60,12 @@ internal interface IMemberDirectory
     /// <returns>El miembro o <c>null</c>.</returns>
     Task<MemberSummary?> FindMemberAsync(string userId, CancellationToken cancellationToken);
 
+    /// <summary>Datos minimos de varios miembros en una consulta (HU-15: nombres del tablero "Se busca").</summary>
+    /// <param name="userIds">Ids de los usuarios.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Id → miembro; quien ya no existe no aparece.</returns>
+    Task<IReadOnlyDictionary<string, MemberSummary>> FindMembersAsync(IReadOnlyCollection<string> userIds, CancellationToken cancellationToken);
+
     /// <summary>Cuenta y campus del miembro (HU-04).</summary>
     /// <param name="userId">Id del usuario.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -82,6 +90,24 @@ internal sealed class MemberDirectory(ICommunityRepository communities, IUserRep
         return user is null
             ? null
             : new MemberSummary(user.Id, user.CommunityId, user.FullName, user.Status == UserStatuses.Active);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<string, MemberSummary>> FindMembersAsync(
+        IReadOnlyCollection<string> userIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<string, MemberSummary>(StringComparer.Ordinal);
+        }
+
+        var found = await users.FindManyAsync(userIds, cancellationToken).ConfigureAwait(false);
+        return found.ToDictionary(
+            u => u.Id,
+            u => new MemberSummary(u.Id, u.CommunityId, u.FullName, u.Status == UserStatuses.Active),
+            StringComparer.Ordinal);
     }
 
     /// <inheritdoc />

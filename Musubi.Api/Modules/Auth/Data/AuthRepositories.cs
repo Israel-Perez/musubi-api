@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,6 +45,12 @@ internal interface IUserRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El usuario o <c>null</c>.</returns>
     Task<UserDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>Varios usuarios por id (HU-15: nombres del tablero "Se busca" en una sola consulta).</summary>
+    /// <param name="ids">Ids de los usuarios; los mal formados se ignoran.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los usuarios que existen, en cualquier orden.</returns>
+    Task<IReadOnlyList<UserDocument>> FindManyAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken);
 
     /// <summary>Busca por correo normalizado.</summary>
     /// <param name="emailNormalized">Correo en minusculas y sin espacios.</param>

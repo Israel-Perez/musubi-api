@@ -36,7 +36,7 @@ public sealed class ReputationServiceTests
         var members = new MemberDirectory(new InMemoryCommunityRepository(), users);
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 11, 8, 12, 0, 0, TimeSpan.Zero));
         reportService = new ReportService(reports, members, products, conversations, email, Options.Create(options), NullLogger<ReportService>.Instance, time);
-        blockService = new BlockService(blocks, members, new ProfileDirectory(profiles), time);
+        blockService = new BlockService(blocks, members, new ProfileDirectory(profiles, new InMemoryCareerRepository()), time);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;

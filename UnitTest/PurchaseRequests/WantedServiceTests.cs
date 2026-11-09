@@ -1,7 +1,10 @@
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
+using Microsoft.Extensions.Options;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.PurchaseRequests;
 using Musubi.Api.Modules.PurchaseRequests.Data;
 using Musubi.Api.Modules.Reputation;
@@ -13,7 +16,8 @@ namespace UnitTest.PurchaseRequests;
 
 /// <summary>
 /// HU-13: RN-09 (obligatorios), limites de cada campo, la fecha en el dia del campus, RN-10 (vencimiento), RN-12
-/// (maximo de activas), 02-07 (moderacion) y quien ve una solicitud (campus, activa, bloqueo).
+/// (maximo de activas), 02-07 (moderacion) y quien ve una solicitud (campus, activa, bloqueo). HU-15: el tablero
+/// "Se busca" (filtros, busqueda, pagina, bloqueos, lo que ve un visitante y la cache).
 /// </summary>
 public sealed class WantedServiceTests
 {
@@ -25,6 +29,8 @@ public sealed class WantedServiceTests
     private readonly InMemoryUserRepository users = new();
     private readonly InMemoryWantedRepository requests = new();
     private readonly InMemoryBlockRepository blocks = new();
+    private readonly InMemoryProfileRepository profiles = new();
+    private readonly RecordingOutputCacheStore outputCache = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly WantedService service;
 
@@ -35,9 +41,16 @@ public sealed class WantedServiceTests
             new MemberDirectory(new InMemoryCommunityRepository(), users),
             new CategoryDirectory(new InMemoryCategoryRepository()),
             new BlockDirectory(blocks),
+            new ProfileDirectory(profiles, new InMemoryCareerRepository()),
             new InMemoryContentModerator(),
+            outputCache,
+            Options.Create(new CatalogOptions()),
             time);
     }
+
+    private static ShowcaseViewer Viewer(string userId) => new(userId, InMemoryCommunityRepository.UtttId);
+
+    private static readonly ShowcaseViewer Visitor = new(null, null);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -215,5 +228,171 @@ public sealed class WantedServiceTests
         time.Advance(TimeSpan.FromHours(1));
         Assert.Equal(WantedErrors.NotFound, (await service.GetAsync(neighbor, InMemoryCommunityRepository.UtttId, created.Id, Ct)).Error);
         Assert.Equal("expired", (await service.GetAsync(me, InMemoryCommunityRepository.UtttId, created.Id, Ct)).Value!.Status);
+    }
+
+    [Fact]
+    public async Task Create_EvictsTheVisitorBoardFromTheOutputCache()
+    {
+        var me = await MemberAsync();
+
+        await service.CreateAsync(me, Valid(), Ct);
+
+        Assert.Equal(["wanted-board"], outputCache.EvictedTags);
+    }
+
+    [Fact]
+    public async Task Board_ShowsActiveOnesFromMyCampus_NewestFirst_WithoutMineExpiredOrBlocked()
+    {
+        var me = await MemberAsync();
+        var ana = await MemberAsync(name: "Ana Sofía Ramírez");
+        var diego = await MemberAsync(name: "Diego Hernández");
+        var elsewhere = await MemberAsync(OtherCommunity);
+        var mine = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        var old = (await service.CreateAsync(ana, Valid(title: "Bata de laboratorio"), Ct)).Value!;
+        var expiring = (await service.CreateAsync(ana, Valid(title: "Escuadras", neededBy: new DateOnly(2026, 11, 8)), Ct)).Value!;
+        var fresh = (await service.CreateAsync(ana, Valid(title: "Kit de disección"), Ct)).Value!;
+        var fromBlocked = (await service.CreateAsync(diego, Valid(title: "Laptop"), Ct)).Value!;
+        var otherCampus = (await service.CreateAsync(elsewhere, Valid(category: "otro"), Ct)).Value!;
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), CommunityId = InMemoryCommunityRepository.UtttId, BlockerId = diego, BlockedId = me, BlockedName = "Yo" }, Ct);
+
+        var before = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(), Ct)).Value!;
+        time.Advance(TimeSpan.FromHours(1));
+        var after = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(), Ct)).Value!;
+
+        Assert.Equal([fresh.Id, expiring.Id, old.Id], before.Items.Select(r => r.Id));
+        // RN-10: al terminar su dia en el campus ya no sale.
+        Assert.Equal([fresh.Id, old.Id], after.Items.Select(r => r.Id));
+        Assert.DoesNotContain(mine.Id, after.Items.Select(r => r.Id));
+        Assert.DoesNotContain(fromBlocked.Id, after.Items.Select(r => r.Id));
+        Assert.DoesNotContain(otherCampus.Id, after.Items.Select(r => r.Id));
+        Assert.Null(after.NextCursor);
+    }
+
+    [Fact]
+    public async Task Board_SignedIn_ShowsTheFullName_ThePhoto_AndTheCareerOnlyIfVisible()
+    {
+        var me = await MemberAsync();
+        var fernanda = await MemberAsync(name: "Fernanda Ortiz Salinas");
+        var mariana = await MemberAsync(name: "Mariana López");
+        var luis = await MemberAsync(name: "Luis Martínez");
+        await profiles.SetDetailsAsync(new ProfileOwner(fernanda, InMemoryCommunityRepository.UtttId, "Fernanda Ortiz Salinas"), "ing-quimica", 8, Now.UtcDateTime, Ct);
+        await profiles.SetAvatarAsync(new ProfileOwner(fernanda, InMemoryCommunityRepository.UtttId, "Fernanda Ortiz Salinas"), "media/avatars/f.webp", Now.UtcDateTime, Ct);
+        var hidden = new ProfileOwner(mariana, InMemoryCommunityRepository.UtttId, "Mariana López");
+        await profiles.SetDetailsAsync(hidden, "ing-software", 9, Now.UtcDateTime, Ct);
+        await profiles.SetVisibilityAsync(hidden, new ProfileVisibility { Career = false }, Now.UtcDateTime, Ct);
+        await service.CreateAsync(fernanda, Valid(title: "Bata de laboratorio"), Ct);
+        await service.CreateAsync(mariana, Valid(title: "Laptop"), Ct);
+        await service.CreateAsync(luis, Valid(title: "Física Universitaria"), Ct);
+
+        var people = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(), Ct)).Value!.Items
+            .Select(r => (r.Requester.Id, r.Requester.Name, r.Requester.Photo, r.Requester.Career))
+            .ToList();
+
+        Assert.Equal(
+            [
+                (luis, "Luis Martínez", null, null),
+                (mariana, "Mariana López", null, null),
+                (fernanda, "Fernanda Ortiz Salinas", "/media/avatars/f.webp", "Ing. Química"),
+            ],
+            people);
+    }
+
+    [Fact]
+    public async Task Board_Visitor_SeesTheDefaultCampus_WithTheShortNameOnly()
+    {
+        var fernanda = await MemberAsync(name: "Fernanda Ortiz");
+        await profiles.SetDetailsAsync(new ProfileOwner(fernanda, InMemoryCommunityRepository.UtttId, "Fernanda Ortiz"), "ing-quimica", 8, Now.UtcDateTime, Ct);
+        await service.CreateAsync(fernanda, Valid(), Ct);
+
+        var item = Assert.Single((await service.BoardAsync(Visitor, new WantedBoardFilter(), Ct)).Value!.Items);
+        var byCampus = Assert.Single((await service.BoardAsync(Visitor, new WantedBoardFilter(Campus: " UTTT "), Ct)).Value!.Items);
+
+        // RNF-05: sin id, foto ni carrera.
+        Assert.Equal(new WantedRequesterResponse(null, "Fernanda O."), item.Requester);
+        Assert.Equal(item.Id, byCampus.Id);
+        Assert.Equal("listings.unknown_campus", (await service.BoardAsync(Visitor, new WantedBoardFilter(Campus: "unam"), Ct)).Error?.Code);
+    }
+
+    [Fact]
+    public async Task Board_FiltersByCategory_Budget_Deadline_AndWords()
+    {
+        var me = await MemberAsync();
+        var ana = await MemberAsync();
+        // Hoy en el campus es domingo 8 de noviembre.
+        var bata = (await service.CreateAsync(ana, Valid(title: "Bata de laboratorio talla M", category: "laboratorio", budget: 30_000, neededBy: new DateOnly(2026, 11, 9)), Ct)).Value!;
+        var laptop = (await service.CreateAsync(ana, Valid(title: "Laptop para programación", category: "laptops", description: "Con 16 GB de RAM", budget: 1_200_000, neededBy: new DateOnly(2026, 11, 15)), Ct)).Value!;
+        var fisica = (await service.CreateAsync(ana, Valid(title: "Física Universitaria", category: "libros", description: null, budget: 40_000), Ct)).Value!;
+        var graf = (await service.CreateAsync(ana, Valid(title: "Calculadora graficadora", category: "calculadoras", budget: 150_000, neededBy: new DateOnly(2026, 11, 11)), Ct)).Value!;
+
+        async Task<IEnumerable<string>> Ids(WantedBoardFilter filter) =>
+            (await service.BoardAsync(Viewer(me), filter, Ct).ConfigureAwait(false)).Value!.Items.Select(r => r.Id);
+
+        Assert.Equal([fisica.Id, bata.Id], await Ids(new WantedBoardFilter(Category: ["libros", "laboratorio", " "])));
+        // "Hasta $300", "$300 – $1,000" y "Mas de $1,000" de la maqueta (inclusivos).
+        Assert.Equal([bata.Id], await Ids(new WantedBoardFilter(MaxBudgetCents: 30_000)));
+        Assert.Equal([fisica.Id, bata.Id], await Ids(new WantedBoardFilter(MinBudgetCents: 30_000, MaxBudgetCents: 100_000)));
+        Assert.Equal([graf.Id, laptop.Id], await Ids(new WantedBoardFilter(MinBudgetCents: 100_001)));
+        // "En 3 dias o menos" y "Esta semana": sin fecha no sale.
+        Assert.Equal([graf.Id, bata.Id], await Ids(new WantedBoardFilter(NeededWithinDays: 3)));
+        Assert.Equal([graf.Id, laptop.Id, bata.Id], await Ids(new WantedBoardFilter(NeededWithinDays: 7)));
+        // Inicio de palabra, sin acentos ni mayusculas, en el producto o la descripcion; un termino basta (OR).
+        Assert.Equal([fisica.Id], await Ids(new WantedBoardFilter(Q: "FISICA")));
+        Assert.Equal([laptop.Id], await Ids(new WantedBoardFilter(Q: "ram")));
+        Assert.Equal([graf.Id, bata.Id], await Ids(new WantedBoardFilter(Q: "batas calculadoras")));
+        Assert.Empty(await Ids(new WantedBoardFilter(Q: "atoria")));
+        Assert.Equal([bata.Id], await Ids(new WantedBoardFilter(Category: ["laboratorio"], Q: "bata", NeededWithinDays: 1)));
+    }
+
+    [Fact]
+    public async Task Board_Paginates_WithTheIdOfTheLastOne()
+    {
+        var me = await MemberAsync();
+        var ids = new List<string>();
+        foreach (var name in new[] { "Ana", "Diego", "Luis" })
+        {
+            var who = await MemberAsync(name: name + " Pérez");
+            ids.Add((await service.CreateAsync(who, Valid(), Ct)).Value!.Id);
+        }
+
+        var first = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(Limit: 2), Ct)).Value!;
+        var second = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(Limit: 2, Cursor: first.NextCursor), Ct)).Value!;
+
+        Assert.Equal([ids[2], ids[1]], first.Items.Select(r => r.Id));
+        Assert.Equal(ids[1], first.NextCursor);
+        Assert.Equal([ids[0]], second.Items.Select(r => r.Id));
+        Assert.Null(second.NextCursor);
+    }
+
+    public static TheoryData<WantedBoardFilter, string> InvalidBoard() => new()
+    {
+        { new WantedBoardFilter(MinBudgetCents: -1), "wanted.invalid_budget_range" },
+        { new WantedBoardFilter(MaxBudgetCents: 100_000_000), "wanted.invalid_budget_range" },
+        { new WantedBoardFilter(MinBudgetCents: 50_000, MaxBudgetCents: 40_000), "wanted.invalid_budget_range" },
+        { new WantedBoardFilter(NeededWithinDays: 0), "wanted.invalid_deadline" },
+        { new WantedBoardFilter(NeededWithinDays: 61), "wanted.invalid_deadline" },
+        { new WantedBoardFilter(Q: "¿¡--!?"), "wanted.invalid_query" },
+        { new WantedBoardFilter(Q: new string('a', 81)), "wanted.invalid_query" },
+        { new WantedBoardFilter(Cursor: "no-es-un-cursor"), "wanted.invalid_cursor" },
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidBoard))]
+    public async Task Board_RejectsInvalidFilters(WantedBoardFilter filter, string code)
+    {
+        var me = await MemberAsync();
+
+        Assert.Equal(code, (await service.BoardAsync(Viewer(me), filter, Ct)).Error?.Code);
+    }
+
+    [Fact]
+    public async Task Board_RegexCharactersInTheQuery_AreJustIgnored()
+    {
+        var me = await MemberAsync();
+        var ana = await MemberAsync();
+        var created = (await service.CreateAsync(ana, Valid(title: "Calculadora (científica)"), Ct)).Value!;
+
+        var found = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(Q: "(cient.*"), Ct)).Value!;
+
+        Assert.Equal([created.Id], found.Items.Select(r => r.Id));
     }
 }

@@ -40,7 +40,7 @@ public sealed class ChatServiceTests
             messages,
             products,
             new MemberDirectory(new InMemoryCommunityRepository(), users),
-            new ProfileDirectory(profiles),
+            new ProfileDirectory(profiles, new InMemoryCareerRepository()),
             new BlockDirectory(blocks),
             new InMemoryContentModerator(),
             new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance),

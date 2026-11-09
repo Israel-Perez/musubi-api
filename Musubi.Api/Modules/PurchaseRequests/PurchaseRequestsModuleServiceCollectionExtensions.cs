@@ -1,10 +1,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.PurchaseRequests.Data;
+using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
 
 namespace Musubi.Api.Modules.PurchaseRequests;
@@ -27,10 +29,13 @@ internal static class PurchaseRequestsModuleServiceCollectionExtensions
     }
 }
 
-/// <summary>Borra las solicitudes de una cuenta que se elimina (HU-46, R11).</summary>
-internal sealed class WantedAccountEraser(IWantedRepository requests) : IAccountDataEraser
+/// <summary>Borra las solicitudes de una cuenta que se elimina (HU-46, R11) y las saca del tablero en cache (HU-15).</summary>
+internal sealed class WantedAccountEraser(IWantedRepository requests, IOutputCacheStore outputCache) : IAccountDataEraser
 {
     /// <inheritdoc />
-    public Task EraseAsync(string userId, CancellationToken cancellationToken) =>
-        requests.DeleteByRequesterAsync(userId, cancellationToken);
+    public async Task EraseAsync(string userId, CancellationToken cancellationToken)
+    {
+        await requests.DeleteByRequesterAsync(userId, cancellationToken).ConfigureAwait(false);
+        await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.WantedBoardTag, cancellationToken).ConfigureAwait(false);
+    }
 }
