@@ -43,7 +43,7 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
     {
         lock (gate)
         {
-            return Task.FromResult(preferences.GetValueOrDefault(userId));
+            return Task.FromResult(preferences.TryGetValue(userId, out var preference) ? preference : null);
         }
     }
 

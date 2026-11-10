@@ -4,7 +4,7 @@ using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Profiles;
 
-public interface IPreferencesService
+internal interface IPreferencesService
 {
     Task<Result<PreferenceResponse>> GetAsync(string userId, CancellationToken cancellationToken);
 

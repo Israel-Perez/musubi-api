@@ -4,7 +4,7 @@
 
 - Se implementó la API de preferencias de apariencia en M-02: GET/PUT autenticados, tema por cuenta (`system` por defecto; `system`/`light`/`dark`), esquema 014, borrado al eliminar la cuenta y pruebas en Unit/Integration/Security/Contract/Database.
 - La app consume el contrato, aplica `ThemeMode`, ofrece selector en Ajustes y revierte ante fallo de guardado. Sin preferencias de notificaciones, cuyo MVP sigue sin definición.
-- Verificación pendiente: el entorno tiene .NET SDK 9.0.300 (el repo exige 10.0.400) y Flutter 3.44.8/Dart 3.12.2 (el repo exige Flutter 3.47.7/Dart 3.13.5); no declarar suites en verde hasta ejecutarlas con las versiones requeridas.
+- Verificación final (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 400, Integration 145, Security 150, Contract 15 y Database 101 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (62 rutas). App con Flutter 3.47.7/Dart 3.13.5: `pub get`, análisis sin issues, formato sin cambios y 470 pruebas pasaron; critic PASS (15 archivos, 0 avisos). Sin push. Los cinco ajustes API posteriores al commit quedan sin commit y deben incluirse al preparar la revisión.
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
