@@ -22,8 +22,9 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 /// <summary>
 /// Publicar lo que necesito y "Mis solicitudes" (HU-13, RF-16, RF-22). Reglas: RN-09 (producto, categoria,
 /// presupuesto y cantidad obligatorios), RN-10 (vence en su fecha o a los 30 dias), RN-12 (maximo de activas) y
-/// 02-07 (el texto se modera antes de guardarlo). Tablero "Se busca" del campus (HU-15, RF-19).
-/// NOTE (HU-14): editar, cerrar y cancelar. NOTE (HU-18): avisar a quien tenga algo parecido ("Coincide con tu ...").
+/// 02-07 (el texto se modera antes de guardarlo). Tablero "Se busca" del campus (HU-15, RF-19). Editar, cerrar y
+/// cancelar (HU-14, RF-17, RF-18, RN-11): solo quien la publico y solo mientras esta activa.
+/// NOTE (HU-18): avisar a quien tenga algo parecido ("Coincide con tu ...").
 /// </summary>
 internal sealed class WantedService(
     IWantedRepository requests,
@@ -85,7 +86,7 @@ internal sealed class WantedService(
     /// El campus esta en el centro de Mexico: UTC-6 durante el ano (sin horario de verano desde 2022). Un dia del
     /// campus termina a las 06:00 UTC del dia siguiente.
     /// </summary>
-    private static readonly TimeSpan CampusOffset = TimeSpan.FromHours(-6);
+    internal static readonly TimeSpan CampusOffset = TimeSpan.FromHours(-6);
 
     /// <summary>Publica una solicitud activa.</summary>
     /// <param name="userId">Quien busca (del token).</param>
@@ -101,55 +102,18 @@ internal sealed class WantedService(
             return ApiErrors.Forbidden;
         }
 
-        var title = (request.Title ?? string.Empty).Trim();
-        if (title.Length is < MinTitle or > MaxTitle)
-        {
-            return WantedErrors.InvalidTitle;
-        }
-
-        var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
-        if (description is { Length: > MaxDescription })
-        {
-            return WantedErrors.InvalidDescription;
-        }
-
-        var features = (request.Features ?? []).Select(f => (f ?? string.Empty).Trim()).ToList();
-        if (features.Count > MaxFeatures || features.Exists(f => f.Length is 0 or > MaxFeature))
-        {
-            return WantedErrors.InvalidFeatures;
-        }
-
-        if (request.BudgetCents is not (>= 100 and <= MaxBudgetCents))
-        {
-            return WantedErrors.InvalidBudget;
-        }
-
-        if (request.Quantity is not (>= 1 and <= MaxQuantity))
-        {
-            return WantedErrors.InvalidQuantity;
-        }
-
         var now = time.GetUtcNow().UtcDateTime;
-        var today = DateOnly.FromDateTime(now + CampusOffset);
-        if (request.NeededBy is { } day && (day < today || day > today.AddDays(MaxDaysAhead)))
+        var validated = await ValidateAsync(
+            member.CommunityId,
+            new WantedFields(request.Title, request.Category, request.Description, request.Features, request.BudgetCents, request.Quantity, request.NeededBy),
+            now,
+            cancellationToken).ConfigureAwait(false);
+        if (validated.Error is { } invalid)
         {
-            return WantedErrors.InvalidDate;
+            return invalid;
         }
 
-        CategorySummary? category = null;
-        if (string.Equals(request.Category, OtherCategory, StringComparison.Ordinal))
-        {
-            category = new CategorySummary(OtherCategory, "Otro");
-        }
-        else if (!string.IsNullOrEmpty(request.Category))
-        {
-            category = await categories.FindAsync(member.CommunityId, request.Category, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (category is null)
-        {
-            return WantedErrors.InvalidCategory;
-        }
+        var fields = validated.Value!;
 
         // RN-12: se cuenta antes de moderar, que cuesta una llamada a la nube si el proveedor es AWS.
         if (await requests.CountActiveAsync(member.Id, now, cancellationToken).ConfigureAwait(false) >= MaxActive)
@@ -158,40 +122,119 @@ internal sealed class WantedService(
         }
 
         // 02-07: el texto se modera antes de guardarlo.
-        var verdicts = await moderator.CheckTextsAsync([title, description ?? string.Empty, string.Join(" · ", features)], cancellationToken)
-            .ConfigureAwait(false);
-        var rejected = ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("el producto que buscas"))
-            ?? ModerationErrors.For(verdicts[1], ModerationErrors.TextRejected("la descripción"))
-            ?? ModerationErrors.For(verdicts[2], ModerationErrors.TextRejected("las características"));
-        if (rejected is not null)
+        if (await ModerateAsync(fields, current: null, cancellationToken).ConfigureAwait(false) is { } rejected)
         {
             return rejected;
         }
 
-        var neededBy = request.NeededBy?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var details = fields.Details(now);
         var document = new WantedRequestDocument
         {
             Id = MongoConventions.NewId(),
             CommunityId = member.CommunityId,
             RequesterId = member.Id,
             RequesterName = ListingService.ShortName(member.FullName),
-            Title = title,
-            CategorySlug = category.Slug,
-            CategoryName = category.Name,
-            Description = description,
-            Features = features,
-            BudgetCents = request.BudgetCents.Value,
-            Quantity = request.Quantity.Value,
-            NeededBy = neededBy,
-            // RN-10: al terminar el dia elegido en el campus, o a los 30 dias.
-            ExpiresAt = neededBy is { } d ? d.AddDays(1) - CampusOffset : now.AddDays(DefaultDays),
+            Title = details.Title,
+            CategorySlug = details.CategorySlug,
+            CategoryName = details.CategoryName,
+            Description = details.Description,
+            Features = details.Features,
+            BudgetCents = details.BudgetCents,
+            Quantity = details.Quantity,
+            NeededBy = details.NeededBy,
+            ExpiresAt = details.ExpiresAt,
             CreatedAt = now,
         };
         await requests.InsertAsync(document, cancellationToken).ConfigureAwait(false);
-        // El tablero del visitante vive en la cache de salida (HU-15): una solicitud nueva se ve al instante.
-        await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.WantedBoardTag, cancellationToken).ConfigureAwait(false);
+        await EvictBoardAsync(cancellationToken).ConfigureAwait(false);
         return Result<WantedResponse>.Ok(ToResponse(document, now));
     }
+
+    /// <summary>
+    /// "Editar solicitud" (HU-14): cambia todos los datos de una solicitud activa con las reglas de publicar. Con
+    /// ofertas, el producto y la categoria ya no cambian (quien ofrecio respondio a eso). Solo se modera el texto
+    /// que cambio. El vencimiento se recalcula (RN-10): al terminar la fecha nueva o a los 30 dias de publicarse.
+    /// </summary>
+    /// <param name="userId">Quien busca (del token).</param>
+    /// <param name="id">La solicitud.</param>
+    /// <param name="request">Todos los datos editables.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud ya cambiada o el error.</returns>
+    public async Task<Result<WantedResponse>> UpdateAsync(string userId, string id, UpdateWantedRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var member = await members.FindMemberAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (member is not { Active: true })
+        {
+            return ApiErrors.Forbidden;
+        }
+
+        var current = await FindMineAsync(userId, id, cancellationToken).ConfigureAwait(false);
+        if (current is null)
+        {
+            return WantedErrors.NotFound;
+        }
+
+        var now = time.GetUtcNow().UtcDateTime;
+        if (EffectiveStatus(current, now) != WantedStatuses.Active)
+        {
+            return WantedErrors.NotActive;
+        }
+
+        var validated = await ValidateAsync(
+            member.CommunityId,
+            new WantedFields(request.Title, request.Category, request.Description, request.Features, request.BudgetCents, request.Quantity, request.NeededBy),
+            now,
+            cancellationToken).ConfigureAwait(false);
+        if (validated.Error is { } invalid)
+        {
+            return invalid;
+        }
+
+        var fields = validated.Value!;
+        var productChanged = !string.Equals(fields.Title, current.Title, StringComparison.Ordinal)
+            || !string.Equals(fields.Category.Slug, current.CategorySlug, StringComparison.Ordinal);
+        if (productChanged && current.OffersCount > 0)
+        {
+            return WantedErrors.HasOffers;
+        }
+
+        // 02-07: solo el texto que cambio; el que no cambio ya se modero al publicar.
+        if (await ModerateAsync(fields, current, cancellationToken).ConfigureAwait(false) is { } rejected)
+        {
+            return rejected;
+        }
+
+        var updated = await requests.UpdateDetailsAsync(
+            id, userId, fields.Details(current.CreatedAt), requireNoOffers: productChanged, now, cancellationToken).ConfigureAwait(false);
+        if (updated is null)
+        {
+            // Cambio entre la lectura y la escritura: vencio, la cerraron o llego una oferta.
+            return await WhyNotChangedAsync(userId, id, productChanged, cancellationToken).ConfigureAwait(false);
+        }
+
+        await EvictBoardAsync(cancellationToken).ConfigureAwait(false);
+        return Result<WantedResponse>.Ok(ToResponse(updated, now));
+    }
+
+    /// <summary>
+    /// "Ya lo consegui" (HU-14): cierra una solicitud activa. Idempotente. NOTE (HU-25): al completarse un pedido que
+    /// salio de esta solicitud, proponer cerrarla (RN-15).
+    /// </summary>
+    /// <param name="userId">Quien busca (del token).</param>
+    /// <param name="id">La solicitud.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud cerrada o el error.</returns>
+    public Task<Result<WantedResponse>> CloseAsync(string userId, string id, CancellationToken cancellationToken) =>
+        SetStatusAsync(userId, id, WantedStatuses.Closed, cancellationToken);
+
+    /// <summary>"Cancelar solicitud" (HU-14): ya no la necesita. Idempotente.</summary>
+    /// <param name="userId">Quien busca (del token).</param>
+    /// <param name="id">La solicitud.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud cancelada o el error.</returns>
+    public Task<Result<WantedResponse>> CancelAsync(string userId, string id, CancellationToken cancellationToken) =>
+        SetStatusAsync(userId, id, WantedStatuses.Cancelled, cancellationToken);
 
     /// <summary>"Mis solicitudes": todas las mias, con su estado de ahora.</summary>
     /// <param name="userId">Quien consulta (del token).</param>
@@ -329,6 +372,160 @@ internal sealed class WantedService(
         return Result<WantedPage>.Ok(new WantedPage(items, page.Count == size ? page[^1].Id : null));
     }
 
+    // Cerrar y cancelar: el filtro lleva al dueno, el estado y el vencimiento (sin leer antes). Si no cambio nada, se
+    // lee para responder: otra persona o un id que no existe es 404 (OWASP API1); la que ya estaba asi, 200.
+    private async Task<Result<WantedResponse>> SetStatusAsync(string userId, string id, string status, CancellationToken cancellationToken)
+    {
+        if (await members.FindMemberAsync(userId, cancellationToken).ConfigureAwait(false) is not { Active: true })
+        {
+            return ApiErrors.Forbidden;
+        }
+
+        var now = time.GetUtcNow().UtcDateTime;
+        var changed = await requests.SetStatusAsync(id, userId, status, now, cancellationToken).ConfigureAwait(false);
+        if (changed is null)
+        {
+            var current = await FindMineAsync(userId, id, cancellationToken).ConfigureAwait(false);
+            if (current is null)
+            {
+                return WantedErrors.NotFound;
+            }
+
+            return current.Status == status
+                ? Result<WantedResponse>.Ok(ToResponse(current, now))
+                : WantedErrors.NotActive;
+        }
+
+        await EvictBoardAsync(cancellationToken).ConfigureAwait(false);
+        // NOTE (HU-30): avisar a quienes ofrecieron que la solicitud ya no esta activa.
+        return Result<WantedResponse>.Ok(ToResponse(changed, now));
+    }
+
+    private async Task<Result<WantedResponse>> WhyNotChangedAsync(string userId, string id, bool productChanged, CancellationToken cancellationToken)
+    {
+        var current = await FindMineAsync(userId, id, cancellationToken).ConfigureAwait(false);
+        if (current is null)
+        {
+            return WantedErrors.NotFound;
+        }
+
+        if (EffectiveStatus(current, time.GetUtcNow().UtcDateTime) != WantedStatuses.Active)
+        {
+            return WantedErrors.NotActive;
+        }
+
+        return productChanged && current.OffersCount > 0 ? WantedErrors.HasOffers : WantedErrors.NotFound;
+    }
+
+    // La solicitud solo si es de quien pregunta: para otra persona no existe (OWASP API1).
+    private async Task<WantedRequestDocument?> FindMineAsync(string userId, string id, CancellationToken cancellationToken)
+    {
+        var request = string.IsNullOrEmpty(id) ? null : await requests.FindByIdAsync(id, cancellationToken).ConfigureAwait(false);
+        return request is not null && string.Equals(request.RequesterId, userId, StringComparison.Ordinal) ? request : null;
+    }
+
+    // Reglas de publicar (RN-09), iguales al editar (HU-14).
+    private async Task<Result<WantedFields>> ValidateAsync(string communityId, WantedFields raw, DateTime now, CancellationToken cancellationToken)
+    {
+        var title = (raw.Title ?? string.Empty).Trim();
+        if (title.Length is < MinTitle or > MaxTitle)
+        {
+            return WantedErrors.InvalidTitle;
+        }
+
+        var description = string.IsNullOrWhiteSpace(raw.Description) ? null : raw.Description.Trim();
+        if (description is { Length: > MaxDescription })
+        {
+            return WantedErrors.InvalidDescription;
+        }
+
+        var features = (raw.Features ?? []).Select(f => (f ?? string.Empty).Trim()).ToList();
+        if (features.Count > MaxFeatures || features.Exists(f => f.Length is 0 or > MaxFeature))
+        {
+            return WantedErrors.InvalidFeatures;
+        }
+
+        if (raw.BudgetCents is not (>= 100 and <= MaxBudgetCents))
+        {
+            return WantedErrors.InvalidBudget;
+        }
+
+        if (raw.Quantity is not (>= 1 and <= MaxQuantity))
+        {
+            return WantedErrors.InvalidQuantity;
+        }
+
+        var today = DateOnly.FromDateTime(now + CampusOffset);
+        if (raw.NeededBy is { } day && (day < today || day > today.AddDays(MaxDaysAhead)))
+        {
+            return WantedErrors.InvalidDate;
+        }
+
+        CategorySummary? category = null;
+        if (string.Equals(raw.CategorySlug, OtherCategory, StringComparison.Ordinal))
+        {
+            category = new CategorySummary(OtherCategory, "Otro");
+        }
+        else if (!string.IsNullOrEmpty(raw.CategorySlug))
+        {
+            category = await categories.FindAsync(communityId, raw.CategorySlug, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (category is null)
+        {
+            return WantedErrors.InvalidCategory;
+        }
+
+        return Result<WantedFields>.Ok(raw with
+        {
+            Title = title,
+            Description = description,
+            Features = features,
+            Resolved = category,
+        });
+    }
+
+    // 02-07: el texto se modera antes de guardarlo. Al editar, solo lo que cambio.
+    private async Task<ApiError?> ModerateAsync(WantedFields fields, WantedRequestDocument? current, CancellationToken cancellationToken)
+    {
+        var checks = new List<(string Text, string Field)>(3);
+        if (current is null || !string.Equals(current.Title, fields.Title, StringComparison.Ordinal))
+        {
+            checks.Add((fields.Title!, "el producto que buscas"));
+        }
+
+        if (current is null || !string.Equals(current.Description, fields.Description, StringComparison.Ordinal))
+        {
+            checks.Add((fields.Description ?? string.Empty, "la descripción"));
+        }
+
+        var features = string.Join(" · ", fields.Features ?? []);
+        if (current is null || !string.Equals(string.Join(" · ", current.Features), features, StringComparison.Ordinal))
+        {
+            checks.Add((features, "las características"));
+        }
+
+        if (checks.Count == 0)
+        {
+            return null;
+        }
+
+        var verdicts = await moderator.CheckTextsAsync([.. checks.Select(c => c.Text)], cancellationToken).ConfigureAwait(false);
+        for (var i = 0; i < checks.Count; i++)
+        {
+            if (ModerationErrors.For(verdicts[i], ModerationErrors.TextRejected(checks[i].Field)) is { } rejected)
+            {
+                return rejected;
+            }
+        }
+
+        return null;
+    }
+
+    // El tablero del visitante vive en la cache de salida (HU-15): un cambio se ve en la siguiente consulta.
+    private ValueTask EvictBoardAsync(CancellationToken cancellationToken) =>
+        outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.WantedBoardTag, cancellationToken);
+
     /// <summary>Quien busca en el tablero: el visitante solo ve el nombre corto (RNF-05).</summary>
     private static WantedRequesterResponse Requester(
         WantedRequestDocument r,
@@ -391,4 +588,46 @@ internal sealed class WantedService(
         r.OffersCount,
         requester,
         r.CreatedAt);
+}
+
+/// <summary>Los datos de una solicitud como llegan (publicar o editar) y, ya validados, con su categoria.</summary>
+/// <param name="Title">Producto que se busca.</param>
+/// <param name="CategorySlug">Slug de la categoria, u <c>otro</c>.</param>
+/// <param name="Description">Descripcion, o <c>null</c>.</param>
+/// <param name="Features">Caracteristicas deseadas.</param>
+/// <param name="BudgetCents">Presupuesto maximo en centavos.</param>
+/// <param name="Quantity">Piezas.</param>
+/// <param name="NeededBy">Para cuando, o <c>null</c>.</param>
+internal sealed record WantedFields(
+    string? Title,
+    string? CategorySlug,
+    string? Description,
+    IReadOnlyList<string>? Features,
+    long? BudgetCents,
+    int? Quantity,
+    DateOnly? NeededBy)
+{
+    /// <summary>La categoria ya validada (despues de <c>ValidateAsync</c>).</summary>
+    public CategorySummary? Resolved { get; init; }
+
+    /// <summary>La categoria ya validada.</summary>
+    public CategorySummary Category => Resolved ?? throw new InvalidOperationException("Sin validar.");
+
+    /// <summary>Lo que se guarda; vence (RN-10) al terminar el dia elegido en el campus, o a los 30 dias de publicarse.</summary>
+    /// <param name="createdAt">Cuando se publico (UTC).</param>
+    /// <returns>Los datos.</returns>
+    public WantedDetails Details(DateTime createdAt)
+    {
+        var neededBy = NeededBy?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        return new WantedDetails(
+            Title!,
+            Category.Slug,
+            Category.Name,
+            Description,
+            Features ?? [],
+            BudgetCents!.Value,
+            Quantity!.Value,
+            neededBy,
+            neededBy is { } d ? d.AddDays(1) - WantedService.CampusOffset : createdAt.AddDays(WantedService.DefaultDays));
+    }
 }

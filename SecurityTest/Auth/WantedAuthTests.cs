@@ -11,7 +11,7 @@ using SecurityTest.Common;
 namespace SecurityTest.Auth;
 
 /// <summary>
-/// HU-13 / OWASP API1: publicar y "Mis solicitudes" exigen sesion. HU-15 / RNF-05: el tablero es publico, pero un
+/// HU-13 / OWASP API1: publicar y "Mis solicitudes" exigen sesion; HU-14: tambien editar, cerrar y cancelar. HU-15 / RNF-05: el tablero es publico, pero un
 /// visitante no recibe el id, la foto ni la carrera de quien busca; con sesion manda el campus del token (RNF-21).
 /// </summary>
 public sealed class WantedAuthTests(ProductionApiFactory production) : IClassFixture<ProductionApiFactory>
@@ -23,6 +23,9 @@ public sealed class WantedAuthTests(ProductionApiFactory production) : IClassFix
         { "POST", "/api/v1/wanted" },
         { "GET", "/api/v1/wanted/mine" },
         { "GET", "/api/v1/wanted/6716a0000000000000000001" },
+        { "PUT", "/api/v1/wanted/6716a0000000000000000001" },
+        { "POST", "/api/v1/wanted/6716a0000000000000000001/close" },
+        { "POST", "/api/v1/wanted/6716a0000000000000000001/cancel" },
         { "GET", "/api/v1/wanted/6716a0000000000000000001/offers/mine" },
         { "PUT", "/api/v1/wanted/6716a0000000000000000001/offers/mine" },
         { "GET", "/api/v1/wanted/6716a0000000000000000001/offers" },
