@@ -41,6 +41,8 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "011-ofertas");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "012-ofertas-chat");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "013-favoritos");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "014-pedidos");
+        Assert.Equal(14, await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
@@ -283,5 +285,44 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Equal(HealthStatus.Unhealthy, before.Status);
         Assert.Equal("Esquema de datos desactualizado.", before.Description);
         Assert.Equal(HealthStatus.Healthy, after.Status);
+    }
+
+    [Fact]
+    public async Task Orders_HaveTheirIndexes_SeedTheCampusPoints_AndRejectAnInvalidOrder()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_pedidos");
+        var indexes = (await IndexesAsync(db, MongoSchema.Orders)).ToDictionary(i => i["name"].AsString);
+
+        Assert.True(indexes["ux_conversation_open"]["unique"].AsBoolean);
+        Assert.Contains("partialFilterExpression", indexes["ux_conversation_open"].Names);
+        Assert.Contains("ix_conversation_id", indexes.Keys);
+        Assert.Contains("ix_buyer_id", indexes.Keys);
+        Assert.Contains("ix_seller_id", indexes.Keys);
+        Assert.Contains("ix_product_status", indexes.Keys);
+        var ti = await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).Find(new BsonDocument("slug", "tecnologias-informacion")).SingleAsync(Ct);
+        Assert.Contains("ing-software", ti["careerSlugs"].AsBsonArray.Select(c => c.AsString));
+
+        var now = DateTime.UtcNow;
+        BsonDocument Order(int quantity) => new()
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "number", 1001 },
+            { "buyerId", ObjectId.GenerateNewId() }, { "sellerId", ObjectId.GenerateNewId() },
+            { "buyerName", "Ana" }, { "sellerName", "Diego" }, { "conversationId", ObjectId.GenerateNewId() },
+            {
+                "item", new BsonDocument
+                {
+                    { "source", "product" }, { "sourceId", ObjectId.GenerateNewId() }, { "title", "Calculadora" },
+                    { "priceCents", 50_000L }, { "quantity", quantity }, { "totalCents", 50_000L * quantity },
+                }
+            },
+            { "delivery", new BsonDocument { { "pointSlug", "biblioteca" }, { "pointName", "Biblioteca" }, { "at", now } } },
+            { "status", "pending" },
+            { "history", new BsonArray { new BsonDocument { { "status", "pending" }, { "at", now } } } },
+            { "createdAt", now }, { "updatedAt", now }, { "schemaVersion", 1 },
+        };
+        var orders = db.GetCollection<BsonDocument>(MongoSchema.Orders);
+
+        await orders.InsertOneAsync(Order(1), cancellationToken: Ct);
+        await Assert.ThrowsAsync<MongoWriteException>(() => orders.InsertOneAsync(Order(11), cancellationToken: Ct));
     }
 }

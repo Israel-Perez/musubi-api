@@ -9,8 +9,8 @@ namespace Musubi.Api.Modules.Profiles;
 
 /// <summary>
 /// Contrato publico de M-02 para los demas modulos (Modules/README: un modulo no lee las colecciones de otro).
-/// Lo usan el chat (foto de la otra persona, HU-20/22), la lista de bloqueados (HU-57) y el tablero "Se busca"
-/// (HU-15).
+/// Lo usan el chat (foto de la otra persona, HU-20/22), la lista de bloqueados (HU-57), el tablero "Se busca"
+/// (HU-15) y los puntos de entrega de los pedidos (HU-23).
 /// </summary>
 internal interface IProfileDirectory
 {
@@ -32,6 +32,12 @@ internal interface IProfileDirectory
         string communityId,
         IReadOnlyCollection<string> userIds,
         CancellationToken cancellationToken);
+
+    /// <summary>La carrera de una persona, para recomendarle su edificio (HU-23). Solo se usa con la propia.</summary>
+    /// <param name="userId">Id del usuario.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El slug, o <c>null</c> si no la ha elegido.</returns>
+    Task<string?> FindCareerSlugAsync(string userId, CancellationToken cancellationToken);
 }
 
 /// <summary>Lo que se muestra de una persona en una tarjeta (HU-15; HU-17 suma la reputacion).</summary>
@@ -44,6 +50,10 @@ internal sealed record ProfileCard(string? Photo, string? Career, double? Rating
 /// <summary>Implementacion sobre el repositorio de perfiles (lectura directa: una foto nueva se ve al instante).</summary>
 internal sealed class ProfileDirectory(IProfileRepository profiles, ICareerRepository careers) : IProfileDirectory
 {
+    /// <inheritdoc />
+    public async Task<string?> FindCareerSlugAsync(string userId, CancellationToken cancellationToken) =>
+        (await profiles.FindAsync(userId, cancellationToken).ConfigureAwait(false))?.CareerSlug;
+
     /// <inheritdoc />
     public async Task<IReadOnlyDictionary<string, ProfileCard>> FindCardsAsync(
         string communityId,

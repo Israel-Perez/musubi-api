@@ -18,6 +18,7 @@ namespace Musubi.Api.Modules.Listings;
 /// <param name="Visible">Se puede ver en la vitrina: disponible o agotada (no pausada ni quitada).</param>
 /// <param name="Available">Disponible: se puede comprar o vincular a una oferta (HU-16).</param>
 /// <param name="PhotoKey">Llave de la portada (<c>media/products/...</c>), o <c>null</c>.</param>
+/// <param name="Stock">Piezas disponibles (HU-23, RN-17).</param>
 internal sealed record ProductSummary(
     string Id,
     string CommunityId,
@@ -29,12 +30,13 @@ internal sealed record ProductSummary(
     string? Photo,
     bool Visible,
     bool Available = false,
-    string? PhotoKey = null);
+    string? PhotoKey = null,
+    int Stock = 0);
 
 /// <summary>
 /// Contrato publico de M-03 para los demas modulos (Modules/README: un modulo no lee las colecciones de
-/// otro). Lo usan el chat (HU-20) para abrir una conversacion desde una publicacion y las ofertas (HU-16) para
-/// vincular una publicacion propia.
+/// otro). Lo usan el chat (HU-20) para abrir una conversacion desde una publicacion, las ofertas (HU-16) para
+/// vincular una publicacion propia y los pedidos (HU-23) para comprarla.
 /// </summary>
 internal interface IProductDirectory
 {
@@ -69,7 +71,8 @@ internal sealed class ProductDirectory(IProductRepository products) : IProductDi
             product.Photos.Select(ListingService.PhotoUrl).FirstOrDefault(),
             product.Status is ProductStatuses.Active or ProductStatuses.SoldOut,
             product.Status == ProductStatuses.Active,
-            cover);
+            cover,
+            product.Stock);
     }
 }
 

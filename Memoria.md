@@ -2,7 +2,7 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (09-Nov-2026)
+## Estado actual (10-Nov-2026)
 
 - **En producción:** API `0.5.0-alpha.11`, infra `0.3.5` y esquema 12 en `https://api.musubiapp.com.mx` (`infra-up` del 09-Nov-2026), con Redis Cloud en las 2 instancias. Incluye:
   - chat y bandeja (HU-20, HU-22), detalle (HU-11), búsqueda (HU-09) y filtros (HU-10);
@@ -10,14 +10,59 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
-- **En `main`, sin desplegar:** HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`). Ninguna necesita script nuevo.
-- **HU-53 (favoritos, Eliuht):** API `0.5.0-alpha.14` con el esquema 13 (`db/013`), en su PR; al desplegarla corre el script nuevo.
-- **Siguiente:** Pedidos (HU-23 a HU-25).
+- **En `main`, sin desplegar:**
+  - HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`), sin script nuevo;
+  - HU-53 (favoritos, Eliuht; `0.5.0-alpha.14`), que sí trae `db/013`.
+- **HU-08 (Tanis):** PR #61, con comentarios para renumerar su script a `db/014` y su versión a `alpha.15` (chocaba con favoritos).
+- **HU-23 (pedidos):** API `0.5.0-alpha.15` y esquema 14 (`db/014-pedidos.js`) en `feature/SCRUM-42-confirmar-compra`. Si HU-08 entra antes, se renumera a `db/015` y `alpha.16`.
+- **Siguiente:** la app de HU-23, y después HU-24 y HU-25.
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
+
+## T37 — Confirmar la compra (10-Nov-2026, SCRUM-42, HU-23)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/Orders/` (M-08), con 5 rutas en `OrdersController`:
+  - `GET /orders/meeting-points`;
+  - `POST /orders`;
+  - `GET /orders?conversationId=` y `GET /orders/{id}`;
+  - `PUT /orders/{id}/payment`.
+- `db/014-pedidos.js` (esquema 14):
+  - `orders` con `ux_conversation_open` (único parcial);
+  - `meetingPoints` con los 14 edificios de la UTTT y las carreras de cada uno;
+  - `counters` para el número `MS-NNNN`.
+- Contratos entre módulos: `IConversationDirectory.FindAsync`, `ProductSummary.Stock`, `IOfferDirectory` (nuevo) e `IProfileDirectory.FindCareerSlugAsync`.
+- RN-07: `MyListingsService.DeleteAsync` responde `409 listings.product_has_orders` con pedidos abiertos, y antes revisa que la publicación sea de quien la elimina.
+- HU-46: `OrderAccountEraser` cancela los pedidos abiertos y deja "Usuario eliminado".
+- API `0.5.0-alpha.15`. Unit 443 · Integration 149 · Security 161 · Contract 16.
+
+**Decisiones (con su porqué)**
+- **Decisiones de la usuaria (10-Nov-2026):**
+  - el pedido sale del chat, sin IA (el resumen se llena con el producto o la oferta aceptada);
+  - el lugar es un edificio de la lista, más un detalle libre, con el de la carrera recomendado;
+  - el pago es solo en efectivo al entregar.
+- **Carreras → edificio:** la relación la propuse yo y la usuaria la aprobó (Energías Renovables en Química y Administración en Contaduría son supuestos). Los puntos comunes son Biblioteca, Cafetería, Idiomas, Multimedios, Rectoría, Villas y Vinculación.
+- **El vendedor no crea el pedido (`403 orders.only_buyer`):** RN-16 dice que lo acepta, y eso llega en HU-24.
+- **Crear no aparta piezas:** RF-34 las aparta al aceptar. RN-17 se valida contra lo disponible hoy; en una oferta directa, contra la cantidad que pidió la solicitud.
+- **Uno abierto por conversación:** se revisa antes (para no gastar números) y lo asegura el índice parcial.
+- **Ventana de entrega:** de 30 minutos a 14 días, entre las 7:00 y las 21:00 del campus (UTC-6).
+- **`transferAvailable: false` en la respuesta:** la app muestra "Transferencia" deshabilitada, como en la maqueta, hasta HU-55.
+
+**Errores a evitar**
+- **`git checkout` no restaura un archivo nuevo** después de una mutación: el archivo no está en git. Respáldalo antes (`cp`) y compáralo con `cmp` al terminar.
+- **S6964:** un `int` de un DTO de entrada debe ser `int?`, para que un cuerpo sin ese campo no llegue como 0.
+- **CA2007 en los métodos auxiliares de las pruebas:** cada `await` lleva `ConfigureAwait(false)` (en los `[Fact]` no hace falta).
+
+**Pendientes con dueño**
+- `NOTE (HU-24)`: aceptar, rechazar, completar y cancelar.
+- `NOTE (HU-25)`: "Mis pedidos".
+- `NOTE (HU-34)`: el pedido sale del acuerdo.
+- `NOTE (HU-55)`: transferencia y código de entrega.
+- `NOTE (HU-44)`: gestionar los puntos de entrega.
+- `NOTE (HU-31)`: avisar a quien vende.
 
 ## T35 — Editar, cerrar o cancelar mi solicitud (09-Nov-2026, SCRUM-36, HU-14)
 
