@@ -3,7 +3,7 @@ using Musubi.Api.Modules.Profiles.Data;
 
 namespace DatabaseTest;
 
-/// <summary>HU-54: preferencias en Mongo, con db/014 y su validador reales.</summary>
+/// <summary>HU-54: preferencias en Mongo, con db/015 y su validador reales.</summary>
 public sealed class MongoPreferenceRepositoryTests(MongoContainerFixture mongo) : IAsyncLifetime
 {
     private IMongoDatabase? database;

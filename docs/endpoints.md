@@ -27,7 +27,7 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
 | GET | /media/{**path} | `[AllowAnonymous]` | HU-06 | — | La imagen (`image/webp`) guardada en memoria | 200 / 404 `resource.not_found` | Solo Development (`Media:Provider=InMemory`). En la nube CloudFront sirve `/media/*` desde S3 y la API responde 404 |
 
-Total: 65 filas (4 de plataforma, 61 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+Total: 67 filas (4 de plataforma, 63 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
 
 ## M-01 · Autenticación y usuarios
 
