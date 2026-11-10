@@ -176,7 +176,7 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Hidden), Ct);
         await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Removed), Ct);
 
-        var mine = await Products.FindBySellerAsync(seller, 10, Ct);
+        var mine = await Products.FindBySellerAsync(seller, null, null, 10, Ct);
 
         Assert.Equal(2, mine.Count);
         Assert.DoesNotContain(mine, p => p.Status == ProductStatuses.Removed);
@@ -209,8 +209,8 @@ public abstract class ListingRepositoryContract
         await Products.InsertAsync(NewProduct(community, other), Ct);
 
         Assert.Equal(3, await Products.DeleteBySellerAsync(seller, Ct));
-        Assert.Empty(await Products.FindBySellerAsync(seller, 10, Ct));
-        Assert.Single(await Products.FindBySellerAsync(other, 10, Ct));
+        Assert.Empty(await Products.FindBySellerAsync(seller, null, null, 10, Ct));
+        Assert.Single(await Products.FindBySellerAsync(other, null, null, 10, Ct));
         Assert.Equal(0, await Products.DeleteBySellerAsync(seller, Ct));
     }
 
@@ -618,5 +618,78 @@ public abstract class ListingRepositoryContract
                 Sort = ProductSorts.PriceAsc,
                 After = new ProductCursor(ProductSorts.PriceAsc, lastTie.PriceCents, lastTie.Id),
             }, Ct));
+    }
+
+    // HU-08: "Mis productos" por pestana, conteos y "Marcar como vendido".
+
+    [Fact]
+    public async Task BySeller_ByStatus_PagesWithACursor()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var first = NewProduct(community, seller);
+        var paused = NewProduct(community, seller, status: ProductStatuses.Hidden);
+        var third = NewProduct(community, seller);
+        await Products.InsertAsync(first, Ct);
+        await Products.InsertAsync(paused, Ct);
+        await Products.InsertAsync(third, Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.SoldOut), Ct);
+        await Products.InsertAsync(NewProduct(community, AuthIds.New()), Ct);
+        string[] activeTab = [ProductStatuses.Active, ProductStatuses.Hidden];
+
+        var page1 = await Products.FindBySellerAsync(seller, activeTab, null, 2, Ct);
+        var page2 = await Products.FindBySellerAsync(seller, activeTab, page1[^1].Id, 2, Ct);
+
+        Assert.Equal([third.Id, paused.Id], page1.Select(p => p.Id));
+        Assert.Equal([first.Id], page2.Select(p => p.Id));
+        Assert.Single(await Products.FindBySellerAsync(seller, [ProductStatuses.SoldOut], null, 10, Ct));
+    }
+
+    [Fact]
+    public async Task CountBySeller_GroupsByStatus_WithoutRemoved()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        await Products.InsertAsync(NewProduct(community, seller), Ct);
+        await Products.InsertAsync(NewProduct(community, seller), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Hidden), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.SoldOut), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Removed), Ct);
+        await Products.InsertAsync(NewProduct(community, AuthIds.New()), Ct);
+
+        var counts = await Products.CountBySellerAsync(seller, Ct);
+
+        Assert.Equal(2, counts[ProductStatuses.Active]);
+        Assert.Equal(1, counts[ProductStatuses.Hidden]);
+        Assert.Equal(1, counts[ProductStatuses.SoldOut]);
+        Assert.False(counts.ContainsKey(ProductStatuses.Removed));
+        Assert.Empty(await Products.CountBySellerAsync(AuthIds.New(), Ct));
+    }
+
+    [Fact]
+    public async Task MarkSold_OnlyTheOwner_KeepsTheFirstDate_AndThenItCannotBeEditedOrPaused()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller);
+        await Products.InsertAsync(product, Ct);
+        var details = new ProductDetails("Calculadora Casio fx-570", "Como nueva.", "libros", 39_900, ProductConditions.New, null);
+
+        Assert.Null(await Products.MarkSoldAsync(product.Id, AuthIds.New(), Now, Ct));
+        Assert.Null(await Products.MarkSoldAsync("no-es-un-id", seller, Now, Ct));
+        var sold = await Products.MarkSoldAsync(product.Id, seller, Now, Ct);
+
+        Assert.Equal((ProductStatuses.Sold, Now), (sold!.Status, sold.SoldAt));
+        // Ya vendida: no cambia (la fecha de la primera venta se conserva), no se edita y no se pausa ni se reactiva.
+        Assert.Null(await Products.MarkSoldAsync(product.Id, seller, Now.AddDays(1), Ct));
+        Assert.Null(await Products.UpdateDetailsAsync(product.Id, seller, details, Now, Ct));
+        Assert.Null(await Products.SetPausedAsync(product.Id, seller, true, Now, Ct));
+        Assert.Null(await Products.SetPausedAsync(product.Id, seller, false, Now, Ct));
+        var read = await Products.FindByIdAsync(product.Id, Ct);
+        Assert.Equal((ProductStatuses.Sold, Now, product.Title), (read!.Status, read.SoldAt, read.Title));
+        // Sale de la vitrina, sigue en "Mis productos" y se puede eliminar.
+        Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10), Ct));
+        Assert.Single(await Products.FindBySellerAsync(seller, [ProductStatuses.Sold], null, 10, Ct));
+        Assert.NotNull(await Products.DeleteAsync(product.Id, seller, Ct));
     }
 }

@@ -95,6 +95,9 @@ internal sealed class ProductDocument
 
     /// <summary>Ultimo cambio (UTC).</summary>
     public DateTime UpdatedAt { get; init; }
+
+    /// <summary>Cuando se marco como vendida (UTC), o <c>null</c> (HU-08).</summary>
+    public DateTime? SoldAt { get; init; }
 }
 
 /// <summary>Copia de lectura del vendedor dentro de la publicacion.</summary>
@@ -118,6 +121,35 @@ internal static class ProductStatuses
 
     /// <summary>Quitada por moderacion (HU-39).</summary>
     public const string Removed = "removed";
+
+    /// <summary>Vendida: el vendedor la marco con "Marcar como vendido" (HU-08). No vuelve a la vitrina.</summary>
+    public const string Sold = "sold";
+
+    // NOTE (HU-52): "Reservada" (RF-10) llega con los apartados y los pedidos (HU-23).
+}
+
+/// <summary>Pestanas de "Mis productos" (maqueta <c>Mis-productos</c>, HU-08).</summary>
+internal static class MyProductTabs
+{
+    /// <summary>Activos: disponibles y pausadas.</summary>
+    public const string Active = "active";
+
+    /// <summary>Vendidos.</summary>
+    public const string Sold = "sold";
+
+    /// <summary>Agotados: sin piezas.</summary>
+    public const string SoldOut = "soldOut";
+
+    /// <summary>Estados de cada pestana.</summary>
+    /// <param name="tab">La pestana.</param>
+    /// <returns>Los estados, o <c>null</c> si la pestana no existe.</returns>
+    public static IReadOnlyList<string>? Statuses(string tab) => tab switch
+    {
+        Active => [ProductStatuses.Active, ProductStatuses.Hidden],
+        Sold => [ProductStatuses.Sold],
+        SoldOut => [ProductStatuses.SoldOut],
+        _ => null,
+    };
 }
 
 /// <summary>Estado del producto (maqueta <c>Vender-4</c>).</summary>

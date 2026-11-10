@@ -213,12 +213,36 @@ internal interface IProductRepository
     /// <returns>El total.</returns>
     Task<long> CountAsync(ProductQuery query, CancellationToken cancellationToken);
 
-    /// <summary>Publicaciones de un vendedor (todas menos las quitadas), de la mas nueva a la mas vieja.</summary>
+    /// <summary>Publicaciones de un vendedor, de la mas nueva a la mas vieja (HU-08: por pestana y con cursor).</summary>
     /// <param name="sellerId">Vendedor.</param>
+    /// <param name="statuses">Solo estos estados; <c>null</c> para todas menos las quitadas.</param>
+    /// <param name="beforeId">Cursor: solo ids menores que este (ya validado), o <c>null</c>.</param>
     /// <param name="limit">Maximo de resultados.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las publicaciones.</returns>
-    Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(string sellerId, int limit, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
+        string sellerId,
+        IReadOnlyList<string>? statuses,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>Cuantas publicaciones tiene el vendedor en cada estado (sin las quitadas), en una sola consulta (HU-08).</summary>
+    /// <param name="sellerId">Vendedor.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Estado → cuantas; los estados sin publicaciones no aparecen.</returns>
+    Task<IReadOnlyDictionary<string, long>> CountBySellerAsync(string sellerId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Marca vendida una publicacion del vendedor (HU-08) con la fecha de la venta. El dueno va en el filtro; una
+    /// quitada o una ya vendida no cambia (la fecha de la primera venta se conserva).
+    /// </summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="sellerId">Vendedor (del token).</param>
+    /// <param name="now">Hora de la venta (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion vendida, o <c>null</c> si no cambio.</returns>
+    Task<ProductDocument?> MarkSoldAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
 
     /// <summary>Precios (centavos) de las publicaciones activas de una categoria, hasta <paramref name="limit"/> recientes.</summary>
     /// <param name="communityId">Comunidad.</param>
@@ -237,7 +261,7 @@ internal interface IProductRepository
     /// <param name="details">Datos ya validados.</param>
     /// <param name="now">Hora del cambio (UTC).</param>
     /// <param name="cancellationToken">Cancelacion.</param>
-    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe o esta quitada.</returns>
+    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe, esta quitada o vendida (HU-08).</returns>
     Task<ProductDocument?> UpdateDetailsAsync(string id, string sellerId, ProductDetails details, DateTime now, CancellationToken cancellationToken);
 
     /// <summary>
@@ -249,7 +273,7 @@ internal interface IProductRepository
     /// <param name="paused"><c>true</c> para pausar; <c>false</c> para reactivar.</param>
     /// <param name="now">Hora del cambio (UTC).</param>
     /// <param name="cancellationToken">Cancelacion.</param>
-    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe o esta quitada.</returns>
+    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe, esta quitada o vendida (HU-08).</returns>
     Task<ProductDocument?> SetPausedAsync(string id, string sellerId, bool paused, DateTime now, CancellationToken cancellationToken);
 
     /// <summary>Borra una publicacion del vendedor (HU-07, borrado real). Una quitada por moderacion no se borra aqui.</summary>

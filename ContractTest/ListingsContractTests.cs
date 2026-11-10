@@ -10,7 +10,7 @@ using SkiaSharp;
 namespace ContractTest;
 
 /// <summary>
-/// HU-06 / HU-48 fase 2 / HU-09 / HU-07: formas JSON de /api/v1/products y /api/v1/categories que consume musubi-app.
+/// HU-06 / HU-48 fase 2 / HU-09 / HU-07 / HU-08: formas JSON de /api/v1/products y /api/v1/categories que consume musubi-app.
 /// Cambiar un fixture = cambio de contrato: actualizar docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
@@ -123,6 +123,10 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         var paused = await BodyAsync(await client.PostAsync(new Uri($"/api/v1/products/{id}/pause", UriKind.Relative), null, Ct));
         var resumed = await BodyAsync(await client.PostAsync(new Uri($"/api/v1/products/{id}/resume", UriKind.Relative), null, Ct));
 
+        // HU-08: "Mis productos" por pestana con sus conteos.
+        var mine = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products/mine?tab=active", UriKind.Relative), Ct));
+        Assert.Equal(Shape(await FixtureAsync("my-product-page.json")), Shape(mine));
+        Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(mine.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(edited));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(paused));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(resumed));

@@ -62,6 +62,14 @@ internal static class ListingsErrors
     public static readonly ApiError ProductNotFound = new(
         "listings.product_not_found", StatusCodes.Status404NotFound, "Esta publicación ya no está disponible.");
 
+    /// <summary>La publicacion ya se vendio: no se edita, no se pausa ni se reactiva (HU-08).</summary>
+    public static readonly ApiError ProductSold = new(
+        "listings.product_sold", StatusCodes.Status409Conflict, "Esta publicación ya se vendió.");
+
+    /// <summary>Pestana de "Mis productos" que no existe (HU-08).</summary>
+    public static readonly ApiError InvalidTab = new(
+        "listings.invalid_tab", StatusCodes.Status400BadRequest, "No pudimos cargar esa lista. Actualiza la pantalla.");
+
     /// <summary>Campus desconocido en la vitrina publica.</summary>
     public static readonly ApiError UnknownCampus = new(
         "listings.unknown_campus", StatusCodes.Status404NotFound, "No encontramos ese campus.");

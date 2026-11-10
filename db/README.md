@@ -16,6 +16,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `010-filtros-precio.js` | Índices de precio asc/desc, con y sin categoría, para ordenar sin memoria (HU-10) | 10 |
 | `011-ofertas.js` | `offers` ("Yo tengo este producto", HU-16): una por persona y solicitud | 11 |
 | `012-ofertas-chat.js` | Conversaciones de una oferta (`context.type` `offer`) y ofertas aceptadas o rechazadas (HU-17) | 12 |
+| `013-publicacion-vendida.js` | Publicación vendida: `products.status` admite `sold` y `soldAt` (HU-08, "Marcar como vendido") | 13 |
 
 ## Aplicar
 

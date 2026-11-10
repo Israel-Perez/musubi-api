@@ -57,6 +57,11 @@ internal sealed class MyListingsService(
             return ListingsErrors.ProductNotFound;
         }
 
+        if (current.Status == ProductStatuses.Sold)
+        {
+            return ListingsErrors.ProductSold;
+        }
+
         // 02-07: solo se modera el texto que cambio; el que no cambio ya se modero al publicar.
         if (await ModerateChangesAsync(current, details, cancellationToken).ConfigureAwait(false) is { } rejected)
         {
@@ -67,7 +72,7 @@ internal sealed class MyListingsService(
         var updated = await products.UpdateDetailsAsync(productId, userId, details, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
         if (updated is null)
         {
-            return ListingsErrors.ProductNotFound;
+            return await WhyUnchangedAsync(userId, productId, cancellationToken).ConfigureAwait(false);
         }
 
         await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
@@ -92,11 +97,38 @@ internal sealed class MyListingsService(
         var changed = await products.SetPausedAsync(productId, userId, paused, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
         if (changed is null)
         {
-            return ListingsErrors.ProductNotFound;
+            return await WhyUnchangedAsync(userId, productId, cancellationToken).ConfigureAwait(false);
         }
 
         await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
         return Result<ProductResponse>.Ok(ListingService.ToResponse(changed, includeSeller: true));
+    }
+
+    /// <summary>"Marcar como vendido" (maqueta <c>Mis-productos</c>, HU-08). Es idempotente.</summary>
+    /// <param name="userId">Vendedor (del token).</param>
+    /// <param name="productId">Id de la publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion vendida o el error.</returns>
+    public async Task<Result<ProductResponse>> MarkSoldAsync(string userId, string productId, CancellationToken cancellationToken)
+    {
+        if (!await IsActiveMemberAsync(userId, cancellationToken).ConfigureAwait(false))
+        {
+            return ApiErrors.Forbidden;
+        }
+
+        // NOTE (HU-23): con los pedidos, la venta tambien llega sola al completarse uno y quedar sin piezas (RN-05).
+        var sold = await products.MarkSoldAsync(productId, userId, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
+        if (sold is null)
+        {
+            // Ya vendida (idempotente: se responde igual) o no es suya.
+            var current = await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
+            return current is not null && IsOwnedBy(current, userId) && current.Status == ProductStatuses.Sold
+                ? Result<ProductResponse>.Ok(ListingService.ToResponse(current, includeSeller: true))
+                : ListingsErrors.ProductNotFound;
+        }
+
+        await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
+        return Result<ProductResponse>.Ok(ListingService.ToResponse(sold, includeSeller: true));
     }
 
     /// <summary>Elimina una publicacion y sus fotos ("Esta accion no se puede deshacer"; borrado real).</summary>
@@ -130,6 +162,15 @@ internal sealed class MyListingsService(
 
         await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
         return Result<bool>.Ok(true);
+    }
+
+    // El filtro no encontro la publicacion: 409 si es suya y esta vendida (HU-08), 404 en cualquier otro caso.
+    private async Task<ApiError> WhyUnchangedAsync(string userId, string productId, CancellationToken cancellationToken)
+    {
+        var current = await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
+        return current is not null && IsOwnedBy(current, userId) && current.Status == ProductStatuses.Sold
+            ? ListingsErrors.ProductSold
+            : ListingsErrors.ProductNotFound;
     }
 
     private static bool IsOwnedBy(ProductDocument product, string userId) =>

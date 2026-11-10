@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Modules.Reputation;
@@ -328,8 +329,9 @@ internal sealed partial class ListingService(
         }
 
         var owner = userId is not null && string.Equals(product.SellerId, userId, StringComparison.Ordinal);
+        // Pausada y vendida (HU-08) solo para su dueno; para los demas es como si no existiera.
         var visible = product.Status is ProductStatuses.Active or ProductStatuses.SoldOut
-            || (owner && product.Status == ProductStatuses.Hidden);
+            || (owner && product.Status is ProductStatuses.Hidden or ProductStatuses.Sold);
         // Con sesion, otro campus es como si no existiera (RNF-21, OWASP API1).
         var otherCampus = userCommunityId is not null && !string.Equals(product.CommunityId, userCommunityId, StringComparison.Ordinal);
         if (!visible || otherCampus)
@@ -361,15 +363,41 @@ internal sealed partial class ListingService(
             product.CreatedAt));
     }
 
-    /// <summary>Publicaciones del usuario ("Ver mis productos").</summary>
+    /// <summary>"Mis productos" por pestana, con los conteos de las tres (HU-08, maqueta <c>Mis-productos</c>).</summary>
     /// <param name="userId">Vendedor (del token).</param>
+    /// <param name="tab">Ver <see cref="MyProductTabs"/>; sin pestana, todas menos las quitadas (lo de HU-06).</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50; 50 por defecto).</param>
     /// <param name="cancellationToken">Cancelacion.</param>
-    /// <returns>Sus publicaciones.</returns>
-    public async Task<ProductPage> MineAsync(string userId, CancellationToken cancellationToken)
+    /// <returns>La pagina o el error.</returns>
+    public async Task<Result<MyProductPage>> MineAsync(string userId, string? tab, string? cursor, int? limit, CancellationToken cancellationToken)
     {
-        var mine = await products.FindBySellerAsync(userId, MaxPageSize, cancellationToken).ConfigureAwait(false);
-        // NOTE (HU-08): paginar "Mis productos" cuando alguien pase de 50 publicaciones.
-        return new ProductPage(mine.Select(p => ToResponse(p, includeSeller: true)).ToList(), null, mine.Count);
+        IReadOnlyList<string>? statuses = null;
+        if (!string.IsNullOrEmpty(tab) && (statuses = MyProductTabs.Statuses(tab)) is null)
+        {
+            return ListingsErrors.InvalidTab;
+        }
+
+        if (cursor is not null && !ObjectId.TryParse(cursor, out _))
+        {
+            return ListingsErrors.InvalidCursor;
+        }
+
+        var size = Math.Clamp(limit ?? MaxPageSize, 1, MaxPageSize);
+        var page = await products.FindBySellerAsync(userId, statuses, cursor, size, cancellationToken).ConfigureAwait(false);
+        var byStatus = await products.CountBySellerAsync(userId, cancellationToken).ConfigureAwait(false);
+        long Count(string status) => byStatus.TryGetValue(status, out var n) ? n : 0;
+        var counts = new MyProductCounts(
+            Count(ProductStatuses.Active) + Count(ProductStatuses.Hidden),
+            Count(ProductStatuses.Sold),
+            Count(ProductStatuses.SoldOut));
+        var total = statuses is null ? byStatus.Values.Sum() : statuses.Sum(Count);
+        // NOTE (HU-25): en Vendidos, el comprador y el monto real llegan con el pedido; hoy se muestra el precio publicado.
+        return Result<MyProductPage>.Ok(new MyProductPage(
+            page.Select(p => ToResponse(p, includeSeller: true)).ToList(),
+            page.Count == size ? page[^1].Id : null,
+            total,
+            counts));
     }
 
     /// <summary>"Productos parecidos se venden entre": percentiles 25 y 75 de la categoria.</summary>
@@ -445,7 +473,8 @@ internal sealed partial class ListingService(
         p.Status,
         p.Photos.Select(PhotoUrl).ToList(),
         includeSeller ? new SellerResponse(p.Seller.Name) : null,
-        p.CreatedAt);
+        p.CreatedAt,
+        p.SoldAt);
 
     [GeneratedRegex("^media/products/[0-9a-f]{24}/[0-9a-f]{32}\\.webp$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 100)]
     private static partial Regex PhotoKeyPattern();
