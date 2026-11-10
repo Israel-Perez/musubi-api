@@ -34,17 +34,17 @@ Jira (SCRUM-71): Como **usuario**, quiero **cambiar entre modo claro y modo noch
 - `DatabaseTest/Profiles/PreferencesRepositoryTests.cs`: upsert, separación por usuario y borrado de cuenta en Mongo real.
 
 ## Criterios
-- [ ] GET sin documento devuelve `system`; PUT persiste los tres valores admitidos y rechaza otros con `profiles.invalid_theme`.
-- [ ] GET/PUT solo afectan al subject del JWT; sin sesión responden 401 y ningún request admite `userId`.
-- [ ] Mongo conserva la preferencia entre lecturas y la elimina al borrar la cuenta (HU-46).
-- [ ] `dotnet build Musubi.slnx -c Release` 0/0; Unit, Integration, Security, Contract y Database en verde; `check_endpoints` OK; critic PASS.
+- [x] GET sin documento devuelve `system`; PUT persiste los tres valores admitidos y rechaza otros con `profiles.invalid_theme`.
+- [x] GET/PUT solo afectan al subject del JWT; sin sesión responden 401 y ningún request admite `userId`.
+- [x] Mongo conserva la preferencia entre lecturas y la elimina al borrar la cuenta (HU-46).
+- [x] `dotnet build Musubi.slnx -c Release` 0/0; Unit, Integration, Security, Contract y Database en verde; `check_endpoints` OK; critic PASS.
 
 ## Límites
 - Las preferencias de notificaciones por tipo quedan fuera porque Jira deja su alcance MVP pendiente; esta HU persiste solo el tema.
 - No se agregan preferencias por dispositivo: el valor se guarda por cuenta y se sincroniza entre sesiones.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 revisor distinto del autor)
 - **Fecha:** 10-Nov-2026
 - **Detalle:** alcance detallado desde SCRUM-71. El tema se guarda por cuenta; notificaciones quedan fuera porque Jira no define cuáles entran al MVP. El front consume la API para persistir entre aperturas.
