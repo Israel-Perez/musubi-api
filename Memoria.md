@@ -15,7 +15,33 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
-- **En curso (09-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.12` en `feature/SCRUM-24-editar-eliminar-publicaciones`, ya con main fusionado; editar recalcula `searchWords` (HU-09). Falta la app.
+- **HU-07 (editar o eliminar mis publicaciones):** API `0.5.0-alpha.12` fusionada en main (PR #60); falta la app.
+- **En curso (09-Nov-2026):** HU-08 (estado de mis productos), API `0.5.0-alpha.13` y esquema 13 (`db/013`) en `feature/SCRUM-25-estado-mis-productos`; falta la app.
+
+## T35 — Consultar el estado de mis productos (09-Nov-2026, SCRUM-25, HU-08)
+
+**Qué se hizo**
+- `GET /products/mine?tab=active|sold|soldOut` con cursor y los conteos de las tres pestañas (`MyProductPage`); sin `tab` responde lo de antes.
+- `POST /products/{id}/sold` ("Marcar como vendido"): estado `sold` y `soldAt`. `ProductResponse` agrega `soldAt`.
+- `db/013-publicacion-vendida.js` (esquema 13): repite el validador de `products` con `sold` y `soldAt`.
+- Errores nuevos: `listings.product_sold` (409) y `listings.invalid_tab` (400).
+- API `0.5.0-alpha.13`. Unit 373 · Integration 138 · Security 129 · Contract 13 · endpoints 55.
+
+**Decisiones (con su porqué)** (de la usuaria, 09-Nov-2026)
+- **Manda la maqueta sobre Jira:** pestañas Activos (disponibles y pausadas), Vendidos y Agotados. "Reservada" llega con HU-52/HU-23.
+- **"Marcar como vendido" es un estado propio (`sold`):** sin él, vendido y agotado serían lo mismo y la pestaña Vendidos quedaría vacía hasta los pedidos.
+- **El contador +/− y "Reponer" se quedan en HU-50.**
+- **Una vendida no se edita, no se pausa ni se reactiva (409), pero sí se elimina:** reactivarla la devolvería a la vitrina.
+- **Una sola ruta con `?tab=` y los conteos en cada respuesta:** la app no hace llamadas de más, y la versión publicada sigue funcionando sin `tab`.
+
+**Errores a evitar**
+- **Un estado nuevo cambia más de lo que parece:** se revisaron cada `Status ==` y cada filtro (vitrina, detalle, chat, ofertas, editar y pausar). Sin excluir `sold` en el filtro de pausar, reactivar "des-vendía".
+- **`db/013` se probó con un `mongod` temporal** (puerto 27099, datos en el scratchpad) porque Docker estaba apagado: se aplicó dos veces y aceptó `sold` con `soldAt`, y rechazó un estado desconocido y el precio 0. La batería del repositorio contra Mongo queda para el job `database`.
+
+**Pendientes con dueño**
+- `NOTE (HU-23)`: vender sola al completar pedidos y llegar a 0 piezas (RN-05).
+- `NOTE (HU-52)`: estado "Reservada".
+- `NOTE (HU-25)`: en Vendidos, el comprador y el monto real del pedido.
 
 ## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
 

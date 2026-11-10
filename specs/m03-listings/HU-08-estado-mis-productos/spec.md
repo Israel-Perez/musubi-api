@@ -21,7 +21,7 @@ Jira (SCRUM-25): Como **vendedor**, quiero **consultar el estado de mis producto
 ## Requisitos
 1. **Mis productos por pestaña (RF-11):** el vendedor ve sus publicaciones de una pestaña (`active`, `sold` o `soldOut`), de la más nueva a la más vieja, con su estado y su fecha de publicación (la app muestra "Publicado hace N días"). Se pagina por cursor (hasta 50 por página).
 2. **Conteos de las pestañas:** cada respuesta trae cuántas hay en Activos, Vendidos y Agotados.
-3. **Estados (RF-10):** Activos = disponibles y pausadas con piezas; Agotados = sin piezas; Vendidos = marcadas como vendidas. Las quitadas por moderación no aparecen.
+3. **Estados (RF-10):** Activos = disponibles y pausadas (`active` y `hidden`); Agotados = sin piezas (`soldOut`); Vendidos = marcadas como vendidas. Las quitadas por moderación no aparecen.
 4. **Marcar como vendido:** solo el dueño (RNF-03; otra persona recibe `404 listings.product_not_found`). La publicación pasa a `sold` con la fecha de la venta. Sale de la vitrina, del chat y de las ofertas, y la vitrina se borra de la caché. Es idempotente.
 5. **Una vendida no se edita, no se pausa y no se reactiva:** responde `409 listings.product_sold`; si no fuera así, reactivarla la "des-vendería". Sí se puede eliminar (HU-07).
 6. **El dueño sigue viendo su vendida** en el detalle (`GET /products/{id}`, HU-11); para cualquier otra persona es `404`, igual que una pausada.
@@ -69,11 +69,11 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - `ContractTest/ListingsContractTests.cs`: `MyProductPage` (fixture nuevo `my-product-page.json`) y `product.json` con `soldAt`.
 
 ## Criterios
-- [ ] Pestañas y conteos (RF-10, RF-11): `MyProductsTabsFlowTests` y la batería del repositorio en verde.
-- [ ] Marcar como vendido solo por el dueño (RNF-03): `MyListingsAuthTests` en verde.
-- [ ] Una vendida no vuelve a la vitrina por pausar o reactivar: `MyListingsServiceTests` en verde.
-- [ ] RN-05 y "Reservada" quedan con `NOTE (HU-23)` y `NOTE (HU-52)` en el código, esta spec, `task.md` y `Memoria.md`.
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · `check_shared_sections` OK · critic PASS · `DatabaseTest` en verde en el CI.
+- [x] Pestañas y conteos (RF-10, RF-11): `MyProductsTabsFlowTests` (3) y la batería del repositorio (`BySeller_ByStatus_PagesWithACursor`, `CountBySeller_GroupsByStatus_WithoutRemoved`) en verde.
+- [x] Marcar como vendido solo por el dueño (RNF-03): `MyListingsAuthTests` (la ruta `sold` en las 4 teorías y `ASoldProduct_IsOnlyVisibleToItsOwner`) en verde.
+- [x] Una vendida no vuelve a la vitrina por pausar o reactivar: `ASoldProduct_IsNotEditedPausedOrResumed_ButCanBeDeleted` y `MarkSold_OnlyTheOwner_KeepsTheFirstDate_AndThenItCannotBeEditedOrPaused` en verde. Mutación: permitir pausar una vendida o quitar la vendida del detalle del dueño → 3 Unit, 1 Integration y 2 Security en rojo.
+- [x] RN-05 y "Reservada" quedan con `NOTE (HU-23)` y `NOTE (HU-52)` en el código, esta spec, `task.md` y `Memoria.md` (T35).
+- [x] Build Release 0/0 · Unit 373 · Integration 138 · Security 129 · Contract 13 (100 %) · `check_endpoints` OK (55) · `check_shared_sections` OK · critic PASS. `db/013` probado contra un `mongod` 8 temporal (dos veces; acepta `sold`, rechaza un estado desconocido). `DatabaseTest` en el CI.
 
 ## Límites
 - **"Reservada":** llega con los apartados y los pedidos. `NOTE (HU-52)`, `NOTE (HU-23)`.
@@ -83,7 +83,7 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - **Vender no se deshace** (la maqueta no ofrece "Deshacer").
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (detallada; la usuaria aprobó D1–D5 de `plan.md` el 09-Nov-2026)
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 09-Nov-2026
-- **Detalle:** detallada desde Jira (SCRUM-25), la maqueta (`Mis-productos`) y HU-07. La usuaria decidió el 09-Nov-2026: estados como la maqueta, "Marcar como vendido" con el estado `sold`, y las piezas (+/− y Reponer) en HU-50.
+- **Detalle:** detallada desde Jira (SCRUM-25), la maqueta (`Mis-productos`) y HU-07. La usuaria decidió el 09-Nov-2026: estados como la maqueta, "Marcar como vendido" con el estado `sold`, y las piezas (+/− y Reponer) en HU-50; aprobó D1–D5 de `plan.md`.

@@ -8,19 +8,19 @@
 ## T2 — Datos
 - **Crear:** `db/013-publicacion-vendida.js` (validador completo de `products` con `sold` y `soldAt`); `MongoSchema.ExpectedVersion = 13`.
 - **Cambiar:** `IProductRepository` (`FindBySellerAsync` por pestaña y cursor, `CountBySellerAsync`, `MarkSoldAsync`, y `sold` excluido al editar y pausar).
-- **Verificar:** la batería `TestShared/Listings/` (en memoria y en MongoDB real) y `DatabaseTest/SchemaScriptTests.cs`.
-- **Estado:** ⏳ Por hacer.
+- **Verificar:** la batería `TestShared/Listings/` (en memoria y en MongoDB real) y `DatabaseTest/SchemaScriptTests.cs` (`Products_AcceptASoldProduct_AndStillRejectAnUnknownStatus`).
+- **Estado:** ✅ Hecho (09-Nov-2026). `db/013` probado contra un `mongod` 8 temporal; `DatabaseTest` en el CI.
 
 ## T3 — Servicio y rutas
 - **Cambiar:** `ListingService.MineAsync` y el detalle; `MyListingsService.MarkSoldAsync`; `GET /products/mine`; `POST /products/{id}/sold`.
-- **Verificar:** `MyListingsServiceTests`, `MyProductsTabsFlowTests`, `MyListingsAuthTests` y `ListingsContractTests`.
-- **Estado:** ⏳ Por hacer.
+- **Verificar:** `MyListingsServiceTests` (+3), `MyProductsTabsFlowTests` (3), `MyListingsAuthTests` (+5) y `ListingsContractTests` (fixture `my-product-page.json` y `soldAt` en `product.json`).
+- **Estado:** ✅ Hecho (09-Nov-2026).
 
 ## T4 — Documentación y versión
 - **Actualizar:**
   - `docs/endpoints.md` (1 fila cambiada y 1 nueva), `docs/errores.md`, `docs/modelo-datos.md`, `db/README.md`;
   - `docs/versionado.md` + `<Version>`, la fila de HU-08 en `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (09-Nov-2026): `0.5.0-alpha.13`, esquema 13.
 
 ## T5 — Revisión y PR
 - **Qué:** build, suites, guardarraíles, Semgrep, `security-reviewer`, `traceability-clerk`, PR y Jira a "En revisión".
