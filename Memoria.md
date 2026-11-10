@@ -50,15 +50,15 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 ## T36 — Favoritos (09-Nov-2026, SCRUM-68, HU-53)
 
 **Qué se hizo**
-- API `0.5.0-alpha.12`, esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
+- API `0.5.0-alpha.13`, esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
 - `favorites` (`db/013-favoritos.js`) con `ux_user_product` e `ix_user_id`; `FavoriteService`, `FavoritesController`, DTOs y repositorios Mongo/InMemory.
 - Tres estados: `available`, `soldOut` y `unavailable`; `unavailable` devuelve `product: null`.
 - HU-57: un bloqueo en cualquier dirección impide guardar y marca el favorito como `unavailable`.
 - HU-46: `ListingAccountEraser` borra los favoritos de la cuenta; los de otras personas quedan `unavailable` si el producto desaparece.
 - Enfoque B: sin `isFavorite` en productos; la app arma el corazón con `GET /favorites`.
-- Unit 366 · Integration 132 · Security 111 · Contract 13 · Database 91; `critic` PASS, endpoints OK (53 rutas) y shared OK (5 bloques).
-- Docs: `endpoints.md` (53 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
-- Sección compartida `docs/versionado.md`: la fila `0.5.0-alpha.12` se replicó en `musubi-app` y se registró en las dos `Memoria.md`.
+- Unit 383 · Integration 138 · Security 129 · Contract 13 · Database 97; `critic` PASS, endpoints OK (57 rutas) y shared OK (5 bloques).
+- Docs: `endpoints.md` (57 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
+- Sección compartida `docs/versionado.md`: las filas `0.5.0-alpha.12` (HU-07) y `0.5.0-alpha.13` (HU-53) se replicaron en `musubi-app` y se registraron en las dos `Memoria.md`.
 
 **Decisiones (con su porqué)**
 - **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.
@@ -73,7 +73,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y la caché de la vitrina.
 - **Los helpers de prueba que devuelven `Task` fallan CA1859:** declarar `Task<bool>` si el método devuelve el resultado de un repo.
 - **`ListingAccountEraser` cambió de constructor:** DI resuelve `IFavoriteRepository`; no registrar un segundo eraser.
-- **DatabaseTest tarda ~5.5 min y necesita Docker corriendo:** el daemon no estaba activo; se inició Docker Desktop y las 91 pruebas pasaron.
+- **DatabaseTest necesita Docker corriendo:** el daemon se detuvo entre corridas; se inició Docker Desktop y las 97 pruebas pasaron en ~1.5 min.
 
 ## T35 — Specs de favoritos (09-Nov-2026, SCRUM-68, HU-53)
 

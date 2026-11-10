@@ -9,7 +9,7 @@
 - **Crear:** `db/013-favoritos.js`, `FavoriteDocument` e `IFavoriteRepository`; `IProductRepository.FindByIdsAsync`.
 - **Cambiar:** `MongoSchema.ExpectedVersion = 13` y `db/README.md`.
 - **Verificar:** `TestShared/Listings/FavoriteRepositoryContract.cs` en `UnitTest/Data/InMemoryFavoriteRepositoryTests.cs` y `DatabaseTest/MongoFavoriteRepositoryTests.cs`; `SchemaScriptTests`.
-- **Estado:** ✅ Hecho (09-Nov-2026); `DatabaseTest` 91/91 con MongoDB real.
+- **Estado:** ✅ Hecho (09-Nov-2026); `DatabaseTest` 97/97 con MongoDB real.
 
 ## T3 — Servicio y endpoints
 - **Crear:** `FavoriteService`, `FavoritesController` y `FavoritesDtos`.
@@ -22,7 +22,7 @@
 - **Agregar:** filas `GET/PUT/DELETE /api/v1/favorites` en la sección `## M-03 · Publicaciones` de `docs/endpoints.md` (`Spec` HU-53, `Consumidor` musubi-app HU-53); nota de HU-53 en `docs/errores.md`; `favorites.json` en `ContractTest/Fixtures/`.
 - **Actualizar:** la fila `favorites` de `docs/modelo-datos.md` de 📐 a ✅ (no duplicarla); `docs/trazabilidad.md` (Spec, Contraparte y Tests), `db/README.md` y `Memoria.md`.
 - **Verificar:** `pwsh scripts/check_endpoints.ps1` → OK y `ContractTest` con la forma exacta.
-- **Estado:** ✅ Hecho (09-Nov-2026); endpoints OK con 53 rutas.
+- **Estado:** ✅ Hecho (09-Nov-2026); endpoints OK con 57 rutas.
 
 ## T5 — Cierre
 - **Verificar:**
@@ -31,7 +31,7 @@
   - `pwsh scripts/critic-guardrails.ps1` → PASS;
   - `security-reviewer` PASS;
   - `traceability-clerk` sin drift.
-- **Estado:** ✅ Hecho (09-Nov-2026): build 0/0, Unit 366, Integration 132, Security 111, Contract 13, Database 91, critic PASS, endpoints OK (53) y shared OK (5). `security-reviewer` PASS y `traceability-clerk` sin drift. PR y despliegue pendientes.
+- **Estado:** ✅ Hecho (09-Nov-2026): build 0/0, Unit 383, Integration 138, Security 129, Contract 13, Database 97, critic PASS, endpoints OK (57) y shared OK (5). `security-reviewer` PASS y `traceability-clerk` sin drift. PR y despliegue pendientes.
 
 ## Pendientes
 - **App:** `musubi-app:HU-53` (`Favoritos`, corazones en el detalle y las tarjetas, estados de carga y "Ya no disponible"). La app carga `GET /favorites` para armar el set del corazón.
