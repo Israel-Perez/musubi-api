@@ -27,6 +27,6 @@
 
 ## Secuencia
 1. Completar el slice de API desde el scaffolder; endurecer errores, validación, auth y pruebas.
-2. Añadir script 014, versión esperada, integración con borrado de cuenta y baterías Mongo.
+2. Añadir script 015 (014 quedó asignado a HU-23), actualizar versión esperada, integrar el borrado de cuenta y cubrir Mongo.
 3. Conciliar catálogos, fixtures, trazabilidad y Memoria.
 4. Verificar y dejar commit aislado `SCRUM-71` en rama propia; no actualizar Jira desde este cambio.

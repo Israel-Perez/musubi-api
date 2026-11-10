@@ -28,10 +28,10 @@ Jira (SCRUM-71): Como **usuario**, quiero **cambiar entre modo claro y modo noch
 
 ## Tests
 - `UnitTest/Profiles/PreferencesServiceTests.cs`: default, enum permitido, aislamiento por cuenta y rechazo.
-- `IntegrationTest/Profiles/PreferencesTests.cs`: GET default, PUT persistente y valor inválido.
-- `SecurityTest/Profiles/PreferencesSecurityTests.cs`: 401 sin token y aislamiento entre tokens.
-- `ContractTest/Profiles/` y fixtures `preferences.json` / `update-preferences.json`.
-- `DatabaseTest/Profiles/PreferencesRepositoryTests.cs`: upsert, separación por usuario y borrado de cuenta en Mongo real.
+- `IntegrationTest/Profiles/PreferencesFlowTests.cs`: GET default, PUT persistente, valor inválido y borrado de cuenta.
+- `SecurityTest/Auth/ProfilesAuthTests.cs`: 401 sin token y aislamiento entre tokens.
+- `ContractTest/ProfilesContractTests.cs` y fixtures `preferences.json` / `update-preferences.json`.
+- `DatabaseTest/MongoPreferenceRepositoryTests.cs` y `DatabaseTest/SchemaScriptTests.cs`: upsert, borrado, script 015 e índice en Mongo real.
 
 ## Criterios
 - [x] GET sin documento devuelve `system`; PUT persiste los tres valores admitidos y rechaza otros con `profiles.invalid_theme`.
