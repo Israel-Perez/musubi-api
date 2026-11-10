@@ -2,9 +2,9 @@
 
 ## Trabajo en curso — HU-54 (SCRUM-71)
 
-- Se implementó la API de preferencias de apariencia en M-02: GET/PUT autenticados, tema por cuenta (`system` por defecto; `system`/`light`/`dark`), esquema 014, borrado al eliminar la cuenta y pruebas en Unit/Integration/Security/Contract/Database.
+- Se implementó la API de preferencias de apariencia en M-02: GET/PUT autenticados, tema por cuenta (`system` por defecto; `system`/`light`/`dark`), esquema 015 (HU-23 ocupa el 014), borrado al eliminar la cuenta y pruebas en Unit/Integration/Security/Contract/Database.
 - La app consume el contrato, aplica `ThemeMode`, ofrece selector en Ajustes y revierte ante fallo de guardado. Sin preferencias de notificaciones, cuyo MVP sigue sin definición.
-- Verificación final (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 400, Integration 145, Security 150, Contract 15 y Database 101 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (62 rutas). App con Flutter 3.47.7/Dart 3.13.5: `pub get`, análisis sin issues, formato sin cambios y 470 pruebas pasaron; critic PASS (15 archivos, 0 avisos). Sin push. Los cinco ajustes API posteriores al commit quedan sin commit y deben incluirse al preparar la revisión.
+- Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23. App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
