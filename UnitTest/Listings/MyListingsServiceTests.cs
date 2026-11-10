@@ -3,6 +3,8 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Orders;
+using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
@@ -26,6 +28,7 @@ public sealed class MyListingsServiceTests
     private readonly CountingOutputCache outputCache = new();
     private readonly FakePhotoReferences photoReferences = new();
     private readonly ManualTimeProvider clock = new(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
+    private readonly InMemoryOrderRepository orders = new();
     private readonly MyListingsService service;
 
     public MyListingsServiceTests()
@@ -38,6 +41,7 @@ public sealed class MyListingsServiceTests
             moderator,
             outputCache,
             [photoReferences],
+            new OpenOrders(orders),
             clock);
     }
 
@@ -213,6 +217,48 @@ public sealed class MyListingsServiceTests
         Assert.Equal([CachingServiceCollectionExtensions.ShowcaseTag], outputCache.Evicted);
         Assert.Equal(ListingsErrors.ProductNotFound, (await service.DeleteAsync(seller, product.Id, Ct)).Error);
     }
+
+    [Fact]
+    public async Task Delete_WithAPendingOrder_IsRejected_ButSomeoneElseStillGets404()
+    {
+        var seller = await MemberAsync();
+        var outsider = await MemberAsync();
+        var product = await ProductAsync(seller);
+        var conversation = AuthIds.New();
+        // RN-07 (HU-23): un pedido pendiente de esa publicacion.
+        await orders.TryInsertAsync(Order(product.Id, conversation, OrderStatuses.Pending), Ct);
+
+        var byOwner = await service.DeleteAsync(seller, product.Id, Ct);
+        var byOutsider = await service.DeleteAsync(outsider, product.Id, Ct);
+
+        Assert.Equal(ListingsErrors.ProductHasOrders, byOwner.Error);
+        Assert.Equal(ListingsErrors.ProductNotFound, byOutsider.Error);
+        Assert.NotNull(await products.FindByIdAsync(product.Id, Ct));
+    }
+
+    [Fact]
+    public async Task Delete_WithOnlyCancelledOrders_IsAllowed()
+    {
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+        await orders.TryInsertAsync(Order(product.Id, AuthIds.New(), OrderStatuses.Cancelled), Ct);
+
+        Assert.Null((await service.DeleteAsync(seller, product.Id, Ct)).Error);
+    }
+
+    private static OrderDocument Order(string productId, string conversationId, string status) => new()
+    {
+        Id = AuthIds.New(),
+        CommunityId = InMemoryCommunityRepository.UtttId,
+        Number = 1001,
+        BuyerId = AuthIds.New(),
+        SellerId = AuthIds.New(),
+        BuyerName = "Ana",
+        SellerName = "Diego",
+        ConversationId = conversationId,
+        Item = new OrderItem { SourceId = productId, ProductId = productId, Title = "Calculadora", PriceCents = 1, Quantity = 1, TotalCents = 1 },
+        Status = status,
+    };
 
     [Fact]
     public async Task Delete_KeepsThePhotosThatAnOfferStillShows()

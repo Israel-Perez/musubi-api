@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.OutputCaching;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Orders;
 using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
@@ -25,6 +26,7 @@ internal sealed class MyListingsService(
     IContentModerator moderator,
     IOutputCacheStore outputCache,
     IEnumerable<IListingPhotoReferences> photoReferences,
+    IOpenOrders openOrders,
     TimeProvider time)
 {
     /// <summary>Cambia los datos de una publicacion (maqueta <c>Vender-2…4</c>, "Editar publicacion").</summary>
@@ -111,8 +113,19 @@ internal sealed class MyListingsService(
             return ApiErrors.Forbidden;
         }
 
-        // NOTE (HU-23): con pedidos Pendientes o Confirmados no se elimina (RN-07): responder
-        // 409 listings.product_has_open_orders antes de borrar.
+        // RN-07 (HU-23): con pedidos pendientes o confirmados no se elimina. Primero se revisa que sea suya, para no
+        // revelarle a otra persona que tiene pedidos (OWASP API1).
+        var current = await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
+        if (current is null || !IsOwnedBy(current, userId))
+        {
+            return ListingsErrors.ProductNotFound;
+        }
+
+        if (await openOrders.ForProductAsync(current.Id, cancellationToken).ConfigureAwait(false))
+        {
+            return ListingsErrors.ProductHasOrders;
+        }
+
         var deleted = await products.DeleteAsync(productId, userId, cancellationToken).ConfigureAwait(false);
         if (deleted is null)
         {

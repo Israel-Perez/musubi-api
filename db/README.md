@@ -17,6 +17,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `011-ofertas.js` | `offers` ("Yo tengo este producto", HU-16): una por persona y solicitud | 11 |
 | `012-ofertas-chat.js` | Conversaciones de una oferta (`context.type` `offer`) y ofertas aceptadas o rechazadas (HU-17) | 12 |
 | `013-favoritos.js` | `favorites` (HU-53): un favorito por usuario y publicación | 13 |
+| `014-pedidos.js` | `orders` (HU-23: uno abierto por conversación), `meetingPoints` (los 14 edificios de la UTTT con sus carreras) y `counters` (el número MS-NNNN) | 14 |
 
 ## Aplicar
 

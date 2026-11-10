@@ -251,5 +251,8 @@ public sealed class ReputationServiceTests
 
         public Task<IReadOnlyList<string>?> FindParticipantsAsync(string conversationId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.GetValueOrDefault(conversationId));
+
+        public Task<ConversationSummary?> FindAsync(string conversationId, CancellationToken cancellationToken) =>
+            Task.FromResult<ConversationSummary?>(null);
     }
 }
