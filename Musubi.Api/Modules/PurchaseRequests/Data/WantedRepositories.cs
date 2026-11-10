@@ -37,6 +37,27 @@ internal sealed record WantedBoardQuery(
     string? BeforeId,
     int Limit);
 
+/// <summary>Lo que cambia al editar una solicitud (HU-14): ya validado, con su nuevo vencimiento (RN-10).</summary>
+/// <param name="Title">Producto que se busca.</param>
+/// <param name="CategorySlug">Slug de la categoria, u <c>otro</c>.</param>
+/// <param name="CategoryName">Copia del nombre de la categoria.</param>
+/// <param name="Description">Descripcion, o <c>null</c> para quitarla.</param>
+/// <param name="Features">Caracteristicas deseadas.</param>
+/// <param name="BudgetCents">Presupuesto maximo en centavos.</param>
+/// <param name="Quantity">Piezas.</param>
+/// <param name="NeededBy">Dia en que la necesita (medianoche UTC), o <c>null</c> para quitarlo.</param>
+/// <param name="ExpiresAt">Nuevo vencimiento (UTC).</param>
+internal sealed record WantedDetails(
+    string Title,
+    string CategorySlug,
+    string CategoryName,
+    string? Description,
+    IReadOnlyList<string> Features,
+    long BudgetCents,
+    int Quantity,
+    DateTime? NeededBy,
+    DateTime ExpiresAt);
+
 /// <summary>
 /// Busqueda del tablero (HU-15): cada termino es el inicio de una palabra del producto o de la descripcion, sin
 /// distinguir mayusculas ni acentos. Las solicitudes no guardan un indice de palabras: el tablero de un campus es
@@ -118,6 +139,28 @@ internal interface IWantedRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las solicitudes, de la mas nueva a la mas vieja.</returns>
     Task<IReadOnlyList<WantedRequestDocument>> FindBoardAsync(WantedBoardQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Cambia los datos de una solicitud (HU-14). Solo cambia si es de quien busca, sigue activa y no ha vencido; el
+    /// filtro lleva esas tres condiciones, asi que no hay que leer antes (OWASP API1).
+    /// </summary>
+    /// <param name="id">La solicitud.</param>
+    /// <param name="requesterId">Quien busca (del token).</param>
+    /// <param name="details">Datos ya validados.</param>
+    /// <param name="requireNoOffers"><c>true</c> si cambian el producto o la categoria: solo sin ofertas.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud ya cambiada, o <c>null</c> si no cumple el filtro.</returns>
+    Task<WantedRequestDocument?> UpdateDetailsAsync(string id, string requesterId, WantedDetails details, bool requireNoOffers, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Cierra o cancela una solicitud activa y sin vencer de quien busca (HU-14).</summary>
+    /// <param name="id">La solicitud.</param>
+    /// <param name="requesterId">Quien busca (del token).</param>
+    /// <param name="status"><c>closed</c> o <c>cancelled</c>.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud ya cambiada, o <c>null</c> si no cumple el filtro.</returns>
+    Task<WantedRequestDocument?> SetStatusAsync(string id, string requesterId, string status, DateTime now, CancellationToken cancellationToken);
 
     /// <summary>Borra las solicitudes de alguien (HU-46, R11).</summary>
     /// <param name="requesterId">Quien busca.</param>
@@ -217,10 +260,65 @@ internal sealed class MongoWantedRepository(IMongoDatabase database) : IWantedRe
     }
 
     /// <inheritdoc />
+    public async Task<WantedRequestDocument?> UpdateDetailsAsync(
+        string id, string requesterId, WantedDetails details, bool requireNoOffers, DateTime now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return null;
+        }
+
+        var filter = ActiveOf(id, requesterId, now);
+        if (requireNoOffers)
+        {
+            // Una oferta que llega entre la lectura y aqui gana: el producto ya no cambia (HU-14).
+            filter &= Builders<WantedRequestDocument>.Filter.Eq(r => r.OffersCount, 0);
+        }
+
+        var u = Builders<WantedRequestDocument>.Update;
+        var update = u.Set(r => r.Title, details.Title)
+            .Set(r => r.CategorySlug, details.CategorySlug)
+            .Set(r => r.CategoryName, details.CategoryName)
+            .Set(r => r.Features, details.Features)
+            .Set(r => r.BudgetCents, details.BudgetCents)
+            .Set(r => r.Quantity, details.Quantity)
+            .Set(r => r.ExpiresAt, details.ExpiresAt);
+        // El $jsonSchema no acepta null: lo que se borra se quita.
+        update = details.Description is { } description ? update.Set(r => r.Description, description) : update.Unset(r => r.Description);
+        update = details.NeededBy is { } day ? update.Set(r => r.NeededBy, day) : update.Unset(r => r.NeededBy);
+        return await requests.FindOneAndUpdateAsync(
+            filter,
+            update,
+            new FindOneAndUpdateOptions<WantedRequestDocument> { ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<WantedRequestDocument?> SetStatusAsync(string id, string requesterId, string status, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await requests.FindOneAndUpdateAsync(
+                ActiveOf(id, requesterId, now),
+                Builders<WantedRequestDocument>.Update.Set(r => r.Status, status),
+                new FindOneAndUpdateOptions<WantedRequestDocument> { ReturnDocument = ReturnDocument.After },
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
     public async Task<long> DeleteByRequesterAsync(string requesterId, CancellationToken cancellationToken)
     {
         var result = await requests.DeleteManyAsync(r => r.RequesterId == requesterId, cancellationToken).ConfigureAwait(false);
         return result.DeletedCount;
+    }
+
+    // Quien busca va en el filtro de cada escritura (OWASP API1), con el estado y el vencimiento (RN-10, RN-11).
+    private static FilterDefinition<WantedRequestDocument> ActiveOf(string id, string requesterId, DateTime now)
+    {
+        var f = Builders<WantedRequestDocument>.Filter;
+        return f.Eq(r => r.Id, id)
+            & f.Eq(r => r.RequesterId, requesterId)
+            & f.Eq(r => r.Status, WantedStatuses.Active)
+            & f.Gt(r => r.ExpiresAt, now);
     }
 }
 
@@ -283,31 +381,27 @@ internal sealed class InMemoryWantedRepository : IWantedRepository
             if (i >= 0)
             {
                 var r = requests[i];
-                requests[i] = new WantedRequestDocument
-                {
-                    Id = r.Id,
-                    CommunityId = r.CommunityId,
-                    RequesterId = r.RequesterId,
-                    RequesterName = r.RequesterName,
-                    Title = r.Title,
-                    CategorySlug = r.CategorySlug,
-                    CategoryName = r.CategoryName,
-                    Description = r.Description,
-                    Features = r.Features,
-                    BudgetCents = r.BudgetCents,
-                    Quantity = r.Quantity,
-                    NeededBy = r.NeededBy,
-                    ExpiresAt = r.ExpiresAt,
-                    Status = r.Status,
-                    OffersCount = r.OffersCount + 1,
-                    CreatedAt = r.CreatedAt,
-                    SchemaVersion = r.SchemaVersion,
-                };
+                requests[i] = Copy(r, Details(r), r.Status, r.OffersCount + 1);
             }
         }
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc />
+    public Task<WantedRequestDocument?> UpdateDetailsAsync(
+        string id, string requesterId, WantedDetails details, bool requireNoOffers, DateTime now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+        return Task.FromResult(Replace(
+            id,
+            r => IsActiveOf(r, requesterId, now) && (!requireNoOffers || r.OffersCount == 0),
+            r => Copy(r, details, r.Status, r.OffersCount)));
+    }
+
+    /// <inheritdoc />
+    public Task<WantedRequestDocument?> SetStatusAsync(string id, string requesterId, string status, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Replace(id, r => IsActiveOf(r, requesterId, now), r => Copy(r, Details(r), status, r.OffersCount)));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<WantedRequestDocument>> FindBoardAsync(WantedBoardQuery query, CancellationToken cancellationToken)
@@ -343,6 +437,49 @@ internal sealed class InMemoryWantedRepository : IWantedRepository
         lock (gate)
         {
             return Task.FromResult((long)requests.RemoveAll(r => string.Equals(r.RequesterId, requesterId, StringComparison.Ordinal)));
+        }
+    }
+
+    private static bool IsActiveOf(WantedRequestDocument r, string requesterId, DateTime now) =>
+        string.Equals(r.RequesterId, requesterId, StringComparison.Ordinal) && r.Status == WantedStatuses.Active && r.ExpiresAt > now;
+
+    private static WantedDetails Details(WantedRequestDocument r) =>
+        new(r.Title, r.CategorySlug, r.CategoryName, r.Description, r.Features, r.BudgetCents, r.Quantity, r.NeededBy, r.ExpiresAt);
+
+    // Los documentos son inmutables (init): un cambio reemplaza el documento, como lo devuelve Mongo.
+    private static WantedRequestDocument Copy(WantedRequestDocument r, WantedDetails d, string status, int offersCount) => new()
+    {
+        Id = r.Id,
+        CommunityId = r.CommunityId,
+        RequesterId = r.RequesterId,
+        RequesterName = r.RequesterName,
+        Title = d.Title,
+        CategorySlug = d.CategorySlug,
+        CategoryName = d.CategoryName,
+        Description = d.Description,
+        Features = d.Features,
+        BudgetCents = d.BudgetCents,
+        Quantity = d.Quantity,
+        NeededBy = d.NeededBy,
+        ExpiresAt = d.ExpiresAt,
+        Status = status,
+        OffersCount = offersCount,
+        CreatedAt = r.CreatedAt,
+        SchemaVersion = r.SchemaVersion,
+    };
+
+    private WantedRequestDocument? Replace(string id, Func<WantedRequestDocument, bool> when, Func<WantedRequestDocument, WantedRequestDocument> change)
+    {
+        lock (gate)
+        {
+            var i = requests.FindIndex(r => string.Equals(r.Id, id, StringComparison.Ordinal));
+            if (i < 0 || !when(requests[i]))
+            {
+                return null;
+            }
+
+            requests[i] = change(requests[i]);
+            return requests[i];
         }
     }
 }

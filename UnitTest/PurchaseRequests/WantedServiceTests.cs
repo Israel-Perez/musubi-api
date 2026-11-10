@@ -17,7 +17,9 @@ namespace UnitTest.PurchaseRequests;
 /// <summary>
 /// HU-13: RN-09 (obligatorios), limites de cada campo, la fecha en el dia del campus, RN-10 (vencimiento), RN-12
 /// (maximo de activas), 02-07 (moderacion) y quien ve una solicitud (campus, activa, bloqueo). HU-15: el tablero
-/// "Se busca" (filtros, busqueda, pagina, bloqueos, lo que ve un visitante y la cache).
+/// "Se busca" (filtros, busqueda, pagina, bloqueos, lo que ve un visitante y la cache). HU-14: editar con las
+/// reglas de publicar (con ofertas el producto no cambia; solo se modera lo que cambio; vencimiento nuevo), cerrar y
+/// cancelar (solo activas, idempotente) y solo quien la publico (404 para los demas).
 /// </summary>
 public sealed class WantedServiceTests
 {
@@ -394,5 +396,164 @@ public sealed class WantedServiceTests
         var found = (await service.BoardAsync(Viewer(me), new WantedBoardFilter(Q: "(cient.*"), Ct)).Value!;
 
         Assert.Equal([created.Id], found.Items.Select(r => r.Id));
+    }
+
+    private static UpdateWantedRequest Edit(
+        string title = "Calculadora Casio fx-991ES Plus",
+        string category = "calculadoras",
+        string? description = "La necesito para Cálculo Integral.",
+        IReadOnlyList<string>? features = null,
+        long? budget = 60_000,
+        int? quantity = 1,
+        DateOnly? neededBy = null) =>
+        new(title, category, description, features ?? ["Con tapa"], budget, quantity, neededBy);
+
+    [Fact]
+    public async Task Update_ChangesEveryField_AndTheExpiryFollowsTheNewDate()
+    {
+        var me = await MemberAsync();
+        var created = (await service.CreateAsync(me, Valid(neededBy: new DateOnly(2026, 11, 13)), Ct)).Value!;
+        outputCache.EvictedTags.Clear();
+        time.Advance(TimeSpan.FromDays(2));
+
+        var updated = (await service.UpdateAsync(
+            me,
+            created.Id,
+            Edit(title: "  Calculadora graficadora ", category: "otro", description: "  ", features: [], budget: 120_000, quantity: 2),
+            Ct)).Value!;
+
+        Assert.Equal(("Calculadora graficadora", "otro", "Otro", 120_000L, 2), (updated.Title, updated.Category.Slug, updated.Category.Name, updated.BudgetCents, updated.Quantity));
+        Assert.Null(updated.Description);
+        Assert.Empty(updated.Features);
+        Assert.Null(updated.NeededBy);
+        // RN-10: sin fecha vence a los 30 dias de publicarse, no de editarse.
+        Assert.Equal(created.CreatedAt.AddDays(30), updated.ExpiresAt);
+        Assert.Equal(("active", created.CreatedAt), (updated.Status, updated.CreatedAt));
+        Assert.Equal(["wanted-board"], outputCache.EvictedTags);
+
+        var withDate = (await service.UpdateAsync(me, created.Id, Edit(neededBy: new DateOnly(2026, 11, 20)), Ct)).Value!;
+        Assert.Equal(new DateTime(2026, 11, 21, 6, 0, 0, DateTimeKind.Utc), withDate.ExpiresAt);
+        Assert.Equal("La necesito para Cálculo Integral.", withDate.Description);
+    }
+
+    [Fact]
+    public async Task Update_UsesThePublishRules()
+    {
+        var me = await MemberAsync();
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+
+        Assert.Equal(WantedErrors.InvalidTitle, (await service.UpdateAsync(me, created.Id, Edit(title: "ab"), Ct)).Error);
+        Assert.Equal(WantedErrors.InvalidCategory, (await service.UpdateAsync(me, created.Id, Edit(category: "no-existe"), Ct)).Error);
+        Assert.Equal(WantedErrors.InvalidBudget, (await service.UpdateAsync(me, created.Id, Edit(budget: 50), Ct)).Error);
+        Assert.Equal(WantedErrors.InvalidQuantity, (await service.UpdateAsync(me, created.Id, Edit(quantity: 11), Ct)).Error);
+        Assert.Equal(WantedErrors.InvalidFeatures, (await service.UpdateAsync(me, created.Id, Edit(features: ["a", "b", "c", "d", "e", "f"]), Ct)).Error);
+        Assert.Equal(WantedErrors.InvalidDate, (await service.UpdateAsync(me, created.Id, Edit(neededBy: new DateOnly(2026, 11, 7)), Ct)).Error);
+        Assert.Equal(created.Title, (await service.GetAsync(me, InMemoryCommunityRepository.UtttId, created.Id, Ct)).Value!.Title);
+    }
+
+    [Fact]
+    public async Task Update_WithOffers_TheProductAndTheCategoryStay_TheRestChanges()
+    {
+        var me = await MemberAsync();
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        await requests.IncrementOffersAsync(created.Id, Ct);
+
+        Assert.Equal(WantedErrors.HasOffers, (await service.UpdateAsync(me, created.Id, Edit(title: "Laptop Dell"), Ct)).Error);
+        Assert.Equal(WantedErrors.HasOffers, (await service.UpdateAsync(me, created.Id, Edit(category: "otro"), Ct)).Error);
+
+        var updated = (await service.UpdateAsync(me, created.Id, Edit(budget: 70_000, description: "Con pilas"), Ct)).Value!;
+        Assert.Equal((70_000L, "Con pilas", 1), (updated.BudgetCents, updated.Description, updated.OffersCount));
+    }
+
+    [Fact]
+    public async Task Update_OnlyModeratesTheTextThatChanged()
+    {
+        var me = await MemberAsync();
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        // Un texto que ya estaba guardado no se vuelve a moderar (se modero al publicar).
+        var stored = (await requests.FindByIdAsync(created.Id, Ct))!;
+        await requests.DeleteByRequesterAsync(me, Ct);
+        await requests.InsertAsync(new WantedRequestDocument
+        {
+            Id = stored.Id,
+            CommunityId = stored.CommunityId,
+            RequesterId = stored.RequesterId,
+            RequesterName = stored.RequesterName,
+            Title = $"Calculadora {InMemoryContentModerator.RejectMarker}",
+            CategorySlug = stored.CategorySlug,
+            CategoryName = stored.CategoryName,
+            Description = stored.Description,
+            Features = stored.Features,
+            BudgetCents = stored.BudgetCents,
+            Quantity = stored.Quantity,
+            ExpiresAt = stored.ExpiresAt,
+            CreatedAt = stored.CreatedAt,
+        }, Ct);
+
+        var sameTitle = Edit(title: $"Calculadora {InMemoryContentModerator.RejectMarker}", budget: 80_000);
+        Assert.Null((await service.UpdateAsync(me, created.Id, sameTitle, Ct)).Error);
+
+        var badDescription = sameTitle with { Description = $"Urge {InMemoryContentModerator.RejectMarker}" };
+        Assert.Equal("moderation.text_rejected", (await service.UpdateAsync(me, created.Id, badDescription, Ct)).Error?.Code);
+        var badFeature = sameTitle with { Features = [InMemoryContentModerator.RejectMarker] };
+        Assert.Equal("moderation.text_rejected", (await service.UpdateAsync(me, created.Id, badFeature, Ct)).Error?.Code);
+    }
+
+    [Fact]
+    public async Task OnlyTheOwner_EditsClosesOrCancels_TheRestGet404()
+    {
+        var me = await MemberAsync();
+        var neighbor = await MemberAsync(name: "Diego Hernández");
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+
+        Assert.Equal(WantedErrors.NotFound, (await service.UpdateAsync(neighbor, created.Id, Edit(budget: 1_000), Ct)).Error);
+        Assert.Equal(WantedErrors.NotFound, (await service.CloseAsync(neighbor, created.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotFound, (await service.CancelAsync(neighbor, created.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotFound, (await service.CloseAsync(me, "no-es-un-id", Ct)).Error);
+        Assert.Equal(WantedErrors.NotFound, (await service.UpdateAsync(me, "000000000000000000000099", Edit(), Ct)).Error);
+
+        var mine = (await service.GetAsync(me, InMemoryCommunityRepository.UtttId, created.Id, Ct)).Value!;
+        Assert.Equal(("active", 60_000L), (mine.Status, mine.BudgetCents));
+    }
+
+    [Fact]
+    public async Task Close_LeavesTheBoard_FreesASlot_AndIsIdempotent()
+    {
+        var me = await MemberAsync();
+        var neighbor = await MemberAsync(name: "Diego Hernández");
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        outputCache.EvictedTags.Clear();
+
+        var closed = (await service.CloseAsync(me, created.Id, Ct)).Value!;
+
+        Assert.Equal("closed", closed.Status);
+        Assert.Equal(["wanted-board"], outputCache.EvictedTags);
+        Assert.Equal(0, await requests.CountActiveAsync(me, Now.UtcDateTime, Ct));
+        Assert.Empty((await service.BoardAsync(Viewer(neighbor), new WantedBoardFilter(), Ct)).Value!.Items);
+        Assert.Equal(WantedErrors.NotFound, (await service.GetAsync(neighbor, InMemoryCommunityRepository.UtttId, created.Id, Ct)).Error);
+
+        // Otra vez: la misma respuesta. Cancelar o editar una cerrada ya no se puede (RN-11).
+        Assert.Equal("closed", (await service.CloseAsync(me, created.Id, Ct)).Value!.Status);
+        Assert.Equal(WantedErrors.NotActive, (await service.CancelAsync(me, created.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotActive, (await service.UpdateAsync(me, created.Id, Edit(), Ct)).Error);
+    }
+
+    [Fact]
+    public async Task Cancel_IsCancelled_AndAnExpiredOneCanNoLongerChange()
+    {
+        var me = await MemberAsync();
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        var dated = (await service.CreateAsync(me, Valid(title: "Bata de laboratorio", neededBy: new DateOnly(2026, 11, 8)), Ct)).Value!;
+
+        Assert.Equal("cancelled", (await service.CancelAsync(me, created.Id, Ct)).Value!.Status);
+        Assert.Equal("cancelled", (await service.CancelAsync(me, created.Id, Ct)).Value!.Status);
+        Assert.Equal(WantedErrors.NotActive, (await service.CloseAsync(me, created.Id, Ct)).Error);
+
+        // RF-18: vence sola al terminar su dia; ya no se edita, cierra ni cancela.
+        time.Advance(TimeSpan.FromHours(1));
+        Assert.Equal("expired", (await service.GetAsync(me, InMemoryCommunityRepository.UtttId, dated.Id, Ct)).Value!.Status);
+        Assert.Equal(WantedErrors.NotActive, (await service.CloseAsync(me, dated.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotActive, (await service.CancelAsync(me, dated.Id, Ct)).Error);
+        Assert.Equal(WantedErrors.NotActive, (await service.UpdateAsync(me, dated.Id, Edit(), Ct)).Error);
     }
 }

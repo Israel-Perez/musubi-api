@@ -54,6 +54,14 @@ internal static class WantedErrors
     public static readonly ApiError InvalidCursor = new(
         "wanted.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más solicitudes. Actualiza la lista.");
 
+    /// <summary>Editar, cerrar o cancelar una solicitud que ya no esta activa: cerrada, cancelada o vencida (HU-14, RN-11).</summary>
+    public static readonly ApiError NotActive = new(
+        "wanted.not_active", StatusCodes.Status409Conflict, "Esta solicitud ya no está activa, así que no se puede cambiar.");
+
+    /// <summary>Cambiar el producto o la categoria de una solicitud que ya recibio ofertas (HU-14).</summary>
+    public static readonly ApiError HasOffers = new(
+        "wanted.has_offers", StatusCodes.Status409Conflict, "Ya recibiste ofertas: el producto y la categoría ya no se pueden cambiar.");
+
     /// <summary>
     /// La solicitud no existe, es de otro campus, ya no esta activa (para quien no la publico) o hay un bloqueo
     /// entre las dos personas: la misma respuesta en todos los casos (OWASP API1).

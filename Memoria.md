@@ -10,12 +10,36 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
-- **Siguiente:** HU-14 (editar, cerrar y cancelar la solicitud) y luego Pedidos (HU-23 a HU-25).
+- **En `main`, sin desplegar:** HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`). Ninguna necesita script nuevo.
+- **Siguiente:** Pedidos (HU-23 a HU-25).
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
-- **En curso (09-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.12` en `feature/SCRUM-24-editar-eliminar-publicaciones`, ya con main fusionado; editar recalcula `searchWords` (HU-09). Falta la app.
+- **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
+
+## T35 — Editar, cerrar o cancelar mi solicitud (09-Nov-2026, SCRUM-36, HU-14)
+
+**Qué se hizo**
+- `PUT /api/v1/wanted/{id}`, `POST /api/v1/wanted/{id}/close` y `POST /api/v1/wanted/{id}/cancel` en `WantedController`.
+- `WantedService`: `UpdateAsync`, `CloseAsync` y `CancelAsync`. La validación de publicar pasó a `ValidateAsync` y la moderación a `ModerateAsync`, que comparten publicar y editar.
+- `IWantedRepository`: `UpdateDetailsAsync` y `SetStatusAsync`, en Mongo y en memoria. Sin script en `db/`: `db/009` ya admitía `closed` y `cancelled`.
+- API `0.5.0-alpha.13`. Unit 377 · Integration 139 · Security 140 · Contract 14.
+
+**Decisiones (con su porqué)**
+- **Con ofertas, el producto y la categoría no cambian** (`409 wanted.has_offers`): quien ofreció respondió a ese producto. El resto sí cambia.
+- **El vencimiento se recalcula, pero los 30 días cuentan desde que se publicó** (RN-10): editar no alarga una solicitud sin fecha.
+- **Cerrar y cancelar son idempotentes; una vencida ya no cambia** (`409 wanted.not_active`): un doble toque no da error, y una vencida ya salió del tablero.
+- **Las ofertas pendientes no se tocan al cerrar:** HU-16 y HU-17 ya revisan que la solicitud esté activa. Avisar a quien ofreció es HU-30.
+- **Dueño, estado y vencimiento en el filtro de cada escritura** (OWASP API1). Si cambia el producto, el filtro pide además `offersCount = 0`: una oferta que llega a la mitad gana.
+
+**Errores a evitar**
+- **"todo" en un comentario dispara S1135** aunque no sea un TODO ("el filtro lleva todo eso"): escribe otra palabra.
+- **La mutación debe compilar:** quitar un parámetro deja CA1801/IDE0060 y `--no-build` corre los binarios viejos. La que sí mordió: `!string.IsNullOrEmpty(requesterId)` en lugar del dueño en el filtro en memoria (3 Unit y 2 Security en rojo).
+
+**Pendientes con dueño**
+- `NOTE (HU-25)`: proponer cerrar la solicitud al completarse su pedido (RN-15).
+- `NOTE (HU-30)`: avisar a quienes ofrecieron que la solicitud se cerró o se canceló.
 
 ## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
 
