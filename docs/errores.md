@@ -73,6 +73,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 |---|---|---|---|
 | `profiles.invalid_career` | 400 | Elige una carrera de la lista. | HU-04 (carrera que no está activa en el campus) |
 | `profiles.invalid_term` | 400 | Elige un periodo que corresponda a tu carrera. | HU-04 (fuera del rango de la carrera, o del campus si no hay carrera) |
+| `profiles.invalid_theme` | 400 | Elige un tema válido. | HU-54 (tema distinto de `system`, `light` o `dark`) |
 | `profiles.not_found` | 404 | No encontramos ese perfil. | HU-04 / HU-05 (inexistente, inactiva o de otro campus: no revela cuál, OWASP API3) |
 
 ## M-03 · Publicaciones (`Modules/Listings/ListingsErrors.cs`)

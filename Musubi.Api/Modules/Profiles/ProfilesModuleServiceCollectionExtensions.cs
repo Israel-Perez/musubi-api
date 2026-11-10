@@ -30,21 +30,30 @@ internal static class ProfilesModuleServiceCollectionExtensions
         services.AddSingleton<IProfileRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? profiles
             : new MongoProfileRepository(provider.GetRequiredService<IMongoDatabase>()));
+        var preferences = new InMemoryPreferenceRepository();
+        services.AddSingleton<IPreferenceRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? preferences
+            : new MongoPreferenceRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddSingleton<IProfileDirectory, ProfileDirectory>();
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ProfilePhotoService>();
+        services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IAccountDataEraser, ProfileAccountEraser>();
     }
 }
 
 /// <summary>Borra el perfil y todas las fotos de perfil de una cuenta que se elimina (HU-46, R11).</summary>
-internal sealed class ProfileAccountEraser(IProfileRepository profiles, IMediaStorage media) : IAccountDataEraser
+internal sealed class ProfileAccountEraser(
+    IProfileRepository profiles,
+    IPreferenceRepository preferences,
+    IMediaStorage media) : IAccountDataEraser
 {
     /// <inheritdoc />
     public async Task EraseAsync(string userId, CancellationToken cancellationToken)
     {
         await profiles.DeleteAsync(userId, cancellationToken).ConfigureAwait(false);
+        await preferences.DeleteAsync(userId, cancellationToken).ConfigureAwait(false);
         await media.DeletePrefixAsync(ProfileService.AvatarPrefix(userId), cancellationToken).ConfigureAwait(false);
     }
 }

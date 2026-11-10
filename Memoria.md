@@ -1,5 +1,11 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-54 (SCRUM-71)
+
+- Se implementó la API de preferencias de apariencia en M-02: GET/PUT autenticados, tema por cuenta (`system` por defecto; `system`/`light`/`dark`), esquema 014, borrado al eliminar la cuenta y pruebas en Unit/Integration/Security/Contract/Database.
+- La app consume el contrato, aplica `ThemeMode`, ofrece selector en Ajustes y revierte ante fallo de guardado. Sin preferencias de notificaciones, cuyo MVP sigue sin definición.
+- Verificación pendiente: el entorno tiene .NET SDK 9.0.300 (el repo exige 10.0.400) y Flutter 3.44.8/Dart 3.12.2 (el repo exige Flutter 3.47.7/Dart 3.13.5); no declarar suites en verde hasta ejecutarlas con las versiones requeridas.
+
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
 ## Estado actual (10-Nov-2026)

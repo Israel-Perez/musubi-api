@@ -6,6 +6,10 @@ namespace Musubi.Api.Modules.Profiles;
 /// <summary>Errores de negocio de M-02 (catalogo canonico: docs/errores.md). Las fotos usan <c>listings.photo_*</c>.</summary>
 internal static class ProfilesErrors
 {
+    /// <summary>Tema no permitido en las preferencias.</summary>
+    public static readonly ApiError InvalidTheme = new(
+        "profiles.invalid_theme", StatusCodes.Status400BadRequest, "Elige un tema válido.");
+
     /// <summary>Carrera que no existe o no esta activa en el campus.</summary>
     public static readonly ApiError InvalidCareer = new(
         "profiles.invalid_career", StatusCodes.Status400BadRequest, "Elige una carrera de la lista.");

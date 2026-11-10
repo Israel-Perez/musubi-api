@@ -99,4 +99,25 @@ public sealed class ProfilesContractTests(ContractApiFactory factory) : IClassFi
             Assert.Equal(Shape(await FixtureAsync("session.json")), Shape(changed));
         }
     }
+
+    [Fact]
+    public async Task Preferences_MatchFixturesForDefaultAndUpdate()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var (client, _) = await SignedInAsync(app, emails);
+        using (client)
+        {
+            var initial = await BodyAsync(await client.GetAsync(new Uri("/api/v1/profiles/me/preferences", UriKind.Relative), Ct));
+            var requestFixture = await FixtureAsync("update-preferences.json");
+            var savedResponse = await client.PutAsJsonAsync(
+                new Uri("/api/v1/profiles/me/preferences", UriKind.Relative), requestFixture, Ct);
+            var saved = await BodyAsync(savedResponse);
+
+            Assert.Equal(Shape(await FixtureAsync("preferences.json")), Shape(initial));
+            Assert.Equal("system", initial.GetProperty("theme").GetString());
+            Assert.Equal(Shape(await FixtureAsync("preferences.json")), Shape(saved));
+            Assert.Equal("dark", saved.GetProperty("theme").GetString());
+        }
+    }
 }
