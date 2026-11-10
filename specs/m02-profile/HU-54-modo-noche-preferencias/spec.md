@@ -47,4 +47,4 @@ Jira (SCRUM-71): Como **usuario**, quiero **cambiar entre modo claro y modo noch
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 revisor distinto del autor)
 - **Fecha:** 10-Nov-2026
-- **Detalle:** alcance detallado desde SCRUM-71. El tema se guarda por cuenta; notificaciones quedan fuera porque Jira no define cuáles entran al MVP. El front consume la API para persistir entre aperturas.
+- **Detalle:** alcance detallado desde SCRUM-71. El tema se guarda por cuenta; notificaciones quedan fuera porque Jira no define cuáles entran al MVP. El front consume la API para persistir entre aperturas. Jira sigue en «Por hacer» con sus criterios sin marcar; esta evidencia técnica no aprueba ni transiciona el ticket, que queda para el responsable.
