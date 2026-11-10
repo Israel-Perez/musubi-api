@@ -1,8 +1,11 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Platform.Email;
 using Musubi.TestShared;
 using SkiaSharp;
@@ -53,7 +56,7 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
     }
 
     [Fact]
-    public async Task PhotoProductPageCategoriesAndEdits_MatchTheirFixtures()
+    public async Task PhotoProductPageCategoriesEditsAndFavorites_MatchTheirFixtures()
     {
         var emails = new RecordingEmailSender();
         using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
@@ -93,6 +96,20 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         var searched = await BodyAsync(await client.GetAsync(new Uri("/api/v1/products?q=calculadora", UriKind.Relative), Ct));
         var categories = await BodyAsync(await client.GetAsync(new Uri("/api/v1/categories", UriKind.Relative), Ct));
         var detail = await BodyAsync(await client.GetAsync(new Uri($"/api/v1/products/{product.GetProperty("id").GetString()}", UriKind.Relative), Ct));
+        var productId = product.GetProperty("id").GetString()!;
+        var saved = await client.PutAsync(new Uri($"/api/v1/favorites/{productId}", UriKind.Relative), null, Ct);
+        await app.Services.GetRequiredService<IFavoriteRepository>().InsertIfAbsentAsync(
+            new FavoriteDocument
+            {
+                Id = AuthIds.New(),
+                UserId = session.GetProperty("user").GetProperty("id").GetString()!,
+                ProductId = "6716a0000000000000000098",
+                CommunityId = InMemoryCommunityRepository.UtttId,
+                CreatedAt = DateTime.UtcNow.AddMinutes(-1),
+            },
+            Ct);
+        var favorites = await BodyAsync(await client.GetAsync(new Uri("/api/v1/favorites", UriKind.Relative), Ct));
+        var favoritesFixture = await FixtureAsync("favorites.json");
 
         Assert.Equal(Shape(await FixtureAsync("photo.json")), Shape(photo));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(product));
@@ -126,5 +143,9 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(edited));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(paused));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(resumed));
+        Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        Assert.Equal(Shape(favoritesFixture), Shape(favorites));
+        Assert.Equal(Shape(favoritesFixture.GetProperty("items")[0]), Shape(favorites.GetProperty("items")[0]));
+        Assert.Equal(Shape(favoritesFixture.GetProperty("items")[1]), Shape(favorites.GetProperty("items")[1]));
     }
 }

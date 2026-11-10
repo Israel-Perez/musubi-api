@@ -89,26 +89,28 @@ RNF que aplican: RNF-03 (sesión y propiedad), RNF-07 (privacidad), RNF-21 (camp
 - `TestShared/Listings/FavoriteRepositoryContract.cs`, con clases nuevas `UnitTest/Data/InMemoryFavoriteRepositoryTests.cs` y `DatabaseTest/MongoFavoriteRepositoryTests.cs` (las clases existentes ya heredan de `ListingRepositoryContract` y son `sealed`):
   - `InsertIfAbsentAsync` es idempotente;
   - `FindByUserAsync` ordena y limita;
-  - `DeleteAsync` es idempotente;
-  - `DeleteByUserAsync` borra solo lo del usuario;
-  - `FindByIdsAsync` devuelve solo los ids pedidos.
+  - `DeleteAsync` es idempotente, también con un id mal formado;
+  - `DeleteByUserAsync` borra solo lo del usuario.
+- `TestShared/Listings/ListingRepositoryContract.cs`: `FindByIdsAsync` devuelve solo los ids pedidos.
 - `IntegrationTest/Listings/FavoriteFlowTests.cs`: un comprador guarda desde el detalle, lo ve en Favoritos, repite el `PUT`, lo quita con `DELETE`, y ve `soldOut`/`unavailable` cuando el producto cambia.
 - `SecurityTest/Auth/ListingsAuthTests.cs`: 401 sin sesión en las tres rutas y BOLA entre dos usuarios (cada uno ve solo lo suyo).
 - `ContractTest/ListingsContractTests.cs` + `Fixtures/favorites.json`: forma JSON de la lista y del elemento sin producto.
 - `DatabaseTest/SchemaScriptTests.cs`: `db/013-favoritos.js` es idempotente, el validador rechaza un favorito incompleto y los índices existen.
 - `UnitTest/Listings/ListingAccountEraserTests.cs`: borrar la cuenta borra los favoritos del usuario con `InMemoryFavoriteRepository` (la prueba existente de `AccountDeletionService` usa un eraser de grabación y no verifica esta regla).
+- `IntegrationTest/Listings/FavoriteFlowTests.cs` también cubre el borrado de la cuenta vendedora: el favorito del comprador sigue y queda `unavailable`.
 
 ## Criterios
-- [ ] Guardar y quitar es idempotente y solo afecta al usuario del token → `FavoriteServiceTests`, `FavoriteFlowTests`.
-- [ ] La lista distingue `available`, `soldOut` y `unavailable`, y no expone el producto cuando no está disponible → `FavoriteServiceTests`, `FavoriteFlowTests`, `favorites.json`.
-- [ ] Un bloqueo de HU-57 impide guardar y oculta el producto como `unavailable` → `FavoriteServiceTests`, `FavoriteFlowTests`.
-- [ ] Ningún usuario ve los favoritos de otro → `ListingsAuthTests` (401/BOLA) y `FavoriteFlowTests`.
-- [ ] Borrar la cuenta borra sus favoritos → `ListingAccountEraserTests`.
-- [ ] `db/013-favoritos.js` crea el índice único y sube el esquema a 13 → `SchemaScriptTests` y `MongoFavoriteRepositoryTests`.
-- [ ] Build Release 0/0.
-- [ ] Unit, Integration, Security y Contract al 100 % con `--no-build`; `DatabaseTest` de favoritos en el CI.
-- [ ] `pwsh scripts/check_endpoints.ps1` → OK; `pwsh scripts/critic-guardrails.ps1` → PASS.
-- [ ] `security-reviewer` PASS y `traceability-clerk` sin drift al cerrar.
+- [x] Guardar y quitar es idempotente y solo afecta al usuario del token → `FavoriteServiceTests`, `FavoriteFlowTests`.
+- [x] La lista distingue `available`, `soldOut` y `unavailable`, y no expone el producto cuando no está disponible → `FavoriteServiceTests`, `FavoriteFlowTests`, `favorites.json`.
+- [x] Un bloqueo de HU-57 impide guardar y oculta el producto como `unavailable` → `FavoriteServiceTests`, `FavoriteFlowTests`.
+- [x] Ningún usuario ve los favoritos de otro → `ListingsAuthTests` (401/BOLA) y `FavoriteFlowTests`.
+- [x] Borrar la cuenta borra sus favoritos → `ListingAccountEraserTests` y `FavoriteFlowTests` (vendedor eliminado).
+- [ ] `db/013-favoritos.js` crea el índice único y sube el esquema a 13 → `SchemaScriptTests` y `MongoFavoriteRepositoryTests`; pendiente de Docker/CI.
+- [x] Build Release 0/0.
+- [x] Unit 366, Integration 132, Security 111 y Contract 13 al 100 % con `--no-build`.
+- [ ] `DatabaseTest` de favoritos en el CI (Docker local no disponible).
+- [x] `pwsh scripts/check_endpoints.ps1` → OK (53 rutas); `pwsh scripts/critic-guardrails.ps1` → PASS.
+- [x] `security-reviewer` PASS; `traceability-clerk` sin drift al cerrar.
 
 ## Límites
 - **Sin modo sin conexión** (decisión de Jira, 08-Nov-2026). La caché local de la app queda para otra HU.
@@ -121,7 +123,7 @@ RNF que aplican: RNF-03 (sesión y propiedad), RNF-07 (privacidad), RNF-21 (camp
 - **La app queda pendiente** (`musubi-app:HU-53`): pantalla `Favoritos`, corazones y estados de carga.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 09-Nov-2026
 - **Detalle:**
@@ -129,4 +131,6 @@ RNF que aplican: RNF-03 (sesión y propiedad), RNF-07 (privacidad), RNF-21 (camp
   - se resolvió la decisión de Jira: sin modo sin conexión;
   - el módulo correcto es `Modules/Listings/`, no `Modules/Marketplace/`;
   - se adopta el enfoque B: el estado del corazón se arma con `GET /favorites`, sin cambiar el contrato de productos;
-  - se incorporan HU-57 (bloqueos) y HU-46 (borrado de cuenta).
+  - se incorporan HU-57 (bloqueos) y HU-46 (borrado de cuenta);
+  - evidencia: API `0.5.0-alpha.12`, esquema 13, Unit 366 / Integration 132 / Security 111 / Contract 13, `critic` PASS y endpoints OK (53 rutas);
+  - pendiente: `DatabaseTest` con Docker/CI, PR y despliegue.

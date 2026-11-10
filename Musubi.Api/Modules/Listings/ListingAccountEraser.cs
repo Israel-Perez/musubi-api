@@ -9,15 +9,20 @@ using Musubi.Api.Platform.Media;
 namespace Musubi.Api.Modules.Listings;
 
 /// <summary>
-/// Borra las publicaciones y las fotos de una cuenta que se elimina (HU-46, R11). Las fotos se
+/// Borra las publicaciones, los favoritos y las fotos de una cuenta que se elimina (HU-46, R11). Las fotos se
 /// borran por prefijo: tambien las que se subieron y nunca se publicaron.
 /// </summary>
-internal sealed class ListingAccountEraser(IProductRepository products, IMediaStorage media, IOutputCacheStore outputCache) : IAccountDataEraser
+internal sealed class ListingAccountEraser(
+    IProductRepository products,
+    IFavoriteRepository favorites,
+    IMediaStorage media,
+    IOutputCacheStore outputCache) : IAccountDataEraser
 {
     /// <inheritdoc />
     public async Task EraseAsync(string userId, CancellationToken cancellationToken)
     {
         await products.DeleteBySellerAsync(userId, cancellationToken).ConfigureAwait(false);
+        await favorites.DeleteByUserAsync(userId, cancellationToken).ConfigureAwait(false);
         await media.DeletePrefixAsync(ListingService.PhotoPrefix(userId), cancellationToken).ConfigureAwait(false);
         // Sus publicaciones salen de la vitrina del visitante en la siguiente consulta (02-02).
         await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.ShowcaseTag, cancellationToken).ConfigureAwait(false);

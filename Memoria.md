@@ -10,7 +10,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
-- **Siguiente:** HU-53 (favoritos) con las specs detalladas; al implementar, API y pruebas. HU-07 (editar o eliminar mis publicaciones) tiene la API en `feature/SCRUM-24-editar-eliminar-publicaciones` y falta la app. Después, HU-14 (editar, cerrar y cancelar la solicitud) y Pedidos (HU-23 a HU-25).
+- **Siguiente:** HU-53 (favoritos): API y las 5 suites en verde; faltan PR y desplegar el esquema 13. HU-07 (editar o eliminar mis publicaciones) ya tiene la API en main y falta la app. Después, HU-14 (editar, cerrar y cancelar la solicitud) y Pedidos (HU-23 a HU-25).
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
@@ -47,6 +47,33 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-18)`: volver a buscar coincidencias al editar el nombre, la categoría, el precio o la descripción (RF-08).
 - `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
 - `NOTE (02-05)`: fotos de una publicación eliminada que quedan en S3 si el borrado falla a medias. La regla de ciclo de vida del bucket (pendiente desde HU-06 para las fotos que nunca se publican) debe cubrir también este caso.
+## T36 — Favoritos (09-Nov-2026, SCRUM-68, HU-53)
+
+**Qué se hizo**
+- API `0.5.0-alpha.12`, esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
+- `favorites` (`db/013-favoritos.js`) con `ux_user_product` e `ix_user_id`; `FavoriteService`, `FavoritesController`, DTOs y repositorios Mongo/InMemory.
+- Tres estados: `available`, `soldOut` y `unavailable`; `unavailable` devuelve `product: null`.
+- HU-57: un bloqueo en cualquier dirección impide guardar y marca el favorito como `unavailable`.
+- HU-46: `ListingAccountEraser` borra los favoritos de la cuenta; los de otras personas quedan `unavailable` si el producto desaparece.
+- Enfoque B: sin `isFavorite` en productos; la app arma el corazón con `GET /favorites`.
+- Unit 366 · Integration 132 · Security 111 · Contract 13; `critic` PASS y endpoints OK (53 rutas). `DatabaseTest` pendiente por Docker/CI.
+- Docs: `endpoints.md` (53 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
+- Sección compartida `docs/versionado.md`: la fila `0.5.0-alpha.12` se replicó en `musubi-app` y se registró en las dos `Memoria.md`.
+
+**Decisiones (con su porqué)**
+- **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.
+- **Se reutiliza `listings.product_not_found`:** guardar una publicación no visible es el mismo 404; no se agregan códigos `favorites.*`.
+- **DELETE con id mal formado responde 204:** el filtro de Mongo no puede intentar serializar un ObjectId inválido; el repositorio lo ignora.
+- **Consulta en lote:** `FindByIdsAsync` y `HiddenForAsync` evitan N+1 al listar.
+- **Sin copia de datos:** título, precio y foto se leen de `products`; `favorites` solo guarda ids y fecha.
+
+**Errores a evitar**
+- **`[BsonRepresentation(ObjectId)]` en un filtro con id mal formado:** un DELETE con `abc` lanzaría 500; se valida con `ObjectId.TryParse` antes de consultar.
+- **No crear `Modules/Marketplace/`:** M-04 reutiliza `Modules/Listings/`.
+- **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y la caché de la vitrina.
+- **Los helpers de prueba que devuelven `Task` fallan CA1859:** declarar `Task<bool>` si el método devuelve el resultado de un repo.
+- **`ListingAccountEraser` cambió de constructor:** DI resuelve `IFavoriteRepository`; no registrar un segundo eraser.
+
 ## T35 — Specs de favoritos (09-Nov-2026, SCRUM-68, HU-53)
 
 **Qué se hizo**
