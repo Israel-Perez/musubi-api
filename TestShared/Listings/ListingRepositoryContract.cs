@@ -570,6 +570,28 @@ public abstract class ListingRepositoryContract
     }
 
     [Fact]
+    public async Task FindByIds_ReturnsOnlyTheRequestedProducts()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var first = NewProduct(community, seller);
+        var second = NewProduct(community, seller);
+        var other = NewProduct(community, seller);
+        foreach (var product in new[] { first, second, other })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var found = await Products.FindByIdsAsync([first.Id, other.Id], Ct);
+
+        Assert.Equal(
+            new[] { first.Id, other.Id }.OrderBy(id => id, StringComparer.Ordinal),
+            found.Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal));
+        Assert.Empty(await Products.FindByIdsAsync([], Ct));
+        Assert.Empty(await Products.FindByIdsAsync([AuthIds.New()], Ct));
+    }
+
+    [Fact]
     public async Task Sorts_ByPrice_WithTieBreakerAndCursor()
     {
         var community = AuthIds.New();

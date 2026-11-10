@@ -26,6 +26,9 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
         { "POST", "/api/v1/products/photos" },
         { "GET", "/api/v1/products/mine" },
         { "GET", "/api/v1/products/price-range?category=libros" },
+        { "GET", "/api/v1/favorites" },
+        { "PUT", "/api/v1/favorites/6716a0000000000000000099" },
+        { "DELETE", "/api/v1/favorites/6716a0000000000000000099" },
     };
 
     [Theory]
@@ -92,6 +95,36 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
         var client = production.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
         return client;
+    }
+
+    [Fact]
+    public async Task Favorites_ArePrivateToTheToken()
+    {
+        var owner = AuthIds.New();
+        var other = AuthIds.New();
+        var productId = await InsertAsync(owner, InMemoryCommunityRepository.UtttId, ProductStatuses.Active);
+        await production.Services.GetRequiredService<IFavoriteRepository>().InsertIfAbsentAsync(
+            new FavoriteDocument
+            {
+                Id = AuthIds.New(),
+                UserId = owner,
+                ProductId = productId,
+                CommunityId = InMemoryCommunityRepository.UtttId,
+                CreatedAt = DateTime.UtcNow,
+            },
+            Ct);
+        using var mine = ClientFor(owner, InMemoryCommunityRepository.UtttId);
+        using var stranger = ClientFor(other, InMemoryCommunityRepository.UtttId);
+
+        var mineList = await mine.GetAsync(new Uri("/api/v1/favorites", UriKind.Relative), Ct);
+        var strangerList = await stranger.GetAsync(new Uri("/api/v1/favorites", UriKind.Relative), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, mineList.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, strangerList.StatusCode);
+        using var mineJson = JsonDocument.Parse(await mineList.Content.ReadAsStringAsync(Ct));
+        using var strangerJson = JsonDocument.Parse(await strangerList.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(productId, Assert.Single(mineJson.RootElement.GetProperty("items").EnumerateArray()).GetProperty("productId").GetString());
+        Assert.Empty(strangerJson.RootElement.GetProperty("items").EnumerateArray());
     }
 
     [Fact]

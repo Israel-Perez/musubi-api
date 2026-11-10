@@ -4,7 +4,7 @@ using Musubi.Api.Modules.PurchaseRequests.Data;
 namespace Musubi.TestShared.PurchaseRequests;
 
 /// <summary>
-/// HU-13 y HU-15 (tablero): comportamiento esperado del repositorio de solicitudes. Corre contra el fake en memoria (UnitTest) y
+/// HU-13, HU-14 (editar, cerrar y cancelar) y HU-15 (tablero): comportamiento esperado del repositorio de solicitudes. Corre contra el fake en memoria (UnitTest) y
 /// contra MongoDB real con db/ aplicado (DatabaseTest).
 /// </summary>
 public abstract class WantedRepositoryContract
@@ -217,5 +217,86 @@ public abstract class WantedRepositoryContract
         var read = (await Requests.FindByIdAsync(request.Id, Ct))!;
 
         Assert.Equal((2, request.Title, request.BudgetCents), (read.OffersCount, read.Title, read.BudgetCents));
+    }
+
+    private static WantedDetails Changed(DateTime? neededBy = null) => new(
+        "Calculadora graficadora",
+        "otro",
+        "Otro",
+        null,
+        ["Con funda"],
+        90_000,
+        2,
+        neededBy,
+        Now.AddDays(20));
+
+    [Fact]
+    public async Task UpdateDetails_ChangesTheFields_AndRemovesTheEmptyOptionals()
+    {
+        var me = AuthIds.New();
+        var request = Request(me);
+        await Requests.InsertAsync(request, Ct);
+
+        var updated = (await Requests.UpdateDetailsAsync(request.Id, me, Changed(), requireNoOffers: false, Now, Ct))!;
+        var read = (await Requests.FindByIdAsync(request.Id, Ct))!;
+
+        Assert.Equal(("Calculadora graficadora", "otro", "Otro", 90_000L, 2), (read.Title, read.CategorySlug, read.CategoryName, read.BudgetCents, read.Quantity));
+        Assert.Equal(["Con funda"], read.Features);
+        Assert.Null(read.Description);
+        Assert.Null(read.NeededBy);
+        Assert.Equal(Now.AddDays(20), read.ExpiresAt);
+        Assert.Equal((request.CreatedAt, request.RequesterName, WantedStatuses.Active), (read.CreatedAt, read.RequesterName, read.Status));
+        Assert.Equal(read.Title, updated.Title);
+
+        var withDate = (await Requests.UpdateDetailsAsync(request.Id, me, Changed(new DateTime(2026, 11, 20, 0, 0, 0, DateTimeKind.Utc)), false, Now, Ct))!;
+        Assert.Equal(new DateTime(2026, 11, 20, 0, 0, 0, DateTimeKind.Utc), withDate.NeededBy);
+    }
+
+    [Fact]
+    public async Task UpdateDetails_OnlyTheOwners_ActiveAndCurrent_AndWithoutOffersIfAsked()
+    {
+        var me = AuthIds.New();
+        var request = Request(me);
+        var closed = Request(me, status: WantedStatuses.Closed);
+        var expired = Request(me, expiresAt: Now.AddMinutes(-1));
+        foreach (var r in new[] { request, closed, expired })
+        {
+            await Requests.InsertAsync(r, Ct);
+        }
+
+        Assert.Null(await Requests.UpdateDetailsAsync(request.Id, AuthIds.New(), Changed(), false, Now, Ct));
+        Assert.Null(await Requests.UpdateDetailsAsync(closed.Id, me, Changed(), false, Now, Ct));
+        Assert.Null(await Requests.UpdateDetailsAsync(expired.Id, me, Changed(), false, Now, Ct));
+        Assert.Null(await Requests.UpdateDetailsAsync("no-es-un-id", me, Changed(), false, Now, Ct));
+
+        await Requests.IncrementOffersAsync(request.Id, Ct);
+        Assert.Null(await Requests.UpdateDetailsAsync(request.Id, me, Changed(), requireNoOffers: true, Now, Ct));
+        Assert.Equal(request.Title, (await Requests.FindByIdAsync(request.Id, Ct))!.Title);
+        var kept = (await Requests.UpdateDetailsAsync(request.Id, me, Changed(), requireNoOffers: false, Now, Ct))!;
+        Assert.Equal(1, kept.OffersCount);
+    }
+
+    [Fact]
+    public async Task SetStatus_ClosesOrCancels_OnlyTheOwnersActiveAndCurrent()
+    {
+        var me = AuthIds.New();
+        var request = Request(me);
+        var other = Request(me);
+        var expired = Request(me, expiresAt: Now.AddMinutes(-1));
+        foreach (var r in new[] { request, other, expired })
+        {
+            await Requests.InsertAsync(r, Ct);
+        }
+
+        Assert.Null(await Requests.SetStatusAsync(request.Id, AuthIds.New(), WantedStatuses.Closed, Now, Ct));
+        Assert.Null(await Requests.SetStatusAsync(expired.Id, me, WantedStatuses.Closed, Now, Ct));
+        Assert.Null(await Requests.SetStatusAsync("no-es-un-id", me, WantedStatuses.Closed, Now, Ct));
+
+        var closed = (await Requests.SetStatusAsync(request.Id, me, WantedStatuses.Closed, Now, Ct))!;
+        Assert.Equal((WantedStatuses.Closed, request.Title, request.ExpiresAt), (closed.Status, closed.Title, closed.ExpiresAt));
+        // Ya no esta activa: no cambia otra vez.
+        Assert.Null(await Requests.SetStatusAsync(request.Id, me, WantedStatuses.Cancelled, Now, Ct));
+        Assert.Equal(WantedStatuses.Cancelled, (await Requests.SetStatusAsync(other.Id, me, WantedStatuses.Cancelled, Now, Ct))!.Status);
+        Assert.Equal(0, await Requests.CountActiveAsync(me, Now, Ct));
     }
 }

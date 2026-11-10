@@ -15,8 +15,9 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 
 /// <summary>
 /// Solicitudes de compra "Se busca" (HU-13; maquetas <c>Necesidad-1…3</c>, <c>Necesidad-publicada</c> y
-/// <c>Mis-solicitudes</c>) y el tablero del campus (HU-15; <c>Se-busca</c> y <c>Se-busca-visitante</c>). Filas
-/// canonicas en docs/endpoints.md. Con sesion salvo el tablero, que tambien lo ve un visitante (HU-48).
+/// <c>Mis-solicitudes</c>), editarlas, cerrarlas y cancelarlas (HU-14) y el tablero del campus (HU-15;
+/// <c>Se-busca</c> y <c>Se-busca-visitante</c>). Filas canonicas en docs/endpoints.md. Con sesion salvo el tablero,
+/// que tambien lo ve un visitante (HU-48). Para otra persona, editar, cerrar o cancelar responde 404 (OWASP API1).
 /// </summary>
 [ApiController]
 [ApiVersion("1.0")]
@@ -24,6 +25,9 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 [Authorize]
 public sealed class WantedController : ControllerBase
 {
+    /// <summary>Tope del cuerpo al editar: el JSON cabe en menos de 3 KB (OWASP API4).</summary>
+    public const int MaxEditBytes = 16 * 1024;
+
     private WantedService wanted => HttpContext.RequestServices.GetRequiredService<WantedService>();
 
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
@@ -88,6 +92,48 @@ public sealed class WantedController : ControllerBase
     [ProducesResponseType<WantedListResponse>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Mine(CancellationToken cancellationToken) =>
         Ok(await wanted.MineAsync(userId, cancellationToken).ConfigureAwait(false));
+
+    /// <summary>"Editar solicitud" (HU-14): todos los datos, con las reglas de publicar.</summary>
+    /// <param name="id">Id.</param>
+    /// <param name="request">Los datos.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud ya cambiada.</returns>
+    [HttpPut("{id}")]
+    [RequestSizeLimit(MaxEditBytes)]
+    [ProducesResponseType<WantedResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Update(string id, UpdateWantedRequest request, CancellationToken cancellationToken) =>
+        this.Respond(await wanted.UpdateAsync(userId, id, request, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Ya lo consegui" (HU-14): cierra la solicitud.</summary>
+    /// <param name="id">Id.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud cerrada.</returns>
+    [HttpPost("{id}/close")]
+    [ProducesResponseType<WantedResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Close(string id, CancellationToken cancellationToken) =>
+        this.Respond(await wanted.CloseAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Cancelar solicitud" (HU-14).</summary>
+    /// <param name="id">Id.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La solicitud cancelada.</returns>
+    [HttpPost("{id}/cancel")]
+    [ProducesResponseType<WantedResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(string id, CancellationToken cancellationToken) =>
+        this.Respond(await wanted.CancelAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
     /// <summary>Una solicitud ("Ver mi solicitud" o una del tablero).</summary>
     /// <param name="id">Id.</param>

@@ -201,6 +201,12 @@ internal interface IProductRepository
     /// <returns>La publicacion o <c>null</c> (tambien si el id no es un ObjectId).</returns>
     Task<ProductDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
 
+    /// <summary>Varias publicaciones por id, en cualquier estado (HU-53: lista de favoritos en lote).</summary>
+    /// <param name="ids">Ids (ObjectId en texto); los invalidos se ignoran.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las publicaciones que existan, sin orden garantizado.</returns>
+    Task<IReadOnlyList<ProductDocument>> FindByIdsAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken);
+
     /// <summary>Pagina de la vitrina (activas y, si se pide, agotadas), de la mas nueva a la mas vieja.</summary>
     /// <param name="query">La consulta.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -288,6 +294,36 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken);
+}
+
+/// <summary>Favoritos de una persona (HU-53).</summary>
+internal interface IFavoriteRepository
+{
+    /// <summary>Guarda el favorito si no existia (idempotente: dos toques no duplican).</summary>
+    /// <param name="favorite">El favorito.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si se creo.</returns>
+    Task<bool> InsertIfAbsentAsync(FavoriteDocument favorite, CancellationToken cancellationToken);
+
+    /// <summary>Favoritos de una persona, del mas reciente al mas viejo.</summary>
+    /// <param name="userId">La persona.</param>
+    /// <param name="limit">Maximo de resultados.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los favoritos.</returns>
+    Task<IReadOnlyList<FavoriteDocument>> FindByUserAsync(string userId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Quita un favorito (idempotente).</summary>
+    /// <param name="userId">La persona.</param>
+    /// <param name="productId">La publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si existia.</returns>
+    Task<bool> DeleteAsync(string userId, string productId, CancellationToken cancellationToken);
+
+    /// <summary>Borra los favoritos de una cuenta que se elimina (HU-46, R11).</summary>
+    /// <param name="userId">La persona.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantos se borraron.</returns>
+    Task<long> DeleteByUserAsync(string userId, CancellationToken cancellationToken);
 }
 
 /// <summary>

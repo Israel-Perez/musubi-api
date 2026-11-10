@@ -178,6 +178,8 @@ public sealed class MyProductsTabsFlowTests(AuthApiFactory factory) : IClassFixt
 
         Assert.Equal([second], Ids(page1));
         Assert.Equal([first], Ids(page2));
+        // La ultima pagina llega justo llena: no hay cursor a una pagina vacia (revision del PR #61).
+        Assert.Equal(JsonValueKind.Null, page2.GetProperty("nextCursor").ValueKind);
         await AuthFlow.AssertCodeAsync(unknown, HttpStatusCode.BadRequest, "listings.invalid_tab");
     }
 }

@@ -30,7 +30,7 @@ Jira (SCRUM-25): Como **vendedor**, quiero **consultar el estado de mis producto
 RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin vendedor).
 
 ## Diseño
-- **Datos:** `db/013-publicacion-vendida.js`, que vuelve a escribir el validador completo de `products` (lección de `db/012`: `collMod` reemplaza el anterior) con `sold` en el `enum` de `status` y el campo opcional `soldAt` (fecha). `MongoSchema.ExpectedVersion = 13`. Sin índices nuevos: "Mis productos" ya usa `ix_seller_id`, y un vendedor tiene pocas publicaciones.
+- **Datos:** `db/015-publicacion-vendida.js`, que vuelve a escribir el validador completo de `products` (lección de `db/012`: `collMod` reemplaza el anterior) con `sold` en el `enum` de `status` y el campo opcional `soldAt` (fecha). `MongoSchema.ExpectedVersion = 15`. Sin índices nuevos: "Mis productos" ya usa `ix_seller_id`, y un vendedor tiene pocas publicaciones.
 - **Repositorio (`IProductRepository`, Mongo e InMemory):**
   - `FindBySellerAsync` recibe la pestaña y el cursor;
   - `CountBySellerAsync` cuenta las tres pestañas en una sola consulta (`$group` por pestaña);
@@ -56,7 +56,7 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
   - los conteos;
   - marcar vendida solo con el dueño;
   - una vendida no se edita ni se pausa.
-- `DatabaseTest/SchemaScriptTests.cs`: el validador acepta `sold` con `soldAt` y sigue rechazando un estado desconocido; `013` es idempotente.
+- `DatabaseTest/SchemaScriptTests.cs`: el validador acepta `sold` con `soldAt` y sigue rechazando un estado desconocido; `015` es idempotente.
 - `UnitTest/Listings/MyListingsServiceTests.cs`:
   - vender borra la vitrina de la caché;
   - 409 al editar, pausar o reactivar una vendida;
@@ -73,7 +73,7 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - [x] Marcar como vendido solo por el dueño (RNF-03): `MyListingsAuthTests` (la ruta `sold` en las 4 teorías, `ASoldProduct_IsOnlyVisibleToItsOwner` y `SomeoneElse_OnASoldProduct_Gets404_Not409`) en verde.
 - [x] Una vendida no vuelve a la vitrina por pausar o reactivar: `ASoldProduct_IsNotEditedPausedOrResumed_ButCanBeDeleted` y `MarkSold_OnlyTheOwner_KeepsTheFirstDate_AndThenItCannotBeEditedOrPaused` en verde. Mutación: permitir pausar una vendida o quitar la vendida del detalle del dueño → 3 Unit, 1 Integration y 2 Security en rojo.
 - [x] RN-05 y "Reservada" quedan con `NOTE (HU-23)` y `NOTE (HU-52)` en el código, esta spec, `task.md` y `Memoria.md` (T35).
-- [x] Build Release 0/0 · Unit 373 · Integration 139 · Security 132 · Contract 13 (100 %) · `check_endpoints` OK (55) · `check_shared_sections` OK · critic PASS. `db/013` probado contra un `mongod` 8 temporal (dos veces; acepta `sold`, rechaza un estado desconocido). `DatabaseTest` en el CI.
+- [x] Build Release 0/0 · Unit 449 · Integration 153 · Security 169 · Contract 16 (100 %, con main del 10-Nov-2026 fusionado: HU-14, HU-53 y HU-23) · `check_endpoints` OK (66) · `check_shared_sections` OK · critic PASS. `db/015` probado contra un `mongod` 8 temporal (001→015 dos veces; acepta `sold`, rechaza un estado desconocido). La última página llena ya no da `nextCursor` (revisión del PR #61). `DatabaseTest` en el CI.
 
 ## Límites
 - **"Reservada":** llega con los apartados y los pedidos. `NOTE (HU-52)`, `NOTE (HU-23)`.
@@ -86,4 +86,5 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 09-Nov-2026
-- **Detalle:** detallada desde Jira (SCRUM-25), la maqueta (`Mis-productos`) y HU-07. La usuaria decidió el 09-Nov-2026: estados como la maqueta, "Marcar como vendido" con el estado `sold`, y las piezas (+/− y Reponer) en HU-50; aprobó D1–D5 de `plan.md`.
+- **Detalle:**
+  - revisión del PR #61 (10-Nov-2026): el script pasó de `013` a `015` y la versión a `0.5.0-alpha.16`, porque favoritos (HU-53) y pedidos (HU-23) tomaron `013`/`014`; `favorites.json` lleva `soldAt`; "Mis productos" pide una de más para no dar un cursor a una página vacía; detallada desde Jira (SCRUM-25), la maqueta (`Mis-productos`) y HU-07. La usuaria decidió el 09-Nov-2026: estados como la maqueta, "Marcar como vendido" con el estado `sold`, y las piezas (+/− y Reponer) en HU-50; aprobó D1–D5 de `plan.md`.

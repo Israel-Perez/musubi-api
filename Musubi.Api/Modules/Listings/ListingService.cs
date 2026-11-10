@@ -384,7 +384,11 @@ internal sealed partial class ListingService(
         }
 
         var size = Math.Clamp(limit ?? MaxPageSize, 1, MaxPageSize);
-        var page = await products.FindBySellerAsync(userId, statuses, cursor, size, cancellationToken).ConfigureAwait(false);
+        // Se pide una de mas para saber si hay otra pagina: si la ultima llega justo llena, no se da un cursor
+        // que lleve a una pagina vacia (revision del PR #61).
+        var fetched = await products.FindBySellerAsync(userId, statuses, cursor, size + 1, cancellationToken).ConfigureAwait(false);
+        var hasMore = fetched.Count > size;
+        var page = hasMore ? fetched.Take(size).ToList() : fetched;
         var byStatus = await products.CountBySellerAsync(userId, cancellationToken).ConfigureAwait(false);
         long Count(string status) => byStatus.TryGetValue(status, out var n) ? n : 0;
         var counts = new MyProductCounts(
@@ -395,7 +399,7 @@ internal sealed partial class ListingService(
         // NOTE (HU-25): en Vendidos, el comprador y el monto real llegan con el pedido; hoy se muestra el precio publicado.
         return Result<MyProductPage>.Ok(new MyProductPage(
             page.Select(p => ToResponse(p, includeSeller: true)).ToList(),
-            page.Count == size ? page[^1].Id : null,
+            hasMore ? page[^1].Id : null,
             total,
             counts));
     }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.PurchaseRequests;
 using Musubi.Api.Modules.Reputation;
@@ -19,6 +20,7 @@ builder.Services.AddProfilesModule();
 builder.Services.AddChatModule();
 builder.Services.AddReputationModule();
 builder.Services.AddPurchaseRequestsModule();
+builder.Services.AddOrdersModule();
 
 var app = builder.Build();
 

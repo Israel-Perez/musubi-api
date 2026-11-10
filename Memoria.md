@@ -2,7 +2,7 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (09-Nov-2026)
+## Estado actual (10-Nov-2026)
 
 - **En producción:** API `0.5.0-alpha.11`, infra `0.3.5` y esquema 12 en `https://api.musubiapp.com.mx` (`infra-up` del 09-Nov-2026), con Redis Cloud en las 2 instancias. Incluye:
   - chat y bandeja (HU-20, HU-22), detalle (HU-11), búsqueda (HU-09) y filtros (HU-10);
@@ -10,22 +10,28 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
-- **Siguiente:** HU-14 (editar, cerrar y cancelar la solicitud) y luego Pedidos (HU-23 a HU-25).
+- **En `main`, sin desplegar:**
+  - HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`), sin script nuevo;
+  - HU-53 (favoritos, Eliuht; `0.5.0-alpha.14`), que sí trae `db/013`.
+- **HU-08 (Tanis):** PR #61, con comentarios para renumerar su script a `db/014` y su versión a `alpha.15` (chocaba con favoritos).
+- **HU-23 (pedidos):** API `0.5.0-alpha.15` y esquema 14 (`db/014-pedidos.js`) en `feature/SCRUM-42-confirmar-compra`. Si HU-08 entra antes, se renumera a `db/015` y `alpha.16`.
+- **Siguiente:** la app de HU-23, y después HU-24 y HU-25.
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
-- **HU-07 (editar o eliminar mis publicaciones):** API `0.5.0-alpha.12` fusionada en main (PR #60); falta la app.
-- **En curso (09-Nov-2026):** HU-08 (estado de mis productos), API `0.5.0-alpha.13` y esquema 13 (`db/013`) en `feature/SCRUM-25-estado-mis-productos`; falta la app.
+- **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
+- **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.16` y esquema 15 (`db/015-publicacion-vendida.js`); falta la app.
 
-## T35 — Consultar el estado de mis productos (09-Nov-2026, SCRUM-25, HU-08)
+## T38 — Consultar el estado de mis productos (09-Nov-2026, SCRUM-25, HU-08)
 
 **Qué se hizo**
 - `GET /products/mine?tab=active|sold|soldOut` con cursor y los conteos de las tres pestañas (`MyProductPage`); sin `tab` responde lo de antes.
 - `POST /products/{id}/sold` ("Marcar como vendido"): estado `sold` y `soldAt`. `ProductResponse` agrega `soldAt`.
-- `db/013-publicacion-vendida.js` (esquema 13): repite el validador de `products` con `sold` y `soldAt`.
+- `db/015-publicacion-vendida.js` (esquema 15; era `013`, pero `013` y `014` los tomaron favoritos y pedidos): repite el validador de `products` con `sold` y `soldAt`.
 - Errores nuevos: `listings.product_sold` (409) y `listings.invalid_tab` (400).
-- API `0.5.0-alpha.13`. Unit 373 · Integration 139 · Security 132 · Contract 13 · endpoints 55.
+- API `0.5.0-alpha.16`, con main del 10-Nov-2026 fusionado (HU-14, HU-53 y HU-23). Unit 449 · Integration 153 · Security 169 · Contract 16 · endpoints 66.
+- Revisión del PR #61: `favorites.json` con `soldAt` (favoritos devuelve un `ProductResponse`), y "Mis productos" pide una publicación de más para no dar un `nextCursor` que lleve a una página vacía.
 
 **Decisiones (con su porqué)** (de la usuaria, 09-Nov-2026)
 - **Manda la maqueta sobre Jira:** pestañas Activos (disponibles y pausadas), Vendidos y Agotados. "Reservada" llega con HU-52/HU-23.
@@ -36,13 +42,79 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 
 **Errores a evitar**
 - **Un estado nuevo cambia más de lo que parece:** se revisaron cada `Status ==` y cada filtro (vitrina, detalle, chat, ofertas, editar y pausar). Sin excluir `sold` en el filtro de pausar, reactivar "des-vendía".
-- **`db/013` se probó con un `mongod` temporal** (puerto 27099, datos en el scratchpad) porque Docker estaba apagado: se aplicó dos veces y aceptó `sold` con `soldAt`, y rechazó un estado desconocido y el precio 0. La batería del repositorio contra Mongo queda para el job `database`.
+- **El script de HU-08 (hoy `db/015`) se probó con un `mongod` temporal** (puerto 27099, datos en el scratchpad) porque Docker estaba apagado: se aplicó dos veces y aceptó `sold` con `soldAt`, y rechazó un estado desconocido y el precio 0. La batería del repositorio contra Mongo queda para el job `database`.
+- **Números compartidos (revisión del PR #61):** entre la revisión y la fusión entró otra HU (pedidos) que tomó el número que proponía el revisor (`db/014`, `alpha.15`). Antes de renumerar, revisa el `main` de ese momento, no el de la revisión.
 
 **Pendientes con dueño**
-- `NOTE (HU-23)`: vender sola al completar pedidos y llegar a 0 piezas (RN-05).
+- `NOTE (HU-23)`: vender sola al completar pedidos y llegar a 0 piezas (RN-05). RN-07 (no eliminar con pedidos abiertos) ya lo resolvió HU-23 (`listings.product_has_orders`).
 - `NOTE (HU-52)`: estado "Reservada".
 - `NOTE (HU-25)`: en Vendidos, el comprador y el monto real del pedido.
 - Se cierra `NOTE (HU-08)` de HU-06 (paginar "Mis productos"): ya pagina con cursor.
+
+## T37 — Confirmar la compra (10-Nov-2026, SCRUM-42, HU-23)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/Orders/` (M-08), con 5 rutas en `OrdersController`:
+  - `GET /orders/meeting-points`;
+  - `POST /orders`;
+  - `GET /orders?conversationId=` y `GET /orders/{id}`;
+  - `PUT /orders/{id}/payment`.
+- `db/014-pedidos.js` (esquema 14):
+  - `orders` con `ux_conversation_open` (único parcial);
+  - `meetingPoints` con los 14 edificios de la UTTT y las carreras de cada uno;
+  - `counters` para el número `MS-NNNN`.
+- Contratos entre módulos: `IConversationDirectory.FindAsync`, `ProductSummary.Stock`, `IOfferDirectory` (nuevo) e `IProfileDirectory.FindCareerSlugAsync`.
+- RN-07: `MyListingsService.DeleteAsync` responde `409 listings.product_has_orders` con pedidos abiertos, y antes revisa que la publicación sea de quien la elimina.
+- HU-46: `OrderAccountEraser` cancela los pedidos abiertos y deja "Usuario eliminado".
+- API `0.5.0-alpha.15`. Unit 443 · Integration 149 · Security 161 · Contract 16.
+
+**Decisiones (con su porqué)**
+- **Decisiones de la usuaria (10-Nov-2026):**
+  - el pedido sale del chat, sin IA (el resumen se llena con el producto o la oferta aceptada);
+  - el lugar es un edificio de la lista, más un detalle libre, con el de la carrera recomendado;
+  - el pago es solo en efectivo al entregar.
+- **Carreras → edificio:** la relación la propuse yo y la usuaria la aprobó (Energías Renovables en Química y Administración en Contaduría son supuestos). Los puntos comunes son Biblioteca, Cafetería, Idiomas, Multimedios, Rectoría, Villas y Vinculación.
+- **El vendedor no crea el pedido (`403 orders.only_buyer`):** RN-16 dice que lo acepta, y eso llega en HU-24.
+- **Crear no aparta piezas:** RF-34 las aparta al aceptar. RN-17 se valida contra lo disponible hoy; en una oferta directa, contra la cantidad que pidió la solicitud.
+- **Uno abierto por conversación:** se revisa antes (para no gastar números) y lo asegura el índice parcial.
+- **Ventana de entrega:** de 30 minutos a 14 días, entre las 7:00 y las 21:00 del campus (UTC-6).
+- **`transferAvailable: false` en la respuesta:** la app muestra "Transferencia" deshabilitada, como en la maqueta, hasta HU-55.
+
+**Errores a evitar**
+- **`git checkout` no restaura un archivo nuevo** después de una mutación: el archivo no está en git. Respáldalo antes (`cp`) y compáralo con `cmp` al terminar.
+- **S6964:** un `int` de un DTO de entrada debe ser `int?`, para que un cuerpo sin ese campo no llegue como 0.
+- **CA2007 en los métodos auxiliares de las pruebas:** cada `await` lleva `ConfigureAwait(false)` (en los `[Fact]` no hace falta).
+
+**Pendientes con dueño**
+- `NOTE (HU-24)`: aceptar, rechazar, completar y cancelar.
+- `NOTE (HU-25)`: "Mis pedidos".
+- `NOTE (HU-34)`: el pedido sale del acuerdo.
+- `NOTE (HU-55)`: transferencia y código de entrega.
+- `NOTE (HU-44)`: gestionar los puntos de entrega.
+- `NOTE (HU-31)`: avisar a quien vende.
+
+## T35 — Editar, cerrar o cancelar mi solicitud (09-Nov-2026, SCRUM-36, HU-14)
+
+**Qué se hizo**
+- `PUT /api/v1/wanted/{id}`, `POST /api/v1/wanted/{id}/close` y `POST /api/v1/wanted/{id}/cancel` en `WantedController`.
+- `WantedService`: `UpdateAsync`, `CloseAsync` y `CancelAsync`. La validación de publicar pasó a `ValidateAsync` y la moderación a `ModerateAsync`, que comparten publicar y editar.
+- `IWantedRepository`: `UpdateDetailsAsync` y `SetStatusAsync`, en Mongo y en memoria. Sin script en `db/`: `db/009` ya admitía `closed` y `cancelled`.
+- API `0.5.0-alpha.13`. Unit 377 · Integration 139 · Security 140 · Contract 14.
+
+**Decisiones (con su porqué)**
+- **Con ofertas, el producto y la categoría no cambian** (`409 wanted.has_offers`): quien ofreció respondió a ese producto. El resto sí cambia.
+- **El vencimiento se recalcula, pero los 30 días cuentan desde que se publicó** (RN-10): editar no alarga una solicitud sin fecha.
+- **Cerrar y cancelar son idempotentes; una vencida ya no cambia** (`409 wanted.not_active`): un doble toque no da error, y una vencida ya salió del tablero.
+- **Las ofertas pendientes no se tocan al cerrar:** HU-16 y HU-17 ya revisan que la solicitud esté activa. Avisar a quien ofreció es HU-30.
+- **Dueño, estado y vencimiento en el filtro de cada escritura** (OWASP API1). Si cambia el producto, el filtro pide además `offersCount = 0`: una oferta que llega a la mitad gana.
+
+**Errores a evitar**
+- **"todo" en un comentario dispara S1135** aunque no sea un TODO ("el filtro lleva todo eso"): escribe otra palabra.
+- **La mutación debe compilar:** quitar un parámetro deja CA1801/IDE0060 y `--no-build` corre los binarios viejos. La que sí mordió: `!string.IsNullOrEmpty(requesterId)` en lugar del dueño en el filtro en memoria (3 Unit y 2 Security en rojo).
+
+**Pendientes con dueño**
+- `NOTE (HU-25)`: proponer cerrar la solicitud al completarse su pedido (RN-15).
+- `NOTE (HU-30)`: avisar a quienes ofrecieron que la solicitud se cerró o se canceló.
 
 ## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
 
@@ -74,6 +146,58 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-18)`: volver a buscar coincidencias al editar el nombre, la categoría, el precio o la descripción (RF-08).
 - `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
 - `NOTE (02-05)`: fotos de una publicación eliminada que quedan en S3 si el borrado falla a medias. La regla de ciclo de vida del bucket (pendiente desde HU-06 para las fotos que nunca se publican) debe cubrir también este caso.
+## T36 — Favoritos (09-Nov-2026, SCRUM-68, HU-53)
+
+**Qué se hizo**
+- API `0.5.0-alpha.14` (era `alpha.13`; HU-14 la tomó primero en main), esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
+- `favorites` (`db/013-favoritos.js`) con `ux_user_product` e `ix_user_id`; `FavoriteService`, `FavoritesController`, DTOs y repositorios Mongo/InMemory.
+- Tres estados: `available`, `soldOut` y `unavailable`; `unavailable` devuelve `product: null`.
+- HU-57: un bloqueo en cualquier dirección impide guardar y marca el favorito como `unavailable`.
+- HU-46: `ListingAccountEraser` borra los favoritos de la cuenta; los de otras personas quedan `unavailable` si el producto desaparece.
+- Enfoque B: sin `isFavorite` en productos; la app arma el corazón con `GET /favorites`.
+- Unit 383 · Integration 138 · Security 129 · Contract 13 · Database 97; `critic` PASS, endpoints OK (57 rutas) y shared OK (5 bloques).
+- Docs: `endpoints.md` (57 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
+- Sección compartida `docs/versionado.md`: las filas `0.5.0-alpha.12` (HU-07) y `0.5.0-alpha.14` (HU-53; `alpha.13` es HU-14) se replicaron en `musubi-app` y se registraron en las dos `Memoria.md`.
+
+**Decisiones (con su porqué)**
+- **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.
+- **Se reutiliza `listings.product_not_found`:** guardar una publicación no visible es el mismo 404; no se agregan códigos `favorites.*`.
+- **DELETE con id mal formado responde 204:** el filtro de Mongo no puede intentar serializar un ObjectId inválido; el repositorio lo ignora.
+- **Consulta en lote:** `FindByIdsAsync` y `HiddenForAsync` evitan N+1 al listar.
+- **Sin copia de datos:** título, precio y foto se leen de `products`; `favorites` solo guarda ids y fecha.
+
+**Errores a evitar**
+- **`[BsonRepresentation(ObjectId)]` en un filtro con id mal formado:** un DELETE con `abc` lanzaría 500; se valida con `ObjectId.TryParse` antes de consultar.
+- **No crear `Modules/Marketplace/`:** M-04 reutiliza `Modules/Listings/`.
+- **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y la caché de la vitrina.
+- **Los helpers de prueba que devuelven `Task` fallan CA1859:** declarar `Task<bool>` si el método devuelve el resultado de un repo.
+- **`ListingAccountEraser` cambió de constructor:** DI resuelve `IFavoriteRepository`; no registrar un segundo eraser.
+- **DatabaseTest necesita Docker corriendo:** el daemon se detuvo entre corridas; se inició Docker Desktop y las 97 pruebas pasaron en ~1.5 min.
+
+## T35 — Specs de favoritos (09-Nov-2026, SCRUM-68, HU-53)
+
+**Qué se hizo**
+- `specs/m04-marketplace/HU-53-favoritos/` queda detallada: `spec.md`, `plan.md` y `task.md`.
+- Contrato: `GET /favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo el usuario del token.
+- Módulo real: `Modules/Listings/`, no `Modules/Marketplace/` (`docs/modulos.md`).
+- Decisión de Jira aplicada: sin modo sin conexión.
+- Enfoque B: la app arma el corazón con `GET /favorites`; no cambian `ProductResponse` ni `ProductDetailResponse`.
+- Colección `favorites` (`db/013-favoritos.js`, esquema 13) con `ux_user_product` e `ix_user_id`.
+- Se incorporan HU-57 (bloqueos) y HU-46 (borrado de cuenta).
+
+**Decisiones (con su porqué)**
+- **Sin `isFavorite` en productos:** la vitrina sigue pública y cacheable; no se agrega una consulta de favoritos a cada página. La app carga la lista una vez por sesión.
+- **Tres estados en la lista:** `available`, `soldOut` y `unavailable`; `unavailable` no expone el producto (inexistente, `hidden`, `removed`, otro campus o bloqueo).
+- **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.
+- **Se reutiliza `listings.product_not_found`:** no se agregan códigos `favorites.*` por un 404 que significa lo mismo.
+- **Favoritos huérfanos:** si el producto se elimina, el favorito queda como `unavailable`; no se borra en cascada.
+
+**Errores a evitar**
+- **No crear `Modules/Marketplace/`:** M-04 reutiliza `Modules/Listings/`; duplicaría la vitrina.
+- **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y obliga a consultar favoritos en cada página.
+- **No leer `favorites` desde otro módulo:** vive en `Listings`; si otro módulo lo necesita, se expone un contrato como `IBlockDirectory`.
+- **No olvidar HU-46:** `ListingAccountEraser` debe borrar los favoritos del usuario.
+
 ## T33 — Ver y elegir ofertas (09-Nov-2026, SCRUM-39, HU-17)
 
 **Qué se hizo**

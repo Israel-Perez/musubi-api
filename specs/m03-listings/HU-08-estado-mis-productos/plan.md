@@ -1,7 +1,7 @@
 # plan.md — HU-08 Consultar el estado de mis productos
 
 1. **Componentes:**
-   - `db/013-publicacion-vendida.js` y `MongoSchema.ExpectedVersion = 13`;
+   - `db/015-publicacion-vendida.js` y `MongoSchema.ExpectedVersion = 15`;
    - `Data/ListingDocuments.cs` (`ProductStatuses.Sold`, `SoldAt`), `ListingRepositories.cs`, `MongoListingRepositories.cs` e `InMemoryListingRepositories.cs`;
    - `ListingService` (`MineAsync` por pestaña y el detalle de una vendida para su dueño), `MyListingsService` (`MarkSoldAsync` y el 409);
    - `ProductsController` (`GET /mine`) y `MyProductsController` (`POST /{id}/sold`);
@@ -22,4 +22,4 @@
    - `limit` de 1 a 50 y cursor validado (`listings.invalid_cursor`);
    - la vitrina se borra de la caché de salida al vender.
 5. **Validación:** las pruebas de la `spec.md`, el script contra MongoDB real (`DatabaseTest` en el CI), los guardarraíles (`check_endpoints`, `check_shared_sections`, critic, Semgrep) y los sub-agentes `security-reviewer` y `traceability-clerk`.
-6. **Secuencia:** `db/013` → documentos y repositorios con su batería → servicio y controllers → pruebas → documentación (`endpoints`, `errores`, `modelo-datos`, `db/README`, `versionado`, `trazabilidad` y `Memoria.md`) → revisión → PR.
+6. **Secuencia:** `db/015` → documentos y repositorios con su batería → servicio y controllers → pruebas → documentación (`endpoints`, `errores`, `modelo-datos`, `db/README`, `versionado`, `trazabilidad` y `Memoria.md`) → revisión → PR.

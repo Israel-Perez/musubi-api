@@ -26,6 +26,7 @@ internal static class ListingsModuleServiceCollectionExtensions
 
         var categories = new InMemoryCategoryRepository();
         var products = new InMemoryProductRepository();
+        var favorites = new InMemoryFavoriteRepository();
         services.AddSingleton<ICategoryRepository>(provider => new CachedCategoryRepository(
             MongoServiceCollectionExtensions.UseInMemory(provider)
                 ? categories
@@ -34,11 +35,15 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<IProductRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? products
             : new MongoProductRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<IFavoriteRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? favorites
+            : new MongoFavoriteRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
         services.AddSingleton<ListingService>();
         services.AddSingleton<MyListingsService>();
+        services.AddSingleton<FavoriteService>();
         services.AddSingleton<PhotoUploadService>();
         services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
         services.AddSingleton<IProductDirectory, ProductDirectory>();

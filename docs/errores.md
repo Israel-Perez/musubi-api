@@ -91,10 +91,11 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_price_range` | 400 | Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-10 (mínimo negativo, máximo fuera de rango o mínimo mayor que el máximo) |
 | `listings.invalid_sort` | 400 | Elige un orden para los resultados. | HU-10 (orden fuera de la lista permitida) |
 | `listings.invalid_page` | 400 | Elige una página del 1 al 50. | HU-10 (`page` menor que 1 o mayor que 50; acota el `skip` de Mongo, OWASP API4) |
+| `listings.product_has_orders` | 409 | Tiene pedidos pendientes o confirmados. Termínalos o cancélalos antes de eliminarla. | HU-23 (RN-07: eliminar una publicación propia con pedidos abiertos; a otra persona se le responde 404) |
 | `listings.product_sold` | 409 | Esta publicación ya se vendió. | HU-08 (editar, pausar o reactivar una publicación vendida; reactivarla la devolvería a la vitrina) |
 | `listings.invalid_tab` | 400 | No pudimos cargar esa lista. Actualiza la pantalla. | HU-08 (pestaña de "Mis productos" que no es `active`, `sold` ni `soldOut`) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
-| `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus) HU-07 (editar, pausar, reactivar o eliminar una publicación ajena) y HU-08 (marcar como vendida una publicación ajena; una vendida ajena tampoco responde 409): no revela cuál, OWASP API1 |
+| `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus), HU-07 (editar, pausar, reactivar o eliminar una publicación ajena), HU-08 (marcar como vendida una publicación ajena; una vendida ajena tampoco responde 409) y HU-53 (guardar un favorito no visible): no revela cuál, OWASP API1 |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |
@@ -124,6 +125,8 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `wanted.invalid_quantity` | 400 | La cantidad va de 1 a 10 piezas. | HU-13 (RN-09) |
 | `wanted.invalid_date` | 400 | Elige una fecha de hoy a 60 días. | HU-13 (día del campus, UTC-6) |
 | `wanted.too_many_active` | 409 | Ya tienes 5 solicitudes activas. Espera a que alguna termine para publicar otra. | HU-13 (RN-12) |
+| `wanted.not_active` | 409 | Esta solicitud ya no está activa, así que no se puede cambiar. | HU-14 (editar, cerrar o cancelar una cerrada, cancelada o vencida; RN-11) |
+| `wanted.has_offers` | 409 | Ya recibiste ofertas: el producto y la categoría ya no se pueden cambiar. | HU-14 (quien ofreció respondió a ese producto) |
 | `wanted.invalid_budget_range` | 400 | Revisa el rango de presupuesto: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-15 ("Presupuesto" de "Filtrar solicitudes") |
 | `wanted.invalid_deadline` | 400 | Elige una fecha límite de 1 a 60 días. | HU-15 ("Fecha límite") |
 | `wanted.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-15 (más de 80 caracteres o sin letras ni dígitos) |
@@ -140,4 +143,26 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `offers.not_pending` | 409 | Esta oferta ya no está pendiente. | HU-17 (ya aceptada o rechazada) |
 | `offers.request_closed` | 409 | Tu solicitud ya no está activa. | HU-17 (aceptar en una solicitud cerrada, cancelada o vencida) |
 | `offers.not_found` | 404 | Todavía no has ofrecido nada en esta solicitud. | HU-16 (`GET .../offers/mine`) |
-| `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |
+| `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál); HU-14 (editar, cerrar o cancelar la de otra persona) |
+
+## M-08 · Pedidos (`Modules/Orders/OrdersErrors.cs`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `orders.not_found` | 404 | No encontramos este pedido. | HU-23 (inexistente o de otras personas: no revela cuál, RNF-03, OWASP API1) |
+| `orders.conversation_not_found` | 404 | No encontramos esta conversación. | HU-23 (crear o listar desde una conversación inexistente o ajena, RN-22) |
+| `orders.only_buyer` | 403 | El pedido lo crea quien compra. Tú lo aceptarás cuando llegue. | HU-23 (quien vende en esa conversación intenta crear el pedido o elegir el pago) |
+| `orders.own_product` | 409 | No puedes comprar tu propia publicación. | HU-23 (RN-06) |
+| `orders.product_unavailable` | 409 | Esta publicación ya no está disponible. | HU-23 (pausada, agotada, vendida, quitada, eliminada o de otro campus) |
+| `orders.offer_not_accepted` | 409 | Primero acepta la oferta para crear el pedido. | HU-23 (conversación de una oferta todavía pendiente, HU-17) |
+| `orders.blocked` | 403 | No puedes hacer un pedido con esta persona. | HU-57 (bloqueo en cualquier dirección: no revela quién bloqueó) |
+| `orders.invalid_quantity` | 400 | Elige una cantidad de 1 a 10 piezas. | HU-23 |
+| `orders.not_enough_stock` | 409 | No hay tantas piezas disponibles. Elige una cantidad menor. | HU-23 (RN-17; en una oferta directa, más de las que pidió la solicitud) |
+| `orders.invalid_meeting_point` | 400 | Elige un punto de entrega del campus. | HU-23 (punto que no es de los activos del campus) |
+| `orders.invalid_detail` | 400 | El detalle del lugar puede tener hasta 120 caracteres. | HU-23 |
+| `orders.invalid_delivery_time` | 400 | Elige una fecha de hoy a 14 días, entre las 7:00 y las 21:00. | HU-23 (antes de 30 minutos, después de 14 días o fuera de 7:00 a 21:00 del campus, UTC-6) |
+| `orders.already_open` | 409 | Ya hay un pedido abierto en esta conversación. | HU-23 (uno pendiente o confirmado por conversación; un doble toque no duplica) |
+| `orders.not_pending` | 409 | Este pedido ya no está pendiente. | HU-23 (elegir el pago de un pedido confirmado, completado o cancelado) |
+| `orders.invalid_payment` | 400 | Elige cómo quieres pagar. | HU-23 (forma que no es `cash` ni `transfer`) |
+| `orders.payment_unavailable` | 409 | Quien vende aún no registra su cuenta. Por ahora paga en efectivo al recibir. | HU-23 (transferencia antes de HU-55, D-01) |
+| `orders.invalid_conversation` | 400 | No pudimos cargar el pedido. Vuelve a abrir el chat. | HU-23 (`GET /orders` sin `conversationId` o con uno que no es un id) |

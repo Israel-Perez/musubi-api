@@ -100,6 +100,33 @@ internal sealed class ProductDocument
     public DateTime? SoldAt { get; init; }
 }
 
+/// <summary>Producto guardado en favoritos por una persona (HU-53).</summary>
+[SuppressMessage("Performance", "CA1812", Justification = "Lo instancia el serializador BSON.")]
+internal sealed class FavoriteDocument
+{
+    /// <summary>Id (ObjectId).</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>Quien lo guardo.</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string UserId { get; init; } = string.Empty;
+
+    /// <summary>Publicacion guardada.</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string ProductId { get; init; } = string.Empty;
+
+    /// <summary>Comunidad (R1).</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string CommunityId { get; init; } = string.Empty;
+
+    /// <summary>Cuando se guardo (UTC).</summary>
+    public DateTime CreatedAt { get; init; }
+
+    /// <summary>Version del documento (R4).</summary>
+    public int SchemaVersion { get; init; } = 1;
+}
+
 /// <summary>Copia de lectura del vendedor dentro de la publicacion.</summary>
 internal sealed class ProductSeller
 {
