@@ -39,6 +39,11 @@ Jira (SCRUM-71): Como **usuario**, quiero **cambiar entre modo claro y modo noch
 - [x] Mongo conserva la preferencia entre lecturas y la elimina al borrar la cuenta (HU-46).
 - [x] `dotnet build Musubi.slnx -c Release` 0/0; Unit, Integration, Security, Contract y Database en verde; `check_endpoints` OK; critic PASS.
 
+## Criterios originales Jira (evidencia de musubi-app)
+- [x] Ajustes ofrece modo claro, modo noche y modo sistema: `musubi-app/test/features/profile/profile_flow_test.dart`.
+- [x] La paleta oscura cumple contraste AA: `musubi-app/test/core/theme/app_theme_test.dart`.
+- [x] La preferencia se guarda por cuenta y vuelve a cargarse al iniciar sesión: `musubi-app/lib/features/profile/presentation/theme_preference_providers.dart`, `musubi-app/test/features/profile/http_theme_preference_repository_test.dart` y la persistencia entre GET/PUT de `IntegrationTest/Profiles/PreferencesFlowTests.cs` / `DatabaseTest/MongoPreferenceRepositoryTests.cs`. No se afirma una prueba E2E de cierre y reinicio del proceso.
+
 ## Límites
 - Las preferencias de notificaciones por tipo quedan fuera porque Jira deja su alcance MVP pendiente; esta HU persiste solo el tema.
 - No se agregan preferencias por dispositivo: el valor se guarda por cuenta y se sincroniza entre sesiones.
