@@ -122,6 +122,8 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `wanted.invalid_quantity` | 400 | La cantidad va de 1 a 10 piezas. | HU-13 (RN-09) |
 | `wanted.invalid_date` | 400 | Elige una fecha de hoy a 60 días. | HU-13 (día del campus, UTC-6) |
 | `wanted.too_many_active` | 409 | Ya tienes 5 solicitudes activas. Espera a que alguna termine para publicar otra. | HU-13 (RN-12) |
+| `wanted.not_active` | 409 | Esta solicitud ya no está activa, así que no se puede cambiar. | HU-14 (editar, cerrar o cancelar una cerrada, cancelada o vencida; RN-11) |
+| `wanted.has_offers` | 409 | Ya recibiste ofertas: el producto y la categoría ya no se pueden cambiar. | HU-14 (quien ofreció respondió a ese producto) |
 | `wanted.invalid_budget_range` | 400 | Revisa el rango de presupuesto: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-15 ("Presupuesto" de "Filtrar solicitudes") |
 | `wanted.invalid_deadline` | 400 | Elige una fecha límite de 1 a 60 días. | HU-15 ("Fecha límite") |
 | `wanted.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-15 (más de 80 caracteres o sin letras ni dígitos) |
@@ -138,4 +140,4 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `offers.not_pending` | 409 | Esta oferta ya no está pendiente. | HU-17 (ya aceptada o rechazada) |
 | `offers.request_closed` | 409 | Tu solicitud ya no está activa. | HU-17 (aceptar en una solicitud cerrada, cancelada o vencida) |
 | `offers.not_found` | 404 | Todavía no has ofrecido nada en esta solicitud. | HU-16 (`GET .../offers/mine`) |
-| `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál) |
+| `wanted.not_found` | 404 | No encontramos esta solicitud. | HU-13 (inexistente, de otro campus, vencida para otros o con bloqueo: no revela cuál); HU-14 (editar, cerrar o cancelar la de otra persona) |

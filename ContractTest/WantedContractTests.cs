@@ -11,7 +11,7 @@ using Musubi.TestShared;
 namespace ContractTest;
 
 /// <summary>
-/// HU-13 y HU-15: forma JSON de /api/v1/wanted (publicar, "Mis solicitudes" y el tablero) que consume musubi-app. Cambiar el fixture = cambio de contrato:
+/// HU-13, HU-14 y HU-15: forma JSON de /api/v1/wanted (publicar, editar, cerrar, "Mis solicitudes" y el tablero) que consume musubi-app. Cambiar el fixture = cambio de contrato:
 /// actualizar docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
@@ -84,6 +84,37 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
         Assert.Equal(HttpStatusCode.Created, published.StatusCode);
         Assert.Equal(Shape(fixture), Shape(await BodyAsync(published)));
         Assert.Equal(Shape(fixture), Shape(mine.GetProperty("items")[0]));
+    }
+
+    [Fact]
+    public async Task EditCloseAndCancel_MatchTheFixture()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        using var ana = await SignedInAsync(app, emails);
+        var neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        var body = new
+        {
+            title = "Calculadora Casio fx-991ES Plus",
+            category = "calculadoras",
+            description = "La necesito para Cálculo Integral y Física.",
+            features = Features,
+            budgetCents = 60_000,
+            quantity = 1,
+            neededBy,
+        };
+        var first = (await BodyAsync(await ana.PostAsJsonAsync(new Uri("/api/v1/wanted", UriKind.Relative), body, Ct))).GetProperty("id").GetString();
+        var second = (await BodyAsync(await ana.PostAsJsonAsync(new Uri("/api/v1/wanted", UriKind.Relative), body, Ct))).GetProperty("id").GetString();
+        var fixture = await FixtureAsync("wanted.json");
+
+        var edited = await ana.PutAsJsonAsync(new Uri($"/api/v1/wanted/{first}", UriKind.Relative), body with { budgetCents = 70_000 }, Ct);
+        var closed = await ana.PostAsync(new Uri($"/api/v1/wanted/{first}/close", UriKind.Relative), null, Ct);
+        var cancelled = await ana.PostAsync(new Uri($"/api/v1/wanted/{second}/cancel", UriKind.Relative), null, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        Assert.Equal(Shape(fixture), Shape(await BodyAsync(edited)));
+        Assert.Equal(Shape(fixture), Shape(await BodyAsync(closed)));
+        Assert.Equal(Shape(fixture), Shape(await BodyAsync(cancelled)));
     }
 
     [Fact]

@@ -132,5 +132,5 @@ RNF que aplican: RNF-03 (sesión y propiedad), RNF-07 (privacidad), RNF-21 (camp
   - el módulo correcto es `Modules/Listings/`, no `Modules/Marketplace/`;
   - se adopta el enfoque B: el estado del corazón se arma con `GET /favorites`, sin cambiar el contrato de productos;
   - se incorporan HU-57 (bloqueos) y HU-46 (borrado de cuenta);
-  - evidencia: API `0.5.0-alpha.13`, esquema 13, Unit 383 / Integration 138 / Security 129 / Contract 13 / Database 97, `critic` PASS, endpoints OK (57 rutas) y secciones compartidas OK;
+  - evidencia: API `0.5.0-alpha.14` (al traer main, que ya tenía `alpha.13` de HU-14), esquema 13, Unit 383 / Integration 138 / Security 129 / Contract 13 / Database 97, `critic` PASS, endpoints OK (57 rutas) y secciones compartidas OK;
   - pendiente: PR y despliegue (el esquema 13 sube con `infra-up`).

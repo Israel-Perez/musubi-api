@@ -10,12 +10,37 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
-- **Siguiente:** HU-53 (favoritos): API y las 5 suites en verde; falta el PR y desplegar el esquema 13. HU-07 (editar o eliminar mis publicaciones) ya tiene la API en main y falta la app. Después, HU-14 (editar, cerrar y cancelar la solicitud) y Pedidos (HU-23 a HU-25).
+- **En `main`, sin desplegar:** HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`). Ninguna necesita script nuevo.
+- **HU-53 (favoritos, Eliuht):** API `0.5.0-alpha.14` con el esquema 13 (`db/013`), en su PR; al desplegarla corre el script nuevo.
+- **Siguiente:** Pedidos (HU-23 a HU-25).
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
-- **En curso (09-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.12` en `feature/SCRUM-24-editar-eliminar-publicaciones`, ya con main fusionado; editar recalcula `searchWords` (HU-09). Falta la app.
+- **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
+
+## T35 — Editar, cerrar o cancelar mi solicitud (09-Nov-2026, SCRUM-36, HU-14)
+
+**Qué se hizo**
+- `PUT /api/v1/wanted/{id}`, `POST /api/v1/wanted/{id}/close` y `POST /api/v1/wanted/{id}/cancel` en `WantedController`.
+- `WantedService`: `UpdateAsync`, `CloseAsync` y `CancelAsync`. La validación de publicar pasó a `ValidateAsync` y la moderación a `ModerateAsync`, que comparten publicar y editar.
+- `IWantedRepository`: `UpdateDetailsAsync` y `SetStatusAsync`, en Mongo y en memoria. Sin script en `db/`: `db/009` ya admitía `closed` y `cancelled`.
+- API `0.5.0-alpha.13`. Unit 377 · Integration 139 · Security 140 · Contract 14.
+
+**Decisiones (con su porqué)**
+- **Con ofertas, el producto y la categoría no cambian** (`409 wanted.has_offers`): quien ofreció respondió a ese producto. El resto sí cambia.
+- **El vencimiento se recalcula, pero los 30 días cuentan desde que se publicó** (RN-10): editar no alarga una solicitud sin fecha.
+- **Cerrar y cancelar son idempotentes; una vencida ya no cambia** (`409 wanted.not_active`): un doble toque no da error, y una vencida ya salió del tablero.
+- **Las ofertas pendientes no se tocan al cerrar:** HU-16 y HU-17 ya revisan que la solicitud esté activa. Avisar a quien ofreció es HU-30.
+- **Dueño, estado y vencimiento en el filtro de cada escritura** (OWASP API1). Si cambia el producto, el filtro pide además `offersCount = 0`: una oferta que llega a la mitad gana.
+
+**Errores a evitar**
+- **"todo" en un comentario dispara S1135** aunque no sea un TODO ("el filtro lleva todo eso"): escribe otra palabra.
+- **La mutación debe compilar:** quitar un parámetro deja CA1801/IDE0060 y `--no-build` corre los binarios viejos. La que sí mordió: `!string.IsNullOrEmpty(requesterId)` en lugar del dueño en el filtro en memoria (3 Unit y 2 Security en rojo).
+
+**Pendientes con dueño**
+- `NOTE (HU-25)`: proponer cerrar la solicitud al completarse su pedido (RN-15).
+- `NOTE (HU-30)`: avisar a quienes ofrecieron que la solicitud se cerró o se canceló.
 
 ## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
 
@@ -50,7 +75,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 ## T36 — Favoritos (09-Nov-2026, SCRUM-68, HU-53)
 
 **Qué se hizo**
-- API `0.5.0-alpha.13`, esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
+- API `0.5.0-alpha.14` (era `alpha.13`; HU-14 la tomó primero en main), esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
 - `favorites` (`db/013-favoritos.js`) con `ux_user_product` e `ix_user_id`; `FavoriteService`, `FavoritesController`, DTOs y repositorios Mongo/InMemory.
 - Tres estados: `available`, `soldOut` y `unavailable`; `unavailable` devuelve `product: null`.
 - HU-57: un bloqueo en cualquier dirección impide guardar y marca el favorito como `unavailable`.
@@ -58,7 +83,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - Enfoque B: sin `isFavorite` en productos; la app arma el corazón con `GET /favorites`.
 - Unit 383 · Integration 138 · Security 129 · Contract 13 · Database 97; `critic` PASS, endpoints OK (57 rutas) y shared OK (5 bloques).
 - Docs: `endpoints.md` (57 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
-- Sección compartida `docs/versionado.md`: las filas `0.5.0-alpha.12` (HU-07) y `0.5.0-alpha.13` (HU-53) se replicaron en `musubi-app` y se registraron en las dos `Memoria.md`.
+- Sección compartida `docs/versionado.md`: las filas `0.5.0-alpha.12` (HU-07) y `0.5.0-alpha.14` (HU-53; `alpha.13` es HU-14) se replicaron en `musubi-app` y se registraron en las dos `Memoria.md`.
 
 **Decisiones (con su porqué)**
 - **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Musubi.Api.Modules.PurchaseRequests;
 
-// Contratos HTTP de M-05 (HU-13, HU-15). Filas canonicas en docs/endpoints.md.
+// Contratos HTTP de M-05 (HU-13, HU-14, HU-15). Filas canonicas en docs/endpoints.md.
 
 /// <summary>Publicar una solicitud (maqueta <c>Necesidad-1…3</c>).</summary>
 /// <param name="Title">"Producto que buscas" (3 a 80 caracteres).</param>
@@ -14,6 +14,26 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 /// <param name="Quantity">Piezas (1 a 10).</param>
 /// <param name="NeededBy">"Para cuando la necesitas" (<c>yyyy-MM-dd</c>, de hoy a 60 dias), o <c>null</c>.</param>
 public sealed record CreateWantedRequest(
+    string Title,
+    string Category,
+    string? Description,
+    IReadOnlyList<string>? Features,
+    long? BudgetCents,
+    int? Quantity,
+    DateOnly? NeededBy);
+
+/// <summary>
+/// Editar una solicitud ("Editar solicitud" en <c>Mis-solicitudes</c>, con <c>Necesidad-1…3</c>; HU-14). Lleva todos los
+/// datos, con las mismas reglas que publicar; un dato opcional vacio se quita.
+/// </summary>
+/// <param name="Title">"Producto que buscas" (3 a 80 caracteres). Con ofertas no cambia.</param>
+/// <param name="Category">Slug de una categoria del campus, u <c>otro</c>. Con ofertas no cambia.</param>
+/// <param name="Description">"Cuentanos mas" (opcional, hasta 300).</param>
+/// <param name="Features">"Caracteristicas deseadas" (opcional, hasta 5 de hasta 40).</param>
+/// <param name="BudgetCents">Presupuesto maximo en centavos ($1 a $999,999).</param>
+/// <param name="Quantity">Piezas (1 a 10).</param>
+/// <param name="NeededBy">"Para cuando la necesitas" (<c>yyyy-MM-dd</c>, de hoy a 60 dias), o <c>null</c>.</param>
+public sealed record UpdateWantedRequest(
     string Title,
     string Category,
     string? Description,

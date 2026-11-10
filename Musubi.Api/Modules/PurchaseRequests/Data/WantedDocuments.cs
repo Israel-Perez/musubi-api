@@ -55,7 +55,7 @@ internal sealed class WantedRequestDocument
     /// <summary>Cuando deja de estar activa (RN-10): al terminar <see cref="NeededBy"/> o 30 dias despues de publicarse.</summary>
     public DateTime ExpiresAt { get; init; }
 
-    /// <summary><c>active</c>; HU-14 agrega cerrada y cancelada. Vencida se calcula con <see cref="ExpiresAt"/>.</summary>
+    /// <summary><c>active</c>, <c>closed</c> o <c>cancelled</c> (HU-14). Vencida se calcula con <see cref="ExpiresAt"/>.</summary>
     public string Status { get; init; } = WantedStatuses.Active;
 
     /// <summary>Ofertas recibidas ("Yo tengo este producto", HU-16; <c>$inc</c>).</summary>
