@@ -1,10 +1,11 @@
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
 
 namespace Musubi.TestShared.Listings;
 
 /// <summary>
-/// HU-06: comportamiento esperado de los repositorios de publicaciones. Corre contra los fakes en memoria
+/// HU-06 / HU-07: comportamiento esperado de los repositorios de publicaciones. Corre contra los fakes en memoria
 /// (UnitTest) y contra MongoDB real con db/ aplicado (DatabaseTest). Cada prueba usa una comunidad o un
 /// vendedor propio: la base de Mongo se comparte en la clase.
 /// </summary>
@@ -211,6 +212,116 @@ public abstract class ListingRepositoryContract
         Assert.Empty(await Products.FindBySellerAsync(seller, 10, Ct));
         Assert.Single(await Products.FindBySellerAsync(other, 10, Ct));
         Assert.Equal(0, await Products.DeleteBySellerAsync(seller, Ct));
+    }
+
+    [Fact]
+    public async Task UpdateDetails_OnlyForTheOwner_AndNeverARemovedOne()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller);
+        var removed = NewProduct(community, seller, status: ProductStatuses.Removed);
+        await Products.InsertAsync(product, Ct);
+        await Products.InsertAsync(removed, Ct);
+        var later = Now.AddHours(1);
+        // Pasa de usado a nuevo: el detalle se quita (el $jsonSchema no acepta null).
+        var details = new ProductDetails("Calculadora Casio fx-570", "Como nueva.", "libros", 39_900, ProductConditions.New, null);
+
+        Assert.Null(await Products.UpdateDetailsAsync(product.Id, AuthIds.New(), details, later, Ct));
+        Assert.Null(await Products.UpdateDetailsAsync(removed.Id, seller, details, later, Ct));
+        Assert.Null(await Products.UpdateDetailsAsync("no-es-un-id", seller, details, later, Ct));
+        var updated = await Products.UpdateDetailsAsync(product.Id, seller, details, later, Ct);
+
+        Assert.NotNull(updated);
+        var read = await Products.FindByIdAsync(product.Id, Ct);
+        Assert.Equal("Calculadora Casio fx-570", read!.Title);
+        Assert.Equal("Como nueva.", read.Description);
+        Assert.Equal("libros", read.CategorySlug);
+        Assert.Equal(39_900, read.PriceCents);
+        Assert.Equal(ProductConditions.New, read.Condition);
+        Assert.Null(read.ConditionDetail);
+        Assert.Equal(later, read.UpdatedAt);
+        // Lo que no se edita se queda igual.
+        Assert.Equal(product.Photos, read.Photos);
+        Assert.Equal(product.Stock, read.Stock);
+        Assert.Equal(ProductStatuses.Active, read.Status);
+        Assert.Equal(Now, read.CreatedAt);
+        Assert.Equal(removed.Title, (await Products.FindByIdAsync(removed.Id, Ct))!.Title);
+    }
+
+    [Fact]
+    public async Task UpdateDetails_TheSearchFindsTheNewNameAndNotTheOldOne()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller, title: "Calculadora Casio", description: "La usé un semestre.");
+        await Products.InsertAsync(product, Ct);
+        var details = new ProductDetails("Libro de Biología", "Incluye ejercicios resueltos.", "libros", 30_000, ProductConditions.New, null);
+
+        await Products.UpdateDetailsAsync(product.Id, seller, details, Now, Ct);
+
+        // HU-09: editar recalcula las palabras de la busqueda (searchWords) en la misma operacion.
+        Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "calculadora"), Ct));
+        Assert.Equal(product.Id, Assert.Single(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "biologia"), Ct)).Id);
+        Assert.Equal(product.Id, Assert.Single(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, "ejercicios"), Ct)).Id);
+    }
+
+    [Fact]
+    public async Task Pause_HidesIt_AndResumeDependsOnTheStock()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var withStock = NewProduct(community, seller);
+        var soldOut = NewProduct(community, seller, status: ProductStatuses.SoldOut);
+        await Products.InsertAsync(withStock, Ct);
+        await Products.InsertAsync(soldOut, Ct);
+
+        Assert.Equal(ProductStatuses.Hidden, (await Products.SetPausedAsync(withStock.Id, seller, true, Now, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Hidden, (await Products.SetPausedAsync(withStock.Id, seller, true, Now, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Hidden, (await Products.SetPausedAsync(soldOut.Id, seller, true, Now, Ct))!.Status);
+        Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10), Ct));
+
+        Assert.Equal(ProductStatuses.Active, (await Products.SetPausedAsync(withStock.Id, seller, false, Now, Ct))!.Status);
+        Assert.Equal(ProductStatuses.SoldOut, (await Products.SetPausedAsync(soldOut.Id, seller, false, Now, Ct))!.Status);
+        Assert.Equal(2, await Products.CountAsync(new ProductQuery(community, null, true, null, 10), Ct));
+    }
+
+    [Fact]
+    public async Task Pause_OfSomeoneElsesOrARemovedProduct_ChangesNothing()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller);
+        var removed = NewProduct(community, seller, status: ProductStatuses.Removed);
+        await Products.InsertAsync(product, Ct);
+        await Products.InsertAsync(removed, Ct);
+
+        Assert.Null(await Products.SetPausedAsync(product.Id, AuthIds.New(), true, Now, Ct));
+        Assert.Null(await Products.SetPausedAsync(removed.Id, seller, false, Now, Ct));
+
+        Assert.Equal(ProductStatuses.Active, (await Products.FindByIdAsync(product.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Removed, (await Products.FindByIdAsync(removed.Id, Ct))!.Status);
+    }
+
+    [Fact]
+    public async Task Delete_OnlyTheOwner_AndReturnsThePhotos()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller);
+        var removed = NewProduct(community, seller, status: ProductStatuses.Removed);
+        await Products.InsertAsync(product, Ct);
+        await Products.InsertAsync(removed, Ct);
+
+        Assert.Null(await Products.DeleteAsync(product.Id, AuthIds.New(), Ct));
+        Assert.Null(await Products.DeleteAsync(removed.Id, seller, Ct));
+        Assert.Null(await Products.DeleteAsync("no-es-un-id", seller, Ct));
+        var deleted = await Products.DeleteAsync(product.Id, seller, Ct);
+
+        Assert.Equal(product.Photos, deleted!.Photos);
+        Assert.Null(await Products.FindByIdAsync(product.Id, Ct));
+        Assert.NotNull(await Products.FindByIdAsync(removed.Id, Ct));
+        Assert.Null(await Products.DeleteAsync(product.Id, seller, Ct));
     }
 
     // HU-09: busqueda por palabra clave (indice de texto en espanol, db/007). Las palabras de estos

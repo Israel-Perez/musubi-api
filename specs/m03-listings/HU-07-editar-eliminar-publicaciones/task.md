@@ -1,17 +1,36 @@
 # HU-07 — Editar o eliminar mis publicaciones (tareas)
 
 ## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+- **Qué:** conciliar Jira (SCRUM-24), la maqueta (`Mis-productos`, `Vender-2…4`) y HU-06; definir rutas, errores y datos; completar `spec.md` y `plan.md`.
+- **Verificar:** el usuario aprueba las decisiones D1–D6 de `plan.md`.
+- **Estado:** ✅ Hecho (05-Nov-2026): decisiones D1–D6 aprobadas por el usuario.
 
 ## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+- **Cambiar:** `IProductRepository` (`UpdateDetailsAsync`, `SetPausedAsync`, `DeleteAsync`) en `Mongo*` e `InMemory*`.
+- **Verificar:** casos nuevos de `TestShared/Listings/ListingRepositoryContract.cs` en `UnitTest` (en memoria) y `DatabaseTest` (MongoDB real, en el CI).
+- **Sin script en `db/`:** el `$jsonSchema` de `products` ya acepta `hidden`.
+- **Estado:** ✅ Hecho (05-Nov-2026): 4 casos nuevos en la batería; en memoria en verde, en MongoDB real en el job `database` del CI.
 
 ## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
+- **Crear:** `ProductRules`, `MyListingsService`, `MyProductsController`, `UpdateProductRequest` y `ListingsErrors.ProductNotFound`.
+- **Verificar:** `UnitTest/Listings/MyListingsServiceTests.cs` (10), `IntegrationTest/Listings/MyListingsFlowTests.cs` (5), `SecurityTest/Auth/MyListingsAuthTests.cs` (17) y `ContractTest/ListingsContractTests.cs` (amplía la prueba existente).
+- **Estado:** ✅ Hecho (05-Nov-2026). Mutaciones comprobadas: sin el dueño en el filtro → 4 Security y 5 Unit en rojo; otra etiqueta de caché → 3 Integration en rojo.
+
+## T4 — Documentación y versión
+- **Actualizar:** `docs/endpoints.md` (4 filas y el total), `docs/errores.md`, `docs/modelo-datos.md` (uso de `products`), `docs/versionado.md` + `<Version>`, la fila de HU-07 en `docs/trazabilidad.md` y `Memoria.md`.
+- **Estado:** ✅ Hecho (09-Nov-2026): `0.5.0-alpha.12`, tras fusionar main (HU-09 a HU-17).
+
+## T6 — Fotos que una oferta sigue mostrando (09-Nov-2026)
+- **Qué:** al eliminar, no se borra la foto que copió una oferta vinculada (HU-16). Decisión del usuario.
+- **Crear:** `IListingPhotoReferences`, `OfferPhotoReferences` y `IOfferRepository.FindPhotoKeysInUseAsync`.
+- **Verificar:** `Delete_KeepsThePhotosThatAnOfferStillShows` (Unit), `Delete_KeepsTheCoverThatALinkedOfferStillShows` (Integration) y `PhotoKeysInUse_OnlyAmongThatSellersOffers` (batería de ofertas, también en MongoDB real). Mutación: ignorar las fotos en uso → 1 Unit y 1 Integration en rojo.
+- **Estado:** ✅ Hecho.
+
+## T5 — Revisión y PR
+- **Qué:** build, suites, critic, `check_endpoints`, `check_shared_sections`, Semgrep, `security-reviewer`, `traceability-clerk`; PR con la plantilla; Jira a "En revisión".
 - **Estado:** ⏳ Por hacer.
 
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+## Pendientes
+- `NOTE (HU-18)`: volver a buscar coincidencias cuando cambian el nombre, la categoría, el precio o la descripción (RF-08).
+- `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
+- `NOTE (02-05)`: fotos huérfanas si S3 falla a medias al eliminar (regla de ciclo de vida del bucket).

@@ -36,6 +36,24 @@ public sealed record CreateProductRequest(
     [Required] int? Stock,
     [Required, MaxLength(20)] IReadOnlyList<string> Photos);
 
+/// <summary>
+/// Editar una publicacion (maqueta <c>Vender-2…4</c> con el titulo "Editar publicacion", HU-07). Lleva todos
+/// los campos editables; las fotos y las piezas no se cambian aqui (HU-50).
+/// </summary>
+/// <param name="Title">Nombre del producto (3 a 80).</param>
+/// <param name="Description">Descripcion (hasta 500; opcional).</param>
+/// <param name="Category">Slug de la categoria.</param>
+/// <param name="PriceCents">Precio en centavos (mayor que cero).</param>
+/// <param name="Condition"><c>new</c> o <c>used</c>.</param>
+/// <param name="ConditionDetail">Solo usado: <c>likeNew</c>, <c>good</c> o <c>fair</c>.</param>
+public sealed record UpdateProductRequest(
+    [Required, MaxLength(200)] string Title,
+    [MaxLength(2000)] string? Description,
+    [Required, MaxLength(40)] string Category,
+    [Required] long? PriceCents,
+    [Required, MaxLength(10)] string Condition,
+    [MaxLength(10)] string? ConditionDetail);
+
 /// <summary>Vendedor visible en la publicacion (solo con sesion; RNF-05).</summary>
 /// <param name="Name">Nombre corto ("Ana R.").</param>
 public sealed record SellerResponse(string Name);

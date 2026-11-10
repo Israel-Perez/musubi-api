@@ -27,7 +27,7 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
 | GET | /media/{**path} | `[AllowAnonymous]` | HU-06 | — | La imagen (`image/webp`) guardada en memoria | 200 / 404 `resource.not_found` | Solo Development (`Media:Provider=InMemory`). En la nube CloudFront sirve `/media/*` desde S3 y la API responde 404 |
 
-Total: 28 filas (4 de plataforma, 24 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+Total: 54 filas (4 de plataforma, 50 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
 
 ## M-01 · Autenticación y usuarios
 
@@ -65,7 +65,7 @@ Con sesión. Las rutas de escritura no llevan id: solo se edita el perfil del to
 
 ## M-03 · Publicaciones
 
-Con sesión salvo la vitrina y las categorías, que son públicas (HU-48). Las fotos se suben primero y la publicación lleva sus llaves; solo se aceptan llaves que subió el mismo usuario (OWASP API1). Las rutas de imagen (`/media/...`) son relativas a la URL base de la API. Errores del catálogo [`docs/errores.md`](errores.md).
+Con sesión salvo la vitrina y las categorías, que son públicas (HU-48). Las fotos se suben primero y la publicación lleva sus llaves; solo se aceptan llaves que subió el mismo usuario (OWASP API1). Solo el dueño edita, pausa, reactiva o elimina; para cualquier otra persona responde `404 listings.product_not_found`, igual que si no existiera (HU-07, RNF-03, OWASP API1). Cada escritura borra la vitrina de la caché de salida. Las rutas de imagen (`/media/...`) son relativas a la URL base de la API. Errores del catálogo [`docs/errores.md`](errores.md).
 
 | Método | Ruta | Auth | Spec | Request | Response | Códigos | Consumidor |
 |---|---|---|---|---|---|---|---|
@@ -76,6 +76,10 @@ Con sesión salvo la vitrina y las categorías, que son públicas (HU-48). Las f
 | GET | /api/v1/products/price-range | `[Authorize]` | HU-06 | `?category=` | `PriceRangeResponse { lowCents, highCents, count }` (percentiles 25 y 75 de las activas de la categoría) | 200 / 204 (menos de 3 publicaciones) / 401 | `musubi-app` HU-06 (`Vender-3`: "Productos parecidos se venden entre…") |
 | POST | /api/v1/products | `[Authorize]` | HU-06, HU-50 | `CreateProductRequest { title, description, category, priceCents, condition, conditionDetail, stock, photos[] }` | `ProductResponse { id, title, description, category, priceCents, condition, conditionDetail, stock, status, photos[], seller { name }, publishedAt }` | 201 / 400 `listings.invalid_photos` · `listings.invalid_title` · `listings.invalid_description` · `listings.invalid_price` · `listings.invalid_category` · `listings.invalid_condition` · `listings.invalid_stock` · `validation.failed` / 401 / 403 `auth.forbidden` / 422 `moderation.text_rejected` / 503 `moderation.unavailable` | `musubi-app` HU-06 (`Vender-4` → `Vender-listo`) |
 | POST | /api/v1/products/photos | `[Authorize]` + rate limit `uploads` (30/min por usuario) | HU-06 | `multipart/form-data` con `photo` (JPG, PNG o WebP; hasta 10 MB) | `PhotoResponse { key, path }`; la foto se guarda en WebP de 1600 px como máximo y sin metadatos | 201 / 401 / 413 `listings.photo_too_large` · `request.too_large` / 415 `listings.photo_unsupported` / 422 `listings.photo_too_small` · `moderation.image_rejected` / 429 / 503 `moderation.unavailable` | `musubi-app` HU-06 (`Vender-1`: "Tomar foto" y "Galería") |
+| PUT | /api/v1/products/{id} | `[Authorize]` | HU-07 | `UpdateProductRequest { title, description, category, priceCents, condition, conditionDetail }` (todos los campos editables, con las reglas de publicar; las fotos y las piezas no se cambian aquí) | `ProductResponse` con los cambios; solo se modera el texto que cambió | 200 / 400 `listings.invalid_title` · `listings.invalid_description` · `listings.invalid_price` · `listings.invalid_category` · `listings.invalid_condition` · `validation.failed` / 401 / 403 `auth.forbidden` / 404 `listings.product_not_found` / 413 `request.too_large` (cuerpo de más de 16 KB) / 422 `moderation.text_rejected` / 503 `moderation.unavailable` | `musubi-app` HU-07 (`Mis-productos` → "Editar": `Vender-2…4` con el título "Editar publicación") |
+| POST | /api/v1/products/{id}/pause | `[Authorize]` | HU-07 | — | `ProductResponse` con `status: hidden` (sale de la vitrina y del chat; sigue en "Mis productos"); idempotente | 200 / 401 / 403 `auth.forbidden` / 404 `listings.product_not_found` | `musubi-app` HU-07 (`Mis-productos`, si la app agrega "Pausar") |
+| POST | /api/v1/products/{id}/resume | `[Authorize]` | HU-07 | — | `ProductResponse` con `status: active`, o `soldOut` si no tiene piezas; idempotente | 200 / 401 / 403 `auth.forbidden` / 404 `listings.product_not_found` | `musubi-app` HU-07 (`Mis-productos`, si la app agrega "Reactivar") |
+| DELETE | /api/v1/products/{id} | `[Authorize]` | HU-07 | — | — (borrado real de la publicación y de sus fotos, salvo la portada que muestra una oferta vinculada; una conversación sobre ella muestra `available: false`) | 204 / 401 / 403 `auth.forbidden` / 404 `listings.product_not_found` | `musubi-app` HU-07 (`Mis-productos` → "Eliminar": "Ya no aparecerá en Musubi. Esta acción no se puede deshacer.") |
 
 ## M-07 · Chat
 

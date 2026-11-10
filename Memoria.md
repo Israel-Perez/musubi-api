@@ -15,8 +15,38 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
-- **Pendiente con dueño:** `feature/SCRUM-24-editar-eliminar-publicaciones` (HU-07, Kazumi) tiene conflictos. Al editar hay que recalcular `searchWords` (HU-09). No se toca sin el OK del usuario.
+- **En curso (09-Nov-2026):** HU-07 (editar o eliminar mis publicaciones), API `0.5.0-alpha.12` en `feature/SCRUM-24-editar-eliminar-publicaciones`, ya con main fusionado; editar recalcula `searchWords` (HU-09). Falta la app.
 
+## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
+
+**Qué se hizo**
+- `MyProductsController` con 4 rutas: `PUT /products/{id}`, `POST /products/{id}/pause`, `POST /products/{id}/resume` y `DELETE /products/{id}`.
+- `MyListingsService`, y `ProductRules`, que reúne las reglas que comparten publicar y editar.
+- `IProductRepository`: `UpdateDetailsAsync`, `SetPausedAsync` y `DeleteAsync`, en Mongo y en memoria.
+- Reutiliza `listings.product_not_found` (HU-11). Sin script en `db/`: el esquema ya aceptaba `hidden`.
+- API `0.5.0-alpha.12`. Conteos al final de la fusión con main (ver el PR).
+
+**Decisiones (con su porqué)** (aprobadas por el usuario)
+- **`PUT` con los campos editables completos:** la app ya los tiene de "Mis productos", y no hay que adivinar qué significa un `null`.
+- **Al eliminar no se borra la foto que copió una oferta vinculada (HU-16)** (usuario, 09-Nov-2026): Listings pregunta con `IListingPhotoReferences` y las ofertas responden (índice `ix_seller`, sin script).
+- **Eliminar es borrado real, con las fotos de S3 (una por llave):** la maqueta dice "no se puede deshacer". El chat ya muestra `available: false` y el pedido guardará su copia (HU-23).
+- **Las fotos y las piezas no se editan:** la maqueta no muestra `Vender-1`, y "Reponer" es de HU-50. Así la edición no pisa el descuento atómico de un pedido (R7).
+- **Pausar entra en la API aunque la maqueta no lo tenga:** `hidden` ya existía; la app decide si lo muestra.
+- **El dueño va en el filtro de cada escritura** (`_id` + `sellerId` + no quitada) y otra persona recibe 404 (OWASP API1).
+- **Solo se modera el texto que cambió:** el texto que no cambió ya se moderó al publicar.
+
+**Errores a evitar**
+- **Una mutación que no compila "pasa":** `x.Length >= 0` (siempre verdadero), un método que deja de usar la instancia (CA1822/S2325) y un `using` sin usar (IDE0005) rompen el build, y `--no-build` corre los binarios viejos. Las mutaciones que sí mordieron: `!string.IsNullOrEmpty(sellerId)` en el filtro del dueño (4 Security y 5 Unit en rojo) y otra etiqueta en `EvictByTagAsync` (3 Integration en rojo).
+- **`ProductDocument` es inmutable (`init`):** el repositorio en memoria reemplaza el documento, como Mongo con `ReturnDocument.After`.
+- **Reactivar sin leer antes:** update con pipeline (`$cond` sobre `$stock`) para decidir entre `active` y `soldOut` en la misma operación.
+- **En un producto nuevo, `conditionDetail` se quita con `$unset`:** el `$jsonSchema` no acepta `null`.
+- **TestServer no aplica `[RequestSizeLimit]`:** lee el cuerpo completo (no tiene `IHttpMaxRequestBodySizeFeature`), y la prueba llegó hasta la moderación. El tope se verifica por reflexión; en la nube lo aplica Kestrel.
+- **`docs/endpoints.md` decía "28 filas" y había 33:** al sumar filas, recalcula el total con `check_endpoints`.
+
+**Pendientes con dueño**
+- `NOTE (HU-18)`: volver a buscar coincidencias al editar el nombre, la categoría, el precio o la descripción (RF-08).
+- `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
+- `NOTE (02-05)`: fotos de una publicación eliminada que quedan en S3 si el borrado falla a medias. La regla de ciclo de vida del bucket (pendiente desde HU-06 para las fotos que nunca se publican) debe cubrir también este caso.
 ## T33 — Ver y elegir ofertas (09-Nov-2026, SCRUM-39, HU-17)
 
 **Qué se hizo**

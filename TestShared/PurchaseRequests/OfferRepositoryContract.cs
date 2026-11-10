@@ -117,4 +117,36 @@ public abstract class OfferRepositoryContract
         Assert.Null(await Offers.FindByIdAsync("no-es-un-id", Ct));
         Assert.Null(await Offers.FindByIdAsync(AuthIds.New(), Ct));
     }
+
+    [Fact]
+    public async Task PhotoKeysInUse_OnlyAmongThatSellersOffers()
+    {
+        var seller = AuthIds.New();
+        var cover = $"media/products/{seller}/{Guid.NewGuid():N}.webp";
+        var unused = $"media/products/{seller}/{Guid.NewGuid():N}.webp";
+        var linked = new OfferDocument
+        {
+            Id = AuthIds.New(),
+            CommunityId = AuthIds.New(),
+            RequestId = AuthIds.New(),
+            RequesterId = AuthIds.New(),
+            SellerId = seller,
+            SellerName = "Ana R.",
+            Kind = OfferKinds.Listing,
+            ProductId = AuthIds.New(),
+            Title = "Calculadora Casio fx-991ES Plus",
+            PriceCents = 45_000,
+            Condition = "used",
+            PhotoKey = cover,
+            CreatedAt = Now,
+            UpdatedAt = Now,
+        };
+        Assert.True(await Offers.TryInsertAsync(linked, Ct));
+
+        // HU-07: la portada que copio una oferta del vendedor sigue en uso; otra persona o una llave sin oferta, no.
+        Assert.Equal([cover], await Offers.FindPhotoKeysInUseAsync(seller, [cover, unused], Ct));
+        Assert.Empty(await Offers.FindPhotoKeysInUseAsync(AuthIds.New(), [cover], Ct));
+        Assert.Empty(await Offers.FindPhotoKeysInUseAsync(seller, [], Ct));
+        Assert.Empty(await Offers.FindPhotoKeysInUseAsync("no-es-un-id", [cover], Ct));
+    }
 }

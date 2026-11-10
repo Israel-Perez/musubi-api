@@ -56,7 +56,8 @@ internal static class ListingsErrors
 
     /// <summary>
     /// La publicacion no existe, se quito, esta pausada (para quien no es su dueno) o es de otro campus
-    /// (con sesion). Misma respuesta en todos los casos: no se revela cual (OWASP API1).
+    /// (con sesion). Tambien al editar, pausar, reactivar o eliminar una publicacion ajena (HU-07). Misma
+    /// respuesta en todos los casos: no se revela cual (OWASP API1).
     /// </summary>
     public static readonly ApiError ProductNotFound = new(
         "listings.product_not_found", StatusCodes.Status404NotFound, "Esta publicación ya no está disponible.");

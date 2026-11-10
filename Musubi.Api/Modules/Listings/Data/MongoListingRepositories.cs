@@ -65,6 +65,62 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         products.CountDocumentsAsync(Showcase(query), cancellationToken: cancellationToken);
 
     /// <inheritdoc />
+    public async Task<ProductDocument?> UpdateDetailsAsync(string id, string sellerId, ProductDetails details, DateTime now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return null;
+        }
+
+        var update = Builders<ProductDocument>.Update
+            .Set(p => p.Title, details.Title)
+            .Set(p => p.Description, details.Description)
+            .Set(p => p.CategorySlug, details.CategorySlug)
+            .Set(p => p.PriceCents, details.PriceCents)
+            .Set(p => p.Condition, details.Condition)
+            .Set(p => p.UpdatedAt, now)
+            // HU-09: las palabras de la busqueda salen del nombre y la descripcion; sin esto, la busqueda
+            // seguiria encontrando el nombre viejo. El documento las calcula al insertar, no al actualizar.
+            .Set(p => p.SearchWords, SearchWord.Words($"{details.Title} {details.Description}"));
+        // El $jsonSchema no acepta null: en un producto nuevo el detalle se quita.
+        update = details.ConditionDetail is { } detail
+            ? update.Set(p => p.ConditionDetail, detail)
+            : update.Unset(p => p.ConditionDetail);
+        return await products.FindOneAndUpdateAsync(
+            OwnedBy(id, sellerId),
+            update,
+            new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ProductDocument?> SetPausedAsync(string id, string sellerId, bool paused, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return null;
+        }
+
+        // Reactivar decide active/soldOut con las piezas del mismo documento (update con pipeline): sin leer antes.
+        BsonValue status = paused
+            ? ProductStatuses.Hidden
+            : new BsonDocument("$cond", new BsonArray { new BsonDocument("$gt", new BsonArray { "$stock", 0 }), ProductStatuses.Active, ProductStatuses.SoldOut });
+        var stage = new BsonDocument("$set", new BsonDocument { { "status", status }, { "updatedAt", new BsonDateTime(now) } });
+        return await products.FindOneAndUpdateAsync(
+            OwnedBy(id, sellerId),
+            new PipelineUpdateDefinition<ProductDocument>(new BsonDocumentStagePipelineDefinition<ProductDocument, ProductDocument>([stage])),
+            new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await products.FindOneAndDeleteAsync(OwnedBy(id, sellerId), cancellationToken: cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
     public async Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)
     {
         var result = await products.DeleteManyAsync(p => p.SellerId == sellerId, cancellationToken).ConfigureAwait(false);
@@ -89,6 +145,10 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .ToListAsync(cancellationToken).ConfigureAwait(false);
         return prices.ToList();
     }
+
+    // El dueno en el filtro de cada escritura (OWASP API1): nunca se lee y despues se escribe.
+    private static FilterDefinition<ProductDocument> OwnedBy(string id, string sellerId) =>
+        Filter.Eq(p => p.Id, id) & Filter.Eq(p => p.SellerId, sellerId) & Filter.Ne(p => p.Status, ProductStatuses.Removed);
 
     private static FilterDefinition<ProductDocument> Showcase(ProductQuery query)
     {
