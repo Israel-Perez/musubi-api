@@ -14,6 +14,7 @@ namespace UnitTest.Listings;
 /// <summary>
 /// HU-07: reglas de editar, pausar, reactivar y eliminar que el flujo HTTP no deja ver (que textos se moderan,
 /// cuantas veces se borra la vitrina de la cache, que fotos se borran y la cuenta no activa).
+/// HU-08: marcar como vendida (R4), y una vendida no se edita, no se pausa ni se reactiva (R5).
 /// </summary>
 public sealed class MyListingsServiceTests
 {
@@ -232,6 +233,7 @@ public sealed class MyListingsServiceTests
     [Fact]
     public async Task MarkSold_EvictsTheShowcase_AndIsIdempotent()
     {
+        // HU-08 R4.
         var seller = await MemberAsync();
         var product = await ProductAsync(seller);
 
@@ -247,6 +249,7 @@ public sealed class MyListingsServiceTests
     [Fact]
     public async Task ASoldProduct_IsNotEditedPausedOrResumed_ButCanBeDeleted()
     {
+        // HU-08 R5.
         var seller = await MemberAsync();
         var product = await ProductAsync(seller);
         await service.MarkSoldAsync(seller, product.Id, Ct);
@@ -261,6 +264,7 @@ public sealed class MyListingsServiceTests
     [Fact]
     public async Task SomeoneElse_CannotMarkItSold_EvenIfItIsAlreadySold()
     {
+        // HU-08 R4, RNF-03.
         var seller = await MemberAsync();
         var product = await ProductAsync(seller);
         var outsider = await MemberAsync();

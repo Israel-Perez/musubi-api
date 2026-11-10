@@ -142,6 +142,29 @@ public sealed class MyProductsTabsFlowTests(AuthApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task ASoldProduct_CannotStartAChat_NorBeOffered()
+    {
+        // HU-08 R4: una vendida sale del chat (HU-20) y de las ofertas (HU-16).
+        var (seller, _) = await SignedInAsync();
+        var (buyer, _) = await SignedInAsync();
+        using var sellerClient = seller;
+        using var buyerClient = buyer;
+        var id = await PublishAsync(sellerClient, "Calculadora Casio fx-82");
+        var wanted = await buyerClient.PostAsJsonAsync(
+            new Uri("/api/v1/wanted", UriKind.Relative),
+            new { title = "Calculadora científica", category = "calculadoras", budgetCents = 50_000, quantity = 1 },
+            Ct);
+        var requestId = (await AuthFlow.JsonAsync(wanted)).GetProperty("id").GetString();
+        await sellerClient.PostAsync(new Uri($"/api/v1/products/{id}/sold", UriKind.Relative), null, Ct);
+
+        var chat = await buyerClient.PostAsJsonAsync(new Uri("/api/v1/conversations", UriKind.Relative), new { productId = id }, Ct);
+        var offer = await sellerClient.PutAsJsonAsync(new Uri($"/api/v1/wanted/{requestId}/offers/mine", UriKind.Relative), new { productId = id }, Ct);
+
+        await AuthFlow.AssertCodeAsync(chat, HttpStatusCode.NotFound, "chat.product_unavailable");
+        await AuthFlow.AssertCodeAsync(offer, HttpStatusCode.BadRequest, "offers.product_unavailable");
+    }
+
+    [Fact]
     public async Task Mine_PagesWithACursor_AndRejectsAnUnknownTab()
     {
         var (seller, _) = await SignedInAsync();

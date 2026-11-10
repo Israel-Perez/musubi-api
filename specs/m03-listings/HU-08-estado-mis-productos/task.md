@@ -13,7 +13,7 @@
 
 ## T3 — Servicio y rutas
 - **Cambiar:** `ListingService.MineAsync` y el detalle; `MyListingsService.MarkSoldAsync`; `GET /products/mine`; `POST /products/{id}/sold`.
-- **Verificar:** `MyListingsServiceTests` (+3), `MyProductsTabsFlowTests` (3), `MyListingsAuthTests` (+5) y `ListingsContractTests` (fixture `my-product-page.json` y `soldAt` en `product.json`).
+- **Verificar:** `MyListingsServiceTests` (+3), `MyProductsTabsFlowTests` (4), `MyListingsAuthTests` (+8) y `ListingsContractTests` (fixture `my-product-page.json` y `soldAt` en `product.json`).
 - **Estado:** ✅ Hecho (09-Nov-2026).
 
 ## T4 — Documentación y versión

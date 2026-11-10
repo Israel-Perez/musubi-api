@@ -180,4 +180,29 @@ public sealed class MyListingsAuthTests(ProductionApiFactory production) : IClas
         Assert.Equal(HttpStatusCode.OK, asOwner.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, asOutsider.StatusCode);
     }
+
+    public static TheoryData<string, string> ChangesOfASoldProduct() => new()
+    {
+        { "PUT", "/api/v1/products/{0}" },
+        { "POST", "/api/v1/products/{0}/pause" },
+        { "POST", "/api/v1/products/{0}/resume" },
+    };
+
+    [Theory]
+    [MemberData(nameof(ChangesOfASoldProduct))]
+    public async Task SomeoneElse_OnASoldProduct_Gets404_Not409(string method, string path)
+    {
+        // HU-08: el 409 listings.product_sold es solo para el dueno; a otra persona no le revela que existe.
+        var seller = await MemberAsync();
+        var product = await ProductOfAsync(seller);
+        using var owner = ClientFor(seller);
+        Assert.Equal(HttpStatusCode.OK, (await owner.PostAsync(new Uri($"/api/v1/products/{product.Id}/sold", UriKind.Relative), null, Ct)).StatusCode);
+        using var outsider = ClientFor(await MemberAsync());
+        using var request = Request(method, path, product.Id);
+
+        var response = await outsider.SendAsync(request, Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("listings.product_not_found", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
 }

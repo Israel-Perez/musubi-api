@@ -69,11 +69,11 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - `ContractTest/ListingsContractTests.cs`: `MyProductPage` (fixture nuevo `my-product-page.json`) y `product.json` con `soldAt`.
 
 ## Criterios
-- [x] Pestañas y conteos (RF-10, RF-11): `MyProductsTabsFlowTests` (3) y la batería del repositorio (`BySeller_ByStatus_PagesWithACursor`, `CountBySeller_GroupsByStatus_WithoutRemoved`) en verde.
-- [x] Marcar como vendido solo por el dueño (RNF-03): `MyListingsAuthTests` (la ruta `sold` en las 4 teorías y `ASoldProduct_IsOnlyVisibleToItsOwner`) en verde.
+- [x] Pestañas y conteos (RF-10, RF-11): `MyProductsTabsFlowTests` (4, también la vendida fuera del chat y de las ofertas) y la batería del repositorio (`BySeller_ByStatus_PagesWithACursor`, `CountBySeller_GroupsByStatus_WithoutRemoved`) en verde.
+- [x] Marcar como vendido solo por el dueño (RNF-03): `MyListingsAuthTests` (la ruta `sold` en las 4 teorías, `ASoldProduct_IsOnlyVisibleToItsOwner` y `SomeoneElse_OnASoldProduct_Gets404_Not409`) en verde.
 - [x] Una vendida no vuelve a la vitrina por pausar o reactivar: `ASoldProduct_IsNotEditedPausedOrResumed_ButCanBeDeleted` y `MarkSold_OnlyTheOwner_KeepsTheFirstDate_AndThenItCannotBeEditedOrPaused` en verde. Mutación: permitir pausar una vendida o quitar la vendida del detalle del dueño → 3 Unit, 1 Integration y 2 Security en rojo.
 - [x] RN-05 y "Reservada" quedan con `NOTE (HU-23)` y `NOTE (HU-52)` en el código, esta spec, `task.md` y `Memoria.md` (T35).
-- [x] Build Release 0/0 · Unit 373 · Integration 138 · Security 129 · Contract 13 (100 %) · `check_endpoints` OK (55) · `check_shared_sections` OK · critic PASS. `db/013` probado contra un `mongod` 8 temporal (dos veces; acepta `sold`, rechaza un estado desconocido). `DatabaseTest` en el CI.
+- [x] Build Release 0/0 · Unit 373 · Integration 139 · Security 132 · Contract 13 (100 %) · `check_endpoints` OK (55) · `check_shared_sections` OK · critic PASS. `db/013` probado contra un `mongod` 8 temporal (dos veces; acepta `sold`, rechaza un estado desconocido). `DatabaseTest` en el CI.
 
 ## Límites
 - **"Reservada":** llega con los apartados y los pedidos. `NOTE (HU-52)`, `NOTE (HU-23)`.

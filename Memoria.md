@@ -25,7 +25,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `POST /products/{id}/sold` ("Marcar como vendido"): estado `sold` y `soldAt`. `ProductResponse` agrega `soldAt`.
 - `db/013-publicacion-vendida.js` (esquema 13): repite el validador de `products` con `sold` y `soldAt`.
 - Errores nuevos: `listings.product_sold` (409) y `listings.invalid_tab` (400).
-- API `0.5.0-alpha.13`. Unit 373 · Integration 138 · Security 129 · Contract 13 · endpoints 55.
+- API `0.5.0-alpha.13`. Unit 373 · Integration 139 · Security 132 · Contract 13 · endpoints 55.
 
 **Decisiones (con su porqué)** (de la usuaria, 09-Nov-2026)
 - **Manda la maqueta sobre Jira:** pestañas Activos (disponibles y pausadas), Vendidos y Agotados. "Reservada" llega con HU-52/HU-23.
@@ -42,6 +42,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-23)`: vender sola al completar pedidos y llegar a 0 piezas (RN-05).
 - `NOTE (HU-52)`: estado "Reservada".
 - `NOTE (HU-25)`: en Vendidos, el comprador y el monto real del pedido.
+- Se cierra `NOTE (HU-08)` de HU-06 (paginar "Mis productos"): ya pagina con cursor.
 
 ## T34 — Editar o eliminar mis publicaciones (05-Nov-2026, SCRUM-24, HU-07)
 

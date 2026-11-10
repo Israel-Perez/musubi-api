@@ -24,6 +24,6 @@
 
 ## Pendientes
 - `NOTE (HU-18)`: coincidencias con solicitudes al publicar (RF-23).
-- `NOTE (HU-08)`: paginar "Mis productos".
+- ~~`NOTE (HU-08)`: paginar "Mis productos".~~ Resuelto por HU-08 (cursor y pestañas, 09-Nov-2026).
 - `NOTE (02-07)`: moderación de imágenes y texto.
 - `NOTE (02-05)`: regla de ciclo de vida del bucket para fotos que nunca se publicaron.

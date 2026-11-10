@@ -47,7 +47,7 @@ Esta spec incluye la lectura pública del catálogo (fase 2 de HU-48) y la canti
 - **Infraestructura:** `user-data` pasa `Media__Provider`, `Media__Bucket` y `Media__Region`. El rol de la instancia ya podía escribir en el bucket.
 - **Pendientes:**
   - `NOTE (HU-18)`: avisar en segundo plano a las solicitudes que coincidan (RF-23);
-  - `NOTE (HU-08)`: paginar "Mis productos" pasando de 50;
+  - ~~`NOTE (HU-08)`: paginar "Mis productos" pasando de 50~~: resuelto por HU-08 (cursor y pestañas, 09-Nov-2026);
   - moderación de imágenes y texto con 02-07;
   - fotos subidas que nunca se publican: regla de ciclo de vida del bucket con 02-05.
 
