@@ -1,0 +1,28 @@
+{
+  "id": "6716a00000000000000000b1",
+  "conversationId": "6716a00000000000000000c1",
+  "revision": 1,
+  "status": "proposed",
+  "role": "buyer",
+  "requestedBy": "buyer",
+  "buyer": { "id": "6716a0000000000000000002", "name": "Ana Sofía Ramírez" },
+  "seller": { "id": "6716a0000000000000000001", "name": "Diego Hernández" },
+  "proposal": {
+    "title": "Calculadora científica Casio fx-991ES Plus",
+    "priceCents": 45000,
+    "quantity": 1,
+    "meetingPoint": "biblioteca",
+    "pointName": "Biblioteca",
+    "meetingDetail": null,
+    "deliveryAt": "2026-11-11T19:00:00Z",
+    "conditions": null
+  },
+  "notIdentified": [],
+  "missing": [],
+  "maxQuantity": 2,
+  "buyerConfirmedAt": null,
+  "sellerConfirmedAt": null,
+  "createdAt": "2026-11-10T18:00:00Z",
+  "updatedAt": "2026-11-10T18:00:00Z",
+  "expiresAt": "2026-12-10T18:00:00Z"
+}

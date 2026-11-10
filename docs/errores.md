@@ -36,7 +36,7 @@ Cada error es `application/problem+json` (RFC 9457):
 | `resource.conflict` | 409 | La información cambió o ya existe. Actualiza e inténtalo de nuevo. | Concurrencia optimista o duplicado genérico |
 | `request.too_large` | 413 | El archivo o los datos son demasiado grandes. | Cuerpo de más de 10 MB (Kestrel) |
 | `request.unprocessable` | 422 | No se pudo completar la operación. | Regla de negocio genérica |
-| `rate_limit.exceeded` | 429 | Demasiados intentos. Espera un momento e inténtalo de nuevo. | Rate limit (por ahora en `/auth/*`) |
+| `rate_limit.exceeded` | 429 | Demasiados intentos. Espera un momento e inténtalo de nuevo. | Rate limit (`/auth/*`, mensajes del chat y "Resumir acuerdo") |
 | `server.error` | 500 | Ocurrió un error inesperado. Inténtalo más tarde. | Excepción no controlada |
 | `server.unavailable` | 503 | El servicio no está disponible por ahora. Inténtalo en unos minutos. | Dependencia caída |
 
@@ -164,3 +164,28 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `orders.invalid_payment` | 400 | Elige cómo quieres pagar. | HU-23 (forma que no es `cash` ni `transfer`) |
 | `orders.payment_unavailable` | 409 | Quien vende aún no registra su cuenta. Por ahora paga en efectivo al recibir. | HU-23 (transferencia antes de HU-55, D-01) |
 | `orders.invalid_conversation` | 400 | No pudimos cargar el pedido. Vuelve a abrir el chat. | HU-23 (`GET /orders` sin `conversationId` o con uno que no es un id) |
+| `orders.agreement_not_found` | 404 | Este acuerdo ya no existe. Pide otro resumen en el chat. | HU-34 (crear el pedido con un acuerdo inexistente, vencido, ya usado o ajeno) |
+| `orders.agreement_not_confirmed` | 409 | Los dos tienen que confirmar el acuerdo antes de crear el pedido. | HU-34 (RN-41) |
+
+## M-10 · IA generativa (`Modules/GenAi/AgreementsErrors.cs`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `genai.unavailable` | 503 | La IA no está disponible ahora. Llena el resumen a mano o inténtalo más tarde. | HU-32 (RNF-15: sin proveedor, sin red, cuota excedida o respuesta con otra forma; la app abre el resumen sin IA) |
+| `agreements.not_found` | 404 | Este acuerdo ya no existe. Pide otro resumen en el chat. | HU-34 (inexistente, vencido, descartado o ajeno: no revela cuál, OWASP API1) |
+| `agreements.conversation_not_found` | 404 | No encontramos esta conversación. | HU-32 (conversación inexistente o ajena, RN-22) |
+| `agreements.invalid_conversation` | 400 | No pudimos leer la conversación. Vuelve a abrir el chat. | HU-32 (sin `conversationId` o con uno que no es un id) |
+| `agreements.blocked` | 403 | No puedes hacer un acuerdo con esta persona. | HU-57 (bloqueo en cualquier dirección) |
+| `agreements.order_open` | 409 | Esta conversación ya tiene un pedido abierto. | HU-32 (ya hay uno pendiente o confirmado) |
+| `agreements.product_unavailable` | 409 | Esta publicación ya no está disponible. | HU-33 (publicación pausada, agotada o quitada, u oferta no aceptada) |
+| `agreements.nothing_to_summarize` | 422 | Todavía no hay mensajes que resumir. Platiquen primero el trato. | HU-32 (sin mensajes de texto: no se llama a la IA) |
+| `agreements.changed` | 409 | El acuerdo cambió. Revísalo de nuevo antes de confirmarlo. | HU-34 (RN-41: se confirma o se corrige la versión que se vio) |
+| `agreements.invalid_revision` | 400 | No pudimos leer el acuerdo. Vuelve a abrirlo. | HU-34 (sin `revision`) |
+| `agreements.incomplete` | 422 | Completa los datos que faltan antes de confirmar. | HU-34 (RN-42: algo sigue "No identificado") |
+| `agreements.invalid_title` | 400 | Escribe el producto en hasta 80 caracteres. | HU-34 |
+| `agreements.invalid_price` | 400 | Escribe un precio de $1 a $999,999. | HU-34 |
+| `agreements.invalid_quantity` | 400 | Elige una cantidad de 1 a lo disponible. | HU-34 (RN-17) |
+| `agreements.invalid_meeting_point` | 400 | Elige un punto de entrega del campus. | HU-34 |
+| `agreements.invalid_detail` | 400 | El detalle del lugar puede tener hasta 120 caracteres. | HU-34 |
+| `agreements.invalid_delivery_time` | 400 | Elige una fecha de hoy a 14 días, entre las 7:00 y las 21:00. | HU-34 (también al confirmar si la fecha ya pasó) |
+| `agreements.invalid_conditions` | 400 | Las condiciones pueden tener hasta 200 caracteres. | HU-34 |

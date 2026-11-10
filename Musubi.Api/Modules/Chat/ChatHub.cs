@@ -22,7 +22,17 @@ internal sealed class ChatHub : Hub
 
     /// <summary>Evento con un <see cref="MessageResponse"/> nuevo.</summary>
     public const string MessageCreated = "messageCreated";
+
+    /// <summary>
+    /// Evento con <c>{ conversationId }</c>: el acuerdo de esa conversacion cambio (HU-34: se pidio, se edito, se
+    /// confirmo, se descarto o ya es pedido). La app vuelve a leerlo; el evento no lleva datos del acuerdo.
+    /// </summary>
+    public const string AgreementChanged = "agreementChanged";
 }
+
+/// <summary>Carga del evento <see cref="ChatHub.AgreementChanged"/>.</summary>
+/// <param name="ConversationId">La conversacion.</param>
+public sealed record AgreementChangedEvent(string ConversationId);
 
 /// <summary>
 /// Entrega los eventos del chat por el hub. Si Redis (el backplane) no responde, el mensaje ya quedo
@@ -45,6 +55,24 @@ internal sealed partial class ChatNotifier(IHubContext<ChatHub> hub, ILogger<Cha
         catch (Exception ex) when (ex is RedisException or TimeoutException)
         {
             LogUndelivered(logger, ex, message.ConversationId);
+        }
+    }
+
+    /// <summary>Avisa a los participantes que el acuerdo de su conversacion cambio (HU-34).</summary>
+    /// <param name="participants">Ids de los participantes.</param>
+    /// <param name="conversationId">La conversacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    public async Task AgreementChangedAsync(IReadOnlyList<string> participants, string conversationId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await hub.Clients.Users(participants)
+                .SendAsync(ChatHub.AgreementChanged, new AgreementChangedEvent(conversationId), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is RedisException or TimeoutException)
+        {
+            LogUndelivered(logger, ex, conversationId);
         }
     }
 

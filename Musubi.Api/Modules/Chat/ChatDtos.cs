@@ -65,7 +65,11 @@ public sealed record ConversationContextResponse(
 /// <param name="SenderId">Quien lo envio (la app lo compara con su propio id).</param>
 /// <param name="Text">Texto.</param>
 /// <param name="SentAt">Envio (UTC).</param>
-public sealed record MessageResponse(string Id, string ConversationId, string SenderId, string Text, DateTime SentAt);
+/// <param name="Kind">
+/// <c>text</c> o <c>notice</c> (HU-32): un aviso de la app ("Ana pidio un resumen con IA") que se pinta centrado; su
+/// <c>senderId</c> es quien lo provoco.
+/// </param>
+public sealed record MessageResponse(string Id, string ConversationId, string SenderId, string Text, DateTime SentAt, string Kind = "text");
 
 /// <summary>Pagina de mensajes, del mas nuevo al mas viejo.</summary>
 /// <param name="Items">Mensajes.</param>
