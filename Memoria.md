@@ -11,6 +11,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
 - **En `main`, sin desplegar:** HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`). Ninguna necesita script nuevo.
+- **HU-53 (favoritos, Eliuht):** API `0.5.0-alpha.14` con el esquema 13 (`db/013`), en su PR; al desplegarla corre el script nuevo.
 - **Siguiente:** Pedidos (HU-23 a HU-25).
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
@@ -71,6 +72,58 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-18)`: volver a buscar coincidencias al editar el nombre, la categoría, el precio o la descripción (RF-08).
 - `NOTE (HU-23)`: no eliminar con pedidos pendientes o confirmados (RN-07) → `409 listings.product_has_open_orders`.
 - `NOTE (02-05)`: fotos de una publicación eliminada que quedan en S3 si el borrado falla a medias. La regla de ciclo de vida del bucket (pendiente desde HU-06 para las fotos que nunca se publican) debe cubrir también este caso.
+## T36 — Favoritos (09-Nov-2026, SCRUM-68, HU-53)
+
+**Qué se hizo**
+- API `0.5.0-alpha.14` (era `alpha.13`; HU-14 la tomó primero en main), esquema 13: `GET /api/v1/favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo los favoritos del token.
+- `favorites` (`db/013-favoritos.js`) con `ux_user_product` e `ix_user_id`; `FavoriteService`, `FavoritesController`, DTOs y repositorios Mongo/InMemory.
+- Tres estados: `available`, `soldOut` y `unavailable`; `unavailable` devuelve `product: null`.
+- HU-57: un bloqueo en cualquier dirección impide guardar y marca el favorito como `unavailable`.
+- HU-46: `ListingAccountEraser` borra los favoritos de la cuenta; los de otras personas quedan `unavailable` si el producto desaparece.
+- Enfoque B: sin `isFavorite` en productos; la app arma el corazón con `GET /favorites`.
+- Unit 383 · Integration 138 · Security 129 · Contract 13 · Database 97; `critic` PASS, endpoints OK (57 rutas) y shared OK (5 bloques).
+- Docs: `endpoints.md` (57 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
+- Sección compartida `docs/versionado.md`: las filas `0.5.0-alpha.12` (HU-07) y `0.5.0-alpha.14` (HU-53; `alpha.13` es HU-14) se replicaron en `musubi-app` y se registraron en las dos `Memoria.md`.
+
+**Decisiones (con su porqué)**
+- **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.
+- **Se reutiliza `listings.product_not_found`:** guardar una publicación no visible es el mismo 404; no se agregan códigos `favorites.*`.
+- **DELETE con id mal formado responde 204:** el filtro de Mongo no puede intentar serializar un ObjectId inválido; el repositorio lo ignora.
+- **Consulta en lote:** `FindByIdsAsync` y `HiddenForAsync` evitan N+1 al listar.
+- **Sin copia de datos:** título, precio y foto se leen de `products`; `favorites` solo guarda ids y fecha.
+
+**Errores a evitar**
+- **`[BsonRepresentation(ObjectId)]` en un filtro con id mal formado:** un DELETE con `abc` lanzaría 500; se valida con `ObjectId.TryParse` antes de consultar.
+- **No crear `Modules/Marketplace/`:** M-04 reutiliza `Modules/Listings/`.
+- **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y la caché de la vitrina.
+- **Los helpers de prueba que devuelven `Task` fallan CA1859:** declarar `Task<bool>` si el método devuelve el resultado de un repo.
+- **`ListingAccountEraser` cambió de constructor:** DI resuelve `IFavoriteRepository`; no registrar un segundo eraser.
+- **DatabaseTest necesita Docker corriendo:** el daemon se detuvo entre corridas; se inició Docker Desktop y las 97 pruebas pasaron en ~1.5 min.
+
+## T35 — Specs de favoritos (09-Nov-2026, SCRUM-68, HU-53)
+
+**Qué se hizo**
+- `specs/m04-marketplace/HU-53-favoritos/` queda detallada: `spec.md`, `plan.md` y `task.md`.
+- Contrato: `GET /favorites`, `PUT /favorites/{productId}` y `DELETE /favorites/{productId}`; solo el usuario del token.
+- Módulo real: `Modules/Listings/`, no `Modules/Marketplace/` (`docs/modulos.md`).
+- Decisión de Jira aplicada: sin modo sin conexión.
+- Enfoque B: la app arma el corazón con `GET /favorites`; no cambian `ProductResponse` ni `ProductDetailResponse`.
+- Colección `favorites` (`db/013-favoritos.js`, esquema 13) con `ux_user_product` e `ix_user_id`.
+- Se incorporan HU-57 (bloqueos) y HU-46 (borrado de cuenta).
+
+**Decisiones (con su porqué)**
+- **Sin `isFavorite` en productos:** la vitrina sigue pública y cacheable; no se agrega una consulta de favoritos a cada página. La app carga la lista una vez por sesión.
+- **Tres estados en la lista:** `available`, `soldOut` y `unavailable`; `unavailable` no expone el producto (inexistente, `hidden`, `removed`, otro campus o bloqueo).
+- **Tope 200 sin paginar:** mismo patrón que "Usuarios bloqueados"; `NOTE (HU-53)` y se pagina si alguien lo supera.
+- **Se reutiliza `listings.product_not_found`:** no se agregan códigos `favorites.*` por un 404 que significa lo mismo.
+- **Favoritos huérfanos:** si el producto se elimina, el favorito queda como `unavailable`; no se borra en cascada.
+
+**Errores a evitar**
+- **No crear `Modules/Marketplace/`:** M-04 reutiliza `Modules/Listings/`; duplicaría la vitrina.
+- **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y obliga a consultar favoritos en cada página.
+- **No leer `favorites` desde otro módulo:** vive en `Listings`; si otro módulo lo necesita, se expone un contrato como `IBlockDirectory`.
+- **No olvidar HU-46:** `ListingAccountEraser` debe borrar los favoritos del usuario.
+
 ## T33 — Ver y elegir ofertas (09-Nov-2026, SCRUM-39, HU-17)
 
 **Qué se hizo**

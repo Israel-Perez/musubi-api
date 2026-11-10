@@ -40,6 +40,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "010-filtros-precio");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "011-ofertas");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "012-ofertas-chat");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "013-favoritos");
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Equal(38, await db.GetCollection<BsonDocument>(MongoSchema.Careers).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
@@ -197,6 +198,24 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains("ix_reporter", reportIndexes);
         Assert.True(blockIndexes["ux_blocker_blocked"]["unique"].AsBoolean);
         Assert.Contains("ix_blocked", blockIndexes.Keys);
+    }
+
+    [Fact]
+    public async Task Favorites_HaveTheUniquePairIndex_AndRejectAnIncompleteFavorite()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_favoritos");
+        var indexes = (await IndexesAsync(db, MongoSchema.Favorites)).ToDictionary(i => i["name"].AsString);
+        var incomplete = new BsonDocument
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "userId", ObjectId.GenerateNewId() },
+        };
+
+        var ex = await Assert.ThrowsAsync<MongoWriteException>(() =>
+            db.GetCollection<BsonDocument>(MongoSchema.Favorites).InsertOneAsync(incomplete, cancellationToken: Ct));
+
+        Assert.Equal(121, ex.WriteError.Code);
+        Assert.True(indexes["ux_user_product"]["unique"].AsBoolean);
+        Assert.Contains("ix_user_id", indexes.Keys);
     }
 
     [Fact]

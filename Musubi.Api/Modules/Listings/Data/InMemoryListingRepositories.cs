@@ -69,6 +69,18 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProductDocument>> FindByIdsAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        lock (gate)
+        {
+            var wanted = ids.ToHashSet(StringComparer.Ordinal);
+            return Task.FromResult<IReadOnlyList<ProductDocument>>(
+                products.Where(p => wanted.Contains(p.Id)).ToList());
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
@@ -271,4 +283,63 @@ internal sealed class InMemoryProductRepository : IProductRepository
         var wanted = SearchWord.Words(search);
         return product.SearchWords.Any(word => wanted.Any(term => word.StartsWith(term, StringComparison.Ordinal)));
     }
+}
+
+/// <summary>Favoritos en memoria (HU-53).</summary>
+internal sealed class InMemoryFavoriteRepository : IFavoriteRepository
+{
+    private readonly Lock gate = new();
+    private readonly List<FavoriteDocument> favorites = [];
+
+    /// <inheritdoc />
+    public Task<bool> InsertIfAbsentAsync(FavoriteDocument favorite, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(favorite);
+        lock (gate)
+        {
+            // Misma regla que el indice unico ux_user_product.
+            if (favorites.Exists(f => Is(f, favorite.UserId, favorite.ProductId)))
+            {
+                return Task.FromResult(false);
+            }
+
+            favorites.Add(favorite);
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<FavoriteDocument>> FindByUserAsync(string userId, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<FavoriteDocument>>(favorites
+                .Where(f => string.Equals(f.UserId, userId, StringComparison.Ordinal))
+                .OrderByDescending(f => f.CreatedAt)
+                .ThenByDescending(f => f.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList());
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> DeleteAsync(string userId, string productId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult(favorites.RemoveAll(f => Is(f, userId, productId)) > 0);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> DeleteByUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult((long)favorites.RemoveAll(f => string.Equals(f.UserId, userId, StringComparison.Ordinal)));
+        }
+    }
+
+    private static bool Is(FavoriteDocument favorite, string userId, string productId) =>
+        string.Equals(favorite.UserId, userId, StringComparison.Ordinal) && string.Equals(favorite.ProductId, productId, StringComparison.Ordinal);
 }

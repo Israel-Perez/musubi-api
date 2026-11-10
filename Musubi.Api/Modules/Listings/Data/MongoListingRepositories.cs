@@ -40,6 +40,16 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             : null;
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProductDocument>> FindByIdsAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var valid = ids.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        return valid.Count == 0
+            ? []
+            : await products.Find(Filter.In(p => p.Id, valid)).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProductDocument>> FindPageAsync(ProductQuery query, CancellationToken cancellationToken)
     {
         var filter = Showcase(query);
@@ -232,5 +242,55 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term))))
             .ToList();
         return byTerm.Count == 0 ? Filter.Empty : Filter.Or(byTerm);
+    }
+}
+
+/// <summary>Favoritos en MongoDB (indices <c>ux_user_product</c> e <c>ix_user_id</c>; HU-53).</summary>
+internal sealed class MongoFavoriteRepository(IMongoDatabase database) : IFavoriteRepository
+{
+    private readonly IMongoCollection<FavoriteDocument> favorites = database.GetCollection<FavoriteDocument>(MongoSchema.Favorites);
+
+    /// <inheritdoc />
+    public async Task<bool> InsertIfAbsentAsync(FavoriteDocument favorite, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(favorite);
+        try
+        {
+            await favorites.InsertOneAsync(favorite, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            // ux_user_product: ya estaba guardado; dos toques seguidos no duplican.
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<FavoriteDocument>> FindByUserAsync(string userId, int limit, CancellationToken cancellationToken) =>
+        await favorites.Find(f => f.UserId == userId)
+            .SortByDescending(f => f.CreatedAt)
+            .ThenByDescending(f => f.Id)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteAsync(string userId, string productId, CancellationToken cancellationToken)
+    {
+        // DELETE es idempotente: un id mal formado no debe fallar al serializar el filtro.
+        if (!ObjectId.TryParse(userId, out _) || !ObjectId.TryParse(productId, out _))
+        {
+            return false;
+        }
+
+        var result = await favorites.DeleteOneAsync(f => f.UserId == userId && f.ProductId == productId, cancellationToken).ConfigureAwait(false);
+        return result.DeletedCount > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<long> DeleteByUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        var result = await favorites.DeleteManyAsync(f => f.UserId == userId, cancellationToken).ConfigureAwait(false);
+        return result.DeletedCount;
     }
 }
