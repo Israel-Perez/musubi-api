@@ -105,12 +105,12 @@ RNF que aplican: RNF-03 (sesión y propiedad), RNF-07 (privacidad), RNF-21 (camp
 - [x] Un bloqueo de HU-57 impide guardar y oculta el producto como `unavailable` → `FavoriteServiceTests`, `FavoriteFlowTests`.
 - [x] Ningún usuario ve los favoritos de otro → `ListingsAuthTests` (401/BOLA) y `FavoriteFlowTests`.
 - [x] Borrar la cuenta borra sus favoritos → `ListingAccountEraserTests` y `FavoriteFlowTests` (vendedor eliminado).
-- [ ] `db/013-favoritos.js` crea el índice único y sube el esquema a 13 → `SchemaScriptTests` y `MongoFavoriteRepositoryTests`; pendiente de Docker/CI.
+- [x] `db/013-favoritos.js` crea el índice único y sube el esquema a 13 → `SchemaScriptTests` y `MongoFavoriteRepositoryTests`.
 - [x] Build Release 0/0.
-- [x] Unit 366, Integration 132, Security 111 y Contract 13 al 100 % con `--no-build`.
-- [ ] `DatabaseTest` de favoritos en el CI (Docker local no disponible).
+- [x] Unit 366, Integration 132, Security 111, Contract 13 y Database 91 al 100 % con `--no-build`.
 - [x] `pwsh scripts/check_endpoints.ps1` → OK (53 rutas); `pwsh scripts/critic-guardrails.ps1` → PASS.
 - [x] `security-reviewer` PASS; `traceability-clerk` sin drift al cerrar.
+- [x] `pwsh scripts/check_shared_sections.ps1` → OK (5 bloques).
 
 ## Límites
 - **Sin modo sin conexión** (decisión de Jira, 08-Nov-2026). La caché local de la app queda para otra HU.
@@ -132,5 +132,5 @@ RNF que aplican: RNF-03 (sesión y propiedad), RNF-07 (privacidad), RNF-21 (camp
   - el módulo correcto es `Modules/Listings/`, no `Modules/Marketplace/`;
   - se adopta el enfoque B: el estado del corazón se arma con `GET /favorites`, sin cambiar el contrato de productos;
   - se incorporan HU-57 (bloqueos) y HU-46 (borrado de cuenta);
-  - evidencia: API `0.5.0-alpha.12`, esquema 13, Unit 366 / Integration 132 / Security 111 / Contract 13, `critic` PASS y endpoints OK (53 rutas);
-  - pendiente: `DatabaseTest` con Docker/CI, PR y despliegue.
+  - evidencia: API `0.5.0-alpha.12`, esquema 13, Unit 366 / Integration 132 / Security 111 / Contract 13 / Database 91, `critic` PASS, endpoints OK (53 rutas) y secciones compartidas OK;
+  - pendiente: PR y despliegue (el esquema 13 sube con `infra-up`).

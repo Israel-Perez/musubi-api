@@ -9,7 +9,7 @@
 - **Crear:** `db/013-favoritos.js`, `FavoriteDocument` e `IFavoriteRepository`; `IProductRepository.FindByIdsAsync`.
 - **Cambiar:** `MongoSchema.ExpectedVersion = 13` y `db/README.md`.
 - **Verificar:** `TestShared/Listings/FavoriteRepositoryContract.cs` en `UnitTest/Data/InMemoryFavoriteRepositoryTests.cs` y `DatabaseTest/MongoFavoriteRepositoryTests.cs`; `SchemaScriptTests`.
-- **Estado:** ✅ Hecho (09-Nov-2026); `DatabaseTest` pendiente de Docker/CI.
+- **Estado:** ✅ Hecho (09-Nov-2026); `DatabaseTest` 91/91 con MongoDB real.
 
 ## T3 — Servicio y endpoints
 - **Crear:** `FavoriteService`, `FavoritesController` y `FavoritesDtos`.
@@ -31,7 +31,7 @@
   - `pwsh scripts/critic-guardrails.ps1` → PASS;
   - `security-reviewer` PASS;
   - `traceability-clerk` sin drift.
-- **Estado:** 🚧 En progreso (09-Nov-2026): build 0/0, Unit 366, Integration 132, Security 111, Contract 13, critic PASS y endpoints OK (53). `DatabaseTest` pendiente por Docker/CI; PR pendiente.
+- **Estado:** ✅ Hecho (09-Nov-2026): build 0/0, Unit 366, Integration 132, Security 111, Contract 13, Database 91, critic PASS, endpoints OK (53) y shared OK (5). `security-reviewer` PASS y `traceability-clerk` sin drift. PR y despliegue pendientes.
 
 ## Pendientes
 - **App:** `musubi-app:HU-53` (`Favoritos`, corazones en el detalle y las tarjetas, estados de carga y "Ya no disponible"). La app carga `GET /favorites` para armar el set del corazón.
@@ -39,5 +39,5 @@
 - **Límite:** no hay "Bajó $" ni aviso de cambio de precio; requiere historial de precios y notificaciones.
 - **Límite:** los favoritos de otras personas que apuntaban a productos eliminados se conservan como `unavailable`; no hay limpieza automática (no se agrega `NOTE` porque no hay código que lo difiera).
 - **Contraparte:** actualizar `musubi-app:HU-53` (Sprint 4 y decisión de no offline) en su PR; hoy su spec sigue "por asignar" y con la decisión pendiente.
-- **DatabaseTest:** correr `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release --no-build` con Docker o dejarlo al CI; incluye el script 013 y el contrato de favoritos.
-- **Prueba manual:** guardar, listar, repetir `PUT`, quitar y repetir `DELETE` en Scalar/Development.
+- **PR y despliegue:** abrir el PR de `feature/SCRUM-68-favoritos` y desplegar el esquema 13 con `infra-up`; no se hizo en T5.
+- **Prueba manual:** guardar, listar, repetir `PUT`, quitar y repetir `DELETE` en Scalar/Development; no se hizo en T5.

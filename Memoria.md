@@ -10,7 +10,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
   - La moderación del texto usa el léxico local (el plan gratuito de AWS no incluye Translate ni Comprehend); las fotos siguen con Rekognition.
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
-- **Siguiente:** HU-53 (favoritos): API y las 5 suites en verde; faltan PR y desplegar el esquema 13. HU-07 (editar o eliminar mis publicaciones) ya tiene la API en main y falta la app. Después, HU-14 (editar, cerrar y cancelar la solicitud) y Pedidos (HU-23 a HU-25).
+- **Siguiente:** HU-53 (favoritos): API y las 5 suites en verde; falta el PR y desplegar el esquema 13. HU-07 (editar o eliminar mis publicaciones) ya tiene la API en main y falta la app. Después, HU-14 (editar, cerrar y cancelar la solicitud) y Pedidos (HU-23 a HU-25).
 - **Pendientes del usuario:**
   - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
@@ -56,7 +56,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - HU-57: un bloqueo en cualquier dirección impide guardar y marca el favorito como `unavailable`.
 - HU-46: `ListingAccountEraser` borra los favoritos de la cuenta; los de otras personas quedan `unavailable` si el producto desaparece.
 - Enfoque B: sin `isFavorite` en productos; la app arma el corazón con `GET /favorites`.
-- Unit 366 · Integration 132 · Security 111 · Contract 13; `critic` PASS y endpoints OK (53 rutas). `DatabaseTest` pendiente por Docker/CI.
+- Unit 366 · Integration 132 · Security 111 · Contract 13 · Database 91; `critic` PASS, endpoints OK (53 rutas) y shared OK (5 bloques).
 - Docs: `endpoints.md` (53 filas), `errores.md`, `modelo-datos.md` (`favorites` ✅), `versionado.md` y `AGENTS.md`.
 - Sección compartida `docs/versionado.md`: la fila `0.5.0-alpha.12` se replicó en `musubi-app` y se registró en las dos `Memoria.md`.
 
@@ -73,6 +73,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **No agregar `isFavorite` a los DTOs de productos:** rompe el enfoque B y la caché de la vitrina.
 - **Los helpers de prueba que devuelven `Task` fallan CA1859:** declarar `Task<bool>` si el método devuelve el resultado de un repo.
 - **`ListingAccountEraser` cambió de constructor:** DI resuelve `IFavoriteRepository`; no registrar un segundo eraser.
+- **DatabaseTest tarda ~5.5 min y necesita Docker corriendo:** el daemon no estaba activo; se inició Docker Desktop y las 91 pruebas pasaron.
 
 ## T35 — Specs de favoritos (09-Nov-2026, SCRUM-68, HU-53)
 
