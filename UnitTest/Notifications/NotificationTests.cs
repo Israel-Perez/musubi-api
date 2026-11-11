@@ -271,7 +271,8 @@ public sealed class NotificationTests : IDisposable
         Assert.Equal("Bearer ya29.prueba", send.Auth);
         using var body = JsonDocument.Parse(send.Body);
         var m = body.RootElement.GetProperty("message");
-        Assert.Equal("fcm-1", m.GetProperty("token").GetString());
+        Assert.Equal("fcm-1", m.GetProperty("fid").GetString());
+        Assert.False(m.TryGetProperty("token", out _));
         Assert.Equal("Luis", m.GetProperty("notification").GetProperty("title").GetString());
         Assert.Equal("message", m.GetProperty("data").GetProperty("type").GetString());
         Assert.Equal("musubi", m.GetProperty("android").GetProperty("notification").GetProperty("channel_id").GetString());

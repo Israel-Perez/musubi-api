@@ -19,7 +19,7 @@ Jira (SCRUM-49): Como **usuario**, quiero **recibir notificaciones de mensajes n
    - oferta nueva a mi solicitud, oferta aceptada u oferta no elegida ("Solicitudes");
    - mi solicitud vence en menos de 24 horas, o ya venció ("Solicitudes"). Lo revisa un proceso cada hora; con 2 instancias, `dedupeKey` deja pasar un solo aviso.
 3. **R3 · Centro de notificaciones (RF-43):** `GET /notifications` por pestaña, del más nuevo al más viejo, con cursor y los no leídos; marcar uno o todos como leídos. Cada aviso dice qué abre (`conversation`, `order` o `wanted`). Se borran solos a los 60 días.
-4. **R4 · Dispositivos:** la app registra su token de FCM al iniciar sesión y lo quita al cerrarla; si el token era de otra cuenta, pasa a la nueva. Un token que FCM reporta como desinstalado se borra. Sin renovarse, se borra a los 60 días.
+4. **R4 · Dispositivos:** la app registra el ID de instalación de Firebase (FID, `register()` y `onRegistered`; el token de registro quedó obsoleto) al iniciar sesión, y al cerrarla lo da de baja en FCM (`unregister()`); si el token era de otra cuenta, pasa a la nueva. Un token que FCM reporta como desinstalado se borra. Sin renovarse, se borra a los 60 días.
 5. **R5 · Degradación (RNF-15):** sin la llave de la cuenta de servicio, o con FCM caído, el aviso queda en el historial y el mensaje, el pedido o la oferta siguen su curso. El envío va en segundo plano (no hace esperar a quien escribe).
 6. **R6 · Privacidad:** la llave de la cuenta de servicio vive solo en el back (Parameter Store `/musubi/prod/Firebase/ServiceAccount`); cada persona solo ve, marca o quita lo suyo.
 

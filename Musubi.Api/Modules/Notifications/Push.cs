@@ -149,7 +149,8 @@ internal sealed partial class FcmPushSender(HttpClient http, IOptions<FirebaseOp
                     {
                         message = new
                         {
-                            token,
+                            // El ID de instalacion de Firebase (FID): `token` quedo obsoleto en HTTP v1.
+                            fid = token,
                             notification = new { title = message.Title, body = message.Body },
                             data = message.Data,
                             android = new { priority = "HIGH", notification = new { channel_id = "musubi" } },
