@@ -32,6 +32,16 @@ public abstract class SecurityApiFactory(string environment) : WebApplicationFac
             ["Media:Bucket"] = "musubi-media-pruebas",
             ["RateLimiting:Auth:PermitLimit"] = AuthPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
         }));
+        if (environment == "Development")
+        {
+            // Solo Development carga los user-secrets de quien corre las pruebas, que pueden encender FCM o Gemini
+            // reales. Production se queda con sus proveedores: hay pruebas de que sin llave no sale nada.
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Firebase:Provider"] = "InMemory",
+                ["GenAi:Provider"] = "InMemory",
+            }));
+        }
         builder.ConfigureTestServices(services =>
             services.AddControllers().AddApplicationPart(typeof(ThrowingProbeController).Assembly));
     }
