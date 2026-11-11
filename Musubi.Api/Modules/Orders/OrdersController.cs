@@ -12,7 +12,7 @@ namespace Musubi.Api.Modules.Orders;
 
 /// <summary>
 /// "Confirmar la compra" (HU-23; maquetas <c>Acuerdo-confirmado</c> y <c>Pedido-pago</c>): los puntos de entrega,
-/// crear el pedido desde el chat, verlo y elegir como se paga. Filas canonicas en docs/endpoints.md. Siempre con
+/// crear el pedido desde el chat, verlo y elegir como se paga. HU-24: aceptar, cancelar y confirmar la entrega. Filas canonicas en docs/endpoints.md. Siempre con
 /// sesion.
 /// </summary>
 [ApiController]
@@ -25,6 +25,8 @@ public sealed class OrdersController : ControllerBase
     public const int MaxBodyBytes = 16 * 1024;
 
     private OrderService orders => HttpContext.RequestServices.GetRequiredService<OrderService>();
+
+    private OrderLifecycleService lifecycle => HttpContext.RequestServices.GetRequiredService<OrderLifecycleService>();
 
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
 
@@ -88,4 +90,45 @@ public sealed class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SetPayment(string id, SetPaymentRequest body, CancellationToken cancellationToken) =>
         this.Respond(await orders.SetPaymentAsync(userId, id, body, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Aceptar pedido" (HU-24, RF-34): solo quien vende, con el pago ya elegido; aparta las piezas.</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido confirmado.</returns>
+    [HttpPost("{id}/accept")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Accept(string id, CancellationToken cancellationToken) =>
+        this.Respond(await lifecycle.AcceptAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Rechazar" o "Cancelar pedido" (HU-24, RN-20): cualquiera de las partes, con un motivo de la lista.</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="body">El motivo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido cancelado.</returns>
+    [HttpPost("{id}/cancel")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(string id, CancelOrderRequest body, CancellationToken cancellationToken) =>
+        this.Respond(await lifecycle.CancelAsync(userId, id, body, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Entregue" o "Recibi" (HU-24, RN-19): con las dos confirmaciones el pedido se completa.</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido.</returns>
+    [HttpPost("{id}/handover")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Handover(string id, CancellationToken cancellationToken) =>
+        this.Respond(await lifecycle.ConfirmHandoverAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 }

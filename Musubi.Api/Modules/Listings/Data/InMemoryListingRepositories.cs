@@ -193,6 +193,27 @@ internal sealed class InMemoryProductRepository : IProductRepository
             p => Copy(p, new ProductDetails(p.Title, p.Description, p.CategorySlug, p.PriceCents, p.Condition, p.ConditionDetail), ProductStatuses.Sold, now, now)));
 
     /// <inheritdoc />
+    public Task<bool> TryReserveStockAsync(string id, int quantity, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(quantity > 0 && Change(
+            id,
+            p => p.Status == ProductStatuses.Active && p.Stock >= quantity,
+            p => WithStock(p, p.Stock - quantity, p.Stock - quantity > 0 ? ProductStatuses.Active : ProductStatuses.SoldOut, now, p.SoldAt)));
+
+    /// <inheritdoc />
+    public Task<bool> ReleaseStockAsync(string id, int quantity, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(quantity > 0 && Change(
+            id,
+            _ => true,
+            p => WithStock(p, p.Stock + quantity, p.Status == ProductStatuses.SoldOut ? ProductStatuses.Active : p.Status, now, p.SoldAt)));
+
+    /// <inheritdoc />
+    public Task<bool> MarkSoldIfEmptyAsync(string id, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            id,
+            p => p.Status == ProductStatuses.SoldOut && p.Stock == 0,
+            p => WithStock(p, 0, ProductStatuses.Sold, now, now)));
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<long>> FindActivePricesAsync(string communityId, string categorySlug, int limit, CancellationToken cancellationToken)
     {
         lock (gate)
@@ -245,6 +266,43 @@ internal sealed class InMemoryProductRepository : IProductRepository
         UpdatedAt = now,
         SoldAt = soldAt,
     };
+
+    private static ProductDocument WithStock(ProductDocument p, int stock, string status, DateTime now, DateTime? soldAt) => new()
+    {
+        Id = p.Id,
+        CommunityId = p.CommunityId,
+        SellerId = p.SellerId,
+        Seller = p.Seller,
+        Title = p.Title,
+        Description = p.Description,
+        CategorySlug = p.CategorySlug,
+        PriceCents = p.PriceCents,
+        Condition = p.Condition,
+        ConditionDetail = p.ConditionDetail,
+        Stock = stock,
+        Status = status,
+        Photos = p.Photos,
+        SchemaVersion = p.SchemaVersion,
+        CreatedAt = p.CreatedAt,
+        UpdatedAt = now,
+        SoldAt = soldAt,
+    };
+
+    // HU-24: las piezas las cambia un pedido (no el vendedor), por eso no filtra por dueno.
+    private bool Change(string id, Func<ProductDocument, bool> when, Func<ProductDocument, ProductDocument> change)
+    {
+        lock (gate)
+        {
+            var index = products.FindIndex(p => string.Equals(p.Id, id, StringComparison.Ordinal) && when(p));
+            if (index < 0)
+            {
+                return false;
+            }
+
+            products[index] = change(products[index]);
+            return true;
+        }
+    }
 
     private ProductDocument? Replace(string id, string sellerId, Func<ProductDocument, ProductDocument> change)
     {

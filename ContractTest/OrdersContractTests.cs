@@ -128,6 +128,34 @@ public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task Cancel_MatchesTheCancelledOrderFixture()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var (ana, anaId) = await SignedInAsync(app, emails);
+        using var client = ana;
+        var conversationId = await ConversationAsync(app.Services, anaId);
+        var at = DateTime.SpecifyKind((DateTime.UtcNow - TimeSpan.FromHours(6)).Date.AddDays(1).AddHours(19), DateTimeKind.Utc);
+        var created = await BodyAsync(await client.PostAsJsonAsync(
+            new Uri("/api/v1/orders", UriKind.Relative),
+            new { conversationId, quantity = 1, meetingPoint = "biblioteca", meetingDetail = "Planta baja, junto a la entrada", deliveryAt = at },
+            Ct));
+        var orderId = created.GetProperty("id").GetString();
+        await client.PutAsJsonAsync(new Uri($"/api/v1/orders/{orderId}/payment", UriKind.Relative), new { method = "cash" }, Ct);
+
+        // HU-24: quien compra cancela con un motivo de la lista; la respuesta trae quien y por que.
+        var cancelled = await client.PostAsJsonAsync(new Uri($"/api/v1/orders/{orderId}/cancel", UriKind.Relative), new { reason = "changed_mind" }, Ct);
+        var body = await BodyAsync(cancelled);
+
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        Assert.Equal(Shape(await FixtureAsync("order-cancelled.json")), Shape(body));
+        Assert.Equal(("cancelled", "buyer", "changed_mind"), (
+            body.GetProperty("status").GetString(),
+            body.GetProperty("cancellation").GetProperty("by").GetString(),
+            body.GetProperty("cancellation").GetProperty("reason").GetString()));
+    }
+
+    [Fact]
     public async Task MeetingPoints_MatchTheFixture()
     {
         var emails = new RecordingEmailSender();

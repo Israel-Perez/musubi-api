@@ -163,12 +163,17 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `orders.invalid_detail` | 400 | El detalle del lugar puede tener hasta 120 caracteres. | HU-23 |
 | `orders.invalid_delivery_time` | 400 | Elige una fecha de hoy a 14 días, entre las 7:00 y las 21:00. | HU-23 (antes de 30 minutos, después de 14 días o fuera de 7:00 a 21:00 del campus, UTC-6) |
 | `orders.already_open` | 409 | Ya hay un pedido abierto en esta conversación. | HU-23 (uno pendiente o confirmado por conversación; un doble toque no duplica) |
-| `orders.not_pending` | 409 | Este pedido ya no está pendiente. | HU-23 (elegir el pago de un pedido confirmado, completado o cancelado) |
+| `orders.not_pending` | 409 | Este pedido ya no está pendiente. | HU-23 (elegir el pago de un pedido confirmado, completado o cancelado) y HU-24 (aceptar uno que ya no está pendiente) |
 | `orders.invalid_payment` | 400 | Elige cómo quieres pagar. | HU-23 (forma que no es `cash` ni `transfer`) |
 | `orders.payment_unavailable` | 409 | Quien vende aún no registra su cuenta. Por ahora paga en efectivo al recibir. | HU-23 (transferencia antes de HU-55, D-01) |
 | `orders.invalid_conversation` | 400 | No pudimos cargar el pedido. Vuelve a abrir el chat. | HU-23 (`GET /orders` sin `conversationId` o con uno que no es un id) |
 | `orders.agreement_not_found` | 404 | Este acuerdo ya no existe. Pide otro resumen en el chat. | HU-34 (crear el pedido con un acuerdo inexistente, vencido, ya usado o ajeno) |
 | `orders.agreement_not_confirmed` | 409 | Los dos tienen que confirmar el acuerdo antes de crear el pedido. | HU-34 (RN-41) |
+| `orders.only_seller` | 403 | Solo quien vende puede aceptar el pedido. | HU-24 (quien compra intenta aceptar) |
+| `orders.payment_missing` | 409 | Espera a que elijan cómo pagar para aceptar el pedido. | HU-24 (aceptar antes de que quien compra elija el pago; decisión de la usuaria, 11-Nov-2026) |
+| `orders.invalid_reason` | 400 | Elige el motivo de la cancelación. | HU-24 (RN-20: sin motivo, uno fuera de la lista o uno del otro rol, como `unavailable` para quien compra) |
+| `orders.closed` | 409 | Este pedido ya terminó. | HU-24 (cancelar o confirmar la entrega de un pedido completado o cancelado) |
+| `orders.not_confirmed` | 409 | Primero se tiene que aceptar el pedido. | HU-24 (confirmar la entrega de un pedido todavía pendiente, RN-19) |
 
 ## M-09 · Notificaciones (`Modules/Notifications/NotificationsErrors.cs`)
 

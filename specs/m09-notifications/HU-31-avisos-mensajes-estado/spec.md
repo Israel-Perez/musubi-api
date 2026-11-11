@@ -50,7 +50,7 @@ Filas M-09 de [`docs/endpoints.md`](../../../docs/endpoints.md#m-09--notificacio
 - [x] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
 
 ## Límites
-- `NOTE (HU-24)`: pedido confirmado, cancelado y completado (los estados llegan con esa HU; se avisan con el mismo `INotificationCenter`).
+- ~~`NOTE (HU-24)`~~ Cerrada el 11-Nov-2026: pedido confirmado, cancelado, entregado por una parte y completado (`order_confirmed`, `order_cancelled`, `order_handover`, `order_completed`; [HU-24](../../m08-orders/HU-24-actualizar-pedidos/spec.md)).
 - `NOTE (HU-29/30)`: "Coincidencias" y "lleva 34 días sin venderse".
 - `NOTE (HU-54)`: apagar avisos por tipo en Ajustes; hoy se apagan desde Android.
 - Si una instancia se reinicia con push en cola, esos push se pierden; el historial ya quedó guardado.

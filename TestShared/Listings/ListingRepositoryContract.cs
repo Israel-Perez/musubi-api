@@ -30,7 +30,8 @@ public abstract class ListingRepositoryContract
         long price = 45_000,
         string? title = null,
         string? description = null,
-        string condition = ProductConditions.Used) => new()
+        string condition = ProductConditions.Used,
+        int? stock = null) => new()
     {
         Id = AuthIds.New(),
         CommunityId = communityId,
@@ -42,7 +43,7 @@ public abstract class ListingRepositoryContract
         PriceCents = price,
         Condition = condition,
         ConditionDetail = condition == ProductConditions.Used ? "likeNew" : null,
-        Stock = status == ProductStatuses.SoldOut ? 0 : 1,
+        Stock = stock ?? (status == ProductStatuses.SoldOut ? 0 : 1),
         Status = status,
         Photos = [$"media/products/{sellerId}/{Guid.NewGuid():N}.webp"],
         CreatedAt = Now,
@@ -713,5 +714,43 @@ public abstract class ListingRepositoryContract
         Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10), Ct));
         Assert.Single(await Products.FindBySellerAsync(seller, [ProductStatuses.Sold], null, 10, Ct));
         Assert.NotNull(await Products.DeleteAsync(product.Id, seller, Ct));
+    }
+
+    [Fact]
+    public async Task Stock_ReserveRelease_AndSoldWhenEmpty()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller, stock: 3);
+        var paused = NewProduct(community, seller, status: ProductStatuses.Hidden, stock: 3);
+        await Products.InsertAsync(product, Ct);
+        await Products.InsertAsync(paused, Ct);
+
+        // HU-24 (RF-34): aparta solo si alcanzan y la publicacion esta disponible.
+        Assert.True(await Products.TryReserveStockAsync(product.Id, 2, Now, Ct));
+        Assert.False(await Products.TryReserveStockAsync(product.Id, 2, Now, Ct));
+        Assert.False(await Products.TryReserveStockAsync(paused.Id, 1, Now, Ct));
+        Assert.False(await Products.TryReserveStockAsync("no-es-un-id", 1, Now, Ct));
+        Assert.False(await Products.MarkSoldIfEmptyAsync(product.Id, Now, Ct));
+        var left = await Products.FindByIdAsync(product.Id, Ct);
+        Assert.Equal((1, ProductStatuses.Active), (left!.Stock, left.Status));
+
+        // La ultima pieza la deja agotada; al liberar vuelve a estar disponible (RN-20).
+        Assert.True(await Products.TryReserveStockAsync(product.Id, 1, Now, Ct));
+        var soldOut = await Products.FindByIdAsync(product.Id, Ct);
+        Assert.Equal((0, ProductStatuses.SoldOut), (soldOut!.Stock, soldOut.Status));
+        Assert.True(await Products.ReleaseStockAsync(product.Id, 1, Now, Ct));
+        var back = await Products.FindByIdAsync(product.Id, Ct);
+        Assert.Equal((1, ProductStatuses.Active), (back!.Stock, back.Status));
+
+        // Agotada sin piezas: pasa a vendida con su fecha (RN-05); una pausada conserva su estado al liberar.
+        Assert.True(await Products.TryReserveStockAsync(product.Id, 1, Now, Ct));
+        Assert.True(await Products.MarkSoldIfEmptyAsync(product.Id, Now.AddHours(1), Ct));
+        var sold = await Products.FindByIdAsync(product.Id, Ct);
+        Assert.Equal((0, ProductStatuses.Sold, (DateTime?)Now.AddHours(1)), (sold!.Stock, sold.Status, sold.SoldAt));
+        Assert.True(await Products.ReleaseStockAsync(paused.Id, 2, Now, Ct));
+        var stillPaused = await Products.FindByIdAsync(paused.Id, Ct);
+        Assert.Equal((5, ProductStatuses.Hidden), (stillPaused!.Stock, stillPaused.Status));
+        Assert.False(await Products.ReleaseStockAsync(AuthIds.New(), 1, Now, Ct));
     }
 }

@@ -30,6 +30,9 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
         { "GET", "/api/v1/orders?conversationId=" + AnyId },
         { "GET", "/api/v1/orders/" + AnyId },
         { "PUT", "/api/v1/orders/" + AnyId + "/payment" },
+        { "POST", "/api/v1/orders/" + AnyId + "/accept" },
+        { "POST", "/api/v1/orders/" + AnyId + "/cancel" },
+        { "POST", "/api/v1/orders/" + AnyId + "/handover" },
     };
 
     private IOrderRepository Orders => production.Services.GetRequiredService<IOrderRepository>();
@@ -176,6 +179,8 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     [Theory]
     [InlineData("GET", "/api/v1/orders/no-es-un-id", HttpStatusCode.NotFound)]
     [InlineData("PUT", "/api/v1/orders/no-es-un-id/payment", HttpStatusCode.NotFound)]
+    [InlineData("POST", "/api/v1/orders/no-es-un-id/accept", HttpStatusCode.NotFound)]
+    [InlineData("POST", "/api/v1/orders/no-es-un-id/handover", HttpStatusCode.NotFound)]
     [InlineData("GET", "/api/v1/orders?conversationId=no-es-un-id", HttpStatusCode.BadRequest)]
     [InlineData("GET", "/api/v1/orders", HttpStatusCode.BadRequest)]
     public async Task AnIdThatIsNotAnObjectId_IsRejected(string method, string path, HttpStatusCode status)
@@ -213,6 +218,9 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     [Theory]
     [InlineData(nameof(OrdersController.Create))]
     [InlineData(nameof(OrdersController.SetPayment))]
+    [InlineData(nameof(OrdersController.Accept))]
+    [InlineData(nameof(OrdersController.Cancel))]
+    [InlineData(nameof(OrdersController.Handover))]
     public void TheBodies_HaveTheirOwnSizeLimit(string action)
     {
         // Kestrel aplica el tope en la nube; TestServer no lo aplica, asi que se verifica el atributo: sin el, se
@@ -222,5 +230,39 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
 
         Assert.Single(limit);
         Assert.Equal(16 * 1024, OrdersController.MaxBodyBytes);
+    }
+
+    [Fact]
+    public async Task SomeoneElse_CannotAcceptCancelOrConfirmAnOrder_AndNothingChanges()
+    {
+        var order = await OrderAsync(await MemberAsync(), await MemberAsync());
+        using var outsider = ClientFor(await MemberAsync());
+        using var accept = Request("POST", $"/api/v1/orders/{order.Id}/accept");
+        using var cancel = Request("POST", $"/api/v1/orders/{order.Id}/cancel", new { reason = "other" });
+        using var handover = Request("POST", $"/api/v1/orders/{order.Id}/handover");
+
+        var accepted = await outsider.SendAsync(accept, Ct);
+        var cancelled = await outsider.SendAsync(cancel, Ct);
+        var confirmed = await outsider.SendAsync(handover, Ct);
+
+        Assert.Equal((HttpStatusCode.NotFound, HttpStatusCode.NotFound, HttpStatusCode.NotFound), (accepted.StatusCode, cancelled.StatusCode, confirmed.StatusCode));
+        Assert.Contains("orders.not_found", await cancelled.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        var read = (await Orders.FindByIdAsync(order.Id, Ct))!;
+        Assert.Equal((OrderStatuses.Pending, (OrderCancellation?)null), (read.Status, read.Cancellation));
+    }
+
+    [Fact]
+    public async Task TheBuyer_CannotAcceptItsOwnOrder()
+    {
+        var buyer = await MemberAsync();
+        var order = await OrderAsync(buyer, await MemberAsync());
+        using var client = ClientFor(buyer);
+        using var accept = Request("POST", $"/api/v1/orders/{order.Id}/accept");
+
+        var response = await client.SendAsync(accept, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("orders.only_seller", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Equal(OrderStatuses.Pending, (await Orders.FindByIdAsync(order.Id, Ct))!.Status);
     }
 }

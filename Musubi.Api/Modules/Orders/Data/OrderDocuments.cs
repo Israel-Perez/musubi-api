@@ -54,6 +54,14 @@ internal sealed class OrderDocument
     [BsonIgnoreIfNull]
     public OrderPayment? Payment { get; init; }
 
+    /// <summary>Quien ya confirmo la entrega (HU-24, RN-19), o <c>null</c> mientras nadie lo hace.</summary>
+    [BsonIgnoreIfNull]
+    public OrderHandover? Handover { get; init; }
+
+    /// <summary>Quien cancelo y por que (HU-24, RN-20), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public OrderCancellation? Cancellation { get; init; }
+
     /// <summary>Ver <see cref="OrderStatuses"/>.</summary>
     public string Status { get; init; } = OrderStatuses.Pending;
 
@@ -182,11 +190,90 @@ internal static class PaymentMethods
     public const string Transfer = "transfer";
 }
 
-/// <summary>Motivos de cancelacion que pone el sistema.</summary>
+/// <summary>La entrega confirmada por cada parte (HU-24, RN-19): se completa cuando estan las dos.</summary>
+internal sealed class OrderHandover
+{
+    /// <summary>Cuando quien compra marco "Recibi" (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? BuyerAt { get; init; }
+
+    /// <summary>Cuando quien vende marco "Entregue" (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? SellerAt { get; init; }
+}
+
+/// <summary>La cancelacion de un pedido (HU-24, RN-20).</summary>
+internal sealed class OrderCancellation
+{
+    /// <summary>Ver <see cref="OrderRoles"/>, o <c>system</c> (HU-46).</summary>
+    public string By { get; init; } = OrderRoles.Buyer;
+
+    /// <summary>Ver <see cref="CancelReasons"/>.</summary>
+    public string Reason { get; init; } = CancelReasons.Other;
+
+    /// <summary>Cuando (UTC).</summary>
+    public DateTime At { get; init; }
+}
+
+/// <summary>Las partes de un pedido.</summary>
+internal static class OrderRoles
+{
+    /// <summary>Quien compra.</summary>
+    public const string Buyer = "buyer";
+
+    /// <summary>Quien vende.</summary>
+    public const string Seller = "seller";
+
+    /// <summary>El sistema (una cuenta borrada, HU-46).</summary>
+    public const string System = "system";
+}
+
+/// <summary>Motivos de cancelacion (HU-24, RN-20; lista cerrada, sin texto libre).</summary>
 internal static class CancelReasons
 {
-    /// <summary>Una de las partes borro su cuenta (HU-46).</summary>
+    /// <summary>"Ya no lo necesito" (quien compra).</summary>
+    public const string ChangedMind = "changed_mind";
+
+    /// <summary>"Ya no tengo el producto" (quien vende).</summary>
+    public const string Unavailable = "unavailable";
+
+    /// <summary>"No nos pusimos de acuerdo".</summary>
+    public const string NoAgreement = "no_agreement";
+
+    /// <summary>"No puedo en la fecha acordada".</summary>
+    public const string Schedule = "schedule";
+
+    /// <summary>"La otra persona no llego".</summary>
+    public const string NoShow = "no_show";
+
+    /// <summary>"Otro motivo".</summary>
+    public const string Other = "other";
+
+    /// <summary>Una de las partes borro su cuenta (HU-46; lo pone el sistema).</summary>
     public const string AccountDeleted = "account_deleted";
+
+    /// <summary>Los que puede elegir quien compra.</summary>
+    public static readonly IReadOnlyList<string> ForBuyer = [ChangedMind, NoAgreement, Schedule, NoShow, Other];
+
+    /// <summary>Los que puede elegir quien vende.</summary>
+    public static readonly IReadOnlyList<string> ForSeller = [Unavailable, NoAgreement, Schedule, NoShow, Other];
+
+    /// <summary>Todos (el validador de db/019).</summary>
+    public static readonly IReadOnlyList<string> All = [ChangedMind, Unavailable, NoAgreement, Schedule, NoShow, Other, AccountDeleted];
+
+    /// <summary>Como se lee el motivo en un aviso.</summary>
+    /// <param name="reason">El codigo.</param>
+    /// <returns>El texto.</returns>
+    public static string Label(string reason) => reason switch
+    {
+        ChangedMind => "Ya no lo necesito",
+        Unavailable => "Ya no tengo el producto",
+        NoAgreement => "No nos pusimos de acuerdo",
+        Schedule => "No puedo en la fecha acordada",
+        NoShow => "La otra persona no llegó",
+        AccountDeleted => "La cuenta se eliminó",
+        _ => "Otro motivo",
+    };
 }
 
 /// <summary>Un punto de entrega del campus (los administra HU-44).</summary>

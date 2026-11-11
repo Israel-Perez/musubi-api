@@ -3,7 +3,7 @@ using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Orders;
 
-/// <summary>Errores de los pedidos (HU-23; catalogo canonico: docs/errores.md).</summary>
+/// <summary>Errores de los pedidos (HU-23 y HU-24; catalogo canonico: docs/errores.md).</summary>
 internal static class OrdersErrors
 {
     /// <summary>El pedido no existe o no es de quien consulta (RNF-03, OWASP API1: no revela cual).</summary>
@@ -77,6 +77,26 @@ internal static class OrdersErrors
     /// <summary>HU-34 (RN-41): falta que alguno de los dos confirme.</summary>
     public static readonly ApiError AgreementNotConfirmed = new(
         "orders.agreement_not_confirmed", StatusCodes.Status409Conflict, "Los dos tienen que confirmar el acuerdo antes de crear el pedido.");
+
+    /// <summary>HU-24: el pedido lo acepta quien vende.</summary>
+    public static readonly ApiError OnlySeller = new(
+        "orders.only_seller", StatusCodes.Status403Forbidden, "Solo quien vende puede aceptar el pedido.");
+
+    /// <summary>HU-24: quien compra todavia no elige como pagar (decision de la usuaria, 11-Nov-2026).</summary>
+    public static readonly ApiError PaymentMissing = new(
+        "orders.payment_missing", StatusCodes.Status409Conflict, "Espera a que elijan cómo pagar para aceptar el pedido.");
+
+    /// <summary>HU-24 (RN-20): el motivo no es de la lista o no corresponde a quien cancela.</summary>
+    public static readonly ApiError InvalidReason = new(
+        "orders.invalid_reason", StatusCodes.Status400BadRequest, "Elige el motivo de la cancelación.");
+
+    /// <summary>HU-24: el pedido ya se completo o se cancelo.</summary>
+    public static readonly ApiError Closed = new(
+        "orders.closed", StatusCodes.Status409Conflict, "Este pedido ya terminó.");
+
+    /// <summary>HU-24 (RN-19): la entrega solo se confirma en un pedido confirmado.</summary>
+    public static readonly ApiError NotConfirmed = new(
+        "orders.not_confirmed", StatusCodes.Status409Conflict, "Primero se tiene que aceptar el pedido.");
 
     /// <summary>Falta la conversacion en la consulta.</summary>
     public static readonly ApiError InvalidConversation = new(
