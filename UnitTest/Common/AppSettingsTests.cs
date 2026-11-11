@@ -73,7 +73,18 @@ public sealed partial class AppSettingsTests
 
         // Las claves futuras solo se documentan en la tabla de 01-04 hasta que haya codigo que las lea.
         Assert.DoesNotContain("MercadoPago", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Firebase", raw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExampleSettings_DocumentPush_WithoutTheServiceAccountKey()
+    {
+        // HU-31: la llave de la cuenta de servicio vive en user-secrets o en Parameter Store (Firebase__ServiceAccount).
+        using var doc = JsonDocument.Parse(File.ReadAllText(RepoPaths.ApiFile("appsettings.Example.json")));
+        var firebase = doc.RootElement.GetProperty("Firebase");
+
+        Assert.Equal("InMemory", firebase.GetProperty("Provider").GetString());
+        Assert.Equal(string.Empty, firebase.GetProperty("ServiceAccount").GetString());
+        Assert.Equal(60, doc.RootElement.GetProperty("Notifications").GetProperty("ReminderMinutes").GetInt32());
     }
 
     [Fact]

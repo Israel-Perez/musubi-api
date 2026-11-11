@@ -167,6 +167,17 @@ internal interface IWantedRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteByRequesterAsync(string requesterId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Las solicitudes activas (sin cerrar ni cancelar) cuya fecha de vencimiento cae en [<paramref name="from"/>,
+    /// <paramref name="to"/>), de la que vence antes a la que vence despues (HU-31: "vence manana" y "vencio").
+    /// </summary>
+    /// <param name="from">Desde (UTC, incluido).</param>
+    /// <param name="to">Hasta (UTC, excluido).</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las solicitudes.</returns>
+    Task<IReadOnlyList<WantedRequestDocument>> FindExpiringAsync(DateTime from, DateTime to, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>Solicitudes en MongoDB (indices <c>ix_community_status_id</c> e <c>ix_requester_id</c>).</summary>
@@ -189,6 +200,13 @@ internal sealed class MongoWantedRepository(IMongoDatabase database) : IWantedRe
         requests.CountDocumentsAsync(
             r => r.RequesterId == requesterId && r.Status == WantedStatuses.Active && r.ExpiresAt > now,
             cancellationToken: cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<WantedRequestDocument>> FindExpiringAsync(DateTime from, DateTime to, int limit, CancellationToken cancellationToken) =>
+        await requests.Find(r => r.Status == WantedStatuses.Active && r.ExpiresAt >= from && r.ExpiresAt < to)
+            .SortBy(r => r.ExpiresAt)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<WantedRequestDocument>> FindByRequesterAsync(string requesterId, int limit, CancellationToken cancellationToken) =>
@@ -356,6 +374,20 @@ internal sealed class InMemoryWantedRepository : IWantedRepository
         {
             return Task.FromResult((long)requests.Count(r =>
                 string.Equals(r.RequesterId, requesterId, StringComparison.Ordinal) && r.Status == WantedStatuses.Active && r.ExpiresAt > now));
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<WantedRequestDocument>> FindExpiringAsync(DateTime from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<WantedRequestDocument> found = requests
+                .Where(r => r.Status == WantedStatuses.Active && r.ExpiresAt >= from && r.ExpiresAt < to)
+                .OrderBy(r => r.ExpiresAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult(found);
         }
     }
 

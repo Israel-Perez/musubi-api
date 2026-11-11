@@ -1,17 +1,11 @@
-# HU-31 — Avisos de mensajes y cambios de estado (tareas)
+# task.md — HU-31 (API)
 
-## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+- **T1 · Datos:** `db/017-avisos.js` y los repositorios con su batería compartida. ✅
+- **T2 · Push:** `FcmPushSender`, `PushQueue` y `PushWorker`. ✅
+- **T3 · Centro y rutas:** `NotificationService` y `NotificationsController` (5 rutas). ✅
+- **T4 · Disparadores:** chat, aviso de la IA, pedido, acuerdo, ofertas y recordatorios. ✅
+- **T5 · Documentos:** endpoints (76), errores, modelo de datos, 01-04, versionado (`0.5.0-alpha.18`), trazabilidad, lineamientos, AGENTS y Memoria. ✅
 
-## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
-
-## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
-
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+## Pendientes con dueño
+- `NOTE (HU-24)`: avisos de pedido confirmado, cancelado y completado.
+- Despliegue: la llave en `/musubi/prod/Firebase/ServiceAccount` antes de `infra-up`.

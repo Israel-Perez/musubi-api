@@ -44,6 +44,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "014-pedidos");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "015-acuerdos");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "016-publicacion-vendida");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "017-avisos");
         Assert.Equal(14, await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
@@ -396,5 +397,35 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         await messages.InsertOneAsync(Message(null), cancellationToken: Ct);
         await messages.InsertOneAsync(Message("notice"), cancellationToken: Ct);
         await Assert.ThrowsAsync<MongoWriteException>(() => messages.InsertOneAsync(Message("system"), cancellationToken: Ct));
+    }
+
+    [Fact]
+    public async Task Notifications_HaveTheirIndexes_AndRejectAnUnknownType()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_avisos");
+        var notices = (await IndexesAsync(db, MongoSchema.Notifications)).ToDictionary(i => i["name"].AsString);
+        var tokens = (await IndexesAsync(db, MongoSchema.DeviceTokens)).ToDictionary(i => i["name"].AsString);
+        var wanted = (await IndexesAsync(db, MongoSchema.WantedRequests)).ToDictionary(i => i["name"].AsString);
+
+        Assert.True(notices["ux_user_dedupe"]["unique"].AsBoolean);
+        Assert.Contains("partialFilterExpression", notices["ux_user_dedupe"].Names);
+        Assert.Contains("ix_user_id", notices.Keys);
+        Assert.Contains("ix_user_category_id", notices.Keys);
+        Assert.Equal(0, notices["ttl_expires_at"]["expireAfterSeconds"].ToInt32());
+        Assert.True(tokens["ux_token"]["unique"].AsBoolean);
+        Assert.Equal(0, tokens["ttl_expires_at"]["expireAfterSeconds"].ToInt32());
+        Assert.Contains("ix_status_expires", wanted.Keys);
+
+        var now = DateTime.UtcNow;
+        BsonDocument Notice(string type) => new()
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "userId", ObjectId.GenerateNewId() }, { "type", type }, { "category", "orders" },
+            { "title", "Tienes un pedido nuevo" }, { "body", "Ana pidió 1 × Calculadora." },
+            { "target", new BsonDocument { { "type", "order" }, { "id", ObjectId.GenerateNewId() } } },
+            { "createdAt", now }, { "expiresAt", now.AddDays(60) }, { "schemaVersion", 1 },
+        };
+        var collection = db.GetCollection<BsonDocument>(MongoSchema.Notifications);
+        await collection.InsertOneAsync(Notice("order_created"), cancellationToken: Ct);
+        await Assert.ThrowsAsync<MongoWriteException>(() => collection.InsertOneAsync(Notice("spam"), cancellationToken: Ct));
     }
 }
