@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 16;
+    public const int ExpectedVersion = 17;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";
@@ -65,4 +65,10 @@ internal static class MongoSchema
 
     /// <summary>Acuerdos con IA (HU-32/33/34, db/015).</summary>
     public const string Agreements = "agreements";
+
+    /// <summary>Avisos del centro de notificaciones (HU-31, db/017).</summary>
+    public const string Notifications = "notifications";
+
+    /// <summary>Tokens de FCM de los dispositivos (HU-31, db/017).</summary>
+    public const string DeviceTokens = "deviceTokens";
 }

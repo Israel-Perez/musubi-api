@@ -13,6 +13,7 @@ using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Media;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
+using UnitTest.Common;
 
 namespace UnitTest.PurchaseRequests;
 
@@ -40,6 +41,7 @@ public sealed class OfferServiceTests
     private readonly ManualTimeProvider time = new(Now);
     private readonly OfferService service;
 
+    private readonly RecordingNotificationCenter center = new();
     public OfferServiceTests()
     {
         var members = new MemberDirectory(new InMemoryCommunityRepository(), users);
@@ -53,6 +55,7 @@ public sealed class OfferServiceTests
             new ProfileDirectory(profiles, new InMemoryCareerRepository()),
             new ConversationOpener(conversations, members, time),
             new InMemoryContentModerator(),
+            center,
             time);
     }
 
@@ -406,4 +409,33 @@ public sealed class OfferServiceTests
 
         Assert.Equal("good", item.ConditionDetail);
     }
+
+    [Fact]
+    public async Task Offers_NotifyWhoAsks_AndTheDecision_NotifiesWhoOffered()
+    {
+        var (fernanda, request, valeria, valeriaOffer, diego, diegoOffer) = await OffersAsync();
+
+        var received = center.Sent.Where(n => n.Type == "offer_received").ToList();
+        Assert.Equal(2, received.Count);
+        Assert.All(received, n => Assert.Equal((fernanda, "requests", "wanted", request.Id), (n.UserId, n.Category, n.TargetType, n.TargetId)));
+        Assert.Contains(received, n => n.Body.StartsWith("Valeria C. respondió \"Yo tengo este producto\"", StringComparison.Ordinal) && n.Body.EndsWith("· $280.", StringComparison.Ordinal));
+
+        await service.SaveAsync(valeria, Uttt, request.Id, Direct(price: 27_000), Ct);
+        Assert.Equal(2, center.Sent.Count(n => n.Type == "offer_received"));
+
+        var chat = (await service.AcceptAsync(fernanda, request.Id, diegoOffer.Id, Ct)).Value!;
+        await service.AcceptAsync(fernanda, request.Id, diegoOffer.Id, Ct);
+        await service.RejectAsync(fernanda, request.Id, valeriaOffer.Id, Ct);
+
+        var accepted = center.Sent.Single(n => n.Type == "offer_accepted");
+        Assert.Equal((diego, "Fernanda aceptó tu oferta", "conversation", chat.ConversationId), (accepted.UserId, accepted.Title, accepted.TargetType, accepted.TargetId));
+        var rejected = center.Sent.Single(n => n.Type == "offer_rejected");
+        Assert.Equal((valeria, "Eligieron otra oferta", "wanted"), (rejected.UserId, rejected.Title, rejected.TargetType));
+    }
+
+    [Theory]
+    [InlineData(50_000L, "$500")]
+    [InlineData(165_000L, "$1,650")]
+    [InlineData(12_350L, "$123.50")]
+    public void Pesos_DoNotDependOnTheServerCulture(long cents, string expected) => Assert.Equal(expected, OfferService.Pesos(cents));
 }

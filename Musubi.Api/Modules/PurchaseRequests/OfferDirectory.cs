@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Listings;
@@ -63,4 +66,33 @@ internal sealed class OfferDirectory(IOfferRepository offers, IWantedRepository 
             offer.Status == OfferStatuses.Accepted,
             request?.Quantity ?? 1);
     }
+}
+
+/// <summary>Una solicitud que esta por vencer o que ya vencio (HU-31).</summary>
+/// <param name="Id">Id.</param>
+/// <param name="RequesterId">Quien busca.</param>
+/// <param name="Title">Lo que busca.</param>
+/// <param name="ExpiresAt">Vencimiento (UTC).</param>
+internal sealed record WantedReminder(string Id, string RequesterId, string Title, DateTime ExpiresAt);
+
+/// <summary>Contrato publico de M-05 para los avisos (HU-31): las solicitudes activas que vencen en una ventana.</summary>
+internal interface IWantedReminders
+{
+    /// <summary>Las activas que vencen en [<paramref name="from"/>, <paramref name="to"/>).</summary>
+    /// <param name="from">Desde (UTC).</param>
+    /// <param name="to">Hasta (UTC).</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las solicitudes.</returns>
+    Task<IReadOnlyList<WantedReminder>> ExpiringAsync(DateTime from, DateTime to, int limit, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de solicitudes.</summary>
+internal sealed class WantedReminders(IWantedRepository requests) : IWantedReminders
+{
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<WantedReminder>> ExpiringAsync(DateTime from, DateTime to, int limit, CancellationToken cancellationToken) =>
+        (await requests.FindExpiringAsync(from, to, limit, cancellationToken).ConfigureAwait(false))
+            .Select(r => new WantedReminder(r.Id, r.RequesterId, r.Title, r.ExpiresAt))
+            .ToList();
 }

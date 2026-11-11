@@ -8,6 +8,7 @@ using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Data;
@@ -37,6 +38,7 @@ internal sealed class ChatService(
     IBlockDirectory blocks,
     IContentModerator moderator,
     ChatNotifier notifier,
+    INotificationCenter center,
     TimeProvider time)
 {
     /// <summary>Largo maximo de un mensaje.</summary>
@@ -227,8 +229,12 @@ internal sealed class ChatService(
             cancellationToken).ConfigureAwait(false);
 
         var response = ToResponse(message);
-        // NOTE (HU-31): aviso push al otro participante si no tiene la app abierta.
         await notifier.MessageCreatedAsync(conversation.Participants, response, cancellationToken).ConfigureAwait(false);
+        // HU-31 (RF-42): push al otro participante. Si tiene el chat abierto, la app no lo muestra.
+        var recipientId = recipientRole == BuyerRole ? conversation.BuyerId : conversation.SellerId;
+        await center.NotifyAsync(
+            new Notice(recipientId, NotificationTypes.Message, FirstName(member.FullName), text, NotificationTargets.Conversation, conversation.Id),
+            cancellationToken).ConfigureAwait(false);
         return Result<MessageResponse>.Ok(response);
     }
 
@@ -328,6 +334,12 @@ internal sealed class ChatService(
         id = parts[1];
         return true;
     }
+
+    /// <summary>"Ana Sofia Ramirez" → "Ana".</summary>
+    /// <param name="fullName">Nombre completo.</param>
+    /// <returns>El primer nombre.</returns>
+    internal static string FirstName(string fullName) =>
+        fullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) is [var first, ..] ? first : fullName;
 
     internal static MessageResponse ToResponse(MessageDocument m) => new(m.Id, m.ConversationId, m.SenderId, m.Text, m.CreatedAt, m.Kind ?? MessageKinds.Text);
 

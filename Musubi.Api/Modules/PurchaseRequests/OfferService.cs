@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.PurchaseRequests.Data;
@@ -35,6 +36,7 @@ internal sealed class OfferService(
     IProfileDirectory profiles,
     IConversationOpener chats,
     IContentModerator moderator,
+    INotificationCenter center,
     TimeProvider time)
 {
     /// <summary>Ofertas que se leen por solicitud (RN-14: una por persona; 100 es de sobra para un campus).</summary>
@@ -102,9 +104,23 @@ internal sealed class OfferService(
             return error!;
         }
 
-        return await offers.TryDecideAsync(offer.Id, OfferStatuses.Rejected, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false)
-            ? Result<bool>.Ok(true)
-            : OfferErrors.NotPending;
+        if (!await offers.TryDecideAsync(offer.Id, OfferStatuses.Rejected, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false))
+        {
+            return OfferErrors.NotPending;
+        }
+
+        // HU-31: quien ofrecio se entera (RF-41).
+        await center.NotifyAsync(
+            new Notice(
+                offer.SellerId,
+                NotificationTypes.OfferRejected,
+                "Eligieron otra oferta",
+                $"{(await RequestTitleAsync(offer.RequestId, cancellationToken).ConfigureAwait(false)) ?? offer.Title}. Gracias por ofrecer.",
+                NotificationTargets.Wanted,
+                offer.RequestId,
+                NotificationCategories.Requests),
+            cancellationToken).ConfigureAwait(false);
+        return Result<bool>.Ok(true);
     }
 
     /// <summary>
@@ -137,6 +153,19 @@ internal sealed class OfferService(
             {
                 return OfferErrors.NotPending;
             }
+
+            var conversationId = await OpenChatAsync(offer, cancellationToken).ConfigureAwait(false);
+            await center.NotifyAsync(
+                new Notice(
+                    offer.SellerId,
+                    NotificationTypes.OfferAccepted,
+                    $"{ChatService.FirstName(request!.RequesterName)} aceptó tu oferta",
+                    $"{offer.Title}. Ya pueden platicar en el chat.",
+                    NotificationTargets.Conversation,
+                    conversationId,
+                    NotificationCategories.Requests),
+                cancellationToken).ConfigureAwait(false);
+            return Result<OfferChatResponse>.Ok(new OfferChatResponse(conversationId));
         }
 
         return Result<OfferChatResponse>.Ok(new OfferChatResponse(await OpenChatAsync(offer, cancellationToken).ConfigureAwait(false)));
@@ -339,6 +368,17 @@ internal sealed class OfferService(
         }
 
         await requests.IncrementOffersAsync(request.Id, cancellationToken).ConfigureAwait(false);
+        // HU-31: "Alguien tiene lo que buscas" (maqueta Notificaciones).
+        await center.NotifyAsync(
+            new Notice(
+                request.RequesterId,
+                NotificationTypes.OfferReceived,
+                "Alguien tiene lo que buscas",
+                $"{offer.SellerName} respondió \"Yo tengo este producto\" a tu solicitud de {request.Title} · {Pesos(offer.PriceCents)}.",
+                NotificationTargets.Wanted,
+                request.Id,
+                NotificationCategories.Requests),
+            cancellationToken).ConfigureAwait(false);
         return Result<(OfferResponse, bool)>.Ok((ToResponse(offer, request), true));
     }
 
@@ -434,6 +474,15 @@ internal sealed class OfferService(
         o.PriceCents > request.BudgetCents,
         o.CreatedAt,
         o.UpdatedAt);
+
+    /// <summary>"$1,650" sin depender de la cultura del servidor (la imagen corre con InvariantGlobalization).</summary>
+    /// <param name="cents">Centavos.</param>
+    /// <returns>El precio.</returns>
+    internal static string Pesos(long cents) =>
+        "$" + (cents / 100m).ToString(cents % 100 == 0 ? "#,0" : "#,0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private async Task<string?> RequestTitleAsync(string requestId, CancellationToken cancellationToken) =>
+        (await requests.FindByIdAsync(requestId, cancellationToken).ConfigureAwait(false))?.Title;
 }
 
 /// <summary>Lo que se va a guardar de una oferta, ya validado.</summary>

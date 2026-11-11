@@ -1,10 +1,8 @@
-# plan.md — HU-31 Avisos de mensajes y cambios de estado (borrador)
+# plan.md — HU-31 (API)
 
-Se completa **al iniciar la HU**, con la skill `spec-first-writing`, siguiendo la estructura de los planes ya cerrados (por ejemplo, HU-06):
+El diseño, las decisiones y los límites están en [`spec.md`](spec.md). Puntos clave:
 
-1. **Componentes:** archivos y carpetas que se crean o cambian.
-2. **Decisiones:** cada una con su porqué; incluye las decisiones pendientes de Jira listadas en `spec.md` → Límites.
-3. **Excepciones al stack** (regla de 00-01), si hacen falta.
-4. **Guardarraíles:** seguridad, límites y validaciones.
-5. **Validación:** pruebas, capturas y prueba en el celular.
-6. **Secuencia de implementación.**
+- **FCM directo** (usuaria): sin el SDK de Firebase Admin; el JWT RS256 se firma con `System.Security.Cryptography` y las URLs de Google son fijas (sin SSRF por configuración).
+- **Segundo plano:** la cola es en memoria por instancia y acotada (1000); quien escribe no espera a FCM.
+- **Dos instancias:** los recordatorios corren en las dos; `ux_user_dedupe` deja pasar un solo aviso.
+- **Excepciones al stack:** ninguna.

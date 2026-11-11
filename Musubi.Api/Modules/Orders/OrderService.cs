@@ -8,6 +8,7 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.GenAi;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Modules.Profiles;
@@ -26,7 +27,7 @@ namespace Musubi.Api.Modules.Orders;
 /// NOTE (HU-24): quien vende acepta o rechaza; las piezas se apartan al aceptar (RF-34).
 /// HU-34 (RF-47): con <c>agreementId</c>, el pedido sale del acuerdo con IA que confirmaron los dos (RN-41), con su
 /// precio acordado, y el acuerdo se borra.
-/// NOTE (HU-31): avisar a quien vende del pedido nuevo.
+/// HU-31: quien vende recibe el aviso del pedido nuevo.
 /// </summary>
 internal sealed class OrderService(
     IOrderRepository orders,
@@ -39,6 +40,7 @@ internal sealed class OrderService(
     IProfileDirectory profiles,
     IContentModerator moderator,
     IAgreementDirectory agreements,
+    INotificationCenter center,
     TimeProvider time)
 {
     /// <summary>Piezas por pedido.</summary>
@@ -203,6 +205,17 @@ internal sealed class OrderService(
         {
             await agreements.ConsumeAsync(agreement, cancellationToken).ConfigureAwait(false);
         }
+
+        await center.NotifyAsync(
+            new Notice(
+                order.SellerId,
+                NotificationTypes.OrderCreated,
+                "Tienes un pedido nuevo",
+                $"{ChatService.FirstName(order.BuyerName)} pidió {order.Item.Quantity} × {order.Item.Title}. Pedido #{OrderNumbers.Display(order.Number)}.",
+                NotificationTargets.Order,
+                order.Id,
+                NotificationCategories.Orders),
+            cancellationToken).ConfigureAwait(false);
 
         return Result<OrderResponse>.Ok(ToResponse(order, userId));
     }

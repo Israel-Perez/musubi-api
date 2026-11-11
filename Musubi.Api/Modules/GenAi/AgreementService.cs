@@ -10,6 +10,7 @@ using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.GenAi.Data;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.PurchaseRequests;
 using Musubi.Api.Modules.Reputation;
@@ -39,6 +40,7 @@ internal sealed class AgreementService(
     IMeetingPointDirectory points,
     IContentModerator moderator,
     IOptions<GenAiOptions> options,
+    INotificationCenter center,
     TimeProvider time)
 {
     /// <summary>Caracteres del producto (como el pedido).</summary>
@@ -280,6 +282,7 @@ internal sealed class AgreementService(
         }
 
         await ChangedAsync(confirmed, cancellationToken).ConfigureAwait(false);
+        await NotifyConfirmedAsync(confirmed, userId, cancellationToken).ConfigureAwait(false);
         var item = await ItemAsync(conversation, cancellationToken).ConfigureAwait(false);
         return Result<AgreementResponse>.Ok(ToResponse(confirmed, userId, item?.MaxQuantity ?? 1, await NamesAsync(conversation, cancellationToken).ConfigureAwait(false)));
     }
@@ -357,6 +360,34 @@ internal sealed class AgreementService(
         a.CreatedAt,
         a.UpdatedAt,
         a.ExpiresAt);
+
+    // HU-31: la otra persona se entera de que ya le toca (o de que ya se puede crear el pedido).
+    private async Task NotifyConfirmedAsync(AgreementDocument agreement, string userId, CancellationToken cancellationToken)
+    {
+        var byBuyer = string.Equals(agreement.BuyerId, userId, StringComparison.Ordinal);
+        var other = byBuyer ? agreement.SellerId : agreement.BuyerId;
+        var me = await members.FindMemberAsync(userId, cancellationToken).ConfigureAwait(false);
+        var name = FirstName(me?.FullName ?? ChatService.UnknownMember);
+        var title = $"{name} confirmó el acuerdo";
+        var body = $"{agreement.Proposal.Title}. Revísalo y confírmalo tú también.";
+        if (agreement.Status == AgreementStatuses.Confirmed)
+        {
+            title = "Acuerdo confirmado";
+            var next = byBuyer ? $"{name} creará el pedido." : "Ya puedes crear el pedido.";
+            body = $"{name} y tú confirmaron el acuerdo de {agreement.Proposal.Title}. {next}";
+        }
+
+        await center.NotifyAsync(
+            new Notice(
+                other,
+                NotificationTypes.AgreementConfirmed,
+                title,
+                body,
+                NotificationTargets.Conversation,
+                agreement.ConversationId,
+                NotificationCategories.Orders),
+            cancellationToken).ConfigureAwait(false);
+    }
 
     private Task ChangedAsync(AgreementDocument agreement, CancellationToken cancellationToken) =>
         notices.AgreementChangedAsync([agreement.BuyerId, agreement.SellerId], agreement.ConversationId, cancellationToken);

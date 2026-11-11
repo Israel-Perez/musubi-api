@@ -49,6 +49,7 @@ public sealed class OrderServiceTests
     private readonly ManualTimeProvider time = new(Now);
     private readonly OrderService service;
 
+    private readonly RecordingNotificationCenter center = new();
     public OrderServiceTests()
     {
         service = new OrderService(
@@ -63,8 +64,9 @@ public sealed class OrderServiceTests
             new InMemoryContentModerator(),
             new AgreementDirectory(
                 agreements,
-                new ConversationNotices(conversations, new InMemoryMessageRepository(), new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance), time),
+                new ConversationNotices(conversations, new InMemoryMessageRepository(), new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance), center, time),
                 time),
+            center,
             time);
     }
 
@@ -701,5 +703,18 @@ public sealed class OrderServiceTests
         Assert.Equal("orders.agreement_not_found", byStranger.Error?.Code);
         Assert.Equal("orders.agreement_not_found", missing.Error?.Code);
         Assert.NotNull(await agreements.FindByIdAsync(tooMany.Id, Now.UtcDateTime, Ct));
+    }
+
+    [Fact]
+    public async Task ANewOrder_NotifiesTheSeller()
+    {
+        var (ana, diego, _, conversation) = await ChatAsync(stock: 3);
+
+        var order = (await service.CreateAsync(ana, Body(conversation, quantity: 2), Ct)).Value!;
+
+        var notice = center.Sent.Single();
+        Assert.Equal((diego, "order_created", "orders", "order", order.Id), (notice.UserId, notice.Type, notice.Category, notice.TargetType, notice.TargetId));
+        Assert.Equal("Tienes un pedido nuevo", notice.Title);
+        Assert.Equal($"Ana pidió 2 × Calculadora Casio fx-991ES Plus. Pedido #{order.Number}.", notice.Body);
     }
 }

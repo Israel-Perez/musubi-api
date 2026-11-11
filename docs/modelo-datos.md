@@ -68,8 +68,8 @@ Estados: ✅ Implementada (script aplicado y repositorio con pruebas) · 📐 Di
 | `ratings` | M-13 · HU-27/45 | `orderId`, `raterId`, `ratedId`, `role`, `stars`, `comment` | `ux_order_rater`, `ix_rated_id` | 📐 |
 | `reports` | M-13 · HU-28 · M-14 · HU-39 | `communityId`, `reporterId`, `target { type (general/user/product), id? }`, `conversationId?`, `reason` (los 5 de la maqueta), `details?` (≤ 1000, sin moderar: no se publica), `status` (`open`), `createdAt` | `ix_community_status` (`{communityId, status, createdAt: -1}`, bandeja de HU-39), `ix_reporter` (borrado, HU-46) | ✅ (HU-28, `db/008`) |
 | `blocks` | M-13 · HU-57 | `communityId`, `blockerId`, `blockedId`, `blockedName` (copia R8), `createdAt` | `ux_blocker_blocked` (único: idempotencia y "a quiénes bloqueé"), `ix_blocked` ("quiénes me bloquearon") | ✅ (HU-57, `db/008`) |
-| `notifications` | M-09 · HU-29/30/31 | `userId`, `type`, `payload`, `readAt`, `expiresAt` | `ix_user_id`, TTL de 90 días | 📐 |
-| `deviceTokens` | M-09 · HU-31 | `userId`, `token` (FCM), `platform`, `lastSeenAt` | `ux_token`, `ix_user` | 📐 |
+| `notifications` | M-09 · HU-31 | `userId`, `type`, `category` (`orders`/`requests`/`matches`), `title`, `body` (≤ 140), `target { type, id }`, `dedupeKey?` (un aviso una sola vez, p. ej. "vence mañana"), `readAt?`, `createdAt`, `expiresAt` (60 días). Los mensajes del chat no se guardan aquí | `ix_user_id`, `ix_user_category_id`, `ux_user_dedupe` (único parcial), `ttl_expires_at` | ✅ (HU-31, `db/017`) |
+| `deviceTokens` | M-09 · HU-31 | `userId`, `token` (FCM, único), `createdAt`, `lastSeenAt`, `expiresAt` (60 días sin renovarse) | `ux_token`, `ix_user_id`, `ttl_expires_at` | ✅ (HU-31, `db/017`) |
 | `recommendations` | M-11 · HU-35 · M-12 · HU-36/37/38 | `userId` o `productId`, `items[]` (≤ 20), `model`, `generatedAt` | `ux_subject`, TTL | 📐 |
 | `moderationLog` / `auditLog` | M-14 · HU-39/40 (RNF-04) | `actorId`, `action`, `target`, `at`, `reason` | `ix_target`, `ix_actor_at` | 📐 |
 | `outbox` | 02-02 | `type`, `payload`, `status`, `attempts`, `nextAttemptAt`, `processedAt` | `ix_status_next`, TTL de 7 días sobre procesados | 📐 |

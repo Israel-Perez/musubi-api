@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "6716a00000000000000000d1",
+      "type": "order_created",
+      "category": "orders",
+      "title": "Tienes un pedido nuevo",
+      "body": "Ana pidió 1 × Calculadora Casio fx-991ES Plus. Pedido #MS-1001.",
+      "target": { "type": "order", "id": "6716a00000000000000000a1" },
+      "read": false,
+      "createdAt": "2026-11-11T18:00:00Z"
+    }
+  ],
+  "unread": 1,
+  "nextCursor": null
+}

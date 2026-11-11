@@ -169,6 +169,15 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `orders.agreement_not_found` | 404 | Este acuerdo ya no existe. Pide otro resumen en el chat. | HU-34 (crear el pedido con un acuerdo inexistente, vencido, ya usado o ajeno) |
 | `orders.agreement_not_confirmed` | 409 | Los dos tienen que confirmar el acuerdo antes de crear el pedido. | HU-34 (RN-41) |
 
+## M-09 · Notificaciones (`Modules/Notifications/NotificationsErrors.cs`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `notifications.invalid_token` | 400 | No pudimos activar los avisos en este dispositivo. | HU-31 (token vacío, con espacios o de más de 512) |
+| `notifications.invalid_category` | 400 | Elige una pestaña de avisos. | HU-31 |
+| `notifications.invalid_cursor` | 400 | No pudimos cargar más avisos. Vuelve a abrir la pantalla. | HU-31 |
+| `notifications.not_found` | 404 | No encontramos este aviso. | HU-31 (id que no es un id) |
+
 ## M-10 · IA generativa (`Modules/GenAi/AgreementsErrors.cs`)
 
 | code | HTTP | Mensaje | HU |

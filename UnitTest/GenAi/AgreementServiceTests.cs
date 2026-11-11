@@ -49,13 +49,14 @@ public sealed class AgreementServiceTests
     private readonly ManualTimeProvider time = new(Now);
     private readonly AgreementService service;
 
+    private readonly RecordingNotificationCenter center = new();
     public AgreementServiceTests()
     {
         service = new AgreementService(
             agreements,
             ai,
             new ConversationDirectory(conversations),
-            new ConversationNotices(conversations, messages, new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance), time),
+            new ConversationNotices(conversations, messages, new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance), center, time),
             new ProductDirectory(products),
             new OfferDirectory(offers, requests),
             new BlockDirectory(blocks),
@@ -64,6 +65,7 @@ public sealed class AgreementServiceTests
             new MeetingPointDirectory(new InMemoryMeetingPointRepository()),
             new InMemoryContentModerator(),
             Options.Create(new GenAiOptions()),
+            center,
             time);
     }
 
@@ -447,5 +449,24 @@ public sealed class AgreementServiceTests
             Prompts.Add(prompt);
             return Task.FromResult(Next);
         }
+    }
+
+    [Fact]
+    public async Task Confirming_NotifiesTheOtherPerson_AndWhenBothDo_TheBuyerCanCreateTheOrder()
+    {
+        var (ana, diego, conversation) = await TalkedAsync();
+        ai.Next = Found();
+        var proposed = await RequestedAsync(ana, conversation);
+
+        await service.ConfirmAsync(diego, proposed.Id, new ConfirmAgreementRequest(1), Ct);
+        await service.ConfirmAsync(ana, proposed.Id, new ConfirmAgreementRequest(1), Ct);
+
+        var notices = center.Sent.Where(n => n.Type == "agreement_confirmed").ToList();
+        Assert.Equal((ana, "Diego confirmó el acuerdo"), (notices[0].UserId, notices[0].Title));
+        Assert.Equal((diego, "Acuerdo confirmado"), (notices[1].UserId, notices[1].Title));
+        Assert.EndsWith("Ana creará el pedido.", notices[1].Body, StringComparison.Ordinal);
+        Assert.All(notices, n => Assert.Equal(("orders", "conversation", conversation), (n.Category, n.TargetType, n.TargetId)));
+        // El aviso del chat ("Diego pidió…") tambien llega por push a la otra persona.
+        Assert.Contains(center.Sent, n => n.Type == "message" && n.UserId == diego && n.Title == "Resumen con IA");
     }
 }

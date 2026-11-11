@@ -16,7 +16,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **HU-08 (Tanis):** PR #61, renumerado a `db/016` y `alpha.17` el 11-Nov-2026 porque el acuerdo con IA entró antes con `db/015` y `alpha.16`.
 - **HU-23 (pedidos):** en `main` (`0.5.0-alpha.15`, esquema 14), API y app. Sin desplegar.
 - **HU-32/33/34 (acuerdo con IA):** API `0.5.0-alpha.16` y esquema 15 (`db/015-acuerdos.js`) en `feature/SCRUM-53-acuerdo-con-ia`. La llave de Gemini ya está en user-secrets y en `/musubi/prod/Gemini/ApiKey` (la puso la usuaria).
-- **Siguiente:** la app del acuerdo con IA; después push con FCM (HU-31).
+- **HU-31 (push):** API `0.5.0-alpha.18` y esquema 17 (`db/017-avisos.js`) en `feature/SCRUM-49-avisos-push`. Falta la llave de la cuenta de servicio en `/musubi/prod/Firebase/ServiceAccount` (la sube la usuaria).
+- **Siguiente:** la app de HU-31.
 - **Pendientes del usuario:**
   - proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
@@ -51,6 +52,26 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-52)`: estado "Reservada".
 - `NOTE (HU-25)`: en Vendidos, el comprador y el monto real del pedido.
 - Se cierra `NOTE (HU-08)` de HU-06 (paginar "Mis productos"): ya pagina con cursor.
+
+## T40 — Avisos push (11-Nov-2026, SCRUM-49, HU-31)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/Notifications/` (M-09) con 5 rutas: `GET /notifications`, `POST /notifications/read`, `POST /notifications/{id}/read`, `PUT /notifications/devices` y `POST /notifications/devices/remove`.
+- `INotificationCenter` para los demás módulos: con pestaña guarda el aviso (60 días, `dedupeKey`), y siempre encola el push. Lo llaman el chat (mensaje y aviso de la IA), pedidos (pedido nuevo), el acuerdo (confirmado) y las ofertas (recibida, aceptada, no elegida).
+- `FcmPushSender`: API HTTP v1 con un JWT RS256 firmado con la llave de la cuenta de servicio (sin SDK). `PushWorker` envía en segundo plano y borra los tokens desinstalados.
+- `WantedReminderWorker`: cada hora, "vence mañana" y "venció" (nueva consulta `IWantedReminders`).
+- `db/017-avisos.js` (esquema 17). API `0.5.0-alpha.18`. Unit 529 · Integration 158 · Security 192 · Contract 18. Endpoints 76.
+
+**Decisiones (con su porqué)**
+- **FCM directo** (usuaria). Sin el SDK de Firebase Admin: el JWT se firma con `System.Security.Cryptography` y las URLs de Google son fijas.
+- **Los mensajes solo van por push:** su historial es la bandeja; el centro de avisos es para pedidos y solicitudes, como la maqueta.
+- **Cola en memoria por instancia:** quien escribe no espera a FCM. Si la instancia se reinicia, se pierden los push en cola, pero el historial ya quedó.
+- **Dos instancias revisan los vencimientos:** `ux_user_dedupe` deja pasar un solo aviso.
+- **Los tipos y pestañas son contrato público** (`Musubi.Api.Modules.Notifications`), no de `Data`: los demás módulos no leen el `Data` de otro.
+
+**Errores a evitar**
+- **S5542 marca la firma RS256:** PKCS#1 v1.5 es lo que pide el estándar del JWT; se suprime con justificación en ese método.
+- **Al agregar una dependencia a un servicio**, las pruebas que lo construyen a mano fallan al compilar: usa `RecordingNotificationCenter` (`UnitTest/Common`).
 
 ## T38 — Acuerdo con IA (10-Nov-2026, SCRUM-52/53/54, HU-32/33/34)
 
