@@ -38,6 +38,7 @@ internal static class ChatModuleServiceCollectionExtensions
 
         services.AddSingleton<IConversationDirectory, ConversationDirectory>();
         services.AddSingleton<IConversationOpener, ConversationOpener>();
+        services.AddSingleton<IConversationNotices, ConversationNotices>();
         services.AddSingleton<ChatNotifier>();
         services.AddSingleton<ChatService>();
         services.AddSingleton<IAccountDataEraser, ChatAccountEraser>();

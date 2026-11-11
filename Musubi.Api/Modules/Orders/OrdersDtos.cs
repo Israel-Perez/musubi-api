@@ -11,12 +11,17 @@ namespace Musubi.Api.Modules.Orders;
 /// <param name="MeetingPoint">Slug del punto de entrega.</param>
 /// <param name="MeetingDetail">Precision libre del lugar (hasta 120 caracteres), o <c>null</c>.</param>
 /// <param name="DeliveryAt">Fecha y hora de la entrega (de 30 minutos a 14 dias, de 7:00 a 21:00 del campus).</param>
+/// <param name="AgreementId">
+/// HU-34 (RF-47): el acuerdo con IA que confirmaron los dos. Con el, los demas campos se toman del acuerdo (incluido el
+/// precio acordado) y se ignoran los del cuerpo; al crear el pedido el acuerdo se borra.
+/// </param>
 public sealed record CreateOrderRequest(
     string? ConversationId,
     int? Quantity,
     string? MeetingPoint,
     string? MeetingDetail,
-    DateTime? DeliveryAt);
+    DateTime? DeliveryAt,
+    string? AgreementId = null);
 
 /// <summary>"¿Como quieres pagar?" (maqueta <c>Pedido-pago</c>).</summary>
 /// <param name="Method"><c>cash</c> (efectivo al entregar) o <c>transfer</c> (HU-55).</param>

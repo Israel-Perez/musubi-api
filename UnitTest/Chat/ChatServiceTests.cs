@@ -12,6 +12,7 @@ using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
 using StackExchange.Redis;
+using UnitTest.Common;
 
 namespace UnitTest.Chat;
 
@@ -33,6 +34,7 @@ public sealed class ChatServiceTests
     private readonly InMemoryBlockRepository blocks = new();
     private readonly ChatService service;
 
+    private readonly RecordingNotificationCenter center = new();
     public ChatServiceTests()
     {
         service = new ChatService(
@@ -44,6 +46,7 @@ public sealed class ChatServiceTests
             new BlockDirectory(blocks),
             new InMemoryContentModerator(),
             new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance),
+            center,
             new ManualTimeProvider(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero)));
     }
 
@@ -283,5 +286,20 @@ public sealed class ChatServiceTests
             LastMethod = method;
             return Failure is null ? Task.CompletedTask : Task.FromException(Failure);
         }
+    }
+
+    [Fact]
+    public async Task Send_PushesTheMessageToTheOtherParticipant_WithTheSendersFirstName()
+    {
+        var buyer = await MemberAsync(name: "Ana Sofía Ramírez");
+        var seller = await MemberAsync(name: "Diego Hernández");
+        var started = (await service.StartFromProductAsync(buyer, new StartConversationRequest(Product(seller).Id), Ct)).Value!;
+
+        await service.SendAsync(buyer, started.Conversation.Id, new SendMessageRequest("¿Sigue disponible?"), Ct);
+
+        var notice = center.Sent.Single();
+        Assert.Equal((seller, "message", "Ana", "¿Sigue disponible?"), (notice.UserId, notice.Type, notice.Title, notice.Body));
+        Assert.Equal(("conversation", started.Conversation.Id), (notice.TargetType, notice.TargetId));
+        Assert.Null(notice.Category);
     }
 }

@@ -2,7 +2,7 @@
 
 ## Componentes
 - `Musubi.Api/Modules/Profiles/`: endpoint autenticado, servicio, DTO, validador, documento Mongo y repositorios Mongo/InMemory.
-- `db/015-preferencias.js`: colección `preferences`, validador e índice único por usuario; `MongoSchema.ExpectedVersion` pasa a 15 (HU-23 ya ocupa el script 014).
+- `db/018-preferencias.js`: colección `preferences`, validador e índice único por usuario; `MongoSchema.ExpectedVersion` pasa a 18 (del 014 al 017 ya los ocupan HU-23, el acuerdo con IA, HU-08 y HU-31).
 - `Musubi.Api/Modules/Auth/` integración del borrado de preferencias con HU-46 sin cambiar su contrato.
 - Catálogos: `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/versionado.md`; fixture de contrato.
 - Tests: Unit, Integration, Security, Contract y Database en los proyectos existentes.
@@ -27,6 +27,6 @@
 
 ## Secuencia
 1. Completar el slice de API desde el scaffolder; endurecer errores, validación, auth y pruebas.
-2. Añadir script 015 (014 quedó asignado a HU-23), actualizar versión esperada, integrar el borrado de cuenta y cubrir Mongo.
+2. Añadir script 018 (del 014 al 017 ya están asignados), actualizar versión esperada, integrar el borrado de cuenta y cubrir Mongo.
 3. Conciliar catálogos, fixtures, trazabilidad y Memoria.
 4. Verificar y dejar commit aislado `SCRUM-71` en rama propia; no actualizar Jira desde este cambio.

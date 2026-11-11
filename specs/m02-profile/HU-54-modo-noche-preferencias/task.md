@@ -9,7 +9,7 @@
 - **Estado:** ✅ Hecho.
 
 ## T3 — Esquema y catálogos
-- **Qué:** script idempotente 015 (014 corresponde a HU-23), versión esperada, fixtures, endpoints, errores, modelo de datos y trazabilidad.
+- **Qué:** script idempotente 018 (del 014 al 017 ya están asignados), versión esperada, fixtures, endpoints, errores, modelo de datos y trazabilidad.
 - **Estado:** ✅ Hecho.
 
 ## T4 — Evidencia y cierre

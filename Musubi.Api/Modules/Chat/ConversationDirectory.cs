@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat.Data;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Platform.Data;
 
 namespace Musubi.Api.Modules.Chat;
@@ -125,4 +126,106 @@ internal sealed class ConversationOpener(IConversationRepository conversations, 
             cancellationToken).ConfigureAwait(false);
         return document.Id;
     }
+}
+
+/// <summary>Un mensaje de texto para la IA (HU-33): quien lo dijo y que dijo, sin ids de mensaje.</summary>
+/// <param name="SenderId">Quien lo envio.</param>
+/// <param name="Text">El texto.</param>
+/// <param name="At">Envio (UTC).</param>
+internal sealed record TranscriptLine(string SenderId, string Text, DateTime At);
+
+/// <summary>
+/// Contrato publico de M-07 para la IA (M-10, HU-32/HU-33): leer los ultimos mensajes de texto de una conversacion,
+/// solo cuando un participante pide el resumen (RN-39), dejar el aviso en el chat (RN-40) y avisar que el acuerdo
+/// cambio (HU-34).
+/// </summary>
+internal interface IConversationNotices
+{
+    /// <summary>Los ultimos mensajes de texto (sin avisos), del mas viejo al mas nuevo.</summary>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="limit">Cuantos como maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los mensajes.</returns>
+    Task<IReadOnlyList<TranscriptLine>> RecentTextsAsync(string conversationId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Deja un aviso en la conversacion y lo entrega en tiempo real (cuenta como no leido del otro lado).</summary>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="senderId">Quien lo provoco (uno de los participantes).</param>
+    /// <param name="text">El aviso (hasta 120 caracteres).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task PostNoticeAsync(string conversationId, string senderId, string text, CancellationToken cancellationToken);
+
+    /// <summary>Avisa a los dos participantes que el acuerdo cambio (evento <c>agreementChanged</c>).</summary>
+    /// <param name="participants">Los participantes.</param>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task AgreementChangedAsync(IReadOnlyList<string> participants, string conversationId, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre los repositorios del chat y el hub.</summary>
+internal sealed class ConversationNotices(
+    IConversationRepository conversations,
+    IMessageRepository messages,
+    ChatNotifier notifier,
+    INotificationCenter center,
+    TimeProvider time) : IConversationNotices
+{
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TranscriptLine>> RecentTextsAsync(string conversationId, int limit, CancellationToken cancellationToken)
+    {
+        // Se piden algunos de mas por si hay avisos entre los textos.
+        var page = await messages.FindPageAsync(conversationId, null, Math.Min(limit + 10, ChatService.MaxPageSize), cancellationToken).ConfigureAwait(false);
+        var lines = new List<TranscriptLine>(limit);
+        foreach (var m in page)
+        {
+            if (m.Kind is null && lines.Count < limit)
+            {
+                lines.Add(new TranscriptLine(m.SenderId, m.Text, m.CreatedAt));
+            }
+        }
+
+        lines.Reverse();
+        return lines;
+    }
+
+    /// <inheritdoc />
+    public async Task PostNoticeAsync(string conversationId, string senderId, string text, CancellationToken cancellationToken)
+    {
+        var conversation = await conversations.FindByIdAsync(conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is null)
+        {
+            return;
+        }
+
+        var notice = text.Length > ChatService.PreviewLength ? text[..ChatService.PreviewLength] : text;
+        var message = new MessageDocument
+        {
+            Id = MongoConventions.NewId(),
+            ConversationId = conversation.Id,
+            CommunityId = conversation.CommunityId,
+            SenderId = senderId,
+            Text = notice,
+            Kind = MessageKinds.Notice,
+            CreatedAt = time.GetUtcNow().UtcDateTime,
+        };
+        await messages.InsertAsync(message, cancellationToken).ConfigureAwait(false);
+        var recipientRole = string.Equals(conversation.BuyerId, senderId, StringComparison.Ordinal) ? ChatService.SellerRole : ChatService.BuyerRole;
+        await conversations.RecordMessageAsync(
+            conversation.Id,
+            new LastMessage { SenderId = senderId, Text = notice, At = message.CreatedAt },
+            recipientRole,
+            cancellationToken).ConfigureAwait(false);
+        await notifier.MessageCreatedAsync(conversation.Participants, ChatService.ToResponse(message), cancellationToken).ConfigureAwait(false);
+        // HU-31: la otra persona se entera aunque no tenga la app abierta (RN-40).
+        var recipientId = string.Equals(conversation.BuyerId, senderId, StringComparison.Ordinal) ? conversation.SellerId : conversation.BuyerId;
+        await center.NotifyAsync(
+            new Notice(recipientId, NotificationTypes.Message, "Resumen con IA", notice, NotificationTargets.Conversation, conversation.Id),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task AgreementChangedAsync(IReadOnlyList<string> participants, string conversationId, CancellationToken cancellationToken) =>
+        notifier.AgreementChangedAsync(participants, conversationId, cancellationToken);
 }

@@ -1,8 +1,8 @@
-// 015-preferencias (HU-54): preferencia de apariencia por cuenta.
-// Idempotente: se puede correr N veces despues de 014-pedidos.js.
+// 018-preferencias (HU-54): preferencia de apariencia por cuenta.
+// Idempotente: se puede correr N veces despues de 017-avisos.js.
 
-const SCRIPT_ID = '015-preferencias';
-const SCHEMA_VERSION = 15;
+const SCRIPT_ID = '018-preferencias';
+const SCHEMA_VERSION = 18;
 
 function ensureCollection(name, validator) {
   const options = { validator: validator, validationLevel: 'strict', validationAction: 'error' };

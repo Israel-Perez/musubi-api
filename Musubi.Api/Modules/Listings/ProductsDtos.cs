@@ -71,6 +71,7 @@ public sealed record SellerResponse(string Name);
 /// <param name="Photos">Rutas de las fotos (la primera es la portada).</param>
 /// <param name="Seller">Vendedor; <c>null</c> para visitantes.</param>
 /// <param name="PublishedAt">Publicacion (UTC).</param>
+/// <param name="SoldAt">Cuando se marco como vendida (UTC), o <c>null</c> (HU-08).</param>
 public sealed record ProductResponse(
     string Id,
     string Title,
@@ -83,13 +84,27 @@ public sealed record ProductResponse(
     string Status,
     IReadOnlyList<string> Photos,
     SellerResponse? Seller,
-    DateTime PublishedAt);
+    DateTime PublishedAt,
+    DateTime? SoldAt);
 
 /// <summary>Pagina de publicaciones.</summary>
 /// <param name="Items">Publicaciones, de la mas nueva a la mas vieja.</param>
 /// <param name="NextCursor">Cursor para la siguiente pagina; <c>null</c> si no hay mas.</param>
 /// <param name="Total">Total de la consulta sin paginar.</param>
 public sealed record ProductPage(IReadOnlyList<ProductResponse> Items, string? NextCursor, long Total);
+
+/// <summary>Conteos de las pestanas de "Mis productos" (maqueta: "Activos (n)", "Vendidos (n)" y "Agotados (n)").</summary>
+/// <param name="Active">Disponibles y pausadas.</param>
+/// <param name="Sold">Vendidas.</param>
+/// <param name="SoldOut">Sin piezas.</param>
+public sealed record MyProductCounts(long Active, long Sold, long SoldOut);
+
+/// <summary>Una pagina de "Mis productos" (HU-08).</summary>
+/// <param name="Items">Publicaciones de la pestana, de la mas nueva a la mas vieja.</param>
+/// <param name="NextCursor">Cursor para la siguiente pagina; <c>null</c> si no hay mas.</param>
+/// <param name="Total">Total de la pestana (o de todas, sin pestana).</param>
+/// <param name="Counts">Conteos de las tres pestanas.</param>
+public sealed record MyProductPage(IReadOnlyList<ProductResponse> Items, string? NextCursor, long Total, MyProductCounts Counts);
 
 /// <summary>Rango de precios de productos parecidos (maqueta <c>Vender-3</c>).</summary>
 /// <param name="LowCents">Percentil 25.</param>

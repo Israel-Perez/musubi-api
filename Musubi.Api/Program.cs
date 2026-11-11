@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Builder;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
+using Musubi.Api.Modules.GenAi;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Profiles;
@@ -21,6 +23,8 @@ builder.Services.AddChatModule();
 builder.Services.AddReputationModule();
 builder.Services.AddPurchaseRequestsModule();
 builder.Services.AddOrdersModule();
+builder.Services.AddGenAiModule();
+builder.Services.AddNotificationsModule();
 
 var app = builder.Build();
 

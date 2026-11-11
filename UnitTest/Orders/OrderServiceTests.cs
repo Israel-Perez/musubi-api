@@ -1,7 +1,10 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
+using Musubi.Api.Modules.GenAi;
+using Musubi.Api.Modules.GenAi.Data;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Modules.Orders;
@@ -41,9 +44,12 @@ public sealed class OrderServiceTests
     private readonly InMemoryBlockRepository blocks = new();
     private readonly InMemoryProfileRepository profiles = new();
     private readonly InMemoryOrderRepository orders = new();
+    private readonly InMemoryAgreementRepository agreements = new();
+    private readonly RecordingHub hub = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly OrderService service;
 
+    private readonly RecordingNotificationCenter center = new();
     public OrderServiceTests()
     {
         service = new OrderService(
@@ -56,6 +62,11 @@ public sealed class OrderServiceTests
             new MemberDirectory(new InMemoryCommunityRepository(), users),
             new ProfileDirectory(profiles, new InMemoryCareerRepository()),
             new InMemoryContentModerator(),
+            new AgreementDirectory(
+                agreements,
+                new ConversationNotices(conversations, new InMemoryMessageRepository(), new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance), center, time),
+                time),
+            center,
             time);
     }
 
@@ -621,5 +632,89 @@ public sealed class OrderServiceTests
 
         var assigned = InMemoryMeetingPointRepository.Seed.SelectMany(p => p.Careers).ToList();
         Assert.Equal(careers.Order(StringComparer.Ordinal), assigned.Order(StringComparer.Ordinal));
+    }
+
+    // HU-34: un acuerdo con IA de la conversacion, como lo deja AgreementService.
+    private async Task<AgreementDocument> AgreementAsync(string ana, string diego, string conversation, bool confirmed = true, long price = 42_000, int quantity = 2)
+    {
+        var agreement = new AgreementDocument
+        {
+            Id = AuthIds.New(),
+            CommunityId = Uttt,
+            ConversationId = conversation,
+            BuyerId = ana,
+            SellerId = diego,
+            RequestedBy = ana,
+            Proposal = new AgreementProposal
+            {
+                Title = "Calculadora Casio con funda",
+                PriceCents = price,
+                Quantity = quantity,
+                PointSlug = "cafeteria",
+                PointName = "Cafetería",
+                Detail = "Junto a la caja",
+                At = Tomorrow,
+            },
+            Status = confirmed ? AgreementStatuses.Confirmed : AgreementStatuses.Proposed,
+            BuyerConfirmedAt = Now.UtcDateTime,
+            SellerConfirmedAt = confirmed ? Now.UtcDateTime : null,
+            CreatedAt = Now.UtcDateTime,
+            UpdatedAt = Now.UtcDateTime,
+            ExpiresAt = Now.UtcDateTime.AddDays(30),
+        };
+        return await agreements.ReplaceForConversationAsync(agreement, Ct).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task FromAConfirmedAgreement_TheOrderTakesItsData_AndTheAgreementIsDeleted()
+    {
+        var (ana, diego, _, conversation) = await ChatAsync(stock: 3);
+        var agreement = await AgreementAsync(ana, diego, conversation);
+
+        // RF-47: lo del cuerpo no cuenta; manda el acuerdo que confirmaron los dos (RN-41).
+        var result = await service.CreateAsync(ana, new CreateOrderRequest(null, 1, "biblioteca", null, null, agreement.Id), Ct);
+
+        var order = result.Value!;
+        Assert.Equal(conversation, order.ConversationId);
+        Assert.Equal(("Calculadora Casio con funda", 42_000L, 2, 84_000L), (order.Item.Title, order.Item.PriceCents, order.Item.Quantity, order.Item.TotalCents));
+        Assert.Equal(("cafeteria", "Junto a la caja", Tomorrow), (order.Delivery.Point, order.Delivery.Detail, order.Delivery.At));
+        Assert.Equal(OrderStatuses.Pending, order.Status);
+        Assert.Null(await agreements.FindByIdAsync(agreement.Id, Now.UtcDateTime, Ct));
+        Assert.Contains(hub.Sent, e => e.Method == ChatHub.AgreementChanged && e.Users.SequenceEqual([ana, diego]));
+    }
+
+    [Fact]
+    public async Task FromAnAgreement_OnlyTheBuyer_OnceBothConfirmed_AndWithinTheStock()
+    {
+        var (ana, diego, _, conversation) = await ChatAsync(stock: 1);
+        var luis = await MemberAsync("Luis Pérez");
+        var pending = await AgreementAsync(ana, diego, conversation, confirmed: false, quantity: 1);
+
+        var notConfirmed = await service.CreateAsync(ana, new CreateOrderRequest(null, null, null, null, null, pending.Id), Ct);
+        var tooMany = await AgreementAsync(ana, diego, conversation, quantity: 2);
+        var noStock = await service.CreateAsync(ana, new CreateOrderRequest(null, null, null, null, null, tooMany.Id), Ct);
+        var bySeller = await service.CreateAsync(diego, new CreateOrderRequest(null, null, null, null, null, tooMany.Id), Ct);
+        var byStranger = await service.CreateAsync(luis, new CreateOrderRequest(null, null, null, null, null, tooMany.Id), Ct);
+        var missing = await service.CreateAsync(ana, new CreateOrderRequest(null, null, null, null, null, AuthIds.New()), Ct);
+
+        Assert.Equal("orders.agreement_not_confirmed", notConfirmed.Error?.Code);
+        Assert.Equal("orders.not_enough_stock", noStock.Error?.Code);
+        Assert.Equal("orders.only_buyer", bySeller.Error?.Code);
+        Assert.Equal("orders.agreement_not_found", byStranger.Error?.Code);
+        Assert.Equal("orders.agreement_not_found", missing.Error?.Code);
+        Assert.NotNull(await agreements.FindByIdAsync(tooMany.Id, Now.UtcDateTime, Ct));
+    }
+
+    [Fact]
+    public async Task ANewOrder_NotifiesTheSeller()
+    {
+        var (ana, diego, _, conversation) = await ChatAsync(stock: 3);
+
+        var order = (await service.CreateAsync(ana, Body(conversation, quantity: 2), Ct)).Value!;
+
+        var notice = center.Sent.Single();
+        Assert.Equal((diego, "order_created", "orders", "order", order.Id), (notice.UserId, notice.Type, notice.Category, notice.TargetType, notice.TargetId));
+        Assert.Equal("Tienes un pedido nuevo", notice.Title);
+        Assert.Equal($"Ana pidió 2 × Calculadora Casio fx-991ES Plus. Pedido #{order.Number}.", notice.Body);
     }
 }

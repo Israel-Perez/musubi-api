@@ -18,7 +18,10 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `012-ofertas-chat.js` | Conversaciones de una oferta (`context.type` `offer`) y ofertas aceptadas o rechazadas (HU-17) | 12 |
 | `013-favoritos.js` | `favorites` (HU-53): un favorito por usuario y publicación | 13 |
 | `014-pedidos.js` | `orders` (HU-23: uno abierto por conversación), `meetingPoints` (los 14 edificios de la UTTT con sus carreras) y `counters` (el número MS-NNNN) | 14 |
-| `015-preferencias.js` | `preferences` (HU-54): tema de apariencia por cuenta | 15 |
+| `015-acuerdos.js` | `agreements` (HU-32/33/34: el acuerdo con IA, uno por conversación, con TTL de 30 días) y `messages.kind` (avisos de la app en el chat) | 15 |
+| `016-publicacion-vendida.js` | Publicación vendida: `products.status` admite `sold` y `soldAt` (HU-08, "Marcar como vendido") | 16 |
+| `017-avisos.js` | `notifications` (HU-31: el centro de notificaciones, TTL de 60 días, un aviso por `dedupeKey`), `deviceTokens` (tokens de FCM, TTL de 60 días) e `ix_status_expires` en `wantedRequests` (recordatorios de vencimiento) | 17 |
+| `018-preferencias.js` | `preferences` (HU-54): tema de apariencia por cuenta | 18 |
 
 ## Aplicar
 

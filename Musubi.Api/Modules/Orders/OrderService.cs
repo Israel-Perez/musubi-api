@@ -7,6 +7,8 @@ using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
+using Musubi.Api.Modules.GenAi;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Modules.Profiles;
@@ -23,8 +25,9 @@ namespace Musubi.Api.Modules.Orders;
 /// y nace <see cref="OrderStatuses.Pending"/> (RN-16). Uno abierto por conversacion. El pago es en efectivo al
 /// entregar (RN-18 del Entregable 1).
 /// NOTE (HU-24): quien vende acepta o rechaza; las piezas se apartan al aceptar (RF-34).
-/// NOTE (HU-34): el pedido sale del acuerdo confirmado por los dos, con la propuesta de la IA (RF-47).
-/// NOTE (HU-31): avisar a quien vende del pedido nuevo.
+/// HU-34 (RF-47): con <c>agreementId</c>, el pedido sale del acuerdo con IA que confirmaron los dos (RN-41), con su
+/// precio acordado, y el acuerdo se borra.
+/// HU-31: quien vende recibe el aviso del pedido nuevo.
 /// </summary>
 internal sealed class OrderService(
     IOrderRepository orders,
@@ -36,6 +39,8 @@ internal sealed class OrderService(
     IMemberDirectory members,
     IProfileDirectory profiles,
     IContentModerator moderator,
+    IAgreementDirectory agreements,
+    INotificationCenter center,
     TimeProvider time)
 {
     /// <summary>Piezas por pedido.</summary>
@@ -101,6 +106,24 @@ internal sealed class OrderService(
             return ApiErrors.Forbidden;
         }
 
+        // HU-34: el acuerdo confirmado manda; lo demas del cuerpo no se usa.
+        AgreementForOrder? agreement = null;
+        if (body.AgreementId is { } agreementId)
+        {
+            agreement = await agreements.FindAsync(agreementId, cancellationToken).ConfigureAwait(false);
+            if (agreement is null || !IsParty(agreement.BuyerId, agreement.SellerId, userId))
+            {
+                return OrdersErrors.AgreementNotFound;
+            }
+
+            if (!agreement.Confirmed)
+            {
+                return OrdersErrors.AgreementNotConfirmed;
+            }
+
+            body = new CreateOrderRequest(agreement.ConversationId, agreement.Quantity, agreement.PointSlug, agreement.Detail, agreement.At, agreement.Id);
+        }
+
         var conversation = body.ConversationId is { } conversationId && ObjectId.TryParse(conversationId, out _)
             ? await conversations.FindAsync(conversationId, cancellationToken).ConfigureAwait(false)
             : null;
@@ -130,6 +153,13 @@ internal sealed class OrderService(
         if (unavailable is not null)
         {
             return unavailable;
+        }
+
+        if (agreement is not null)
+        {
+            // El precio y el nombre que acordaron los dos (RN-41).
+            var price = agreement.PriceCents ?? item!.PriceCents;
+            item = Item(item!.Source, item.SourceId, item.ProductId, agreement.Title, item.Photo, price, item.Quantity);
         }
 
         if ((await orders.FindByConversationAsync(conversation.Id, MaxPerConversation, cancellationToken).ConfigureAwait(false))
@@ -170,6 +200,22 @@ internal sealed class OrderService(
         {
             return OrdersErrors.AlreadyOpen;
         }
+
+        if (agreement is not null)
+        {
+            await agreements.ConsumeAsync(agreement, cancellationToken).ConfigureAwait(false);
+        }
+
+        await center.NotifyAsync(
+            new Notice(
+                order.SellerId,
+                NotificationTypes.OrderCreated,
+                "Tienes un pedido nuevo",
+                $"{ChatService.FirstName(order.BuyerName)} pidió {order.Item.Quantity} × {order.Item.Title}. Pedido #{OrderNumbers.Display(order.Number)}.",
+                NotificationTargets.Order,
+                order.Id,
+                NotificationCategories.Orders),
+            cancellationToken).ConfigureAwait(false);
 
         return Result<OrderResponse>.Ok(ToResponse(order, userId));
     }
@@ -278,6 +324,16 @@ internal sealed class OrderService(
     private static bool IsParty(string buyerId, string sellerId, string userId) =>
         string.Equals(buyerId, userId, StringComparison.Ordinal) || string.Equals(sellerId, userId, StringComparison.Ordinal);
 
+    /// <summary>
+    /// Si una entrega cae en la ventana del pedido: de 30 minutos a 14 dias de ahora, entre las 7:00 y las 21:00 del
+    /// campus. La usa tambien el acuerdo con IA (HU-33/34) para no proponer una fecha que el pedido rechazaria.
+    /// </summary>
+    /// <param name="at">Fecha y hora (UTC).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <returns><c>true</c> si es valida.</returns>
+    internal static bool IsValidDeliveryTime(DateTime at, DateTime now) =>
+        at >= now + MinLead && at <= now + MaxLead && IsCampusHour(at);
+
     private static bool IsCampusHour(DateTime utc)
     {
         var local = TimeOnly.FromDateTime(utc + CampusOffset);
@@ -317,7 +373,7 @@ internal sealed class OrderService(
         }
 
         var at = requested.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(requested, DateTimeKind.Utc) : requested.ToUniversalTime();
-        if (at < now + MinLead || at > now + MaxLead || !IsCampusHour(at))
+        if (!IsValidDeliveryTime(at, now))
         {
             return (null, OrdersErrors.InvalidDeliveryTime);
         }

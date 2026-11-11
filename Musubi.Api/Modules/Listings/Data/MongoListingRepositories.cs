@@ -98,7 +98,7 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             ? update.Set(p => p.ConditionDetail, detail)
             : update.Unset(p => p.ConditionDetail);
         return await products.FindOneAndUpdateAsync(
-            OwnedBy(id, sellerId),
+            Editable(id, sellerId),
             update,
             new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
             cancellationToken).ConfigureAwait(false);
@@ -118,7 +118,7 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             : new BsonDocument("$cond", new BsonArray { new BsonDocument("$gt", new BsonArray { "$stock", 0 }), ProductStatuses.Active, ProductStatuses.SoldOut });
         var stage = new BsonDocument("$set", new BsonDocument { { "status", status }, { "updatedAt", new BsonDateTime(now) } });
         return await products.FindOneAndUpdateAsync(
-            OwnedBy(id, sellerId),
+            Editable(id, sellerId),
             new PipelineUpdateDefinition<ProductDocument>(new BsonDocumentStagePipelineDefinition<ProductDocument, ProductDocument>([stage])),
             new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
             cancellationToken).ConfigureAwait(false);
@@ -138,11 +138,49 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(string sellerId, int limit, CancellationToken cancellationToken) =>
-        await products.Find(p => p.SellerId == sellerId && p.Status != ProductStatuses.Removed)
+    public async Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
+        string sellerId,
+        IReadOnlyList<string>? statuses,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var filter = Filter.Eq(p => p.SellerId, sellerId)
+            & (statuses is null ? Filter.Ne(p => p.Status, ProductStatuses.Removed) : Filter.In(p => p.Status, statuses));
+        if (beforeId is not null)
+        {
+            filter &= Filter.Lt("_id", ObjectId.Parse(beforeId));
+        }
+
+        return await products.Find(filter)
             .SortByDescending(p => p.Id)
             .Limit(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<string, long>> CountBySellerAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        // Un solo viaje: $match con ix_seller_id y $group por estado.
+        var groups = await products.Aggregate()
+            .Match(Filter.Eq(p => p.SellerId, sellerId) & Filter.Ne(p => p.Status, ProductStatuses.Removed))
+            .Group(p => p.Status, g => new { Status = g.Key, Count = g.LongCount() })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return groups.ToDictionary(g => g.Status, g => g.Count, StringComparer.Ordinal);
+    }
+
+    /// <inheritdoc />
+    public async Task<ProductDocument?> MarkSoldAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await products.FindOneAndUpdateAsync(
+                OwnedBy(id, sellerId) & Filter.Ne(p => p.Status, ProductStatuses.Sold),
+                Builders<ProductDocument>.Update
+                    .Set(p => p.Status, ProductStatuses.Sold)
+                    .Set(p => p.SoldAt, now)
+                    .Set(p => p.UpdatedAt, now),
+                new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
+                cancellationToken).ConfigureAwait(false)
+            : null;
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<long>> FindActivePricesAsync(string communityId, string categorySlug, int limit, CancellationToken cancellationToken)
@@ -155,6 +193,10 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .ToListAsync(cancellationToken).ConfigureAwait(false);
         return prices.ToList();
     }
+
+    // HU-08: una vendida no se edita ni se pausa (reactivarla la "des-venderia").
+    private static FilterDefinition<ProductDocument> Editable(string id, string sellerId) =>
+        OwnedBy(id, sellerId) & Filter.Ne(p => p.Status, ProductStatuses.Sold);
 
     // El dueno en el filtro de cada escritura (OWASP API1): nunca se lee y despues se escribe.
     private static FilterDefinition<ProductDocument> OwnedBy(string id, string sellerId) =>

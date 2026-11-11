@@ -113,7 +113,7 @@ internal sealed class InMemoryProductRepository : IProductRepository
     public Task<ProductDocument?> UpdateDetailsAsync(string id, string sellerId, ProductDetails details, DateTime now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(details);
-        return Task.FromResult(Replace(id, sellerId, p => Copy(p, details, p.Status, now)));
+        return Task.FromResult(Replace(id, sellerId, p => Copy(p, details, p.Status, now, p.SoldAt)));
     }
 
     /// <inheritdoc />
@@ -122,7 +122,8 @@ internal sealed class InMemoryProductRepository : IProductRepository
             p,
             new ProductDetails(p.Title, p.Description, p.CategorySlug, p.PriceCents, p.Condition, p.ConditionDetail),
             ResumedOrPaused(p, paused),
-            now)));
+            now,
+            p.SoldAt)));
 
     /// <inheritdoc />
     public Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken)
@@ -151,18 +152,45 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(string sellerId, int limit, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
+        string sellerId,
+        IReadOnlyList<string>? statuses,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken)
     {
         lock (gate)
         {
             var mine = products
-                .Where(p => string.Equals(p.SellerId, sellerId, StringComparison.Ordinal) && p.Status != ProductStatuses.Removed)
+                .Where(p => string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)
+                    && (statuses is null ? p.Status != ProductStatuses.Removed : statuses.Contains(p.Status))
+                    && (beforeId is null || string.CompareOrdinal(p.Id, beforeId) < 0))
                 .OrderByDescending(p => p.Id, StringComparer.Ordinal)
                 .Take(limit)
                 .ToList();
             return Task.FromResult<IReadOnlyList<ProductDocument>>(mine);
         }
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyDictionary<string, long>> CountBySellerAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyDictionary<string, long> counts = products
+                .Where(p => string.Equals(p.SellerId, sellerId, StringComparison.Ordinal) && p.Status != ProductStatuses.Removed)
+                .GroupBy(p => p.Status, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => (long)g.Count(), StringComparer.Ordinal);
+            return Task.FromResult(counts);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<ProductDocument?> MarkSoldAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Replace(
+            id,
+            sellerId,
+            p => Copy(p, new ProductDetails(p.Title, p.Description, p.CategorySlug, p.PriceCents, p.Condition, p.ConditionDetail), ProductStatuses.Sold, now, now)));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<long>> FindActivePricesAsync(string communityId, string categorySlug, int limit, CancellationToken cancellationToken)
@@ -197,7 +225,7 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     // Los documentos son inmutables (init): un cambio reemplaza el documento, como lo devuelve Mongo.
-    private static ProductDocument Copy(ProductDocument p, ProductDetails details, string status, DateTime now) => new()
+    private static ProductDocument Copy(ProductDocument p, ProductDetails details, string status, DateTime now, DateTime? soldAt) => new()
     {
         Id = p.Id,
         CommunityId = p.CommunityId,
@@ -215,13 +243,15 @@ internal sealed class InMemoryProductRepository : IProductRepository
         SchemaVersion = p.SchemaVersion,
         CreatedAt = p.CreatedAt,
         UpdatedAt = now,
+        SoldAt = soldAt,
     };
 
     private ProductDocument? Replace(string id, string sellerId, Func<ProductDocument, ProductDocument> change)
     {
         lock (gate)
         {
-            var index = products.FindIndex(p => Owned(p, id, sellerId));
+            // HU-08: una vendida no se edita, no se pausa y no se vende otra vez (igual que el filtro de Mongo).
+            var index = products.FindIndex(p => Owned(p, id, sellerId) && p.Status != ProductStatuses.Sold);
             if (index < 0)
             {
                 return null;

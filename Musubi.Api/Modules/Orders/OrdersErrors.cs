@@ -70,6 +70,14 @@ internal static class OrdersErrors
     public static readonly ApiError PaymentUnavailable = new(
         "orders.payment_unavailable", StatusCodes.Status409Conflict, "Quien vende aún no registra su cuenta. Por ahora paga en efectivo al recibir.");
 
+    /// <summary>HU-34: el acuerdo no existe, vencio, ya es pedido o no es de quien consulta.</summary>
+    public static readonly ApiError AgreementNotFound = new(
+        "orders.agreement_not_found", StatusCodes.Status404NotFound, "Este acuerdo ya no existe. Pide otro resumen en el chat.");
+
+    /// <summary>HU-34 (RN-41): falta que alguno de los dos confirme.</summary>
+    public static readonly ApiError AgreementNotConfirmed = new(
+        "orders.agreement_not_confirmed", StatusCodes.Status409Conflict, "Los dos tienen que confirmar el acuerdo antes de crear el pedido.");
+
     /// <summary>Falta la conversacion en la consulta.</summary>
     public static readonly ApiError InvalidConversation = new(
         "orders.invalid_conversation", StatusCodes.Status400BadRequest, "No pudimos cargar el pedido. Vuelve a abrir el chat.");
