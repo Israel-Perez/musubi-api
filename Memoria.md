@@ -16,7 +16,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **HU-08 (Tanis):** PR #61, renumerado a `db/016` y `alpha.17` el 11-Nov-2026 porque el acuerdo con IA entró antes con `db/015` y `alpha.16`.
 - **HU-23 (pedidos):** en `main` (`0.5.0-alpha.15`, esquema 14), API y app. Sin desplegar.
 - **HU-32/33/34 (acuerdo con IA):** API `0.5.0-alpha.16` y esquema 15 (`db/015-acuerdos.js`) en `feature/SCRUM-53-acuerdo-con-ia`. La llave de Gemini ya está en user-secrets y en `/musubi/prod/Gemini/ApiKey` (la puso la usuaria).
-- **HU-31 (push):** API `0.5.0-alpha.18` y esquema 17 (`db/017-avisos.js`) en `feature/SCRUM-49-avisos-push`. Falta la llave de la cuenta de servicio en `/musubi/prod/Firebase/ServiceAccount` (la sube la usuaria).
+- **HU-31 (push):** API `0.5.0-alpha.18` y esquema 17 (`db/017-avisos.js`) en `feature/SCRUM-49-avisos-push`. La llave ya está en `/musubi/prod/Firebase/ServiceAccount` y en user-secrets (11-Nov-2026).
+  - **Error a evitar:** las fábricas de prueba en Development cargan los user-secrets de quien las corre. Con `Firebase:Provider=Fcm` en local, `NotificationFlowTests` usó el FCM real y falló (en el CI pasaba). Las fábricas fijan `Firebase:Provider` y `GenAi:Provider` en `InMemory`.
 - **Siguiente:** la app de HU-31.
 - **Pendientes del usuario:**
   - proyecto de Firebase (HU-31);

@@ -26,6 +26,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             ["UseInMemoryDatabase"] = "true",
             // Muchas peticiones a /auth desde la misma "IP" de pruebas: el limite se prueba en SecurityTest.
             ["RateLimiting:Auth:PermitLimit"] = "10000",
+            // Los user-secrets de quien corre las pruebas pueden encender FCM o Gemini reales: aqui siempre van los simulados.
+            ["Firebase:Provider"] = "InMemory",
+            ["GenAi:Provider"] = "InMemory",
         }));
         builder.ConfigureTestServices(services =>
         {
