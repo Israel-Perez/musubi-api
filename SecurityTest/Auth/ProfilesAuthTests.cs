@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Platform.Auth;
 using SecurityTest.Common;
 
@@ -22,6 +23,8 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
     public static TheoryData<string, string> MemberOnly() => new()
     {
         { "GET", "/api/v1/profiles/me" },
+        { "GET", "/api/v1/profiles/me/preferences" },
+        { "PUT", "/api/v1/profiles/me/preferences" },
         { "PUT", "/api/v1/profiles/me" },
         { "PUT", "/api/v1/profiles/me/visibility" },
         { "PUT", "/api/v1/profiles/me/photo" },
@@ -73,6 +76,7 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
     [InlineData("PUT", "/api/v1/profiles/6716a0000000000000000001/photo")]
     [InlineData("DELETE", "/api/v1/profiles/6716a0000000000000000001/photo")]
     [InlineData("PUT", "/api/v1/profiles/6716a0000000000000000001/visibility")]
+    [InlineData("PUT", "/api/v1/profiles/me/preferences/6716a0000000000000000001")]
     public async Task NoWriteRouteTakesAnId(string method, string path)
     {
         using var client = ClientFor(AuthIds.New(), InMemoryCommunityRepository.UtttId);
@@ -86,6 +90,27 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
         Assert.True(
             response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed,
             $"{method} {path} respondio {(int)response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task Preferences_IgnoreAnyUserIdAndOnlyChangeTheTokenOwner()
+    {
+        var ownerId = await ActiveMemberAsync();
+        var otherId = await ActiveMemberAsync();
+        using var owner = ClientFor(ownerId, InMemoryCommunityRepository.UtttId);
+        using var other = ClientFor(otherId, InMemoryCommunityRepository.UtttId);
+
+        var saved = await owner.PutAsJsonAsync(
+            new Uri("/api/v1/profiles/me/preferences", UriKind.Relative),
+            new { theme = "dark", userId = otherId },
+            Ct);
+        var otherPreferences = await other.GetFromJsonAsync<JsonElement>(
+            new Uri("/api/v1/profiles/me/preferences", UriKind.Relative),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal("system", otherPreferences.GetProperty("theme").GetString());
+        Assert.Null(await production.Services.GetRequiredService<IPreferenceRepository>().FindAsync(otherId, Ct));
     }
 
     private HttpClient ClientFor(string userId, string communityId)

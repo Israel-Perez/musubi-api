@@ -1,17 +1,17 @@
-# HU-54 — Elegir modo noche y preferencias (tareas)
+# HU-54 — Elegir modo noche y preferencias (tareas API)
 
-## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+## T1 — Contrato y datos
+- **Qué:** endpoints GET/PUT, tema enum, colección y borrado de cuenta.
+- **Estado:** ✅ Hecho.
 
-## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+## T2 — Slice API
+- **Qué:** controlador, servicio, validación, repositorio Mongo/InMemory y pruebas Unit/Integration/Security/Contract.
+- **Estado:** ✅ Hecho.
 
-## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+## T3 — Esquema y catálogos
+- **Qué:** script idempotente 018 (del 014 al 017 ya están asignados), versión esperada, fixtures, endpoints, errores, modelo de datos y trazabilidad.
+- **Estado:** ✅ Hecho.
 
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+## T4 — Evidencia y cierre
+- **Qué:** suites, guardarraíles, revisión de diff y Memoria; estado de spec honesto.
+- **Estado:** ✅ Hecho; spec en Borrador con evidencia, pendiente de revisor.
