@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +30,7 @@ internal static class OrdersModuleServiceCollectionExtensions
             : new MongoMeetingPointRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<OrderService>();
         services.AddSingleton<IOpenOrders, OpenOrders>();
+        services.AddSingleton<IMeetingPointDirectory, MeetingPointDirectory>();
         services.AddSingleton<IAccountDataEraser, OrderAccountEraser>();
     }
 }
@@ -43,6 +46,12 @@ internal interface IOpenOrders
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns><c>true</c> si tiene.</returns>
     Task<bool> ForProductAsync(string productId, CancellationToken cancellationToken);
+
+    /// <summary>Si una conversacion ya tiene un pedido pendiente o confirmado (HU-34: ya no se resume el acuerdo).</summary>
+    /// <param name="conversationId">La conversacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si tiene.</returns>
+    Task<bool> ForConversationAsync(string conversationId, CancellationToken cancellationToken);
 }
 
 /// <summary>Implementacion sobre el repositorio de pedidos.</summary>
@@ -51,6 +60,36 @@ internal sealed class OpenOrders(IOrderRepository orders) : IOpenOrders
     /// <inheritdoc />
     public Task<bool> ForProductAsync(string productId, CancellationToken cancellationToken) =>
         orders.HasOpenForProductAsync(productId, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> ForConversationAsync(string conversationId, CancellationToken cancellationToken) =>
+        (await orders.FindByConversationAsync(conversationId, OrderService.MaxPerConversation, cancellationToken).ConfigureAwait(false))
+            .Any(o => OrderStatuses.Open.Contains(o.Status));
+}
+
+/// <summary>Un punto de entrega del campus para otro modulo.</summary>
+/// <param name="Slug">Id del punto.</param>
+/// <param name="Name">Nombre.</param>
+internal sealed record MeetingPointSummary(string Slug, string Name);
+
+/// <summary>Contrato publico de M-08: los puntos de entrega activos de un campus (HU-33: la IA elige uno de ellos).</summary>
+internal interface IMeetingPointDirectory
+{
+    /// <summary>Los puntos activos, en su orden.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los puntos.</returns>
+    Task<IReadOnlyList<MeetingPointSummary>> ListAsync(string communityId, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de puntos.</summary>
+internal sealed class MeetingPointDirectory(IMeetingPointRepository points) : IMeetingPointDirectory
+{
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MeetingPointSummary>> ListAsync(string communityId, CancellationToken cancellationToken) =>
+        (await points.ListActiveAsync(communityId, cancellationToken).ConfigureAwait(false))
+            .Select(p => new MeetingPointSummary(p.Slug, p.Name))
+            .ToList();
 }
 
 /// <summary>

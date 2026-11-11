@@ -26,7 +26,7 @@
 ## Pendientes con dueño
 - `NOTE (HU-24)`: aceptar o rechazar, apartar y descontar piezas, completar y cancelar.
 - `NOTE (HU-25)`: "Mis pedidos" y proponer cerrar la solicitud de un pedido completado (RN-15).
-- `NOTE (HU-34)`: el pedido sale del acuerdo confirmado por los dos (RF-47).
+- ~~`NOTE (HU-34)`~~: hecho en HU-34 (`POST /orders` con `agreementId`).
 - `NOTE (HU-55)`: transferencia y código de entrega.
 - `NOTE (HU-44)`: gestionar los puntos de entrega.
 - `NOTE (HU-31)`: avisar a quien vende.

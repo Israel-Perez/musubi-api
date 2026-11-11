@@ -13,24 +13,25 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **En `main`, sin desplegar:**
   - HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`), sin script nuevo;
   - HU-53 (favoritos, Eliuht; `0.5.0-alpha.14`), que sí trae `db/013`.
-- **HU-08 (Tanis):** PR #61, con comentarios para renumerar su script a `db/014` y su versión a `alpha.15` (chocaba con favoritos).
-- **HU-23 (pedidos):** API `0.5.0-alpha.15` y esquema 14 (`db/014-pedidos.js`) en `feature/SCRUM-42-confirmar-compra`. Si HU-08 entra antes, se renumera a `db/015` y `alpha.16`.
-- **Siguiente:** la app de HU-23, y después HU-24 y HU-25.
+- **HU-08 (Tanis):** PR #61, renumerado a `db/016` y `alpha.17` el 11-Nov-2026 porque el acuerdo con IA entró antes con `db/015` y `alpha.16`.
+- **HU-23 (pedidos):** en `main` (`0.5.0-alpha.15`, esquema 14), API y app. Sin desplegar.
+- **HU-32/33/34 (acuerdo con IA):** API `0.5.0-alpha.16` y esquema 15 (`db/015-acuerdos.js`) en `feature/SCRUM-53-acuerdo-con-ia`. La llave de Gemini ya está en user-secrets y en `/musubi/prod/Gemini/ApiKey` (la puso la usuaria).
+- **Siguiente:** la app del acuerdo con IA; después push con FCM (HU-31).
 - **Pendientes del usuario:**
-  - proveedor de IA (HU-32) y proyecto de Firebase (HU-31);
+  - proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
-- **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.16` y esquema 15 (`db/015-publicacion-vendida.js`); falta la app.
+- **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.17` y esquema 16 (`db/016-publicacion-vendida.js`); falta la app.
 
-## T38 — Consultar el estado de mis productos (09-Nov-2026, SCRUM-25, HU-08)
+## T39 — Consultar el estado de mis productos (09-Nov-2026, SCRUM-25, HU-08)
 
 **Qué se hizo**
 - `GET /products/mine?tab=active|sold|soldOut` con cursor y los conteos de las tres pestañas (`MyProductPage`); sin `tab` responde lo de antes.
 - `POST /products/{id}/sold` ("Marcar como vendido"): estado `sold` y `soldAt`. `ProductResponse` agrega `soldAt`.
-- `db/015-publicacion-vendida.js` (esquema 15; era `013`, pero `013` y `014` los tomaron favoritos y pedidos): repite el validador de `products` con `sold` y `soldAt`.
+- `db/016-publicacion-vendida.js` (esquema 16; era `013`, pero `013`, `014` y `015` los tomaron favoritos, pedidos y el acuerdo con IA): repite el validador de `products` con `sold` y `soldAt`.
 - Errores nuevos: `listings.product_sold` (409) y `listings.invalid_tab` (400).
-- API `0.5.0-alpha.16`, con main del 10-Nov-2026 fusionado (HU-14, HU-53 y HU-23). Unit 449 · Integration 153 · Security 169 · Contract 16 · endpoints 66.
+- API `0.5.0-alpha.17`, con main del 11-Nov-2026 fusionado (HU-14, HU-53, HU-23 y HU-32/33/34). Unit 502 · Integration 156 · Security 182 · Contract 17 · endpoints 71.
 - Revisión del PR #61: `favorites.json` con `soldAt` (favoritos devuelve un `ProductResponse`), y "Mis productos" pide una publicación de más para no dar un `nextCursor` que lleve a una página vacía.
 
 **Decisiones (con su porqué)** (de la usuaria, 09-Nov-2026)
@@ -50,6 +51,36 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - `NOTE (HU-52)`: estado "Reservada".
 - `NOTE (HU-25)`: en Vendidos, el comprador y el monto real del pedido.
 - Se cierra `NOTE (HU-08)` de HU-06 (paginar "Mis productos"): ya pagina con cursor.
+
+## T38 — Acuerdo con IA (10-Nov-2026, SCRUM-52/53/54, HU-32/33/34)
+
+**Qué se hizo**
+- Módulo nuevo `Modules/GenAi/` (M-10) con 5 rutas: `POST /agreements` ("Resumir acuerdo"), `GET /agreements?conversationId=`, `PUT /agreements/{id}`, `POST /agreements/{id}/confirm` y `DELETE /agreements/{id}`.
+- `POST /orders` acepta `agreementId`: el pedido sale del acuerdo confirmado por los dos, con el precio acordado, y el acuerdo se borra.
+- Chat: mensajes `kind: notice` ("Ana pidió un resumen con IA"), evento `agreementChanged` del hub y el contrato `IConversationNotices`.
+- Proveedor detrás de `IAgreementExtractor`: Gemini por REST (`gemini-3.5-flash-lite`, salida JSON con esquema, temperatura 0), en memoria en Development y `Off`.
+- `db/015-acuerdos.js` (esquema 15): `agreements` con TTL de 30 días y `messages.kind`.
+- API `0.5.0-alpha.16`. Unit 496 · Integration 152 · Security 174 · Contract 17. Endpoints 70.
+
+**Decisiones (con su porqué)**
+- **Decisiones de la usuaria (10-Nov-2026):** Gemini en la capa gratuita (registrado contra L-15c en la bitácora de lineamientos); aviso la primera vez y línea en el chat (RN-40); del chat no se guarda nada y el acuerdo se borra al crear el pedido o a los 30 días (RN-44).
+- **Lo que sale a Gemini:** los últimos 60 textos de esa conversación, con "Comprador"/"Vendedor" en lugar de los nombres y sin correos, teléfonos, cuentas, enlaces ni usuarios. La capa gratuita permite a Google usarlo para mejorar sus productos: por eso el filtro y el aviso de privacidad (HU-47).
+- **El aviso del chat sale antes de llamar a la IA:** si el texto salió, los dos lo saben aunque la IA falle. Sin llave no sale nada y no hay aviso.
+- **`revision`:** confirmar o editar una versión vieja responde `agreements.changed`; así "los dos confirmaron" siempre es sobre lo mismo (RN-41).
+- **Cada valor de la IA pasa las reglas del pedido** (cantidad, punto, ventana de fecha, precio) y la moderación; si no, queda "No identificado".
+- **El nombre del día del texto para la IA se escribe a mano:** la imagen corre con `InvariantGlobalization`, así que `CultureInfo("es-MX")` no existe en producción.
+- **Prueba real:** con un chat inventado, Gemini respondió en 1.2 s (234 tokens) y no inventó la fecha que solo se había preguntado.
+
+**Errores a evitar**
+- **Heredocs largos en Git Bash** con comillas o barras mezcladas fallaron dos veces ("unexpected EOF"): para archivos grandes usa la herramienta Write o un `.py` en el scratchpad.
+- **Python en Windows escribe CRLF** con `open(..., 'w')`: pasa `newline='\n'` (git lo normaliza, pero los diffs se ensucian).
+- **`StatusCode(204, valor)`** no es un 204 limpio: para DELETE usa `NoContent()`, como los demás controllers.
+- **Un acuerdo con IA no es un pedido:** el número `MS-NNNN` solo se gasta al crear el pedido.
+
+**Pendientes con dueño**
+- `NOTE (HU-47)`: el aviso de privacidad dice qué sale a Gemini y cuánto se conserva.
+- `NOTE (HU-31)`: push al otro participante cuando se pide, se confirma o se descarta el acuerdo.
+- Desplegar (con permiso de la usuaria): `infra-up` aplica `db/014` y `db/015` y las instancias leen `Gemini__ApiKey`.
 
 ## T37 — Confirmar la compra (10-Nov-2026, SCRUM-42, HU-23)
 

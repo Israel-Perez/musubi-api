@@ -1,9 +1,9 @@
-// 015-publicacion-vendida (HU-08): "Marcar como vendido" (maqueta Mis-productos). Una publicacion puede quedar
+// 016-publicacion-vendida (HU-08): "Marcar como vendido" (maqueta Mis-productos). Una publicacion puede quedar
 // vendida (status "sold") con la fecha de la venta (soldAt).
-// Idempotente: se puede correr N veces despues de 014-pedidos.js. Catalogo canonico: docs/modelo-datos.md.
+// Idempotente: se puede correr N veces despues de 015-acuerdos.js. Catalogo canonico: docs/modelo-datos.md.
 
-const SCRIPT_ID = '015-publicacion-vendida';
-const SCHEMA_VERSION = 15;
+const SCRIPT_ID = '016-publicacion-vendida';
+const SCHEMA_VERSION = 16;
 
 const date = { bsonType: 'date' };
 const schemaVersion = { bsonType: 'int', minimum: 1 };

@@ -66,7 +66,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-16f | Permisos del móvil | Cámara/galería y notificaciones, pedidos en contexto | app:02-01 | ⏳ |
 | L-16g | Sesión siempre viva salvo logout | Refresh token rotativo de 60 días que se desliza con cada uso (02-03); en la app, almacenamiento seguro e interceptor | HU-02 · app:02-01 | 🟡 |
 | L-16h | SQLite + sincronización (si aplica) | Por decidir en app:02-01 (borradores y caché de consulta) | app:02-01 | ⏳ |
-| L-16i | Al menos una función de ML y una de IA generativa | ML: recomendaciones (HU-35). IA: resumen del acuerdo (HU-32/33/34) | HU-32 · HU-35 | ⏳ |
+| L-16i | Al menos una función de ML y una de IA generativa | ML: recomendaciones (HU-35). IA: el acuerdo con IA desde el chat (HU-32/33/34, Gemini) | HU-32 · HU-35 | 🟡 |
 | L-17 | Landing con enlace a la tienda y aviso de privacidad | Repo propio de la landing | Por crear | ⏳ |
 | L-18 | Una sola cuenta de GitHub | `Israel-Perez/musubi-api` y `Israel-Perez/musubi-app` | — | ✅ |
 | L-19 | Evaluación el 02-Dic-2026; entrega en `.rar` + script de BD | Script `mongosh` (02-01); paquete `.rar` al cierre | 02-01 | ⏳ |
@@ -74,3 +74,4 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 ## 3. Cambios que provocó
 
 - **SCRUM-66 (20-Oct-2026):** stack de datos PostgreSQL → MongoDB (L-14), fecha de evaluación 04-Dic → 02-Dic (L-19), matriz de versionamiento (L-11), maqueta versionada (L-04) y este checklist.
+- **HU-32/33/34 (10-Nov-2026), decisión de la usuaria:** la IA generativa usa la **API de Gemini (capa gratuita)** y no un servicio de AWS. Choca con L-15c ("todas las funciones de la API en la nube elegida"): la API corre completa en AWS y solo la llamada al modelo sale a Google. Argumento para la evaluación: costo cero (L-15b), el proveedor va detrás de `IAgreementExtractor` y se cambia por configuración (L-15j, RNF-15) y, si falla, el chat y los pedidos siguen. Condiciones de la capa gratuita: Google puede usar lo que se envía para mejorar sus productos y revisarlo con personas, así que solo sale el chat de ese acuerdo, con los nombres cambiados por "Comprador" y "Vendedor" y sin correos, teléfonos, cuentas ni enlaces, y el aviso de privacidad lo dice (HU-47); la cuota es baja y cambia sin aviso (Flash-Lite, 6 resúmenes por persona por hora).

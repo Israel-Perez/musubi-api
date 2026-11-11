@@ -74,7 +74,18 @@ public sealed partial class AppSettingsTests
         // Las claves futuras solo se documentan en la tabla de 01-04 hasta que haya codigo que las lea.
         Assert.DoesNotContain("MercadoPago", raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Firebase", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("GenAi", raw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExampleSettings_DocumentTheAiProvider_WithoutItsKey()
+    {
+        // HU-32: la llave de Gemini vive en user-secrets o en Parameter Store (Gemini__ApiKey), nunca aqui.
+        using var doc = JsonDocument.Parse(File.ReadAllText(RepoPaths.ApiFile("appsettings.Example.json")));
+        var genAi = doc.RootElement.GetProperty("GenAi");
+
+        Assert.Equal("InMemory", genAi.GetProperty("Provider").GetString());
+        Assert.Equal("gemini-3.5-flash-lite", genAi.GetProperty("Model").GetString());
+        Assert.Equal(string.Empty, doc.RootElement.GetProperty("Gemini").GetProperty("ApiKey").GetString());
     }
 
     [Fact]

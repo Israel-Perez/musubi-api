@@ -44,7 +44,9 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `Legal:TermsVersion` / `Legal:PrivacyVersion` | `2026-10` / `2026-10` | [HU-47 / Implementado] | Versiones vigentes que se guardan en `users.consents` al registrarse |
 | `Cache:ConnectionString` | `""` | [02-02 / Implementado] | Cadena de Redis (secreto: Parameter Store `/musubi/prod/Cache/ConnectionString`). Vacía: caché en memoria de cada instancia. Desde HU-20 también es el backplane de SignalR (canales `musubi-signalr*`): sin ella, el chat solo entrega en tiempo real entre conexiones de la misma instancia. Se lee al arrancar: la instancia toma un valor nuevo al reemplazarse |
 | `Firebase:*` | — | [HU-31 / Pendiente] | Credenciales de Firebase Admin (secreto, solo back) |
-| `GenAi:*` | — | [HU-32 / Pendiente] | Proveedor, modelo y llave del LLM (secreto) |
+| `GenAi:Provider` / `GenAi:Model` | `Gemini` / `gemini-3.5-flash-lite` (base) · `InMemory` (Development) | [HU-32 / Implementado] | `Gemini`: la API de Gemini (capa gratuita, decisión de la usuaria del 10-Nov-2026); `InMemory`: IA determinista sin red (Development y pruebas); `Off`: sin IA ("Resumir acuerdo" responde `genai.unavailable`). Para probar Gemini en local: `GenAi:Provider=Gemini` en user-secrets o `appsettings.Local.json` |
+| `GenAi:TimeoutSeconds` / `GenAi:MaxMessages` / `GenAi:PermitLimit` / `GenAi:WindowMinutes` | `20` / `60` / `6` / `60` | [HU-32 / Implementado] | Espera de la respuesta, mensajes de texto que salen como máximo y resúmenes por persona por ventana (protege la cuota gratuita, OWASP API4) |
+| `Gemini:ApiKey` | — (secreto) | [HU-32 / Implementado] | Llave de Google AI Studio: user-secrets en local, `/musubi/prod/Gemini/ApiKey` (SecureString) en la nube. Sin ella no sale nada del servidor (RNF-06) |
 | `Payments:*` | — | [HU-55 / Pendiente] | Llave para cifrar la CLABE del vendedor (secreto). `MercadoPago:*` ya no aplica (HU-43 fuera de alcance, D-01) |
 
 Archivos:

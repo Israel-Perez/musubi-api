@@ -42,7 +42,8 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "012-ofertas-chat");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "013-favoritos");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "014-pedidos");
-        Assert.Single(meta["applied"].AsBsonArray, v => v == "015-publicacion-vendida");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "015-acuerdos");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "016-publicacion-vendida");
         Assert.Equal(14, await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
@@ -350,5 +351,50 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
 
         await orders.InsertOneAsync(Order(1), cancellationToken: Ct);
         await Assert.ThrowsAsync<MongoWriteException>(() => orders.InsertOneAsync(Order(11), cancellationToken: Ct));
+    }
+
+    [Fact]
+    public async Task Agreements_HaveTheirIndexes_ExpireAlone_AndMessagesAcceptOnlyNotices()
+    {
+        var db = await mongo.MigratedDatabaseAsync("script_acuerdos");
+        var indexes = (await IndexesAsync(db, MongoSchema.Agreements)).ToDictionary(i => i["name"].AsString);
+
+        Assert.True(indexes["ux_conversation"]["unique"].AsBoolean);
+        Assert.Equal(0, indexes["ttl_expires_at"]["expireAfterSeconds"].ToInt32());
+        Assert.Contains("ix_buyer_id", indexes.Keys);
+        Assert.Contains("ix_seller_id", indexes.Keys);
+
+        var now = DateTime.UtcNow;
+        BsonDocument Agreement(int quantity) => new()
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "conversationId", ObjectId.GenerateNewId() },
+            { "buyerId", ObjectId.GenerateNewId() }, { "sellerId", ObjectId.GenerateNewId() }, { "requestedBy", ObjectId.GenerateNewId() },
+            { "proposal", new BsonDocument { { "title", "Calculadora" }, { "priceCents", 50_000L }, { "quantity", quantity } } },
+            { "notIdentified", new BsonArray { "deliveryAt" } }, { "revision", 1 }, { "status", "proposed" },
+            { "createdAt", now }, { "updatedAt", now }, { "expiresAt", now.AddDays(30) }, { "schemaVersion", 1 },
+        };
+        var agreements = db.GetCollection<BsonDocument>(MongoSchema.Agreements);
+        await agreements.InsertOneAsync(Agreement(1), cancellationToken: Ct);
+        await Assert.ThrowsAsync<MongoWriteException>(() => agreements.InsertOneAsync(Agreement(11), cancellationToken: Ct));
+
+        BsonDocument Message(string? kind)
+        {
+            var m = new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() }, { "conversationId", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() },
+                { "senderId", ObjectId.GenerateNewId() }, { "text", "Ana pidió un resumen con IA" }, { "createdAt", now }, { "schemaVersion", 1 },
+            };
+            if (kind is not null)
+            {
+                m["kind"] = kind;
+            }
+
+            return m;
+        }
+
+        var messages = db.GetCollection<BsonDocument>(MongoSchema.Messages);
+        await messages.InsertOneAsync(Message(null), cancellationToken: Ct);
+        await messages.InsertOneAsync(Message("notice"), cancellationToken: Ct);
+        await Assert.ThrowsAsync<MongoWriteException>(() => messages.InsertOneAsync(Message("system"), cancellationToken: Ct));
     }
 }

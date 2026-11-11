@@ -1,7 +1,7 @@
 # plan.md — HU-08 Consultar el estado de mis productos
 
 1. **Componentes:**
-   - `db/015-publicacion-vendida.js` y `MongoSchema.ExpectedVersion = 15`;
+   - `db/016-publicacion-vendida.js` y `MongoSchema.ExpectedVersion = 16`;
    - `Data/ListingDocuments.cs` (`ProductStatuses.Sold`, `SoldAt`), `ListingRepositories.cs`, `MongoListingRepositories.cs` e `InMemoryListingRepositories.cs`;
    - `ListingService` (`MineAsync` por pestaña y el detalle de una vendida para su dueño), `MyListingsService` (`MarkSoldAsync` y el 409);
    - `ProductsController` (`GET /mine`) y `MyProductsController` (`POST /{id}/sold`);

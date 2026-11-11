@@ -30,7 +30,7 @@ Jira (SCRUM-25): Como **vendedor**, quiero **consultar el estado de mis producto
 RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin vendedor).
 
 ## Diseño
-- **Datos:** `db/015-publicacion-vendida.js`, que vuelve a escribir el validador completo de `products` (lección de `db/012`: `collMod` reemplaza el anterior) con `sold` en el `enum` de `status` y el campo opcional `soldAt` (fecha). `MongoSchema.ExpectedVersion = 15`. Sin índices nuevos: "Mis productos" ya usa `ix_seller_id`, y un vendedor tiene pocas publicaciones.
+- **Datos:** `db/016-publicacion-vendida.js`, que vuelve a escribir el validador completo de `products` (lección de `db/012`: `collMod` reemplaza el anterior) con `sold` en el `enum` de `status` y el campo opcional `soldAt` (fecha). `MongoSchema.ExpectedVersion = 16`. Sin índices nuevos: "Mis productos" ya usa `ix_seller_id`, y un vendedor tiene pocas publicaciones.
 - **Repositorio (`IProductRepository`, Mongo e InMemory):**
   - `FindBySellerAsync` recibe la pestaña y el cursor;
   - `CountBySellerAsync` cuenta las tres pestañas en una sola consulta (`$group` por pestaña);
@@ -88,3 +88,4 @@ RNF que aplican: RNF-03 (solo el dueño), RNF-05 (la vitrina anónima sigue sin 
 - **Fecha:** 09-Nov-2026
 - **Detalle:**
   - revisión del PR #61 (10-Nov-2026): el script pasó de `013` a `015` y la versión a `0.5.0-alpha.16`, porque favoritos (HU-53) y pedidos (HU-23) tomaron `013`/`014`; `favorites.json` lleva `soldAt`; "Mis productos" pide una de más para no dar un cursor a una página vacía; detallada desde Jira (SCRUM-25), la maqueta (`Mis-productos`) y HU-07. La usuaria decidió el 09-Nov-2026: estados como la maqueta, "Marcar como vendido" con el estado `sold`, y las piezas (+/− y Reponer) en HU-50; aprobó D1–D5 de `plan.md`.
+  - 11-Nov-2026: con el acuerdo con IA (HU-32/33/34) en `main`, que tomó `db/015` y `alpha.16`, el script pasó a `016` y la versión a `0.5.0-alpha.17`.
