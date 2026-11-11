@@ -92,8 +92,10 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_sort` | 400 | Elige un orden para los resultados. | HU-10 (orden fuera de la lista permitida) |
 | `listings.invalid_page` | 400 | Elige una página del 1 al 50. | HU-10 (`page` menor que 1 o mayor que 50; acota el `skip` de Mongo, OWASP API4) |
 | `listings.product_has_orders` | 409 | Tiene pedidos pendientes o confirmados. Termínalos o cancélalos antes de eliminarla. | HU-23 (RN-07: eliminar una publicación propia con pedidos abiertos; a otra persona se le responde 404) |
+| `listings.product_sold` | 409 | Esta publicación ya se vendió. | HU-08 (editar, pausar o reactivar una publicación vendida; reactivarla la devolvería a la vitrina) |
+| `listings.invalid_tab` | 400 | No pudimos cargar esa lista. Actualiza la pantalla. | HU-08 (pestaña de "Mis productos" que no es `active`, `sold` ni `soldOut`) |
 | `listings.unknown_campus` | 404 | No encontramos ese campus. | HU-48 (vitrina del visitante) |
-| `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus), HU-07 (editar, pausar, reactivar o eliminar una publicación ajena) y HU-53 (guardar un favorito no visible): no revela cuál, OWASP API1 |
+| `listings.product_not_found` | 404 | Esta publicación ya no está disponible. | HU-11 (inexistente, quitada, pausada para otros o de otro campus), HU-07 (editar, pausar, reactivar o eliminar una publicación ajena), HU-08 (marcar como vendida una publicación ajena; una vendida ajena tampoco responde 409) y HU-53 (guardar un favorito no visible): no revela cuál, OWASP API1 |
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |

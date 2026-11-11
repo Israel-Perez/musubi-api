@@ -43,6 +43,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "013-favoritos");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "014-pedidos");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "015-acuerdos");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "016-publicacion-vendida");
         Assert.Equal(14, await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
         Assert.Equal(6, await db.GetCollection<BsonDocument>(MongoSchema.Categories).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
@@ -132,6 +133,31 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Contains(codes, i => i["name"] == "ttl_expiresAt" && i["expireAfterSeconds"].ToInt32() == 0);
         Assert.Contains(tokens, i => i["name"] == "ux_tokenHash" && i.GetValue("unique", false).ToBoolean());
         Assert.Contains(tokens, i => i["name"] == "ttl_expiresAt");
+    }
+
+    [Fact]
+    public async Task Products_AcceptASoldProduct_AndStillRejectAnUnknownStatus()
+    {
+        // HU-08 (db/015): "Marcar como vendido" deja status "sold" con soldAt; el validador sigue cerrado.
+        var db = await mongo.MigratedDatabaseAsync("script_vendida");
+        var products = db.GetCollection<BsonDocument>(MongoSchema.Products);
+        var seller = ObjectId.GenerateNewId();
+        BsonDocument Product(string status) => new()
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "sellerId", seller },
+            { "seller", new BsonDocument("name", "Ana R.") }, { "title", "Calculadora" }, { "description", string.Empty },
+            { "categorySlug", "calculadoras" }, { "priceCents", 45_000L }, { "condition", "new" }, { "stock", 1 },
+            { "status", status }, { "photos", new BsonArray { $"media/products/{seller}/{Guid.NewGuid():N}.webp" } },
+            { "schemaVersion", 1 }, { "createdAt", DateTime.UtcNow }, { "updatedAt", DateTime.UtcNow },
+        };
+        var sold = Product("sold");
+        sold["soldAt"] = DateTime.UtcNow;
+
+        await products.InsertOneAsync(sold, cancellationToken: Ct);
+        var ex = await Assert.ThrowsAsync<MongoWriteException>(() => products.InsertOneAsync(Product("vendida"), cancellationToken: Ct));
+
+        Assert.Equal(121, ex.WriteError.Code);
+        Assert.Equal(1, await products.CountDocumentsAsync(new BsonDocument("status", "sold"), cancellationToken: Ct));
     }
 
     [Fact]

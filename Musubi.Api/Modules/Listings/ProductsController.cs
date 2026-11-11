@@ -83,13 +83,21 @@ public sealed class ProductsController : ControllerBase
                 cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
-    /// <summary>Mis publicaciones ("Ver mis productos").</summary>
+    /// <summary>Mis publicaciones por pestana, con los conteos de las tres (HU-08, maqueta <c>Mis-productos</c>).</summary>
+    /// <param name="tab"><c>active</c>, <c>sold</c> o <c>soldOut</c>; sin pestana, todas menos las quitadas.</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50).</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las publicaciones del usuario.</returns>
     [HttpGet("mine")]
-    [ProducesResponseType<ProductPage>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Mine(CancellationToken cancellationToken) =>
-        Ok(await listings.MineAsync(userId, cancellationToken).ConfigureAwait(false));
+    [ProducesResponseType<MyProductPage>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Mine(
+        [FromQuery] string? tab,
+        [FromQuery] string? cursor,
+        [FromQuery] int? limit,
+        CancellationToken cancellationToken) =>
+        this.Respond(await listings.MineAsync(userId, tab, cursor, limit, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
     /// <summary>"Productos parecidos se venden entre…" (maqueta <c>Vender-3</c>).</summary>
     /// <param name="category">Slug de la categoria.</param>

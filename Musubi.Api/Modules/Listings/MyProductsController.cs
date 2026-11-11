@@ -65,6 +65,17 @@ public sealed class MyProductsController : ControllerBase
     public async Task<IActionResult> Resume(string id, CancellationToken cancellationToken) =>
         this.Respond(await myListings.SetPausedAsync(userId, id, paused: false, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
+    /// <summary>"Marcar como vendido" (maqueta <c>Mis-productos</c>): sale de la vitrina y pasa a "Vendidos".</summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion vendida.</returns>
+    [HttpPost("{id}/sold")]
+    [ProducesResponseType<ProductResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MarkSold(string id, CancellationToken cancellationToken) =>
+        this.Respond(await myListings.MarkSoldAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
     /// <summary>Elimina una publicacion y sus fotos ("Esta accion no se puede deshacer").</summary>
     /// <param name="id">Id de la publicacion.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

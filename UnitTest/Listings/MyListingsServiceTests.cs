@@ -16,6 +16,7 @@ namespace UnitTest.Listings;
 /// <summary>
 /// HU-07: reglas de editar, pausar, reactivar y eliminar que el flujo HTTP no deja ver (que textos se moderan,
 /// cuantas veces se borra la vitrina de la cache, que fotos se borran y la cuenta no activa).
+/// HU-08: marcar como vendida (R4), y una vendida no se edita, no se pausa ni se reactiva (R5).
 /// </summary>
 public sealed class MyListingsServiceTests
 {
@@ -276,6 +277,52 @@ public sealed class MyListingsServiceTests
     }
 
     [Fact]
+    public async Task MarkSold_EvictsTheShowcase_AndIsIdempotent()
+    {
+        // HU-08 R4.
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+
+        var first = await service.MarkSoldAsync(seller, product.Id, Ct);
+        clock.Advance(TimeSpan.FromDays(1));
+        var again = await service.MarkSoldAsync(seller, product.Id, Ct);
+
+        Assert.Equal(ProductStatuses.Sold, first.Value!.Status);
+        Assert.Equal(first.Value.SoldAt, again.Value!.SoldAt);
+        Assert.Equal([CachingServiceCollectionExtensions.ShowcaseTag], outputCache.Evicted);
+    }
+
+    [Fact]
+    public async Task ASoldProduct_IsNotEditedPausedOrResumed_ButCanBeDeleted()
+    {
+        // HU-08 R5.
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+        await service.MarkSoldAsync(seller, product.Id, Ct);
+
+        Assert.Equal(ListingsErrors.ProductSold, (await service.UpdateAsync(seller, product.Id, Request(priceCents: 1_000), Ct)).Error);
+        Assert.Equal(ListingsErrors.ProductSold, (await service.SetPausedAsync(seller, product.Id, true, Ct)).Error);
+        Assert.Equal(ListingsErrors.ProductSold, (await service.SetPausedAsync(seller, product.Id, false, Ct)).Error);
+        Assert.Equal(ProductStatuses.Sold, (await products.FindByIdAsync(product.Id, Ct))!.Status);
+        Assert.Null((await service.DeleteAsync(seller, product.Id, Ct)).Error);
+    }
+
+    [Fact]
+    public async Task SomeoneElse_CannotMarkItSold_EvenIfItIsAlreadySold()
+    {
+        // HU-08 R4, RNF-03.
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+        var outsider = await MemberAsync();
+
+        Assert.Equal(ListingsErrors.ProductNotFound, (await service.MarkSoldAsync(outsider, product.Id, Ct)).Error);
+        await service.MarkSoldAsync(seller, product.Id, Ct);
+        // Ya vendida: a otra persona tampoco se le revela (404, no 409).
+        Assert.Equal(ListingsErrors.ProductNotFound, (await service.MarkSoldAsync(outsider, product.Id, Ct)).Error);
+        Assert.Equal(ListingsErrors.ProductNotFound, (await service.SetPausedAsync(outsider, product.Id, false, Ct)).Error);
+    }
+
+    [Fact]
     public async Task SomeoneElse_CannotPauseOrDelete()
     {
         var product = await ProductAsync(await MemberAsync());
@@ -296,6 +343,7 @@ public sealed class MyListingsServiceTests
         Assert.Equal(ApiErrors.Forbidden, (await service.UpdateAsync(seller, product.Id, Request(), Ct)).Error);
         Assert.Equal(ApiErrors.Forbidden, (await service.SetPausedAsync(seller, product.Id, true, Ct)).Error);
         Assert.Equal(ApiErrors.Forbidden, (await service.DeleteAsync(seller, product.Id, Ct)).Error);
+        Assert.Equal(ApiErrors.Forbidden, (await service.MarkSoldAsync(seller, product.Id, Ct)).Error);
         Assert.NotNull(await products.FindByIdAsync(product.Id, Ct));
     }
 

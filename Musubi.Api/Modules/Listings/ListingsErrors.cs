@@ -62,6 +62,14 @@ internal static class ListingsErrors
     public static readonly ApiError ProductNotFound = new(
         "listings.product_not_found", StatusCodes.Status404NotFound, "Esta publicación ya no está disponible.");
 
+    /// <summary>La publicacion ya se vendio: no se edita, no se pausa ni se reactiva (HU-08).</summary>
+    public static readonly ApiError ProductSold = new(
+        "listings.product_sold", StatusCodes.Status409Conflict, "Esta publicación ya se vendió.");
+
+    /// <summary>Pestana de "Mis productos" que no existe (HU-08).</summary>
+    public static readonly ApiError InvalidTab = new(
+        "listings.invalid_tab", StatusCodes.Status400BadRequest, "No pudimos cargar esa lista. Actualiza la pantalla.");
+
     /// <summary>RN-07 (HU-23): tiene pedidos pendientes o confirmados; no se elimina hasta que terminen.</summary>
     public static readonly ApiError ProductHasOrders = new(
         "listings.product_has_orders", StatusCodes.Status409Conflict, "Tiene pedidos pendientes o confirmados. Termínalos o cancélalos antes de eliminarla.");
