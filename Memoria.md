@@ -9,9 +9,10 @@
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
-## Estado actual (10-Nov-2026)
+## Estado actual (11-Nov-2026)
 
-- **En producción:** API `0.5.0-alpha.11`, infra `0.3.5` y esquema 12 en `https://api.musubiapp.com.mx` (`infra-up` del 09-Nov-2026), con Redis Cloud en las 2 instancias. Incluye:
+- **En producción desde el 11-Nov-2026:** API `0.5.0-alpha.19`, esquema 18 (`infra-up` con `db/017` y `db/018`), con push (HU-31), modo noche (HU-54), HU-07, HU-08, el acuerdo con IA y los pedidos. La app `0.8.0+10` va a Google Play con ese lote.
+- **Antes, en producción:** API `0.5.0-alpha.11`, infra `0.3.5` y esquema 12 (`infra-up` del 09-Nov-2026), con Redis Cloud en las 2 instancias. Incluía:
   - chat y bandeja (HU-20, HU-22), detalle (HU-11), búsqueda (HU-09) y filtros (HU-10);
   - reportar y bloquear (HU-28, HU-57), con aviso de reportes a `/musubi/prod/Reports/NotifyEmail`;
   - solicitudes de compra (HU-13), el tablero "Se busca" (HU-15) y las ofertas: enviarlas (HU-16) y elegirlas (HU-17).
