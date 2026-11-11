@@ -251,7 +251,7 @@ public sealed class NotificationTests : IDisposable
             var uri = request.RequestUri!.ToString();
             if (uri.StartsWith("https://oauth2.googleapis.com/token", StringComparison.Ordinal))
             {
-                return Json("{\"access_token\":\"ya29.prueba\",\"expires_in\":3599}");
+                return Json("{\"access_token\":\"acceso-de-prueba\",\"expires_in\":3599}");
             }
 
             return calls.Count > 3
@@ -268,7 +268,7 @@ public sealed class NotificationTests : IDisposable
         Assert.Single(calls, c => c.Uri.StartsWith("https://oauth2.googleapis.com/token", StringComparison.Ordinal));
         var send = calls.First(c => c.Uri.Contains("messages:send", StringComparison.Ordinal));
         Assert.Equal("https://fcm.googleapis.com/v1/projects/musubi-test/messages:send", send.Uri);
-        Assert.Equal("Bearer ya29.prueba", send.Auth);
+        Assert.Equal("Bearer acceso-de-prueba", send.Auth);
         using var body = JsonDocument.Parse(send.Body);
         var m = body.RootElement.GetProperty("message");
         Assert.Equal("fcm-1", m.GetProperty("fid").GetString());
