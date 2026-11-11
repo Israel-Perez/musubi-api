@@ -418,7 +418,7 @@ public sealed class OfferServiceTests
         var received = center.Sent.Where(n => n.Type == "offer_received").ToList();
         Assert.Equal(2, received.Count);
         Assert.All(received, n => Assert.Equal((fernanda, "requests", "wanted", request.Id), (n.UserId, n.Category, n.TargetType, n.TargetId)));
-        Assert.Contains(received, n => n.Body.StartsWith("Valeria C. respondió \"Yo tengo este producto\"", StringComparison.Ordinal) && n.Body.EndsWith("· $280.", StringComparison.Ordinal));
+        Assert.Contains(received, n => n.Body.StartsWith("Valeria C. respondió “Yo tengo este producto”", StringComparison.Ordinal) && n.Body.EndsWith("· $280.", StringComparison.Ordinal));
 
         await service.SaveAsync(valeria, Uttt, request.Id, Direct(price: 27_000), Ct);
         Assert.Equal(2, center.Sent.Count(n => n.Type == "offer_received"));

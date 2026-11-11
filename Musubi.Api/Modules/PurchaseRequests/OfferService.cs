@@ -374,7 +374,7 @@ internal sealed class OfferService(
                 request.RequesterId,
                 NotificationTypes.OfferReceived,
                 "Alguien tiene lo que buscas",
-                $"{offer.SellerName} respondió \"Yo tengo este producto\" a tu solicitud de {request.Title} · {Pesos(offer.PriceCents)}.",
+                $"{offer.SellerName} respondió “Yo tengo este producto” a tu solicitud de {request.Title} · {Pesos(offer.PriceCents)}.",
                 NotificationTargets.Wanted,
                 request.Id,
                 NotificationCategories.Requests),
