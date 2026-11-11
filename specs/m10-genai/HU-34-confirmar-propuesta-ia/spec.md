@@ -5,48 +5,43 @@
 ## Contexto
 Jira (SCRUM-54): Como **usuario**, quiero **revisar y corregir la propuesta de la IA antes de confirmarla**, para **asegurarme de que refleja lo que realmente acordamos**.
 
-- Maqueta: `Mensajes`, `Chat`, `Acuerdo-esperando`, `Acuerdo-confirmado`.
+- Maqueta: `Acuerdo-esperando` (lápices, "0 de 2", "Confirmar acuerdo") y `Acuerdo-confirmado` ("Si algo cambia, ambos deben confirmar de nuevo", "Crear pedido").
 - Trazabilidad: RF-46, RF-47 · CU-16 · RN-41.
-- Origen: Propuesta inicial §11.
+- Decisiones de la usuaria (10-Nov-2026): proveedor **Gemini, capa gratuita** (registrada contra L-15c en `docs/bitacora/lineamientos-materia.md`); RN-40: la primera vez la app avisa y el chat deja "Ana pidió un resumen con IA"; RN-44: del chat no se guarda nada, solo la propuesta, que se borra al crear el pedido, al descartarla o a los 30 días, y el aviso de privacidad lo dice (HU-47).
 
-**Depende de:** `02-01`, `02-03`, `HU-33`.
+**Depende de:** `HU-33`, `HU-23`.
 
 ## Requisitos
-1. Ambos participantes pueden revisar y corregir la propuesta.
-2. Un participante la envía al otro, que la confirma o pide cambios; si la rechaza, se descarta y la conversación continúa.
-3. El acuerdo solo es válido cuando **ambos** lo confirman (RN-41).
-4. Un acuerdo confirmado se puede convertir en pedido con los datos ya llenados (RF-47).
-
-RNF que aplican: se confirman al detallar.
+1. **R1 · Corregir:** cualquiera de los dos cambia producto, precio, cantidad, punto, detalle, fecha o condiciones (`PUT /agreements/{id}`), con las reglas del pedido y la moderación. Cada cambio sube `revision` y borra las dos confirmaciones.
+2. **R2 · Confirmar (RN-41):** `POST /agreements/{id}/confirm` con la `revision` que se vio; vale solo si nada cambió (`agreements.changed`), si no falta nada (`agreements.incomplete`) y si la fecha sigue en la ventana. Con los dos sobre la misma versión queda `confirmed`.
+3. **R3 · Descartar:** `DELETE /agreements/{id}` lo borra para los dos y la conversación sigue. Pedir cambios es corregir (R1).
+4. **R4 · Pedido (RF-47):** `POST /orders` con `agreementId`: solo quien compra, solo un acuerdo confirmado; el pedido toma producto, precio, cantidad, punto, detalle y fecha del acuerdo y el acuerdo se borra.
+5. **R5 · Tiempo real:** cada cambio emite `agreementChanged` a los dos.
 
 ## Diseño
-- Módulo `Musubi.Api/Modules/GenAi/` (M-10). Si es la primera HU del módulo, aquí se crea su carpeta (`Modules/README.md`).
-- Colecciones: `agreements` (diseño 📐 en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); el script `db/NNN-*.js` se escribe al implementar).
-- Endpoints: se definen al detallar. Cada ruta tiene su fila en `docs/endpoints.md` (`check_endpoints`) y su auth explícita.
-- IA detrás de una interfaz con adaptador intercambiable; si el proveedor falla, el resto funciona (RNF-15). Solo a petición de una persona (RNF-06).
+Ver [`HU-33/plan.md`](../HU-33-ia-datos-acuerdo/plan.md).
 
 ## Contratos
-Por definir al detallar: filas nuevas en [`docs/endpoints.md`](../../../docs/endpoints.md), errores en [`docs/errores.md`](../../../docs/errores.md) y fixtures en `ContractTest/Fixtures/`.
+Filas `GET`, `PUT`, `POST …/confirm` y `DELETE /api/v1/agreements…` y `POST /api/v1/orders` (`agreementId`) de [`docs/endpoints.md`](../../../docs/endpoints.md#m-10--ia-generativa).
 
 ## Tests
-- `UnitTest/GenAi/`: reglas de negocio de cada criterio.
-- `IntegrationTest/GenAi/`: un flujo por criterio de aceptación, con su código de error.
-- `SecurityTest/Auth/`: 401 sin sesión y, cuando aplique, solo el dueño actúa (RNF-03, OWASP API1).
-- `ContractTest/`: forma JSON de las respuestas nuevas.
-- `TestShared/` + `DatabaseTest/`: la batería del repositorio en memoria y en MongoDB real; índices del script.
+- `UnitTest/GenAi/AgreementServiceTests.cs`: corregir, reglas, confirmar la misma versión, fecha vencida, descartar y otro resumen.
+- `UnitTest/Orders/OrderServiceTests.cs`: el pedido desde el acuerdo y sus errores.
+- `TestShared/GenAi/AgreementRepositoryContract.cs`: versión, confirmaciones y borrado (memoria y Mongo).
+- `IntegrationTest/GenAi/AgreementFlowTests.cs`: pedir, corregir, confirmar los dos, crear el pedido y descartar.
 
 ## Criterios
-- [ ] Ambos participantes pueden revisar y corregir la propuesta.
-- [ ] Un participante la envía al otro, que la confirma o pide cambios; si la rechaza, se descarta y la conversación continúa.
-- [ ] El acuerdo solo es válido cuando **ambos** lo confirman (RN-41).
-- [ ] Un acuerdo confirmado se puede convertir en pedido con los datos ya llenados (RF-47).
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
+- [x] Ambos participantes pueden revisar y corregir la propuesta (R1).
+- [x] Un participante la envía al otro, que la confirma o pide cambios; si la rechaza, se descarta y la conversación continúa (R2, R3, R5).
+- [x] El acuerdo solo es válido cuando ambos lo confirman (R2, RN-41).
+- [x] Un acuerdo confirmado se convierte en pedido con los datos ya llenados (R4, RF-47).
+- [x] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
 
 ## Límites
-- Spec ligera: el diseño, los contratos y las pruebas exactas se fijan al iniciar la HU (`plan.md`).
+- `NOTE (HU-24)`: quien vende acepta el pedido que sale del acuerdo, igual que cualquier pedido.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (spec ligera)
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 29-Oct-2026
-- **Detalle:** generada desde Jira, la maqueta y el modelo de datos para tener todo el backlog especificado (SCRUM-86, pedido del docente). Al iniciar la HU se completan `plan.md` y `task.md` y se resuelven las decisiones pendientes.
+- **Fecha:** 29-Oct-2026 (borrador ligero) · 10-Nov-2026 (detallado e implementado)
+- **Detalle:** confirmación por versión, descarte y pedido con lo acordado.

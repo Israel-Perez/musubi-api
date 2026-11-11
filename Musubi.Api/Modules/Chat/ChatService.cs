@@ -329,7 +329,7 @@ internal sealed class ChatService(
         return true;
     }
 
-    private static MessageResponse ToResponse(MessageDocument m) => new(m.Id, m.ConversationId, m.SenderId, m.Text, m.CreatedAt);
+    internal static MessageResponse ToResponse(MessageDocument m) => new(m.Id, m.ConversationId, m.SenderId, m.Text, m.CreatedAt, m.Kind ?? MessageKinds.Text);
 
     private async Task<ConversationDocument?> FindForParticipantAsync(string userId, string conversationId, CancellationToken cancellationToken)
     {

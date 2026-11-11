@@ -64,7 +64,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 5. Convenciones técnicas
 
-> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (65 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
+> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (70 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
@@ -76,7 +76,8 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Moderación (02-07): todo texto o foto que publica una persona pasa por `IContentModerator` antes de guardarse (`ModerationErrors.For(...)`); en Development el moderador en memoria rechaza `[[inapropiado]]` y las fotos magenta.
 - Tiempo real (HU-20): SignalR en `Platform/Realtime`, hub `/hubs/chat` solo con WebSockets y backplane de Redis (`Cache:ConnectionString`). Los mensajes se envían por REST y el hub solo entrega.
 - Pedidos (HU-23): `Modules/Orders/`. El pedido sale de una conversación (`IConversationDirectory.FindAsync`), con la publicación (`IProductDirectory`) o la oferta aceptada (`IOfferDirectory`); uno abierto por conversación (`ux_conversation_open`) y número `MS-NNNN` por campus (`counters`). Listings pregunta por pedidos abiertos con `IOpenOrders` (RN-07).
-- Pendientes con dueño: FCM → HU-31; IA → HU-32; ML → HU-35; aceptar y completar pedidos → HU-24; pagos por transferencia y código de entrega → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
+- Acuerdo con IA (HU-32/33/34): `Modules/GenAi/`. `POST /agreements` lee el chat por `IConversationNotices` (sin nombres ni datos de contacto, `TranscriptRedactor`), llama a `IAgreementExtractor` (Gemini, `InMemory` en Development, `Off`) y valida cada valor con las reglas del pedido; deja el aviso `kind: notice` en el chat y emite `agreementChanged`. Los dos confirman la misma `revision` (RN-41) y `POST /orders` con `agreementId` crea el pedido (`IAgreementDirectory`). Sin IA, `503 genai.unavailable`.
+- Pendientes con dueño: FCM → HU-31; ML → HU-35; aceptar y completar pedidos → HU-24; pagos por transferencia y código de entrega → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
 
 ## 6. Seguridad y DevSecOps
 
@@ -138,7 +139,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (65 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (70 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

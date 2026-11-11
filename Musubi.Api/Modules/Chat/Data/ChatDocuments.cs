@@ -122,11 +122,27 @@ internal sealed class MessageDocument
     /// <summary>Texto moderado (1 a <see cref="ChatService.MaxMessageLength"/> caracteres).</summary>
     public string Text { get; init; } = string.Empty;
 
+    /// <summary>
+    /// <c>null</c>: un mensaje de texto. <see cref="MessageKinds.Notice"/>: un aviso de la app ("Ana pidio un resumen con
+    /// IA", HU-32) que la app pinta centrado y que la IA no lee.
+    /// </summary>
+    public string? Kind { get; init; }
+
     /// <summary>Envio (UTC).</summary>
     public DateTime CreatedAt { get; init; }
 
     /// <summary>Version del documento (R4).</summary>
     public int SchemaVersion { get; init; } = 1;
+}
+
+/// <summary>Tipos de mensaje (<c>kind</c> en el wire).</summary>
+internal static class MessageKinds
+{
+    /// <summary>Texto de una persona (en la base no se guarda: es el que no tiene <c>kind</c>).</summary>
+    public const string Text = "text";
+
+    /// <summary>Aviso de la app dentro de la conversacion (HU-32, RN-40).</summary>
+    public const string Notice = "notice";
 }
 
 /// <summary>Tipos de contexto de una conversacion (RN-21).</summary>
