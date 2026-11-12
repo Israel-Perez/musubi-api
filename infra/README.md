@@ -23,18 +23,37 @@ Después, en GitHub (entorno `produccion`, solo rama `main`): variable `AWS_DEPL
 
 Cada parámetro `/musubi/prod/A/B` llega a la API como la variable `A__B` (= `A:B` en .NET).
 
+**Dos reglas que no se ven hasta que algo deja de funcionar (SCRUM-96, 11-Nov-2026):**
+
+- **Región `us-east-1`**, la de la infra. El CLI usa la región por defecto del perfil, que puede ser otra: pasa siempre `--region us-east-1`. Un parámetro en otra región no llega a la API y no da error.
+- **Una sola línea.** `user-data` escribe un `api.env` con una variable por línea, así que un valor con saltos de línea llega cortado en la primera línea. Un JSON (la llave de Firebase) se guarda compacto.
+
+Al arrancar, la API deja en CloudWatch si el push está activo (`Push por FCM activo (proyecto …, llave …)`) o por qué está apagado (`Push apagado (MissingKey|UnreadableKey|IncompleteKey)`).
+
 | Parámetro | Tipo | Qué es |
 |---|---|---|
 | `/musubi/prod/ConnectionStrings/Mongo` | SecureString | Cadena `mongodb+srv://` de Atlas |
 | `/musubi/prod/Jwt/SigningKey` | SecureString | Llave HS256 (base64, 64 bytes) |
 | `/musubi/prod/Email/From` | String | Remitente verificado en SES |
+| `/musubi/prod/Firebase/ServiceAccount` | SecureString | JSON de la cuenta de servicio de Firebase (HU-31), **compacto en una línea**. Sin él, o cortado, el push queda apagado y los avisos solo quedan en el historial |
+| `/musubi/prod/Gemini/ApiKey` | SecureString | Llave de la IA del acuerdo (HU-32/33/34) |
 | `/musubi/prod/Cache/ConnectionString` | SecureString | Redis Cloud gratuito (02-02 y HU-20): caché compartida y backplane del chat en tiempo real. Formato de StackExchange.Redis: `host:puerto,user=default,password=...,abortConnect=false` (+ `,ssl=true` con TLS). **No** el comando `redis-cli -u redis://...` que muestra Redis Cloud. El puerto debe coincidir con la variable `redis_port` de Terraform (salida del grupo de seguridad). Sin el parámetro, cada instancia usa su memoria y el chat solo entrega en tiempo real dentro de su instancia |
 
 Para guardar un secreto sin que quede en el historial de la terminal:
 
 ```powershell
 $s = Read-Host "Valor" -AsSecureString
-aws ssm put-parameter --name "/musubi/prod/<Clave>" --type SecureString --overwrite --value ([Net.NetworkCredential]::new('', $s).Password)
+aws ssm put-parameter --region us-east-1 --name "/musubi/prod/<Clave>" --type SecureString --overwrite --value ([Net.NetworkCredential]::new('', $s).Password)
+```
+
+Para la llave de Firebase (un archivo JSON de varias líneas), compáctala y súbela desde un archivo temporal. Así no pasa por la terminal ni por las comillas de PowerShell 5.1:
+
+```powershell
+$json = [IO.File]::ReadAllText("C:\ruta\llave-firebase.json") | ConvertFrom-Json | ConvertTo-Json -Compress -Depth 5
+$tmp = Join-Path $env:TEMP "fb-una-linea.json"
+[IO.File]::WriteAllText($tmp, $json)
+aws ssm put-parameter --region us-east-1 --name "/musubi/prod/Firebase/ServiceAccount" --type SecureString --overwrite --value "file://$tmp"
+Remove-Item $tmp
 ```
 
 Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-up` otra vez, o iniciar un *instance refresh* del grupo `musubi-api`.

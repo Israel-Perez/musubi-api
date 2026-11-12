@@ -112,7 +112,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 10. Reglas basadas en lecciones aprendidas
 
-La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.md` (13 heredadas + 9 propias). Ningún agente debe contradecirlas.
+La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.md` (13 heredadas + 10 propias). Ningún agente debe contradecirlas.
 
 ## 11. Sub-agentes (híbrido agentes → skills)
 
