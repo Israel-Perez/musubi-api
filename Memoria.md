@@ -29,12 +29,12 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **HU-24 (aceptar y actualizar pedidos):** API `0.5.0-alpha.20` y esquema 19 (`db/019-pedidos-estados.js`) en `feature/SCRUM-43-aceptar-actualizar-pedidos`. Falta la app. Ver T41.
 - **Push en producción (11-Nov-2026):** verificado en un celular real. Antes falló dos veces. La llave estaba en us-east-2 y en varias líneas (el `api.env` de `user-data` es de una línea por variable), y después Google rechazó la llave `8e06c5` (`invalid_grant`). Hoy usa la llave nueva `5270b9` en us-east-1. Pendiente SCRUM-96: avisar al arrancar si el push queda apagado.
 - **Siguiente:** la app de HU-24 y luego HU-25.
-- **Dependabot (12-Nov-2026):** los parches de AWSSDK y `setup-dotnet` (#75 a #80) van juntos en un PR. `dependabot.yml` agrupa `AWSSDK.*` y deja de proponer versiones mayores de `dotnet/sdk` y `dotnet/aspnet`.
-  - **Error a evitar:** #73 (`aspnet:11`) pasaba el CI porque `docker-build` solo construye la imagen; una app `net10.0` no arranca sobre el runtime 11. Una versión mayor de .NET se cambia completa (target, `global.json` y las dos imágenes) y con su propia HU.
 - **Pendientes del usuario:**
   - proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
+- **Dependabot (12-Nov-2026):** los parches de AWSSDK y `setup-dotnet` (#75 a #80) van juntos en un PR. `dependabot.yml` agrupa `AWSSDK.*` y deja de proponer versiones mayores de `dotnet/sdk` y `dotnet/aspnet`.
+  - **Error a evitar:** #73 (`aspnet:11`) pasaba el CI porque `docker-build` solo construye la imagen; una app `net10.0` no arranca sobre el runtime 11. Una versión mayor de .NET se cambia completa (target, `global.json` y las dos imágenes) y con su propia HU.
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
 - **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.17` y esquema 16 (`db/016-publicacion-vendida.js`); falta la app.
 
