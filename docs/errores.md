@@ -86,7 +86,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_price` | 400 | Ponle un precio a tu producto. | HU-06 (RN-04: mayor que cero; hasta $999,999) |
 | `listings.invalid_category` | 400 | Elige una categoría. | HU-06 |
 | `listings.invalid_condition` | 400 | Elige el estado del producto. | HU-06 (nuevo, o usado con su detalle); HU-10 (filtro) |
-| `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. | HU-06 / HU-50 |
+| `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. (Al cambiarlas: "… van de 0 a 10.") | HU-06 (al publicar, 1 a 10) / HU-50 (`PUT /products/{id}/stock`, 0 a 10) |
 | `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 / HU-10 (cursor que no emitió la API o de otro orden) |
 | `listings.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-09 (búsqueda sin letras ni dígitos, o de más de 80 caracteres) |
 | `listings.invalid_price_range` | 400 | Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-10 (mínimo negativo, máximo fuera de rango o mínimo mayor que el máximo) |

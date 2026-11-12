@@ -106,6 +106,40 @@ internal sealed class MyListingsService(
         return Result<ProductResponse>.Ok(ListingService.ToResponse(changed, includeSeller: true));
     }
 
+    /// <summary>
+    /// "Cambiar piezas" y "Reponer" (maqueta <c>Mis-productos</c>, HU-50): fija las piezas disponibles. Una pausada
+    /// sigue pausada. Si un pedido aparta piezas en el mismo instante, gana la ultima escritura (decision de la
+    /// usuaria, ver la spec).
+    /// </summary>
+    /// <param name="userId">Vendedor (del token).</param>
+    /// <param name="productId">Id de la publicacion.</param>
+    /// <param name="request">Las piezas.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion ya cambiada o el error.</returns>
+    public async Task<Result<ProductResponse>> SetStockAsync(string userId, string productId, SetStockRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!await IsActiveMemberAsync(userId, cancellationToken).ConfigureAwait(false))
+        {
+            return ApiErrors.Forbidden;
+        }
+
+        if (request.Stock is not (>= 0 and <= ListingService.MaxStock) || request.Stock is not { } stock)
+        {
+            return ListingsErrors.InvalidStockChange;
+        }
+
+        // NOTE (HU-52): un apartado vencido regresa la pieza solo; aqui solo la fija el vendedor.
+        var changed = await products.SetStockAsync(productId, userId, stock, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
+        if (changed is null)
+        {
+            return await WhyUnchangedAsync(userId, productId, cancellationToken).ConfigureAwait(false);
+        }
+
+        await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
+        return Result<ProductResponse>.Ok(ListingService.ToResponse(changed, includeSeller: true));
+    }
+
     /// <summary>"Marcar como vendido" (maqueta <c>Mis-productos</c>, HU-08). Es idempotente.</summary>
     /// <param name="userId">Vendedor (del token).</param>
     /// <param name="productId">Id de la publicacion.</param>
