@@ -180,6 +180,7 @@ internal sealed partial class ListingService(
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina.</param>
     /// <param name="page">Pagina pedida (base 1); ignora <paramref name="cursor"/>.</param>
+    /// <param name="sellerId">Solo las publicaciones de esta persona (HU-05: perfil publico); <c>null</c> para todas.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina o el error.</returns>
     public async Task<Result<ProductPage>> ShowcaseAsync(
@@ -195,12 +196,23 @@ internal sealed partial class ListingService(
         string? cursor,
         int? limit,
         int? page,
+        string? sellerId,
         CancellationToken cancellationToken)
     {
         // HU-10: la pagina empieza en 1 y tiene tope para que skip no crezca sin control.
         if (page is < 1 or > MaxPage)
         {
             return ListingsErrors.InvalidPage;
+        }
+
+        // HU-05: el perfil solo usa ids reales; un valor mal formado no consulta ni ensucia la cache.
+        if (string.IsNullOrWhiteSpace(sellerId))
+        {
+            sellerId = null;
+        }
+        else if (!ObjectId.TryParse(sellerId, out _))
+        {
+            return Result<ProductPage>.Ok(new ProductPage([], null, 0));
         }
 
         // HU-10 R3-R5: rango, condicion y orden tienen lista blanca antes de tocar la base.
@@ -280,7 +292,8 @@ internal sealed partial class ListingService(
             conditionValue,
             sortValue,
             hidden,
-            page);
+            page,
+            sellerId);
         var items = await products.FindPageAsync(query, cancellationToken).ConfigureAwait(false);
         var total = await products.CountAsync(query, cancellationToken).ConfigureAwait(false);
         var includeSeller = viewer.CommunityId is not null;

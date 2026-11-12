@@ -87,7 +87,7 @@ public sealed class ProfilesController : ControllerBase
         return result.Error is { } error ? this.Problem(error) : NoContent();
     }
 
-    /// <summary>Perfil de otra persona del mismo campus (NOTE (HU-05): reputacion, publicaciones y opiniones).</summary>
+    /// <summary>Perfil de otra persona del mismo campus (NOTE (HU-27): reputacion y opiniones).</summary>
     /// <param name="id">Id del usuario.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El perfil publico.</returns>

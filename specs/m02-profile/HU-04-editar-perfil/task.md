@@ -46,7 +46,7 @@
 - **Estado:** ⏳ Por hacer.
 
 ## Pendientes
-- `NOTE (HU-05)`: reputación, publicaciones y opiniones en `GET /profiles/{id}`.
+- `NOTE (HU-27)`: reputación, promedio y opiniones en `GET /profiles/{id}`; las publicaciones activas las entrega HU-05.
 - `NOTE (HU-20)`: aplicar `visibility.online`.
 - `NOTE (HU-23)`/`NOTE (HU-27)`: actualizar `profiles.stats`.
 - `NOTE (02-07)`: moderar la foto.

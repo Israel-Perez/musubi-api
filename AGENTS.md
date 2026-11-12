@@ -64,7 +64,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 5. Convenciones técnicas
 
-> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (80 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
+> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (81 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
@@ -141,7 +141,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (80 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (81 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

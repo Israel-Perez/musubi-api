@@ -273,6 +273,12 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             ? new[] { ProductStatuses.Active, ProductStatuses.SoldOut }
             : [ProductStatuses.Active];
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId) & Filter.In(p => p.Status, statuses);
+        if (query.SellerId is { } sellerId)
+        {
+            // HU-05: perfil publico del vendedor; el estado ya lo limita `statuses`.
+            filter &= Filter.Eq(p => p.SellerId, sellerId);
+        }
+
         if (query.CategorySlugs is { Count: > 0 } categories)
         {
             filter &= Filter.In(p => p.CategorySlug, categories);

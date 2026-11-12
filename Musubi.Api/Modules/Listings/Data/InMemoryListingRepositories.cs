@@ -325,6 +325,8 @@ internal sealed class InMemoryProductRepository : IProductRepository
         string.Equals(p.CommunityId, query.CommunityId, StringComparison.Ordinal)
         // HU-10: los agotados dependen de IncludeSoldOut; el servicio decide el valor por defecto.
         && (p.Status == ProductStatuses.Active || (query.IncludeSoldOut && p.Status == ProductStatuses.SoldOut))
+        // HU-05: perfil publico del vendedor; el estado ya lo limita la linea anterior.
+        && (query.SellerId is null || string.Equals(p.SellerId, query.SellerId, StringComparison.Ordinal))
         && ((query.CategorySlugs is null or { Count: 0 }) || query.CategorySlugs.Contains(p.CategorySlug, StringComparer.Ordinal))
         && (query.Condition is null || string.Equals(p.Condition, query.Condition, StringComparison.Ordinal))
         && (query.MinPriceCents is null || p.PriceCents >= query.MinPriceCents)

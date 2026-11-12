@@ -43,6 +43,7 @@ public sealed class ProductsController : ControllerBase
     /// <param name="cursor">Cursor de la pagina anterior.</param>
     /// <param name="limit">Tamano de pagina (1 a 50).</param>
     /// <param name="page">Pagina (base 1); ignora <paramref name="cursor"/>.</param>
+    /// <param name="sellerId">Perfil publico (HU-05): solo las publicaciones de esa persona; con <paramref name="hideSoldOut"/>=true, solo las activas.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La pagina.</returns>
     [HttpGet]
@@ -65,6 +66,7 @@ public sealed class ProductsController : ControllerBase
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
         [FromQuery] int? page,
+        [FromQuery] string? sellerId,
         CancellationToken cancellationToken) =>
         this.Respond(
             await listings.ShowcaseAsync(
@@ -80,6 +82,7 @@ public sealed class ProductsController : ControllerBase
                 cursor,
                 limit,
                 page,
+                sellerId,
                 cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 

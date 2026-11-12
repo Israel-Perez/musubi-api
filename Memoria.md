@@ -1,5 +1,15 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-05 (SCRUM-34)
+
+- **Qué:** API de “Consultar perfil y reputación de otro usuario”. `GET /profiles/{id}` ya existía (HU-04) con nombre, foto, campus, `memberSince`, carrera/periodo y `stats { ratingAvg, ratingCount, sales }`, sin correo y con 404 para otro campus/bloqueo. Faltaba la pestaña “Publicaciones (N)” de `Perfil-vendedor`.
+- **Cómo:** se reutiliza `GET /products` con un filtro `sellerId` (nuevo en `ProductQuery`); con `hideSoldOut=true` devuelve solo las `active` y `total` es el contador. La app compone el perfil con `GET /profiles/{id}` + `GET /products?sellerId=…`. No se creó ruta nueva ni se agregó `activeListings` al perfil.
+- **Reputación:** `ratings` sigue siendo de HU-27/HU-45; sin calificaciones el perfil devuelve `ratingAvg: null` y `ratingCount: 0` (RN-26) y la app muestra “Sin calificaciones”. `NOTE (HU-27)`.
+- **Datos:** sin colección, script `db/`, índice ni cambio de `MongoSchema`; `ix_seller_id` de `products` cubre el filtro.
+- **Versión compartida:** `docs/versionado.md` es una sección compartida. La fila `0.5.0-alpha.21` se replicó en `musubi-app` y se registró en su `Memoria.md`; `0.5.0-alpha.20` es de HU-24, ya en `main` con el esquema 19.
+- **Verificación local (11-Nov-2026, `main` `b7bdb1d`, ya con HU-24):** build Release 0/0; Unit 564, Integration 165, Security 207 y Contract 20 al 100 % con `--no-build`; `check_endpoints` OK (81 rutas); `critic` PASS (28 archivos, 0 avisos); `check_shared_sections` OK (6 bloques); `VersioningTests` con `0.5.0-alpha.21`. `DatabaseTest` queda para el CI (Docker apagado en local). `security-reviewer` PASS y `traceability-clerk` OK.
+- **Pendiente:** app de HU-05; `NOTE (HU-27)`/`NOTE (HU-45)` (promedio y opiniones); `NOTE (HU-20)` para “Mensaje” desde el perfil.
+
 ## Trabajo en curso — HU-54 (SCRUM-71)
 
 - Se implementó la API de preferencias de apariencia en M-02: GET/PUT autenticados, tema por cuenta (`system` por defecto; `system`/`light`/`dark`), API `0.5.0-alpha.19` y esquema 18 (`db/018-preferencias.js`), borrado al eliminar la cuenta y pruebas en Unit/Integration/Security/Contract/Database.
@@ -20,13 +30,14 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **App en Google Play:** `0.6.0+8` en la prueba cerrada (lote de HU-09 a HU-17; ver la Memoria de musubi-app).
 - **En `main`, sin desplegar:**
   - HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`), sin script nuevo;
-  - HU-53 (favoritos, Eliuht; `0.5.0-alpha.14`), que sí trae `db/013`.
+  - HU-53 (favoritos, Eliuht; `0.5.0-alpha.14`), que sí trae `db/013`;
+  - HU-05 (perfil del vendedor, `0.5.0-alpha.21`), sin script nuevo; API en revisión.
 - **HU-08 (Tanis):** PR #61, renumerado a `db/016` y `alpha.17` el 11-Nov-2026 porque el acuerdo con IA entró antes con `db/015` y `alpha.16`.
 - **HU-23 (pedidos):** en `main` (`0.5.0-alpha.15`, esquema 14), API y app. Sin desplegar.
 - **HU-32/33/34 (acuerdo con IA):** API `0.5.0-alpha.16` y esquema 15 (`db/015-acuerdos.js`) en `feature/SCRUM-53-acuerdo-con-ia`. La llave de Gemini ya está en user-secrets y en `/musubi/prod/Gemini/ApiKey` (la puso la usuaria).
 - **HU-31 (push):** API `0.5.0-alpha.18` y esquema 17 (`db/017-avisos.js`) en `feature/SCRUM-49-avisos-push`. La llave ya está en `/musubi/prod/Firebase/ServiceAccount` y en user-secrets (11-Nov-2026).
   - **Error a evitar:** las fábricas de prueba en Development cargan los user-secrets de quien las corre. Con `Firebase:Provider=Fcm` en local, `NotificationFlowTests` usó el FCM real y falló (en el CI pasaba). Las fábricas fijan `Firebase:Provider` y `GenAi:Provider` en `InMemory`.
-- **HU-24 (aceptar y actualizar pedidos):** API `0.5.0-alpha.20` y esquema 19 (`db/019-pedidos-estados.js`) en `feature/SCRUM-43-aceptar-actualizar-pedidos`. Falta la app. Ver T41.
+- **HU-24 (aceptar y actualizar pedidos):** API `0.5.0-alpha.20` y esquema 19 (`db/019-pedidos-estados.js`) en `main`; falta la app. Ver T41.
 - **Push en producción (11-Nov-2026):** verificado en un celular real. Antes falló dos veces. La llave estaba en us-east-2 y en varias líneas (el `api.env` de `user-data` es de una línea por variable), y después Google rechazó la llave `8e06c5` (`invalid_grant`). Hoy usa la llave nueva `5270b9` en us-east-1. Pendiente SCRUM-96: avisar al arrancar si el push queda apagado.
 - **Siguiente:** la app de HU-24 y luego HU-25.
 - **Pendientes del usuario:**

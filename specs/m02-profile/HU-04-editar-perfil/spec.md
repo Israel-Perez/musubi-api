@@ -77,7 +77,7 @@ La historia dejaba pendientes los campos visibles (RF-04, "[POR DEFINIR]"). La m
   - `MongoSchema.ExpectedVersion = 4`;
   - filas en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md).
 - **Pendientes:**
-  - `NOTE (HU-05)`: reputación, publicaciones y opiniones en el perfil público;
+  - `NOTE (HU-27)`: reputación, promedio y opiniones en el perfil público; las publicaciones activas las entrega HU-05;
   - `NOTE (HU-20)`: aplicar `online`;
   - `NOTE (HU-23)`/`NOTE (HU-27)`: actualizar `stats` al completar pedidos y calificaciones;
   - `NOTE (02-07)`: moderar la foto;
