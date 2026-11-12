@@ -17,6 +17,11 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Despliegue del 12-Nov-2026 (SCRUM-87)
+
+- `infra-up` con `0.5.0-alpha.23` y `db/019` (esquema 19): HU-24, SCRUM-96 (aviso del push al arrancar), dependencias de noviembre, HU-50, HU-05 y HU-25.
+- La app `0.9.0+11` va a la prueba cerrada de Google Play con esa API (fila compartida en `docs/versionado.md`).
+
 ## Trabajo en curso — HU-25 (SCRUM-44)
 
 - **Qué:** `GET /api/v1/orders/mine`: mis compras por pestaña (`active` = pendientes y confirmados, `completed`, `cancelled`; sin pestaña, todas), con `counts` de las tres, `total` de la pestaña y cursor. Cada elemento es un `OrderResponse`.
