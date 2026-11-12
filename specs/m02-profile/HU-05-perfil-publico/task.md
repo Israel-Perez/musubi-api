@@ -31,12 +31,12 @@
 - **Actualizar:**
   - `docs/endpoints.md`: `GET /products` suma `sellerId` y HU-05; `GET /profiles/{id}` pasa a `HU-04 · HU-05` y documenta RN-26;
   - `docs/trazabilidad.md`: fila HU-05 con tests y estado;
-  - `docs/versionado.md`: `0.5.0-alpha.21`, esquema 19 (`MongoSchema.ExpectedVersion = 19` desde HU-24), app `0.8.0+10`;
-  - `Musubi.Api/Musubi.Api.csproj`: `<Version>0.5.0-alpha.21</Version>`;
+  - `docs/versionado.md`: `0.5.0-alpha.22`, esquema 19 (`MongoSchema.ExpectedVersion = 19` desde HU-24), app `0.8.0+10`;
+  - `Musubi.Api/Musubi.Api.csproj`: `<Version>0.5.0-alpha.22</Version>`;
   - `AGENTS.md`: conteo real de rutas (78);
   - `Memoria.md`: qué se hizo, decisiones y verificación.
 - **Verificar:** `VersioningTests`, `check_endpoints` OK y `check_shared_sections` OK.
-- **Estado:** ✅ Hecho (11-Nov-2026): `check_endpoints` OK (81), `check_shared_sections` OK (6 bloques), `VersioningTests` en verde; la fila `alpha.21` se replicó en `musubi-app` y en su `Memoria.md`.
+- **Estado:** ✅ Hecho (11-Nov-2026): `check_endpoints` OK (81), `check_shared_sections` OK (6 bloques), `VersioningTests` en verde; la fila (hoy `alpha.22`, tras HU-50) se replicó en `musubi-app` y en su `Memoria.md`.
 
 ## T6 — Verificación y cierre
 - **Correr:** build Release 0/0; Unit, Integration, Security y Contract con `--no-build`; Database si hay Docker; `check_endpoints`; critic; `security-reviewer`; `traceability-clerk`.

@@ -126,6 +126,10 @@ internal sealed class InMemoryProductRepository : IProductRepository
             p.SoldAt)));
 
     /// <inheritdoc />
+    public Task<ProductDocument?> SetStockAsync(string id, string sellerId, int stock, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Replace(id, sellerId, p => WithStock(p, stock, StatusWithStock(p, stock), now, p.SoldAt)));
+
+    /// <inheritdoc />
     public Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken)
     {
         lock (gate)
@@ -234,6 +238,17 @@ internal sealed class InMemoryProductRepository : IProductRepository
         string.Equals(p.Id, id, StringComparison.Ordinal)
         && string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)
         && p.Status != ProductStatuses.Removed;
+
+    // HU-50: una pausada sigue pausada; si no, el estado sale de las piezas (igual que en Mongo).
+    private static string StatusWithStock(ProductDocument p, int stock)
+    {
+        if (p.Status == ProductStatuses.Hidden)
+        {
+            return ProductStatuses.Hidden;
+        }
+
+        return stock > 0 ? ProductStatuses.Active : ProductStatuses.SoldOut;
+    }
 
     private static string ResumedOrPaused(ProductDocument p, bool paused)
     {

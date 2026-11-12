@@ -50,7 +50,7 @@ Ninguna. No se agregan dependencias ni tecnologías.
   - `dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build`
   - `dotnet test --project DatabaseTest/DatabaseTest.csproj -c Release --no-build` (si hay Docker)
   - `pwsh scripts/check_endpoints.ps1`, `pwsh scripts/critic-guardrails.ps1`
-  - `UnitTest/Common/VersioningTests.cs` con `0.5.0-alpha.21`.
+  - `UnitTest/Common/VersioningTests.cs` con `0.5.0-alpha.22`.
 - **Subagentes:** `security-reviewer` antes del push y `traceability-clerk` al cerrar.
 
 ## 6. Secuencia de implementación
@@ -58,5 +58,5 @@ Ninguna. No se agregan dependencias ni tecnologías.
 2. **T2 — Prueba primero:** agregar `SellerFilter_OnlyTheActiveListingsOfThatSeller_AndCountsThem` a `TestShared/Listings/ListingRepositoryContract.cs`; compila en rojo hasta que exista `SellerId`.
 3. **T3 — Filtro:** agregar `SellerId` a `ProductQuery` y a los dos `Showcase`; pasar el parámetro por `ListingService.ShowcaseAsync` y `ProductsController.Showcase`.
 4. **T4 — Integración:** agregar `SellerProfile_IsReachableFromProductDetail_AndCountsOnlyActiveListings` a `ProfileFlowTests` (publicar, pausar, vender, consultar perfil y publicaciones).
-5. **T5 — Documentación y versión:** `docs/endpoints.md` (dos filas), `docs/trazabilidad.md`, `docs/versionado.md` (`0.5.0-alpha.21`), `Musubi.Api.csproj`, `Memoria.md`; `spec.md`/`task.md` con evidencia.
+5. **T5 — Documentación y versión:** `docs/endpoints.md` (dos filas), `docs/trazabilidad.md`, `docs/versionado.md` (`0.5.0-alpha.22`), `Musubi.Api.csproj`, `Memoria.md`; `spec.md`/`task.md` con evidencia.
 6. **T6 — Verificación y cierre:** build, suites, guardarraíles, `security-reviewer`, `traceability-clerk`, PR (sin push sin autorización).

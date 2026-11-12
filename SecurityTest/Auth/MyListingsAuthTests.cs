@@ -35,13 +35,27 @@ public sealed class MyListingsAuthTests(ProductionApiFactory production) : IClas
         { "POST", "/api/v1/products/{0}/resume" },
         { "DELETE", "/api/v1/products/{0}" },
         { "POST", "/api/v1/products/{0}/sold" },
+        { "PUT", "/api/v1/products/{0}/stock" },
     };
 
     private static HttpRequestMessage Request(string method, string path, string id) =>
         new(new HttpMethod(method), new Uri(string.Format(System.Globalization.CultureInfo.InvariantCulture, path, id), UriKind.Relative))
         {
-            Content = method == "PUT" ? JsonContent.Create(EditBody) : null,
+            Content = Body(method, path),
         };
+
+    // PUT de editar lleva la publicacion; PUT de piezas (HU-50), { stock }.
+    private static JsonContent? Body(string method, string? path)
+    {
+        if (method != "PUT")
+        {
+            return null;
+        }
+
+        return path?.EndsWith("/stock", StringComparison.Ordinal) == true
+            ? JsonContent.Create(new { stock = 3 })
+            : JsonContent.Create(EditBody);
+    }
 
     private async Task<string> MemberAsync(string status = UserStatuses.Active)
     {
@@ -186,6 +200,7 @@ public sealed class MyListingsAuthTests(ProductionApiFactory production) : IClas
         { "PUT", "/api/v1/products/{0}" },
         { "POST", "/api/v1/products/{0}/pause" },
         { "POST", "/api/v1/products/{0}/resume" },
+        { "PUT", "/api/v1/products/{0}/stock" },
     };
 
     [Theory]

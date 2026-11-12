@@ -777,4 +777,36 @@ public abstract class ListingRepositoryContract
         Assert.Equal((5, ProductStatuses.Hidden), (stillPaused!.Stock, stillPaused.Status));
         Assert.False(await Products.ReleaseStockAsync(AuthIds.New(), 1, Now, Ct));
     }
+
+    [Fact]
+    public async Task SetStock_OnlyTheOwner_KeepsPaused_AndDecidesSoldOut()
+    {
+        // HU-50: "Cambiar piezas" y "Reponer"; el estado se decide en la misma escritura.
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller, stock: 2);
+        var paused = NewProduct(community, seller, status: ProductStatuses.Hidden, stock: 2);
+        var sold = NewProduct(community, seller, status: ProductStatuses.Sold);
+        var removed = NewProduct(community, seller, status: ProductStatuses.Removed);
+        foreach (var p in new[] { product, paused, sold, removed })
+        {
+            await Products.InsertAsync(p, Ct);
+        }
+
+        Assert.Null(await Products.SetStockAsync(product.Id, AuthIds.New(), 5, Now, Ct));
+        Assert.Null(await Products.SetStockAsync(sold.Id, seller, 5, Now, Ct));
+        Assert.Null(await Products.SetStockAsync(removed.Id, seller, 5, Now, Ct));
+        Assert.Null(await Products.SetStockAsync("no-es-un-id", seller, 5, Now, Ct));
+
+        var empty = await Products.SetStockAsync(product.Id, seller, 0, Now, Ct);
+        Assert.Equal((0, ProductStatuses.SoldOut), (empty!.Stock, empty.Status));
+        var restocked = await Products.SetStockAsync(product.Id, seller, 4, Now.AddHours(1), Ct);
+        Assert.Equal((4, ProductStatuses.Active, Now.AddHours(1)), (restocked!.Stock, restocked.Status, restocked.UpdatedAt));
+        // Una pausada sigue pausada, con o sin piezas.
+        Assert.Equal((0, ProductStatuses.Hidden), Pair(await Products.SetStockAsync(paused.Id, seller, 0, Now, Ct)));
+        Assert.Equal((3, ProductStatuses.Hidden), Pair(await Products.SetStockAsync(paused.Id, seller, 3, Now, Ct)));
+        Assert.Equal(1, (await Products.FindByIdAsync(sold.Id, Ct))!.Stock);
+    }
+
+    private static (int Stock, string Status) Pair(ProductDocument? p) => (p!.Stock, p.Status);
 }

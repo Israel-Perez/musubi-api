@@ -125,6 +125,34 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     }
 
     /// <inheritdoc />
+    public async Task<ProductDocument?> SetStockAsync(string id, string sellerId, int stock, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return null;
+        }
+
+        // Como SetPausedAsync: el estado se decide en la misma escritura (sin leer antes). Una pausada sigue pausada.
+        var status = new BsonDocument("$cond", new BsonArray
+        {
+            new BsonDocument("$eq", new BsonArray { "$status", ProductStatuses.Hidden }),
+            ProductStatuses.Hidden,
+            stock > 0 ? ProductStatuses.Active : ProductStatuses.SoldOut,
+        });
+        var stage = new BsonDocument("$set", new BsonDocument
+        {
+            { "stock", stock },
+            { "status", status },
+            { "updatedAt", new BsonDateTime(now) },
+        });
+        return await products.FindOneAndUpdateAsync(
+            Editable(id, sellerId),
+            new PipelineUpdateDefinition<ProductDocument>(new BsonDocumentStagePipelineDefinition<ProductDocument, ProductDocument>([stage])),
+            new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken) =>
         ObjectId.TryParse(id, out _)
             ? await products.FindOneAndDeleteAsync(OwnedBy(id, sellerId), cancellationToken: cancellationToken).ConfigureAwait(false)

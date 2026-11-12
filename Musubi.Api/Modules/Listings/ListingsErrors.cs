@@ -34,6 +34,10 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidStock = new(
         "listings.invalid_stock", StatusCodes.Status400BadRequest, "Las piezas disponibles van de 1 a 10.");
 
+    /// <summary>Al cambiar las piezas (HU-50) se admite 0 (agotada): mismo codigo, otro rango.</summary>
+    public static readonly ApiError InvalidStockChange = new(
+        "listings.invalid_stock", StatusCodes.Status400BadRequest, "Las piezas disponibles van de 0 a 10.");
+
     /// <summary>Rango de precio al reves o fuera de 0 a $999,999 (HU-10 R3).</summary>
     public static readonly ApiError InvalidPriceRange = new(
         "listings.invalid_price_range", StatusCodes.Status400BadRequest, "Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo.");

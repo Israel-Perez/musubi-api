@@ -54,6 +54,21 @@ public sealed class MyProductsController : ControllerBase
     public async Task<IActionResult> Pause(string id, CancellationToken cancellationToken) =>
         this.Respond(await myListings.SetPausedAsync(userId, id, paused: true, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
+    /// <summary>"Cambiar piezas" y "Reponer" (HU-50): fija las piezas disponibles (0 a 10).</summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="request">Las piezas.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion ya cambiada.</returns>
+    [HttpPut("{id}/stock")]
+    [RequestSizeLimit(1024)]
+    [ProducesResponseType<ProductResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetStock(string id, SetStockRequest request, CancellationToken cancellationToken) =>
+        this.Respond(await myListings.SetStockAsync(userId, id, request, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
     /// <summary>Reactiva una publicacion pausada (disponible, o agotada si no tiene piezas).</summary>
     /// <param name="id">Id de la publicacion.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

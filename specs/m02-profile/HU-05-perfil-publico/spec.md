@@ -80,7 +80,7 @@ RNF que aplican: RNF-03 (sesión y propiedad; esta HU no escribe), RNF-05 (datos
 - [x] El perfil del vendedor es accesible desde el detalle: `seller.id` → `GET /profiles/{id}` responde 200 → `SellerProfile_IsReachableFromProductDetail_AndCountsOnlyActiveListings`.
 - [x] Build Release 0/0 · Unit 564 · Integration 165 · Security 207 · Contract 20 al 100 % con `--no-build`. Database queda para el CI (Docker apagado en local); la prueba compartida del repositorio corre también contra MongoDB real.
 - [x] `pwsh scripts/check_endpoints.ps1` OK (81 rutas) · `pwsh scripts/critic-guardrails.ps1` PASS · `pwsh scripts/check_shared_sections.ps1` OK (6 bloques).
-- [x] `UnitTest/Common/VersioningTests.cs` pasa con `0.5.0-alpha.21` y la última fila de `docs/versionado.md`.
+- [x] `UnitTest/Common/VersioningTests.cs` pasa con `0.5.0-alpha.22` y la última fila de `docs/versionado.md`.
 - [x] `security-reviewer` PASS y `traceability-clerk` OK (sin drift).
 
 ## Límites
@@ -99,5 +99,5 @@ RNF que aplican: RNF-03 (sesión y propiedad; esta HU no escribe), RNF-05 (datos
 - **Detalle:**
   - spec detallada desde Jira (SCRUM-34), la maqueta (`Perfil-vendedor`) y HU-04/HU-08; se reutiliza `GET /products?sellerId=` y la reputación queda en `null`/`0` hasta HU-27/HU-45, como indicó Jira el 08-Nov-2026.
   - verificación local (11-Nov-2026, sobre `main` `b7bdb1d`, ya con HU-24): build Release 0/0; Unit 564, Integration 165, Security 207 y Contract 20 al 100 % con `--no-build`; `check_endpoints` OK (81 rutas); `critic` PASS (28 archivos, 0 avisos); `check_shared_sections` OK (6 bloques). `DatabaseTest` queda para el CI porque Docker no estaba corriendo en local; la prueba compartida del repositorio corre también contra MongoDB real.
-  - versión `0.5.0-alpha.21`, esquema 19 (`MongoSchema.ExpectedVersion = 19` desde HU-24); sin script `db/` ni índice nuevo. `VersioningTests` en verde.
+  - versión `0.5.0-alpha.22`, esquema 19 (`MongoSchema.ExpectedVersion = 19` desde HU-24); sin script `db/` ni índice nuevo. `VersioningTests` en verde.
   - `security-reviewer` PASS (sin bloqueantes; W1/W2 corregidos) y `traceability-clerk` OK (sin drift).

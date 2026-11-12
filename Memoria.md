@@ -6,7 +6,7 @@
 - **Cómo:** se reutiliza `GET /products` con un filtro `sellerId` (nuevo en `ProductQuery`); con `hideSoldOut=true` devuelve solo las `active` y `total` es el contador. La app compone el perfil con `GET /profiles/{id}` + `GET /products?sellerId=…`. No se creó ruta nueva ni se agregó `activeListings` al perfil.
 - **Reputación:** `ratings` sigue siendo de HU-27/HU-45; sin calificaciones el perfil devuelve `ratingAvg: null` y `ratingCount: 0` (RN-26) y la app muestra “Sin calificaciones”. `NOTE (HU-27)`.
 - **Datos:** sin colección, script `db/`, índice ni cambio de `MongoSchema`; `ix_seller_id` de `products` cubre el filtro.
-- **Versión compartida:** `docs/versionado.md` es una sección compartida. La fila `0.5.0-alpha.21` se replicó en `musubi-app` y se registró en su `Memoria.md`; `0.5.0-alpha.20` es de HU-24, ya en `main` con el esquema 19.
+- **Versión compartida:** `docs/versionado.md` es una sección compartida. La fila `0.5.0-alpha.22` (renumerada el 12-Nov-2026: `alpha.21` quedó para HU-50 de Kazumi, que se fusionó antes) se replicó en `musubi-app` y se registró en su `Memoria.md`; `0.5.0-alpha.20` es de HU-24, ya en `main` con el esquema 19.
 - **Verificación local (11-Nov-2026, `main` `b7bdb1d`, ya con HU-24):** build Release 0/0; Unit 564, Integration 165, Security 207 y Contract 20 al 100 % con `--no-build`; `check_endpoints` OK (81 rutas); `critic` PASS (28 archivos, 0 avisos); `check_shared_sections` OK (6 bloques); `VersioningTests` con `0.5.0-alpha.21`. `DatabaseTest` queda para el CI (Docker apagado en local). `security-reviewer` PASS y `traceability-clerk` OK.
 - **Pendiente:** app de HU-05; `NOTE (HU-27)`/`NOTE (HU-45)` (promedio y opiniones). En la revisión del PR (12-Nov-2026) la app quedó igual a la maqueta: “Mensaje” del perfil (app) abre la conversación con `POST /conversations` de HU-20, sin ruta nueva; “Seguir” y “Compartir” avisan que llegan pronto (la API no tiene seguidores) y “A tiempo” va con “—” hasta HU-27.
 
@@ -31,7 +31,7 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **En `main`, sin desplegar:**
   - HU-07 (`0.5.0-alpha.12`, Kazumi) y HU-14 (`0.5.0-alpha.13`), sin script nuevo;
   - HU-53 (favoritos, Eliuht; `0.5.0-alpha.14`), que sí trae `db/013`;
-  - HU-05 (perfil del vendedor, `0.5.0-alpha.21`), sin script nuevo; API en revisión.
+  - HU-05 (perfil del vendedor, `0.5.0-alpha.22`), sin script nuevo; API en revisión.
 - **HU-08 (Tanis):** PR #61, renumerado a `db/016` y `alpha.17` el 11-Nov-2026 porque el acuerdo con IA entró antes con `db/015` y `alpha.16`.
 - **HU-23 (pedidos):** en `main` (`0.5.0-alpha.15`, esquema 14), API y app. Sin desplegar.
 - **HU-32/33/34 (acuerdo con IA):** API `0.5.0-alpha.16` y esquema 15 (`db/015-acuerdos.js`) en `feature/SCRUM-53-acuerdo-con-ia`. La llave de Gemini ya está en user-secrets y en `/musubi/prod/Gemini/ApiKey` (la puso la usuaria).
@@ -39,13 +39,37 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - **Error a evitar:** las fábricas de prueba en Development cargan los user-secrets de quien las corre. Con `Firebase:Provider=Fcm` en local, `NotificationFlowTests` usó el FCM real y falló (en el CI pasaba). Las fábricas fijan `Firebase:Provider` y `GenAi:Provider` en `InMemory`.
 - **HU-24 (aceptar y actualizar pedidos):** API `0.5.0-alpha.20` y esquema 19 (`db/019-pedidos-estados.js`) en `main`; falta la app. Ver T41.
 - **Push en producción (11-Nov-2026):** verificado en un celular real. Antes falló dos veces. La llave estaba en us-east-2 y en varias líneas (el `api.env` de `user-data` es de una línea por variable), y después Google rechazó la llave `8e06c5` (`invalid_grant`). Hoy usa la llave nueva `5270b9` en us-east-1. Pendiente SCRUM-96: avisar al arrancar si el push queda apagado.
-- **Siguiente:** la app de HU-24 y luego HU-25.
+- **SCRUM-96 (12-Nov-2026):** `PushStartupCheck` deja en el log, al arrancar, si el push está activo (proyecto y el inicio del id de la llave) o por qué está apagado (`MissingKey`, `UnreadableKey`, `IncompleteKey`; o `InMemory` fuera de Development). Va sin subir versión, en el mismo `0.5.0-alpha.20` que HU-24, porque ese tag todavía no existe. `infra/README.md` documenta la región, la regla de una línea y cómo compactar la llave. Lección 23 de `00-04`.
+- **Siguiente:** desplegar `alpha.20` (HU-24 y SCRUM-96) cuando la usuaria lo autorice, y luego HU-25.
 - **Pendientes del usuario:**
   - proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
+- **Dependabot (12-Nov-2026):** los parches de AWSSDK y `setup-dotnet` (#75 a #80) van juntos en un PR. `dependabot.yml` agrupa `AWSSDK.*` y deja de proponer versiones mayores de `dotnet/sdk` y `dotnet/aspnet`.
+  - **Error a evitar:** #73 (`aspnet:11`) pasaba el CI porque `docker-build` solo construye la imagen; una app `net10.0` no arranca sobre el runtime 11. Una versión mayor de .NET se cambia completa (target, `global.json` y las dos imágenes) y con su propia HU.
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
 - **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.17` y esquema 16 (`db/016-publicacion-vendida.js`); falta la app.
+
+## T42 — Manejar la cantidad disponible (12-Nov-2026, SCRUM-67, HU-50)
+
+**Qué se hizo**
+- `PUT /api/v1/products/{id}/stock` (`MyProductsController.SetStock` → `MyListingsService.SetStockAsync` → `IProductRepository.SetStockAsync`).
+  - Piezas de 0 a 10: con 0 queda `soldOut` y con más vuelve a `active`.
+  - Una pausada sigue `hidden`; una vendida responde 409 y una ajena 404.
+- Los otros tres criterios ya existían (HU-06, HU-10, HU-11 y HU-24) y quedaron con evidencia en la spec.
+- API `0.5.0-alpha.21`, sin script en `db/`. Unit 569 · Integration 165 · Security 212 · Contract 20 · endpoints 82.
+
+**Decisiones (con su porqué)** (usuaria y PO, 12-Nov-2026)
+- **`PUT { stock }` fija el número:** el vendedor dice lo que tiene a la mano. Si un pedido aparta piezas en el mismo instante, gana la última escritura. Es poco probable, se corrige volviendo a cambiarlas y quedó en Límites.
+- **El estado se decide en la misma escritura** (update con pipeline, como `SetPausedAsync`): sin leer antes y sin perder la pausa.
+- **Mismo código `listings.invalid_stock` con otro texto** ("0 a 10"): la app traduce por código, y al publicar sigue siendo de 1 a 10.
+
+**Errores a evitar**
+- **Un build que falla en un solo proyecto deja corriendo los binarios viejos de ese proyecto:** CA1062 rompió `SecurityTest` y la suite "pasó" con 207. Revisa `0 Errores` antes de leer los conteos.
+- **Ya existía un `WithStock` en `InMemoryListingRepositories`:** S4136 pide sobrecargas juntas. Se reutilizó con `StatusWithStock` para el estado.
+
+**Pendientes con dueño**
+- `NOTE (HU-52)`: un apartado vencido regresa la pieza solo.
 
 ## T41 — Aceptar y actualizar mis pedidos (11-Nov-2026, SCRUM-43, HU-24)
 
