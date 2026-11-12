@@ -165,6 +165,32 @@ public sealed class MyProductsTabsFlowTests(AuthApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task SetStock_ToZeroGoesToSoldOut_AndRestockBringsItBack()
+    {
+        // HU-50: "Cambiar piezas" a 0 y "Reponer" (1 pieza).
+        var (seller, _) = await SignedInAsync();
+        using var client = seller;
+        var id = await PublishAsync(client, "Calculadora Casio fx-350");
+        using var anonymous = factory.CreateClient();
+
+        var empty = await client.PutAsJsonAsync(new Uri($"/api/v1/products/{id}/stock", UriKind.Relative), new { stock = 0 }, Ct);
+        var hidden = await AuthFlow.JsonAsync(await anonymous.GetAsync(new Uri("/api/v1/products?hideSoldOut=true&limit=50", UriKind.Relative), Ct));
+        var soldOutTab = await MineAsync(client, "?tab=soldOut");
+        var tooMany = await client.PutAsJsonAsync(new Uri($"/api/v1/products/{id}/stock", UriKind.Relative), new { stock = 11 }, Ct);
+        var restock = await client.PutAsJsonAsync(new Uri($"/api/v1/products/{id}/stock", UriKind.Relative), new { stock = 1 }, Ct);
+        var activeTab = await MineAsync(client, "?tab=active");
+
+        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
+        Assert.Equal("soldOut", (await AuthFlow.JsonAsync(empty)).GetProperty("status").GetString());
+        Assert.DoesNotContain(id, Ids(hidden));
+        Assert.Contains(id, Ids(soldOutTab));
+        await AuthFlow.AssertCodeAsync(tooMany, HttpStatusCode.BadRequest, "listings.invalid_stock");
+        var restocked = await AuthFlow.JsonAsync(restock);
+        Assert.Equal((1, "active"), (restocked.GetProperty("stock").GetInt32(), restocked.GetProperty("status").GetString()));
+        Assert.Contains(id, Ids(activeTab));
+    }
+
+    [Fact]
     public async Task Mine_PagesWithACursor_AndRejectsAnUnknownTab()
     {
         var (seller, _) = await SignedInAsync();

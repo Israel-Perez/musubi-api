@@ -147,6 +147,11 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(edited));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(paused));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(resumed));
+
+        // HU-50: "Cambiar piezas" responde la misma forma.
+        var restocked = await BodyAsync(await client.PutAsJsonAsync(
+            new Uri($"/api/v1/products/{id}/stock", UriKind.Relative), new { stock = 4 }, Ct));
+        Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(restocked));
         Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
         Assert.Equal(Shape(favoritesFixture), Shape(favorites));
         Assert.Equal(Shape(favoritesFixture.GetProperty("items")[0]), Shape(favorites.GetProperty("items")[0]));

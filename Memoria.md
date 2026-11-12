@@ -39,6 +39,27 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
 - **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.17` y esquema 16 (`db/016-publicacion-vendida.js`); falta la app.
 
+## T42 — Manejar la cantidad disponible (12-Nov-2026, SCRUM-67, HU-50)
+
+**Qué se hizo**
+- `PUT /api/v1/products/{id}/stock` (`MyProductsController.SetStock` → `MyListingsService.SetStockAsync` → `IProductRepository.SetStockAsync`).
+  - Piezas de 0 a 10: con 0 queda `soldOut` y con más vuelve a `active`.
+  - Una pausada sigue `hidden`; una vendida responde 409 y una ajena 404.
+- Los otros tres criterios ya existían (HU-06, HU-10, HU-11 y HU-24) y quedaron con evidencia en la spec.
+- API `0.5.0-alpha.21`, sin script en `db/`. Unit 569 · Integration 165 · Security 212 · Contract 20 · endpoints 82.
+
+**Decisiones (con su porqué)** (usuaria y PO, 12-Nov-2026)
+- **`PUT { stock }` fija el número:** el vendedor dice lo que tiene a la mano. Si un pedido aparta piezas en el mismo instante, gana la última escritura. Es poco probable, se corrige volviendo a cambiarlas y quedó en Límites.
+- **El estado se decide en la misma escritura** (update con pipeline, como `SetPausedAsync`): sin leer antes y sin perder la pausa.
+- **Mismo código `listings.invalid_stock` con otro texto** ("0 a 10"): la app traduce por código, y al publicar sigue siendo de 1 a 10.
+
+**Errores a evitar**
+- **Un build que falla en un solo proyecto deja corriendo los binarios viejos de ese proyecto:** CA1062 rompió `SecurityTest` y la suite "pasó" con 207. Revisa `0 Errores` antes de leer los conteos.
+- **Ya existía un `WithStock` en `InMemoryListingRepositories`:** S4136 pide sobrecargas juntas. Se reutilizó con `StatusWithStock` para el estado.
+
+**Pendientes con dueño**
+- `NOTE (HU-52)`: un apartado vencido regresa la pieza solo.
+
 ## T41 — Aceptar y actualizar mis pedidos (11-Nov-2026, SCRUM-43, HU-24)
 
 **Qué se hizo**

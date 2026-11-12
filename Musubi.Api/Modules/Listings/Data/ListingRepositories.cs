@@ -311,6 +311,18 @@ internal interface IProductRepository
     /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe, esta quitada o vendida (HU-08).</returns>
     Task<ProductDocument?> SetPausedAsync(string id, string sellerId, bool paused, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Cambia las piezas disponibles de una publicacion del vendedor (HU-50). En la misma escritura decide el estado:
+    /// una pausada sigue pausada; si no, <c>active</c> con piezas y <c>soldOut</c> sin ellas.
+    /// </summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="sellerId">Vendedor (del token).</param>
+    /// <param name="stock">Piezas disponibles (ya validadas, 0 a 10).</param>
+    /// <param name="now">Hora del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion ya cambiada, o <c>null</c> si no es suya, no existe, esta quitada o vendida.</returns>
+    Task<ProductDocument?> SetStockAsync(string id, string sellerId, int stock, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Borra una publicacion del vendedor (HU-07, borrado real). Una quitada por moderacion no se borra aqui.</summary>
     /// <param name="id">Id de la publicacion.</param>
     /// <param name="sellerId">Vendedor (del token).</param>

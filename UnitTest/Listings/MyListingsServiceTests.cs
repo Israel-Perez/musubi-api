@@ -323,6 +323,49 @@ public sealed class MyListingsServiceTests
     }
 
     [Fact]
+    public async Task SetStock_ChangesThePieces_AndEvictsTheShowcase()
+    {
+        // HU-50: "Cambiar piezas"; con 0 queda agotada y con mas vuelve a estar disponible.
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+
+        var empty = await service.SetStockAsync(seller, product.Id, new SetStockRequest(0), Ct);
+        var restocked = await service.SetStockAsync(seller, product.Id, new SetStockRequest(10), Ct);
+
+        Assert.Equal((0, ProductStatuses.SoldOut), (empty.Value!.Stock, empty.Value.Status));
+        Assert.Equal((10, ProductStatuses.Active), (restocked.Value!.Stock, restocked.Value.Status));
+        Assert.Equal(2, outputCache.Evicted.Count);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(11)]
+    [InlineData(null)]
+    public async Task SetStock_OutOfRange_IsRejected(int? stock)
+    {
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+
+        var result = await service.SetStockAsync(seller, product.Id, new SetStockRequest(stock), Ct);
+
+        Assert.Equal("listings.invalid_stock", result.Error?.Code);
+        Assert.Contains("0 a 10", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Equal(1, (await products.FindByIdAsync(product.Id, Ct))!.Stock);
+    }
+
+    [Fact]
+    public async Task SetStock_OfASoldProduct_Is409_AndOfSomeoneElses404()
+    {
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+        var outsider = await MemberAsync();
+        await service.MarkSoldAsync(seller, product.Id, Ct);
+
+        Assert.Equal(ListingsErrors.ProductSold, (await service.SetStockAsync(seller, product.Id, new SetStockRequest(3), Ct)).Error);
+        Assert.Equal(ListingsErrors.ProductNotFound, (await service.SetStockAsync(outsider, product.Id, new SetStockRequest(3), Ct)).Error);
+    }
+
+    [Fact]
     public async Task SomeoneElse_CannotPauseOrDelete()
     {
         var product = await ProductAsync(await MemberAsync());
@@ -344,6 +387,7 @@ public sealed class MyListingsServiceTests
         Assert.Equal(ApiErrors.Forbidden, (await service.SetPausedAsync(seller, product.Id, true, Ct)).Error);
         Assert.Equal(ApiErrors.Forbidden, (await service.DeleteAsync(seller, product.Id, Ct)).Error);
         Assert.Equal(ApiErrors.Forbidden, (await service.MarkSoldAsync(seller, product.Id, Ct)).Error);
+        Assert.Equal(ApiErrors.Forbidden, (await service.SetStockAsync(seller, product.Id, new SetStockRequest(3), Ct)).Error);
         Assert.NotNull(await products.FindByIdAsync(product.Id, Ct));
     }
 

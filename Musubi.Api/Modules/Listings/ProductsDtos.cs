@@ -54,6 +54,10 @@ public sealed record UpdateProductRequest(
     [Required, MaxLength(10)] string Condition,
     [MaxLength(10)] string? ConditionDetail);
 
+/// <summary>Cambiar las piezas disponibles desde "Mis productos" (HU-50).</summary>
+/// <param name="Stock">Piezas disponibles (0 a 10; 0 la deja agotada).</param>
+public sealed record SetStockRequest([Required] int? Stock);
+
 /// <summary>Vendedor visible en la publicacion (solo con sesion; RNF-05).</summary>
 /// <param name="Name">Nombre corto ("Ana R.").</param>
 public sealed record SellerResponse(string Name);
