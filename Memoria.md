@@ -34,6 +34,8 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
   - proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
+- **Dependabot (12-Nov-2026):** los parches de AWSSDK y `setup-dotnet` (#75 a #80) van juntos en un PR. `dependabot.yml` agrupa `AWSSDK.*` y deja de proponer versiones mayores de `dotnet/sdk` y `dotnet/aspnet`.
+  - **Error a evitar:** #73 (`aspnet:11`) pasaba el CI porque `docker-build` solo construye la imagen; una app `net10.0` no arranca sobre el runtime 11. Una versión mayor de .NET se cambia completa (target, `global.json` y las dos imágenes) y con su propia HU.
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
 - **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.17` y esquema 16 (`db/016-publicacion-vendida.js`); falta la app.
 
