@@ -117,6 +117,38 @@ internal sealed class InMemoryProfileRepository : IProfileRepository
         Task.FromResult(Upsert(owner, now, p => With(p, now, p.CareerSlug, p.Term, p.AvatarKey, visibility)).After);
 
     /// <inheritdoc />
+    public Task AddRatingAsync(ProfileOwner owner, int stars, bool onTime, DateTime now, CancellationToken cancellationToken)
+    {
+        Upsert(owner, now, p =>
+        {
+            var sum = p.Stats.RatingSum + stars;
+            var count = p.Stats.RatingCount + 1;
+            return new ProfileDocument
+            {
+                Id = p.Id,
+                CommunityId = p.CommunityId,
+                FullName = p.FullName,
+                CareerSlug = p.CareerSlug,
+                Term = p.Term,
+                AvatarKey = p.AvatarKey,
+                Visibility = p.Visibility,
+                Stats = new ProfileStats
+                {
+                    RatingSum = sum,
+                    RatingCount = count,
+                    RatingAvg = sum / count,
+                    OnTimeCount = p.Stats.OnTimeCount + (onTime ? 1 : 0),
+                    Sales = p.Stats.Sales,
+                    Purchases = p.Stats.Purchases,
+                },
+                SchemaVersion = p.SchemaVersion,
+                UpdatedAt = now,
+            };
+        });
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
     public Task<string?> SetAvatarAsync(ProfileOwner owner, string? avatarKey, DateTime now, CancellationToken cancellationToken) =>
         Task.FromResult(Upsert(owner, now, p => With(p, now, p.CareerSlug, p.Term, avatarKey, p.Visibility)).Before?.AvatarKey);
 

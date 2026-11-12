@@ -17,6 +17,18 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Trabajo en curso — HU-27 y HU-45 (SCRUM-46, SCRUM-50)
+
+- **Qué:** calificar un pedido completado. `POST /orders/{id}/rating` (quien compra califica a quien vende y al revés), `GET /profiles/{id}/ratings` ("Opiniones"), `stats.onTime` en el perfil público y `ratedByMe`/`rateUntil` en `OrderResponse`.
+- **Decisiones de la usuaria (12-Nov-2026):** un solo promedio (lo recibido como quien vende y como quien compra; cada calificación guarda su rol), 7 días para calificar, "A tiempo" = porcentaje con "Puntual", y quien compra recibe sus propios chips (Puntual, Buena comunicación, Amable, Pagó lo acordado).
+- **Cómo:**
+  - `ratings` (`db/020`) con `ux_order_rater` y `ix_rated_id`; el pedido guarda `ratings { buyerAt, sellerAt }` y se marca primero (atómico), así que dos toques a la vez dejan una sola calificación.
+  - El perfil suma con `$inc` (`ratingSum`, `ratingCount`, `onTimeCount`) y después fija `ratingAvg = ratingSum / ratingCount` con un pipeline: dos calificaciones a la vez terminan igual.
+  - M-13 usa contratos de los otros módulos: `IOrderRatingGate` (M-08) e `IProfileRatings` (M-02).
+  - Al borrar una cuenta se borran las que recibió; en las que dio queda "Usuario eliminado".
+- **Versión:** `0.5.0-alpha.25`, esquema 20 (`alpha.24` es SCRUM-97, en revisión).
+- **Verificación (12-Nov-2026):** build Release 0/0; Unit 610, Integration 168, Security 220 y Contract 22; `check_endpoints` OK (85). `DatabaseTest` corre en el CI (sin Docker local).
+
 ## Despliegue del 12-Nov-2026 (SCRUM-87)
 
 - `infra-up` con `0.5.0-alpha.23` y `db/019` (esquema 19): HU-24, SCRUM-96 (aviso del push al arrancar), dependencias de noviembre, HU-50, HU-05 y HU-25.

@@ -142,4 +142,19 @@ public abstract class ProfileRepositoryContract
 
         Assert.Null(await Profiles.FindAsync(owner.UserId, Ct));
     }
+
+    [Fact]
+    public async Task AddRating_CreatesTheProfileIfNeeded_AndKeepsTheAverage()
+    {
+        // HU-27/HU-45: suma, numero, promedio y "Puntual" quedan juntos; el perfil nace con sus valores por defecto.
+        var owner = NewOwner();
+
+        await Profiles.AddRatingAsync(owner, 5, onTime: true, Now, Ct);
+        await Profiles.AddRatingAsync(owner, 4, onTime: false, Now.AddHours(1), Ct);
+        var profile = await Profiles.FindAsync(owner.UserId, Ct);
+
+        Assert.Equal((2, 9.0, 4.5, 1), (profile!.Stats.RatingCount, profile.Stats.RatingSum, profile.Stats.RatingAvg, profile.Stats.OnTimeCount));
+        Assert.Equal((owner.FullName, true, 0), (profile.FullName, profile.Visibility.Career, profile.Stats.Sales));
+    }
 }
+

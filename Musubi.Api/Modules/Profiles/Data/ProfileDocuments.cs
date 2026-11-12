@@ -123,6 +123,12 @@ internal sealed class ProfileStats
     /// <summary>Calificaciones recibidas.</summary>
     public int RatingCount { get; init; }
 
+    /// <summary>Suma de las estrellas recibidas (HU-27, HU-45): el promedio es la suma entre el numero.</summary>
+    public double RatingSum { get; init; }
+
+    /// <summary>Calificaciones con "Puntual": de aqui sale "A tiempo" de <c>Perfil-vendedor</c>.</summary>
+    public int OnTimeCount { get; init; }
+
     /// <summary>Ventas completadas.</summary>
     public int Sales { get; init; }
 

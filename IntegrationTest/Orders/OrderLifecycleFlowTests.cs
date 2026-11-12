@@ -16,6 +16,11 @@ public sealed class OrderLifecycleFlowTests(AuthApiFactory factory) : IClassFixt
 {
     private readonly AuthFlow flow = new(factory);
 
+    // HU-27/HU-45: los chips de cada parte (el orden de llegada no importa).
+    private static readonly string[] SellerTags = ["as_described", "on_time"];
+    private static readonly string[] WrongBuyerTags = ["as_described"];
+    private static readonly string[] BuyerTags = ["paid_as_agreed"];
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private sealed record Member(HttpClient Client, string Id);
@@ -126,6 +131,43 @@ public sealed class OrderLifecycleFlowTests(AuthApiFactory factory) : IClassFixt
 
     private static List<string> Ids(JsonElement page) =>
         [.. page.GetProperty("items").EnumerateArray().Select(o => o.GetProperty("id").GetString()!)];
+
+    [Fact]
+    public async Task BothRateACompletedOrder_OnceEach_AndTheProfileShowsTheReputation()
+    {
+        // HU-27/HU-45: al completarse, quien compra califica a quien vende y al reves; el perfil muestra el promedio,
+        // el numero, "A tiempo" y las opiniones.
+        var diego = await MemberAsync();
+        var ana = await MemberAsync();
+        var product = await PublishAsync(diego, stock: 1);
+        var order = await PaidOrderAsync(ana, product, quantity: 1);
+        var early = await PostAsync(ana, $"/api/v1/orders/{order}/rating", new { stars = 5 });
+        await PostAsync(diego, $"/api/v1/orders/{order}/accept");
+        await PostAsync(diego, $"/api/v1/orders/{order}/handover");
+        var completed = await AuthFlow.JsonAsync(await PostAsync(ana, $"/api/v1/orders/{order}/handover"));
+
+        var byAna = await PostAsync(ana, $"/api/v1/orders/{order}/rating", new { stars = 5, tags = SellerTags, comment = "Muy puntual en la biblioteca." });
+        var again = await PostAsync(ana, $"/api/v1/orders/{order}/rating", new { stars = 1 });
+        var wrongTag = await PostAsync(diego, $"/api/v1/orders/{order}/rating", new { stars = 4, tags = WrongBuyerTags });
+        var byDiego = await PostAsync(diego, $"/api/v1/orders/{order}/rating", new { stars = 4, tags = BuyerTags });
+        var profile = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri($"/api/v1/profiles/{diego.Id}", UriKind.Relative), Ct));
+        var opinions = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri($"/api/v1/profiles/{diego.Id}/ratings", UriKind.Relative), Ct));
+        var seen = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri($"/api/v1/orders/{order}", UriKind.Relative), Ct));
+
+        await AuthFlow.AssertCodeAsync(early, HttpStatusCode.Conflict, "ratings.not_completed");
+        Assert.False(completed.GetProperty("ratedByMe").GetBoolean());
+        Assert.Equal(JsonValueKind.String, completed.GetProperty("rateUntil").ValueKind);
+        Assert.Equal(HttpStatusCode.Created, byAna.StatusCode);
+        Assert.Equal(["on_time", "as_described"], (await AuthFlow.JsonAsync(byAna)).GetProperty("tags").EnumerateArray().Select(t => t.GetString()));
+        await AuthFlow.AssertCodeAsync(again, HttpStatusCode.Conflict, "ratings.already_rated");
+        await AuthFlow.AssertCodeAsync(wrongTag, HttpStatusCode.BadRequest, "ratings.invalid_tags");
+        Assert.Equal(HttpStatusCode.Created, byDiego.StatusCode);
+        var stats = profile.GetProperty("stats");
+        Assert.Equal((5.0, 1, 100), (stats.GetProperty("ratingAvg").GetDouble(), stats.GetProperty("ratingCount").GetInt32(), stats.GetProperty("onTime").GetInt32()));
+        var opinion = Assert.Single(opinions.GetProperty("items").EnumerateArray());
+        Assert.Equal(("Muy puntual en la biblioteca.", "seller"), (opinion.GetProperty("comment").GetString(), opinion.GetProperty("role").GetString()));
+        Assert.True(seen.GetProperty("ratedByMe").GetBoolean());
+    }
 
     [Fact]
     public async Task MyOrders_ShowMyPurchasesByTab_WithTheirCounts_ButNotMySales()

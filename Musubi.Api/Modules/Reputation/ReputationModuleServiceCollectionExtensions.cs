@@ -7,13 +7,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Data;
 
 namespace Musubi.Api.Modules.Reputation;
 
-/// <summary>Registro DI del modulo M-13 (Reputacion: reportes HU-28 y bloqueos HU-57).</summary>
+/// <summary>Registro DI del modulo M-13 (Reputacion: reportes HU-28, bloqueos HU-57 y calificaciones HU-27/HU-45).</summary>
 internal static class ReputationModuleServiceCollectionExtensions
 {
     /// <summary>Politica de rate limit de los reportes (por usuario).</summary>
@@ -27,6 +28,7 @@ internal static class ReputationModuleServiceCollectionExtensions
 
         var reports = new InMemoryReportRepository();
         var blocks = new InMemoryBlockRepository();
+        var ratings = new InMemoryRatingRepository();
         services.AddSingleton<IReportRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? reports
             : new MongoReportRepository(provider.GetRequiredService<IMongoDatabase>()));
@@ -34,7 +36,12 @@ internal static class ReputationModuleServiceCollectionExtensions
             ? blocks
             : new MongoBlockRepository(provider.GetRequiredService<IMongoDatabase>()));
 
+        services.AddSingleton<IRatingRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? ratings
+            : new MongoRatingRepository(provider.GetRequiredService<IMongoDatabase>()));
+
         services.AddOptions<ReportOptions>().BindConfiguration(ReportOptions.Section);
+        services.AddSingleton<RatingService>();
         services.AddSingleton<IBlockDirectory, BlockDirectory>();
         services.AddSingleton<BlockService>();
         services.AddSingleton<ReportService>();
@@ -56,12 +63,14 @@ internal static class ReputationModuleServiceCollectionExtensions
 /// Borra los bloqueos (en las dos direcciones) y los reportes que hizo una cuenta que se elimina (HU-46, R11). Los
 /// reportes que otros hicieron sobre ella se quedan para la revision del equipo (HU-39): solo guardan su id.
 /// </summary>
-internal sealed class ReputationAccountEraser(IBlockRepository blocks, IReportRepository reports) : IAccountDataEraser
+internal sealed class ReputationAccountEraser(IBlockRepository blocks, IReportRepository reports, IRatingRepository ratings) : IAccountDataEraser
 {
     /// <inheritdoc />
     public async Task EraseAsync(string userId, CancellationToken cancellationToken)
     {
         await blocks.DeleteByUserAsync(userId, cancellationToken).ConfigureAwait(false);
         await reports.DeleteByReporterAsync(userId, cancellationToken).ConfigureAwait(false);
+        // HU-27/HU-45: se borran las que recibio; en las que dio queda "Usuario eliminado" (siguen en la reputacion).
+        await ratings.ReleaseAccountAsync(userId, OrderService.DeletedName, cancellationToken).ConfigureAwait(false);
     }
 }

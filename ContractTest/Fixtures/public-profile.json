@@ -6,5 +6,5 @@
   "memberSince": "2026-10-21T12:00:00Z",
   "career": { "slug": "ing-mecatronica", "name": "Ingeniería en Mecatrónica", "shortName": "Ing. Mecatrónica", "firstTerm": 7, "lastTerm": 11 },
   "term": 7,
-  "stats": { "ratingAvg": null, "ratingCount": 0, "sales": 0 }
+  "stats": { "ratingAvg": null, "ratingCount": 0, "sales": 0, "onTime": null }
 }

@@ -97,3 +97,26 @@ internal sealed class ProfileDirectory(IProfileRepository profiles, ICareerRepos
             .ToDictionary(p => p.Id, p => ProfileService.PhotoPath(p.AvatarKey)!, StringComparer.Ordinal);
     }
 }
+
+/// <summary>Contrato de M-02 para M-13: sumar una calificacion recibida a la reputacion (HU-27, HU-45).</summary>
+internal interface IProfileRatings
+{
+    /// <summary>Suma la calificacion y recalcula el promedio de quien la recibe.</summary>
+    /// <param name="userId">Quien la recibe.</param>
+    /// <param name="communityId">Su campus.</param>
+    /// <param name="fullName">Su nombre (si aun no tiene perfil, se crea con el).</param>
+    /// <param name="stars">De 1 a 5.</param>
+    /// <param name="onTime">Si la marcaron "Puntual".</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La tarea.</returns>
+    Task AddAsync(string userId, string communityId, string fullName, int stars, bool onTime, DateTime now, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de perfiles.</summary>
+internal sealed class ProfileRatings(IProfileRepository profiles) : IProfileRatings
+{
+    /// <inheritdoc />
+    public Task AddAsync(string userId, string communityId, string fullName, int stars, bool onTime, DateTime now, CancellationToken cancellationToken) =>
+        profiles.AddRatingAsync(new ProfileOwner(userId, communityId, fullName), stars, onTime, now, cancellationToken);
+}

@@ -118,6 +118,17 @@ internal sealed class ProfileService(
         return Result<MyProfileResponse>.Ok(ToMine(account, saved, list));
     }
 
+    /// <summary>"A tiempo": porcentaje redondeado de calificaciones con "Puntual" (decision de la usuaria del 12-Nov-2026).</summary>
+    /// <param name="stats">Las estadisticas.</param>
+    /// <returns>De 0 a 100, o <c>null</c> sin calificaciones.</returns>
+    internal static int? OnTimePercent(ProfileStats stats)
+    {
+        ArgumentNullException.ThrowIfNull(stats);
+        return stats.RatingCount == 0
+            ? null
+            : (int)Math.Round(100.0 * stats.OnTimeCount / stats.RatingCount, MidpointRounding.AwayFromZero);
+    }
+
     /// <summary>
     /// Perfil de otra persona del mismo campus. Inexistente, inactiva, de otro campus o con un bloqueo entre las
     /// dos (HU-57) responde lo mismo (404), sin revelar si la cuenta existe. Lee el documento directo: un cambio
@@ -163,7 +174,7 @@ internal sealed class ProfileService(
             account.EmailVerifiedAt ?? account.CreatedAt,
             career,
             term,
-            new PublicStatsResponse(stats.RatingAvg, stats.RatingCount, visibility.Sales ? stats.Sales : null)));
+            new PublicStatsResponse(stats.RatingAvg, stats.RatingCount, visibility.Sales ? stats.Sales : null, OnTimePercent(stats))));
     }
 
     /// <summary>Carreras activas del campus del usuario y su periodo.</summary>
