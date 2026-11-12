@@ -43,6 +43,7 @@ Reglas operativas derivadas de fallos reales: las de la referencia que aplican a
 | 20 | SonarAnalyzer S5122 impide compilar `AllowAnyOrigin()`: CORS abierto se detecta en el build y no solo en la revisión. | Medido, 15-Oct-2026 | `01-02` |
 | 21 | Ejecutar `semgrep --config=auto` en local antes del primer PR: detectó la falta de `cooldown` en Dependabot. | Medido, 15-Oct-2026 | `.github/dependabot.yml` |
 | 22 | Si una versión mutada no compila, las pruebas corren sobre los binarios anteriores y el resultado es falso: revisar `0 Errores` antes de leer el resultado. | Medido al hacer self-test de CORS, 15-Oct-2026 | skill `empirical-verification` |
+| 23 | Un secreto de producción va en la región de la infra (`--region us-east-1`) y **en una sola línea** (el `api.env` de `user-data` es de una variable por línea). Si falta o llega cortado, una función opcional se apaga sin error: la API dice al arrancar si quedó activa (`PushStartupCheck`). | Medido el 11-Nov-2026: la llave de Firebase estaba en us-east-2 y en 14 líneas, y el push no salía sin dejar rastro en CloudWatch (SCRUM-96) | `infra/README.md`, `UnitTest/Notifications/PushStartupCheckTests.cs` |
 
 ## Contratos
 N/A — spec constitucional. Referencia normativa desde `AGENTS.md` §10.
@@ -51,7 +52,7 @@ N/A — spec constitucional. Referencia normativa desde `AGENTS.md` §10.
 N/A — verificación manual: 22 filas, sin celdas vacías y sin reglas duplicadas.
 
 ## Criterios
-- 22 reglas, cada una con evidencia y cross-link no vacíos.
+- 23 reglas, cada una con evidencia y cross-link no vacíos.
 - `AGENTS.md` §10 y `Memoria.md` enlazan esta spec (`grep -n "00-04" AGENTS.md Memoria.md`).
 
 ## Límites
@@ -61,4 +62,4 @@ Las reglas heredadas se citan como evidencia externa (referencia, oct 2026); se 
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 15-Oct-2026
-- **Detalle:** 13 reglas heredadas (adaptadas) + 9 propias medidas al crear la plantilla.
+- **Detalle:** 13 reglas heredadas (adaptadas) + 10 propias: 9 medidas al crear la plantilla y la 23 (secretos en la región de la infra y en una línea, 12-Nov-2026).

@@ -43,6 +43,7 @@ internal static class NotificationsModuleServiceCollectionExtensions
             : provider.GetRequiredService<FcmPushSender>());
 
         services.AddSingleton<PushQueue>();
+        services.AddHostedService<PushStartupCheck>();
         services.AddHostedService<PushWorker>();
         services.AddSingleton<INotificationCenter, NotificationCenter>();
         services.AddSingleton<NotificationService>();
