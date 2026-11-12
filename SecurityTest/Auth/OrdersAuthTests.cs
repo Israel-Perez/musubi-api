@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Modules.Auth.Data;
@@ -26,6 +27,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     public static TheoryData<string, string> Routes() => new()
     {
         { "GET", "/api/v1/orders/meeting-points" },
+        { "GET", "/api/v1/orders/mine" },
         { "POST", "/api/v1/orders" },
         { "GET", "/api/v1/orders?conversationId=" + AnyId },
         { "GET", "/api/v1/orders/" + AnyId },
@@ -183,6 +185,8 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     [InlineData("POST", "/api/v1/orders/no-es-un-id/handover", HttpStatusCode.NotFound)]
     [InlineData("GET", "/api/v1/orders?conversationId=no-es-un-id", HttpStatusCode.BadRequest)]
     [InlineData("GET", "/api/v1/orders", HttpStatusCode.BadRequest)]
+    [InlineData("GET", "/api/v1/orders/mine?cursor=no-es-un-id", HttpStatusCode.BadRequest)]
+    [InlineData("GET", "/api/v1/orders/mine?tab=pending", HttpStatusCode.BadRequest)]
     public async Task AnIdThatIsNotAnObjectId_IsRejected(string method, string path, HttpStatusCode status)
     {
         using var member = ClientFor(await MemberAsync());
@@ -191,6 +195,26 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
         var response = await member.SendAsync(request, Ct);
 
         Assert.Equal(status, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task MyOrders_OnlyMyPurchases_NeverSomeoneElses()
+    {
+        // HU-25 (OWASP API1): "Mis pedidos" sale del token; no hay parametro para pedir los de otra persona.
+        var ana = await MemberAsync();
+        var diego = await MemberAsync();
+        var mine = await OrderAsync(ana, diego);
+        var someoneElses = await OrderAsync(await MemberAsync(), diego);
+        using var asAna = ClientFor(ana);
+        using var asDiego = ClientFor(diego);
+
+        var anas = await (await asAna.GetAsync(new Uri("/api/v1/orders/mine?buyerId=" + someoneElses.BuyerId, UriKind.Relative), Ct))
+            .Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var diegos = await (await asDiego.GetAsync(new Uri("/api/v1/orders/mine", UriKind.Relative), Ct))
+            .Content.ReadFromJsonAsync<JsonElement>(Ct);
+
+        Assert.Equal([mine.Id], anas.GetProperty("items").EnumerateArray().Select(o => o.GetProperty("id").GetString()));
+        Assert.Equal(0, diegos.GetProperty("total").GetInt64());
     }
 
     [Fact]

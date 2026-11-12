@@ -278,4 +278,35 @@ public abstract class OrderRepositoryContract
         Assert.Equal(new[] { asBuyer.Id, asSeller.Id }.Order(StringComparer.Ordinal), found.Select(o => o.Id).Order(StringComparer.Ordinal));
         Assert.Empty(await Orders.FindConfirmedByUserAsync("no-es-un-id", Ct));
     }
+
+    [Fact]
+    public async Task FindByBuyer_OnlyItsPurchases_NewestFirst_ByStatus_AndCounts()
+    {
+        // HU-25: "Mis pedidos" pide los de quien compra, por pestana y con cursor.
+        var buyer = AuthIds.New();
+        var pending = Order(buyerId: buyer);
+        var confirmed = Order(buyerId: buyer, status: OrderStatuses.Confirmed);
+        var completed = Order(buyerId: buyer, status: OrderStatuses.Completed);
+        var cancelled = Order(buyerId: buyer, status: OrderStatuses.Cancelled);
+        var asSeller = Order(sellerId: buyer);
+        var other = Order();
+        foreach (var order in new[] { pending, confirmed, completed, cancelled, asSeller, other })
+        {
+            await Orders.TryInsertAsync(order, Ct);
+        }
+
+        var all = await Orders.FindByBuyerAsync(buyer, null, null, 10, Ct);
+        var active = await Orders.FindByBuyerAsync(buyer, [OrderStatuses.Pending, OrderStatuses.Confirmed], null, 10, Ct);
+        var firstTwo = await Orders.FindByBuyerAsync(buyer, null, null, 2, Ct);
+        var rest = await Orders.FindByBuyerAsync(buyer, null, firstTwo[^1].Id, 10, Ct);
+        var counts = await Orders.CountByBuyerAsync(buyer, Ct);
+
+        Assert.Equal([cancelled.Id, completed.Id, confirmed.Id, pending.Id], all.Select(o => o.Id));
+        Assert.Equal([confirmed.Id, pending.Id], active.Select(o => o.Id));
+        Assert.Equal([confirmed.Id, pending.Id], rest.Select(o => o.Id));
+        Assert.Equal(4, counts.Values.Sum());
+        Assert.Equal(1, counts[OrderStatuses.Cancelled]);
+        Assert.Empty(await Orders.FindByBuyerAsync(AuthIds.New(), null, null, 10, Ct));
+        Assert.Empty(await Orders.CountByBuyerAsync(AuthIds.New(), Ct));
+    }
 }

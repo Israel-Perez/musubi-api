@@ -152,6 +152,34 @@ internal sealed class OrderTransition
 }
 
 /// <summary>Estados de un pedido (RF-31).</summary>
+/// <summary>Las pestanas de "Mis pedidos" (HU-25) y los estados de cada una.</summary>
+internal static class MyOrderTabs
+{
+    /// <summary>Pendientes y confirmados: los que siguen en curso.</summary>
+    public const string Active = "active";
+
+    /// <summary>Entregados (RN-19).</summary>
+    public const string Completed = "completed";
+
+    /// <summary>Cancelados o rechazados (RN-20).</summary>
+    public const string Cancelled = "cancelled";
+
+    private static readonly string[] ActiveStatuses = [OrderStatuses.Pending, OrderStatuses.Confirmed];
+    private static readonly string[] CompletedStatuses = [OrderStatuses.Completed];
+    private static readonly string[] CancelledStatuses = [OrderStatuses.Cancelled];
+
+    /// <summary>Los estados de una pestana.</summary>
+    /// <param name="tab">La pestana.</param>
+    /// <returns>Los estados, o <c>null</c> si la pestana no existe (lista blanca).</returns>
+    public static IReadOnlyList<string>? Statuses(string tab) => tab switch
+    {
+        Active => ActiveStatuses,
+        Completed => CompletedStatuses,
+        Cancelled => CancelledStatuses,
+        _ => null,
+    };
+}
+
 internal static class OrderStatuses
 {
     /// <summary>Recien creado: espera que quien vende lo acepte (RN-16).</summary>
