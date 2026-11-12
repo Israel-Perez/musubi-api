@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Platform.Data;
 
@@ -29,6 +30,7 @@ internal static class OrdersModuleServiceCollectionExtensions
             ? points
             : new MongoMeetingPointRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<OrderService>();
+        services.AddSingleton<OrderLifecycleService>();
         services.AddSingleton<IOpenOrders, OpenOrders>();
         services.AddSingleton<IMeetingPointDirectory, MeetingPointDirectory>();
         services.AddSingleton<IAccountDataEraser, OrderAccountEraser>();
@@ -94,11 +96,19 @@ internal sealed class MeetingPointDirectory(IMeetingPointRepository points) : IM
 
 /// <summary>
 /// Borrado de una cuenta (HU-46, R11): sus pedidos abiertos se cancelan y su nombre se reemplaza en los que conserva
-/// la otra parte (su historial de compras o ventas no desaparece).
+/// la otra parte (su historial de compras o ventas no desaparece). Las piezas de sus pedidos confirmados regresan a
+/// la publicacion (HU-24).
 /// </summary>
-internal sealed class OrderAccountEraser(IOrderRepository orders, TimeProvider time) : IAccountDataEraser
+internal sealed class OrderAccountEraser(IOrderRepository orders, IProductStock stock, TimeProvider time) : IAccountDataEraser
 {
     /// <inheritdoc />
-    public Task EraseAsync(string userId, CancellationToken cancellationToken) =>
-        orders.ReleaseAccountAsync(userId, OrderService.DeletedName, time.GetUtcNow().UtcDateTime, cancellationToken);
+    public async Task EraseAsync(string userId, CancellationToken cancellationToken)
+    {
+        var confirmed = await orders.FindConfirmedByUserAsync(userId, cancellationToken).ConfigureAwait(false);
+        await orders.ReleaseAccountAsync(userId, OrderService.DeletedName, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
+        foreach (var item in confirmed.Select(o => o.Item).Where(i => i.ProductId is not null))
+        {
+            await stock.ReleaseAsync(item.ProductId!, item.Quantity, cancellationToken).ConfigureAwait(false);
+        }
+    }
 }

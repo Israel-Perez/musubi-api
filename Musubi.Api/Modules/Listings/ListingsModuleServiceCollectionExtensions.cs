@@ -47,6 +47,7 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<PhotoUploadService>();
         services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
         services.AddSingleton<IProductDirectory, ProductDirectory>();
+        services.AddSingleton<IProductStock, ProductStock>();
         services.AddSingleton<IListingPhotos, ListingPhotos>();
 
         // Subir fotos cuesta CPU (SkiaSharp) y espacio en S3: un tope por usuario evita el abuso (OWASP API4).

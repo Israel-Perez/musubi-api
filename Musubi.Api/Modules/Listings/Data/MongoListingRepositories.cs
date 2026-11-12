@@ -183,6 +183,65 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             : null;
 
     /// <inheritdoc />
+    public async Task<bool> TryReserveStockAsync(string id, int quantity, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _) || quantity <= 0)
+        {
+            return false;
+        }
+
+        // El filtro y la resta van en la misma escritura: dos pedidos a la vez no apartan de mas.
+        var left = new BsonDocument("$subtract", new BsonArray { "$stock", quantity });
+        var stage = new BsonDocument("$set", new BsonDocument
+        {
+            { "stock", left },
+            { "status", new BsonDocument("$cond", new BsonArray { new BsonDocument("$gt", new BsonArray { left, 0 }), ProductStatuses.Active, ProductStatuses.SoldOut }) },
+            { "updatedAt", new BsonDateTime(now) },
+        });
+        var result = await products.UpdateOneAsync(
+            Filter.Eq(p => p.Id, id) & Filter.Eq(p => p.Status, ProductStatuses.Active) & Filter.Gte(p => p.Stock, quantity),
+            Pipeline(stage),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ReleaseStockAsync(string id, int quantity, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _) || quantity <= 0)
+        {
+            return false;
+        }
+
+        var stage = new BsonDocument("$set", new BsonDocument
+        {
+            { "stock", new BsonDocument("$add", new BsonArray { "$stock", quantity }) },
+            { "status", new BsonDocument("$cond", new BsonArray { new BsonDocument("$eq", new BsonArray { "$status", ProductStatuses.SoldOut }), ProductStatuses.Active, "$status" }) },
+            { "updatedAt", new BsonDateTime(now) },
+        });
+        var result = await products.UpdateOneAsync(Filter.Eq(p => p.Id, id), Pipeline(stage), cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.MatchedCount == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> MarkSoldIfEmptyAsync(string id, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return false;
+        }
+
+        var result = await products.UpdateOneAsync(
+            Filter.Eq(p => p.Id, id) & Filter.Eq(p => p.Status, ProductStatuses.SoldOut) & Filter.Eq(p => p.Stock, 0),
+            Builders<ProductDocument>.Update
+                .Set(p => p.Status, ProductStatuses.Sold)
+                .Set(p => p.SoldAt, now)
+                .Set(p => p.UpdatedAt, now),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<long>> FindActivePricesAsync(string communityId, string categorySlug, int limit, CancellationToken cancellationToken)
     {
         var prices = await products
@@ -193,6 +252,9 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .ToListAsync(cancellationToken).ConfigureAwait(false);
         return prices.ToList();
     }
+
+    private static PipelineUpdateDefinition<ProductDocument> Pipeline(BsonDocument stage) =>
+        new(new BsonDocumentStagePipelineDefinition<ProductDocument, ProductDocument>([stage]));
 
     // HU-08: una vendida no se edita ni se pausa (reactivarla la "des-venderia").
     private static FilterDefinition<ProductDocument> Editable(string id, string sellerId) =>

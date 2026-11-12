@@ -47,6 +47,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "017-avisos");
         Assert.Equal(14, await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Single(meta["applied"].AsBsonArray, v => v == "018-preferencias");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "019-pedidos-estados");
         var preferences = await IndexesAsync(db, MongoSchema.Preferences);
         Assert.Contains(preferences, i => i["name"] == "_id_");
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
@@ -355,6 +356,22 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
 
         await orders.InsertOneAsync(Order(1), cancellationToken: Ct);
         await Assert.ThrowsAsync<MongoWriteException>(() => orders.InsertOneAsync(Order(11), cancellationToken: Ct));
+
+        // 019 (HU-24): la entrega de cada parte y la cancelacion con un motivo de la lista.
+        var completed = Order(1);
+        completed["status"] = "completed";
+        completed["handover"] = new BsonDocument { { "buyerAt", now }, { "sellerAt", now } };
+        var cancelled = Order(1);
+        cancelled["status"] = "cancelled";
+        cancelled["cancellation"] = new BsonDocument { { "by", "seller" }, { "reason", "unavailable" }, { "at", now } };
+        var unknownReason = Order(1);
+        unknownReason["cancellation"] = new BsonDocument { { "by", "buyer" }, { "reason", "me-aburri" }, { "at", now } };
+        var unknownParty = Order(1);
+        unknownParty["cancellation"] = new BsonDocument { { "by", "admin" }, { "reason", "other" }, { "at", now } };
+        await orders.InsertOneAsync(completed, cancellationToken: Ct);
+        await orders.InsertOneAsync(cancelled, cancellationToken: Ct);
+        await Assert.ThrowsAsync<MongoWriteException>(() => orders.InsertOneAsync(unknownReason, cancellationToken: Ct));
+        await Assert.ThrowsAsync<MongoWriteException>(() => orders.InsertOneAsync(unknownParty, cancellationToken: Ct));
     }
 
     [Fact]
@@ -429,6 +446,12 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         };
         var collection = db.GetCollection<BsonDocument>(MongoSchema.Notifications);
         await collection.InsertOneAsync(Notice("order_created"), cancellationToken: Ct);
+        // 019 (HU-24): los avisos de aceptar, cancelar, entregar y completar.
+        foreach (var type in new[] { "order_confirmed", "order_cancelled", "order_handover", "order_completed" })
+        {
+            await collection.InsertOneAsync(Notice(type), cancellationToken: Ct);
+        }
+
         await Assert.ThrowsAsync<MongoWriteException>(() => collection.InsertOneAsync(Notice("spam"), cancellationToken: Ct));
     }
 }

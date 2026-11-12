@@ -24,7 +24,7 @@ namespace Musubi.Api.Modules.Orders;
 /// una publicacion o una oferta aceptada (HU-17). Copia el producto (R8), registra cantidad, punto, fecha y hora,
 /// y nace <see cref="OrderStatuses.Pending"/> (RN-16). Uno abierto por conversacion. El pago es en efectivo al
 /// entregar (RN-18 del Entregable 1).
-/// NOTE (HU-24): quien vende acepta o rechaza; las piezas se apartan al aceptar (RF-34).
+/// HU-24: aceptar, rechazar, cancelar y completar viven en <see cref="OrderLifecycleService"/>.
 /// HU-34 (RF-47): con <c>agreementId</c>, el pedido sale del acuerdo con IA que confirmaron los dos (RN-41), con su
 /// precio acordado, y el acuerdo se borra.
 /// HU-31: quien vende recibe el aviso del pedido nuevo.
@@ -303,7 +303,7 @@ internal sealed class OrderService(
         order.Id,
         OrderNumbers.Display(order.Number),
         order.Status,
-        string.Equals(order.BuyerId, userId, StringComparison.Ordinal) ? "buyer" : "seller",
+        string.Equals(order.BuyerId, userId, StringComparison.Ordinal) ? OrderRoles.Buyer : OrderRoles.Seller,
         order.ConversationId,
         new OrderItemResponse(
             order.Item.Source,
@@ -319,7 +319,10 @@ internal sealed class OrderService(
         new OrderDeliveryResponse(order.Delivery.PointSlug, order.Delivery.PointName, order.Delivery.Detail, order.Delivery.At),
         order.Payment is null ? null : new OrderPaymentResponse(order.Payment.Method, order.Payment.ChosenAt),
         TransferAvailable: false,
-        order.CreatedAt);
+        order.CreatedAt,
+        new OrderHandoverResponse(order.Handover?.BuyerAt, order.Handover?.SellerAt),
+        order.Cancellation is null ? null : new OrderCancellationResponse(order.Cancellation.By, order.Cancellation.Reason, order.Cancellation.At),
+        order.UpdatedAt);
 
     private static bool IsParty(string buyerId, string sellerId, string userId) =>
         string.Equals(buyerId, userId, StringComparison.Ordinal) || string.Equals(sellerId, userId, StringComparison.Ordinal);

@@ -250,6 +250,35 @@ internal interface IProductRepository
     /// <returns>La publicacion vendida, o <c>null</c> si no cambio.</returns>
     Task<ProductDocument?> MarkSoldAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Aparta piezas de una publicacion activa al aceptar un pedido (HU-24, RF-34): resta solo si alcanzan y, si queda
+    /// en cero, la pasa a agotada. Una sola escritura (dos pedidos a la vez no apartan de mas).
+    /// </summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="quantity">Piezas (1 o mas).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si se apartaron.</returns>
+    Task<bool> TryReserveStockAsync(string id, int quantity, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Regresa las piezas de un pedido cancelado (HU-24, RN-20). Una agotada vuelve a estar disponible; una pausada,
+    /// vendida o quitada conserva su estado.
+    /// </summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="quantity">Piezas (1 o mas).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si la publicacion existe.</returns>
+    Task<bool> ReleaseStockAsync(string id, int quantity, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Una agotada sin piezas pasa a vendida con su fecha (HU-24, RN-05). Otra publicacion no cambia.</summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="now">Hora de la venta (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si paso a vendida.</returns>
+    Task<bool> MarkSoldIfEmptyAsync(string id, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Precios (centavos) de las publicaciones activas de una categoria, hasta <paramref name="limit"/> recientes.</summary>
     /// <param name="communityId">Comunidad.</param>
     /// <param name="categorySlug">Categoria.</param>

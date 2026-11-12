@@ -60,7 +60,7 @@ Jira (SCRUM-42): Como **comprador**, quiero **confirmar la compra de un producto
 - [ ] `DatabaseTest` en el CI.
 
 ## Límites
-- `NOTE (HU-24)`: el vendedor acepta o rechaza, se apartan y descuentan piezas, y se completa o cancela.
+- ~~`NOTE (HU-24)`~~ Cerrada el 11-Nov-2026: el vendedor acepta o rechaza, se apartan y descuentan piezas, y se completa o cancela ([HU-24](../HU-24-actualizar-pedidos/spec.md)).
 - `NOTE (HU-25)`: "Mis pedidos" (lista) y proponer cerrar la solicitud de un pedido completado (RN-15).
 - `NOTE (HU-34)`: el pedido sale del acuerdo confirmado por los dos (RF-47), con la propuesta de la IA.
 - `NOTE (HU-55)`: transferencia a la cuenta CLABE, validación del vendedor y código de entrega de 4 dígitos.

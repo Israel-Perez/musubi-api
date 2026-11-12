@@ -49,6 +49,52 @@ internal interface IOrderRepository
     /// <returns>El pedido cambiado, o <c>null</c> si no es suyo o ya no esta pendiente.</returns>
     Task<OrderDocument?> SetPaymentAsync(string id, string buyerId, string method, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Quien vende acepta un pedido pendiente con el pago ya elegido (HU-24, RF-34). El vendedor, el estado y el pago
+    /// van en el filtro (OWASP API1; dos toques a la vez no lo aceptan dos veces).
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="sellerId">Quien vende (del token).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido confirmado, o <c>null</c> si no cambio.</returns>
+    Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Una de las partes cancela (o rechaza) un pedido pendiente o confirmado, con su motivo (HU-24, RN-20).</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="userId">Quien cancela (del token).</param>
+    /// <param name="role">Su papel en el pedido (<see cref="OrderRoles"/>): va en el filtro.</param>
+    /// <param name="reason">Ver <see cref="CancelReasons"/>.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido cancelado (su <c>history</c> dice de que estado venia), o <c>null</c> si no cambio.</returns>
+    Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Una de las partes confirma su lado de la entrega en un pedido confirmado (HU-24, RN-19). Repetirlo conserva la
+    /// primera hora.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="userId">Quien confirma (del token).</param>
+    /// <param name="role">Su papel (<see cref="OrderRoles"/>).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido, o <c>null</c> si no es suyo o no esta confirmado.</returns>
+    Task<OrderDocument?> ConfirmHandoverAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Completa un pedido confirmado cuando ya confirmaron la entrega los dos (HU-24, RN-19).</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido completado, o <c>null</c> si falta alguno o ya se completo.</returns>
+    Task<OrderDocument?> CompleteAsync(string id, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>Los pedidos confirmados de una persona (las piezas que se liberan al borrar su cuenta, HU-24).</summary>
+    /// <param name="userId">La persona.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los pedidos.</returns>
+    Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken);
+
     /// <summary>Si una publicacion tiene pedidos pendientes o confirmados (RN-07; indice <c>ix_product_status</c>).</summary>
     /// <param name="productId">La publicacion.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -139,6 +185,77 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             : null;
 
     /// <inheritdoc />
+    public async Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(sellerId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending)
+                    & Filter.Exists(o => o.Payment),
+                Builders<OrderDocument>.Update
+                    .Set(o => o.Status, OrderStatuses.Confirmed)
+                    .Set(o => o.UpdatedAt, now)
+                    .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Confirmed, At = now }),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(userId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Party(userId, role) & Filter.In(o => o.Status, OrderStatuses.Open),
+                Builders<OrderDocument>.Update
+                    .Set(o => o.Status, OrderStatuses.Cancelled)
+                    .Set(o => o.Cancellation, new OrderCancellation { By = role, Reason = reason, At = now })
+                    .Set(o => o.UpdatedAt, now)
+                    .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Cancelled, At = now, Reason = reason }),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> ConfirmHandoverAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _) || !ObjectId.TryParse(userId, out _))
+        {
+            return null;
+        }
+
+        // $ifNull conserva la primera hora: confirmar dos veces no cambia nada.
+        var field = string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal) ? "handover.sellerAt" : "handover.buyerAt";
+        var stage = new BsonDocument("$set", new BsonDocument
+        {
+            { field, new BsonDocument("$ifNull", new BsonArray { "$" + field, new BsonDateTime(now) }) },
+            { "updatedAt", new BsonDateTime(now) },
+        });
+        return await orders.FindOneAndUpdateAsync(
+            Filter.Eq(o => o.Id, id) & Party(userId, role) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed),
+            new PipelineUpdateDefinition<OrderDocument>(new BsonDocumentStagePipelineDefinition<OrderDocument, OrderDocument>([stage])),
+            After,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> CompleteAsync(string id, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed)
+                    & Filter.Exists("handover.buyerAt") & Filter.Exists("handover.sellerAt"),
+                Builders<OrderDocument>.Update
+                    .Set(o => o.Status, OrderStatuses.Completed)
+                    .Set(o => o.UpdatedAt, now)
+                    .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Completed, At = now }),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(userId, out _)
+            ? await orders.Find((Filter.Eq(o => o.BuyerId, userId) | Filter.Eq(o => o.SellerId, userId)) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed))
+                .ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+
+    /// <inheritdoc />
     public async Task<bool> HasOpenForProductAsync(string productId, CancellationToken cancellationToken) =>
         ObjectId.TryParse(productId, out _)
             && await orders.Find(Filter.Eq(o => o.Item.ProductId, productId) & Filter.In(o => o.Status, OrderStatuses.Open))
@@ -157,6 +274,7 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             (Filter.Eq(o => o.BuyerId, userId) | Filter.Eq(o => o.SellerId, userId)) & Filter.In(o => o.Status, OrderStatuses.Open),
             Builders<OrderDocument>.Update
                 .Set(o => o.Status, OrderStatuses.Cancelled)
+                .Set(o => o.Cancellation, new OrderCancellation { By = OrderRoles.System, Reason = CancelReasons.AccountDeleted, At = now })
                 .Set(o => o.UpdatedAt, now)
                 .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Cancelled, At = now, Reason = CancelReasons.AccountDeleted }),
             cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -170,6 +288,14 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return cancelled.ModifiedCount;
     }
+
+    private static FindOneAndUpdateOptions<OrderDocument> After => new() { ReturnDocument = ReturnDocument.After };
+
+    // La parte va en el filtro (OWASP API1): con el id de otra persona no cambia nada.
+    private static FilterDefinition<OrderDocument> Party(string userId, string role) =>
+        string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal)
+            ? Filter.Eq(o => o.SellerId, userId)
+            : Filter.Eq(o => o.BuyerId, userId);
 }
 
 /// <summary>Puntos de entrega en MongoDB (<c>ux_community_slug</c>).</summary>
@@ -262,6 +388,57 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
     }
 
     /// <inheritdoc />
+    public Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => Is(o, id) && string.Equals(o.SellerId, sellerId, StringComparison.Ordinal) && o.Status == OrderStatuses.Pending && o.Payment is not null,
+            o => Copy(o, status: OrderStatuses.Confirmed, transition: new OrderTransition { Status = OrderStatuses.Confirmed, At = now }, updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => Is(o, id) && IsParty(o, userId, role) && IsOpen(o),
+            o => Copy(
+                o,
+                status: OrderStatuses.Cancelled,
+                transition: new OrderTransition { Status = OrderStatuses.Cancelled, At = now, Reason = reason },
+                updatedAt: now,
+                cancellation: new OrderCancellation { By = role, Reason = reason, At = now })));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> ConfirmHandoverAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => Is(o, id) && IsParty(o, userId, role) && o.Status == OrderStatuses.Confirmed,
+            o =>
+            {
+                var seller = string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal);
+                var handover = new OrderHandover
+                {
+                    BuyerAt = o.Handover?.BuyerAt ?? (seller ? null : now),
+                    SellerAt = o.Handover?.SellerAt ?? (seller ? now : null),
+                };
+                return Copy(o, updatedAt: now, handover: handover);
+            }));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> CompleteAsync(string id, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => Is(o, id) && o.Status == OrderStatuses.Confirmed && o.Handover is { BuyerAt: not null, SellerAt: not null },
+            o => Copy(o, status: OrderStatuses.Completed, transition: new OrderTransition { Status = OrderStatuses.Completed, At = now }, updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<OrderDocument> found = orders
+                .Where(o => (string.Equals(o.BuyerId, userId, StringComparison.Ordinal) || string.Equals(o.SellerId, userId, StringComparison.Ordinal))
+                    && o.Status == OrderStatuses.Confirmed)
+                .ToList();
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<bool> HasOpenForProductAsync(string productId, CancellationToken cancellationToken)
     {
         lock (gate)
@@ -292,6 +469,7 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
                     o,
                     status: cancel ? OrderStatuses.Cancelled : null,
                     transition: cancel ? new OrderTransition { Status = OrderStatuses.Cancelled, At = now, Reason = CancelReasons.AccountDeleted } : null,
+                    cancellation: cancel ? new OrderCancellation { By = OrderRoles.System, Reason = CancelReasons.AccountDeleted, At = now } : null,
                     updatedAt: cancel ? now : null,
                     buyerName: buyer ? replacementName : null,
                     sellerName: seller ? replacementName : null);
@@ -303,6 +481,29 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
 
     private static bool IsOpen(OrderDocument order) => OrderStatuses.Open.Contains(order.Status);
 
+    private static bool Is(OrderDocument order, string id) => string.Equals(order.Id, id, StringComparison.Ordinal);
+
+    private static bool IsParty(OrderDocument order, string userId, string role) =>
+        string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal)
+            ? string.Equals(order.SellerId, userId, StringComparison.Ordinal)
+            : string.Equals(order.BuyerId, userId, StringComparison.Ordinal);
+
+    // Un cambio con su condicion bajo el candado (como el filtro de un FindOneAndUpdate).
+    private OrderDocument? Change(Func<OrderDocument, bool> when, Func<OrderDocument, OrderDocument> change)
+    {
+        lock (gate)
+        {
+            var i = orders.FindIndex(o => when(o));
+            if (i < 0)
+            {
+                return null;
+            }
+
+            orders[i] = change(orders[i]);
+            return orders[i];
+        }
+    }
+
     private static OrderDocument Copy(
         OrderDocument o,
         OrderPayment? payment = null,
@@ -310,7 +511,9 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
         OrderTransition? transition = null,
         DateTime? updatedAt = null,
         string? buyerName = null,
-        string? sellerName = null) => new()
+        string? sellerName = null,
+        OrderHandover? handover = null,
+        OrderCancellation? cancellation = null) => new()
         {
             Id = o.Id,
             CommunityId = o.CommunityId,
@@ -323,6 +526,8 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
             Item = o.Item,
             Delivery = o.Delivery,
             Payment = payment ?? o.Payment,
+            Handover = handover ?? o.Handover,
+            Cancellation = cancellation ?? o.Cancellation,
             Status = status ?? o.Status,
             History = transition is null ? o.History : [.. o.History, transition],
             CreatedAt = o.CreatedAt,

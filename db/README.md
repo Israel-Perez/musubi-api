@@ -22,6 +22,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `016-publicacion-vendida.js` | Publicación vendida: `products.status` admite `sold` y `soldAt` (HU-08, "Marcar como vendido") | 16 |
 | `017-avisos.js` | `notifications` (HU-31: el centro de notificaciones, TTL de 60 días, un aviso por `dedupeKey`), `deviceTokens` (tokens de FCM, TTL de 60 días) e `ix_status_expires` en `wantedRequests` (recordatorios de vencimiento) | 17 |
 | `018-preferencias.js` | `preferences` (HU-54): tema de apariencia por cuenta | 18 |
+| `019-pedidos-estados.js` | Pedidos aceptados, cancelados y completados (HU-24): `orders.handover` (la entrega confirmada por cada parte) y `orders.cancellation` (quién y el motivo de la lista); `notifications.type` admite los cuatro avisos de los pedidos | 19 |
 
 ## Aplicar
 

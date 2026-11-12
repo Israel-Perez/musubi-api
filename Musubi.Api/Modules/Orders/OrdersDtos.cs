@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Musubi.Api.Modules.Orders;
 
-// DTOs de los pedidos (HU-23). Filas canonicas en docs/endpoints.md (M-08).
+// DTOs de los pedidos (HU-23 y HU-24). Filas canonicas en docs/endpoints.md (M-08).
 
 /// <summary>"Crear pedido" desde el resumen del chat (maqueta <c>Acuerdo-confirmado</c>).</summary>
 /// <param name="ConversationId">La conversacion de la que sale (RN-21).</param>
@@ -40,6 +40,9 @@ public sealed record SetPaymentRequest(string? Method);
 /// <param name="Payment">Como se paga, o <c>null</c> mientras no se elige.</param>
 /// <param name="TransferAvailable">Si quien vende ya registro su cuenta (HU-55; hoy siempre <c>false</c>).</param>
 /// <param name="CreatedAt">Alta (UTC).</param>
+/// <param name="Handover">Quien ya confirmo la entrega (HU-24, RN-19).</param>
+/// <param name="Cancellation">Quien cancelo y por que (HU-24, RN-20), o <c>null</c>.</param>
+/// <param name="UpdatedAt">Ultimo cambio (UTC).</param>
 public sealed record OrderResponse(
     string Id,
     string Number,
@@ -52,7 +55,28 @@ public sealed record OrderResponse(
     OrderDeliveryResponse Delivery,
     OrderPaymentResponse? Payment,
     bool TransferAvailable,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    OrderHandoverResponse Handover,
+    OrderCancellationResponse? Cancellation,
+    DateTime UpdatedAt);
+
+/// <summary>"Rechazar" o "Cancelar pedido" (HU-24, RN-20).</summary>
+/// <param name="Reason">
+/// Un codigo de la lista: <c>changed_mind</c> (solo quien compra), <c>unavailable</c> (solo quien vende),
+/// <c>no_agreement</c>, <c>schedule</c>, <c>no_show</c> u <c>other</c>.
+/// </param>
+public sealed record CancelOrderRequest(string? Reason);
+
+/// <summary>La entrega confirmada por cada parte (HU-24, RN-19).</summary>
+/// <param name="BuyerConfirmedAt">Cuando quien compra marco "Recibi" (UTC), o <c>null</c>.</param>
+/// <param name="SellerConfirmedAt">Cuando quien vende marco "Entregue" (UTC), o <c>null</c>.</param>
+public sealed record OrderHandoverResponse(DateTime? BuyerConfirmedAt, DateTime? SellerConfirmedAt);
+
+/// <summary>La cancelacion (HU-24, RN-20).</summary>
+/// <param name="By"><c>buyer</c>, <c>seller</c> o <c>system</c> (una cuenta borrada).</param>
+/// <param name="Reason">El codigo del motivo (incluye <c>account_deleted</c>).</param>
+/// <param name="At">Cuando (UTC).</param>
+public sealed record OrderCancellationResponse(string By, string Reason, DateTime At);
 
 /// <summary>Lo que se compra (copia del momento del pedido).</summary>
 /// <param name="Source"><c>product</c> u <c>offer</c>.</param>

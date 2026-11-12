@@ -26,13 +26,40 @@ Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de 
 - **HU-32/33/34 (acuerdo con IA):** API `0.5.0-alpha.16` y esquema 15 (`db/015-acuerdos.js`) en `feature/SCRUM-53-acuerdo-con-ia`. La llave de Gemini ya está en user-secrets y en `/musubi/prod/Gemini/ApiKey` (la puso la usuaria).
 - **HU-31 (push):** API `0.5.0-alpha.18` y esquema 17 (`db/017-avisos.js`) en `feature/SCRUM-49-avisos-push`. La llave ya está en `/musubi/prod/Firebase/ServiceAccount` y en user-secrets (11-Nov-2026).
   - **Error a evitar:** las fábricas de prueba en Development cargan los user-secrets de quien las corre. Con `Firebase:Provider=Fcm` en local, `NotificationFlowTests` usó el FCM real y falló (en el CI pasaba). Las fábricas fijan `Firebase:Provider` y `GenAi:Provider` en `InMemory`.
-- **Siguiente:** la app de HU-31.
+- **HU-24 (aceptar y actualizar pedidos):** API `0.5.0-alpha.20` y esquema 19 (`db/019-pedidos-estados.js`) en `feature/SCRUM-43-aceptar-actualizar-pedidos`. Falta la app. Ver T41.
+- **Push en producción (11-Nov-2026):** verificado en un celular real. Antes falló dos veces. La llave estaba en us-east-2 y en varias líneas (el `api.env` de `user-data` es de una línea por variable), y después Google rechazó la llave `8e06c5` (`invalid_grant`). Hoy usa la llave nueva `5270b9` en us-east-1. Pendiente SCRUM-96: avisar al arrancar si el push queda apagado.
+- **Siguiente:** la app de HU-24 y luego HU-25.
 - **Pendientes del usuario:**
   - proyecto de Firebase (HU-31);
   - validar con el equipo la lista de carreras de la UTTT;
   - rotar la contraseña de Atlas y borrar la llave de Google (diferido por el usuario).
 - **HU-07 (Kazumi):** la API está en `main` (`0.5.0-alpha.12`); falta la app.
 - **En curso (10-Nov-2026):** HU-08 (estado de mis productos), PR #61: API `0.5.0-alpha.17` y esquema 16 (`db/016-publicacion-vendida.js`); falta la app.
+
+## T41 — Aceptar y actualizar mis pedidos (11-Nov-2026, SCRUM-43, HU-24)
+
+**Qué se hizo**
+- `POST /orders/{id}/accept`: lo hace quien vende, sobre un pedido pendiente con el pago ya elegido. Aparta las piezas.
+- `POST /orders/{id}/cancel`: lo hace cualquiera de las partes, con un motivo de `CancelReasons`. Si el pedido estaba confirmado, devuelve las piezas.
+- `POST /orders/{id}/handover`: cada parte confirma su lado. Con las dos confirmaciones el pedido queda completado y, si la publicación se quedó sin piezas, pasa a vendida.
+- `OrderResponse` agrega `handover`, `cancellation` y `updatedAt`.
+- Avisos `order_confirmed`, `order_cancelled`, `order_handover` y `order_completed`.
+- `db/019`: validadores de `orders` y `notifications`. `MongoSchema.ExpectedVersion = 19`, versión `0.5.0-alpha.20`.
+
+**Decisiones**
+- **RN-19, decisión de la usuaria:** se completa cuando confirman **las dos** partes. El código de entrega de HU-52 contará como la confirmación de quien vende.
+- **Aceptar exige el pago elegido**, también decisión de la usuaria, porque en la maqueta el pedido se confirma después del pago. El filtro de la escritura incluye `payment`.
+- **Motivos en lista cerrada y por rol:** "Ya no lo necesito" solo para quien compra y "Ya no tengo el producto" solo para quien vende. No se modera nada, porque no hay texto libre.
+- **Apartar = restar de `stock`**, sin agregar un contador `reserved`. La vitrina, "Mis productos" y el pedido nuevo ya leen `stock` como disponible, así que funcionan sin cambios.
+  - Con todo apartado, la publicación queda en `soldOut` (sigue visible y puede volver si se cancela).
+  - Pasa a `sold` solo al completar el último pedido abierto.
+- **`IProductStock` vive en Listings** y Orders lo consume. Un módulo no escribe en la colección de otro. Cada cambio de piezas invalida `ShowcaseTag`.
+- **Un servicio aparte (`OrderLifecycleService`)**, porque `OrderService` ya mide 460 líneas.
+
+**Errores a evitar**
+- **El validador de `notifications` (db/017) tiene la lista de tipos.** Un tipo nuevo sin su script falla en MongoDB: `NotificationService` lo registra y el aviso se pierde, y las pruebas en memoria no lo detectan. `db/019` la amplía.
+- En `NewProduct(...)` de `TestShared`, el tercer parámetro posicional es la **categoría**, no el estado. Usa `status:` con nombre.
+- En el build local, NU1900 (NuGetAudit sin red) deja los binarios viejos. Si el build falla, no corras las pruebas con `--no-build`.
 
 ## T39 — Consultar el estado de mis productos (09-Nov-2026, SCRUM-25, HU-08)
 

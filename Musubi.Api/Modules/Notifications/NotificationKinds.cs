@@ -27,6 +27,18 @@ internal static class NotificationTypes
     /// <summary>Pedido nuevo, a quien vende (HU-23).</summary>
     public const string OrderCreated = "order_created";
 
+    /// <summary>Quien vende acepto mi pedido (HU-24).</summary>
+    public const string OrderConfirmed = "order_confirmed";
+
+    /// <summary>La otra parte rechazo o cancelo el pedido (HU-24).</summary>
+    public const string OrderCancelled = "order_cancelled";
+
+    /// <summary>La otra parte confirmo su lado de la entrega (HU-24).</summary>
+    public const string OrderHandover = "order_handover";
+
+    /// <summary>El pedido se completo (HU-24).</summary>
+    public const string OrderCompleted = "order_completed";
+
     /// <summary>La otra persona confirmo el acuerdo con IA (HU-34).</summary>
     public const string AgreementConfirmed = "agreement_confirmed";
 

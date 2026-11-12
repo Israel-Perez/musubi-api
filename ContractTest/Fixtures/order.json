@@ -24,5 +24,8 @@
   },
   "payment": { "method": "cash", "chosenAt": "2026-11-10T18:05:00Z" },
   "transferAvailable": false,
-  "createdAt": "2026-11-10T18:00:00Z"
+  "createdAt": "2026-11-10T18:00:00Z",
+  "handover": { "buyerConfirmedAt": null, "sellerConfirmedAt": null },
+  "cancellation": null,
+  "updatedAt": "2026-11-10T18:05:00Z"
 }
