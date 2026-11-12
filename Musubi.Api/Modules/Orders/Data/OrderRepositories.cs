@@ -95,6 +95,26 @@ internal interface IOrderRepository
     /// <returns>Los pedidos.</returns>
     Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken);
 
+    /// <summary>"Mis pedidos" (HU-25): los de quien compra, del mas nuevo al mas viejo (indice <c>ix_buyer_id</c>).</summary>
+    /// <param name="buyerId">Quien compra (del token).</param>
+    /// <param name="statuses">Los estados de la pestana, o <c>null</c> para todos.</param>
+    /// <param name="beforeId">Cursor: solo los anteriores a este id, o <c>null</c> desde el principio.</param>
+    /// <param name="limit">Cuantos.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los pedidos.</returns>
+    Task<IReadOnlyList<OrderDocument>> FindByBuyerAsync(
+        string buyerId,
+        IReadOnlyList<string>? statuses,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>Cuantos pedidos tiene quien compra en cada estado (los numeros de las pestanas de HU-25).</summary>
+    /// <param name="buyerId">Quien compra.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Estado → cuantos.</returns>
+    Task<IReadOnlyDictionary<string, long>> CountByBuyerAsync(string buyerId, CancellationToken cancellationToken);
+
     /// <summary>Si una publicacion tiene pedidos pendientes o confirmados (RN-07; indice <c>ix_product_status</c>).</summary>
     /// <param name="productId">La publicacion.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -254,6 +274,42 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             ? await orders.Find((Filter.Eq(o => o.BuyerId, userId) | Filter.Eq(o => o.SellerId, userId)) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed))
                 .ToListAsync(cancellationToken).ConfigureAwait(false)
             : [];
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrderDocument>> FindByBuyerAsync(
+        string buyerId,
+        IReadOnlyList<string>? statuses,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var filter = Filter.Eq(o => o.BuyerId, buyerId);
+        if (statuses is not null)
+        {
+            filter &= Filter.In(o => o.Status, statuses);
+        }
+
+        if (beforeId is not null)
+        {
+            filter &= Filter.Lt("_id", ObjectId.Parse(beforeId));
+        }
+
+        return await orders.Find(filter)
+            .SortByDescending(o => o.Id)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<string, long>> CountByBuyerAsync(string buyerId, CancellationToken cancellationToken)
+    {
+        // Un solo viaje: $match con ix_buyer_id y $group por estado (como "Mis productos", HU-08).
+        var groups = await orders.Aggregate()
+            .Match(Filter.Eq(o => o.BuyerId, buyerId))
+            .Group(o => o.Status, g => new { Status = g.Key, Count = g.LongCount() })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return groups.ToDictionary(g => g.Status, g => g.Count, StringComparer.Ordinal);
+    }
 
     /// <inheritdoc />
     public async Task<bool> HasOpenForProductAsync(string productId, CancellationToken cancellationToken) =>
@@ -435,6 +491,40 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
                     && o.Status == OrderStatuses.Confirmed)
                 .ToList();
             return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OrderDocument>> FindByBuyerAsync(
+        string buyerId,
+        IReadOnlyList<string>? statuses,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<OrderDocument> found = orders
+                .Where(o => string.Equals(o.BuyerId, buyerId, StringComparison.Ordinal)
+                    && (statuses is null || statuses.Contains(o.Status, StringComparer.Ordinal))
+                    && (beforeId is null || string.CompareOrdinal(o.Id, beforeId) < 0))
+                .OrderByDescending(o => o.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyDictionary<string, long>> CountByBuyerAsync(string buyerId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyDictionary<string, long> counts = orders
+                .Where(o => string.Equals(o.BuyerId, buyerId, StringComparison.Ordinal))
+                .GroupBy(o => o.Status, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.LongCount(), StringComparer.Ordinal);
+            return Task.FromResult(counts);
         }
     }
 

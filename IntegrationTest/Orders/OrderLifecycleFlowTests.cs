@@ -117,6 +117,48 @@ public sealed class OrderLifecycleFlowTests(AuthApiFactory factory) : IClassFixt
         return [.. body.GetProperty("items").EnumerateArray().Select(n => n.GetProperty("type").GetString()!)];
     }
 
+    private static async Task<JsonElement> MineAsync(Member member, string query = "")
+    {
+        var response = await member.Client.GetAsync(new Uri("/api/v1/orders/mine" + query, UriKind.Relative), Ct).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await AuthFlow.JsonAsync(response).ConfigureAwait(false);
+    }
+
+    private static List<string> Ids(JsonElement page) =>
+        [.. page.GetProperty("items").EnumerateArray().Select(o => o.GetProperty("id").GetString()!)];
+
+    [Fact]
+    public async Task MyOrders_ShowMyPurchasesByTab_WithTheirCounts_ButNotMySales()
+    {
+        // HU-25: "Mis pedidos" de Perfil y "Ver todos" con las pestanas Activos, Completados y Cancelados.
+        var diego = await MemberAsync();
+        var ana = await MemberAsync();
+        var kept = await PaidOrderAsync(ana, await PublishAsync(diego, stock: 1), quantity: 1);
+        var dropped = await PaidOrderAsync(ana, await PublishAsync(diego, stock: 1), quantity: 1);
+        await PostAsync(ana, $"/api/v1/orders/{dropped}/cancel", new { reason = "changed_mind" });
+
+        var all = await MineAsync(ana);
+        var active = await MineAsync(ana, "?tab=active");
+        var cancelled = await MineAsync(ana, "?tab=cancelled");
+        var latest = await MineAsync(ana, "?limit=1");
+        var sales = await MineAsync(diego);
+        var wrongTab = await ana.Client.GetAsync(new Uri("/api/v1/orders/mine?tab=sold", UriKind.Relative), Ct);
+
+        Assert.Equal([dropped, kept], Ids(all));
+        Assert.Equal((2L, 1L, 0L, 1L), (
+            all.GetProperty("total").GetInt64(),
+            all.GetProperty("counts").GetProperty("active").GetInt64(),
+            all.GetProperty("counts").GetProperty("completed").GetInt64(),
+            all.GetProperty("counts").GetProperty("cancelled").GetInt64()));
+        Assert.Equal([kept], Ids(active));
+        Assert.Equal([dropped], Ids(cancelled));
+        Assert.Equal("changed_mind", cancelled.GetProperty("items")[0].GetProperty("cancellation").GetProperty("reason").GetString());
+        Assert.Equal(dropped, latest.GetProperty("nextCursor").GetString());
+        Assert.Equal("buyer", all.GetProperty("items")[0].GetProperty("role").GetString());
+        Assert.Equal(0, sales.GetProperty("total").GetInt64());
+        await AuthFlow.AssertCodeAsync(wrongTab, HttpStatusCode.BadRequest, "orders.invalid_tab");
+    }
+
     [Fact]
     public async Task AcceptThenBothConfirm_CompletesTheOrder_AndTheListingIsSold()
     {

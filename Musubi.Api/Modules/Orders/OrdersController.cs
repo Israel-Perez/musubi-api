@@ -66,6 +66,22 @@ public sealed class OrdersController : ControllerBase
     public async Task<IActionResult> ByConversation([FromQuery] string? conversationId, CancellationToken cancellationToken) =>
         this.Respond(await orders.ByConversationAsync(userId, conversationId, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
+    /// <summary>"Mis pedidos" (HU-25): mis compras por pestana, con los numeros de las tres.</summary>
+    /// <param name="tab"><c>active</c>, <c>completed</c> o <c>cancelled</c>; sin pestana, todos.</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50; 20 por defecto).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina.</returns>
+    [HttpGet("mine")]
+    [ProducesResponseType<MyOrderPage>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Mine(
+        [FromQuery] string? tab,
+        [FromQuery] string? cursor,
+        [FromQuery] int? limit,
+        CancellationToken cancellationToken) =>
+        this.Respond(await orders.MineAsync(userId, tab, cursor, limit, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
     /// <summary>"Tu pedido": solo lo ven quien compra y quien vende.</summary>
     /// <param name="id">El pedido.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

@@ -156,6 +156,30 @@ public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task MyOrders_MatchThePageFixture_AndEachItemIsAnOrder()
+    {
+        // HU-25: "Mis pedidos" trae la pagina con sus numeros y cada pedido con la forma de order.json.
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var (ana, anaId) = await SignedInAsync(app, emails);
+        using var client = ana;
+        var conversationId = await ConversationAsync(app.Services, anaId);
+        var at = DateTime.SpecifyKind((DateTime.UtcNow - TimeSpan.FromHours(6)).Date.AddDays(1).AddHours(19), DateTimeKind.Utc);
+        var created = await BodyAsync(await client.PostAsJsonAsync(
+            new Uri("/api/v1/orders", UriKind.Relative),
+            new { conversationId, quantity = 1, meetingPoint = "biblioteca", meetingDetail = "Planta baja, junto a la entrada", deliveryAt = at },
+            Ct));
+        await client.PutAsJsonAsync(new Uri($"/api/v1/orders/{created.GetProperty("id").GetString()}/payment", UriKind.Relative), new { method = "cash" }, Ct);
+
+        var response = await client.GetAsync(new Uri("/api/v1/orders/mine", UriKind.Relative), Ct);
+        var page = await BodyAsync(response);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(Shape(await FixtureAsync("my-order-page.json")), Shape(page));
+        Assert.Equal(Shape(await FixtureAsync("order.json")), Shape(page.GetProperty("items")[0]));
+    }
+
+    [Fact]
     public async Task MeetingPoints_MatchTheFixture()
     {
         var emails = new RecordingEmailSender();

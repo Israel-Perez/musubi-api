@@ -152,6 +152,8 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 |---|---|---|---|
 | `orders.not_found` | 404 | No encontramos este pedido. | HU-23 (inexistente o de otras personas: no revela cuál, RNF-03, OWASP API1) |
 | `orders.conversation_not_found` | 404 | No encontramos esta conversación. | HU-23 (crear o listar desde una conversación inexistente o ajena, RN-22) |
+| `orders.invalid_tab` | 400 | No pudimos cargar esa lista. Actualiza la pantalla. | HU-25 (`GET /orders/mine` con una pestaña que no es `active`, `completed` ni `cancelled`) |
+| `orders.invalid_cursor` | 400 | No pudimos cargar más pedidos. Actualiza la lista. | HU-25 (`GET /orders/mine` con un cursor que no es de la lista) |
 | `orders.only_buyer` | 403 | El pedido lo crea quien compra. Tú lo aceptarás cuando llegue. | HU-23 (quien vende en esa conversación intenta crear el pedido o elegir el pago) |
 | `orders.own_product` | 409 | No puedes comprar tu propia publicación. | HU-23 (RN-06) |
 | `orders.product_unavailable` | 409 | Esta publicación ya no está disponible. | HU-23 (pausada, agotada, vendida, quitada, eliminada o de otro campus) |

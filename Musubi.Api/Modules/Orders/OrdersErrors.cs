@@ -10,6 +10,14 @@ internal static class OrdersErrors
     public static readonly ApiError NotFound = new(
         "orders.not_found", StatusCodes.Status404NotFound, "No encontramos este pedido.");
 
+    /// <summary>"Mis pedidos" con una pestana que no existe (HU-25).</summary>
+    public static readonly ApiError InvalidTab = new(
+        "orders.invalid_tab", StatusCodes.Status400BadRequest, "No pudimos cargar esa lista. Actualiza la pantalla.");
+
+    /// <summary>"Mis pedidos" con un cursor que no es de esta lista (HU-25).</summary>
+    public static readonly ApiError InvalidCursor = new(
+        "orders.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más pedidos. Actualiza la lista.");
+
     /// <summary>La conversacion no existe o no es de quien consulta (RN-22).</summary>
     public static readonly ApiError ConversationNotFound = new(
         "orders.conversation_not_found", StatusCodes.Status404NotFound, "No encontramos esta conversación.");

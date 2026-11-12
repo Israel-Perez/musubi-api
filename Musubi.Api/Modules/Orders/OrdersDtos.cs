@@ -118,6 +118,19 @@ public sealed record OrderPaymentResponse(string Method, DateTime ChosenAt);
 /// <param name="Items">Los pedidos.</param>
 public sealed record OrderListResponse(IReadOnlyList<OrderResponse> Items);
 
+/// <summary>Los numeros de las pestanas de "Mis pedidos" (HU-25).</summary>
+/// <param name="Active">Pendientes y confirmados.</param>
+/// <param name="Completed">Completados.</param>
+/// <param name="Cancelled">Cancelados.</param>
+public sealed record MyOrderCounts(long Active, long Completed, long Cancelled);
+
+/// <summary>"Mis pedidos" (HU-25): mis compras de la pestana pedida, con los numeros de las tres.</summary>
+/// <param name="Items">Los pedidos, del mas nuevo al mas viejo.</param>
+/// <param name="NextCursor">Cursor de la pagina siguiente, o <c>null</c> si no hay mas.</param>
+/// <param name="Total">Cuantos hay en la pestana (sin pestana, todos).</param>
+/// <param name="Counts">Los numeros de las tres pestanas.</param>
+public sealed record MyOrderPage(IReadOnlyList<OrderResponse> Items, string? NextCursor, long Total, MyOrderCounts Counts);
+
 /// <summary>Un punto de entrega del campus.</summary>
 /// <param name="Slug">Identificador.</param>
 /// <param name="Name">Nombre ("Biblioteca").</param>

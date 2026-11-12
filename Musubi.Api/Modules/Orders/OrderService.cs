@@ -52,6 +52,12 @@ internal sealed class OrderService(
     /// <summary>Pedidos que se leen por conversacion.</summary>
     public const int MaxPerConversation = 20;
 
+    /// <summary>"Mis pedidos" (HU-25): pedidos por pagina si no se pide otro tamano.</summary>
+    public const int DefaultPageSize = 20;
+
+    /// <summary>"Mis pedidos" (HU-25): tope de la pagina.</summary>
+    public const int MaxPageSize = 50;
+
     /// <summary>El nombre que queda en los pedidos de una cuenta borrada (HU-46, R11).</summary>
     public const string DeletedName = "Usuario eliminado";
 
@@ -231,6 +237,48 @@ internal sealed class OrderService(
         return order is not null && IsParty(order.BuyerId, order.SellerId, userId)
             ? Result<OrderResponse>.Ok(ToResponse(order, userId))
             : OrdersErrors.NotFound;
+    }
+
+    /// <summary>
+    /// "Mis pedidos" (HU-25, RF-32): mis compras por pestana, del mas nuevo al mas viejo, con los numeros de las tres.
+    /// Solo los pedidos donde quien consulta es quien compra; las ventas son de HU-26.
+    /// </summary>
+    /// <param name="userId">Quien compra (del token).</param>
+    /// <param name="tab">Ver <see cref="MyOrderTabs"/>; sin pestana, todos (la seccion de <c>Perfil</c>).</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50; 20 por defecto).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina o el error.</returns>
+    public async Task<Result<MyOrderPage>> MineAsync(string userId, string? tab, string? cursor, int? limit, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string>? statuses = null;
+        if (!string.IsNullOrEmpty(tab) && (statuses = MyOrderTabs.Statuses(tab)) is null)
+        {
+            return OrdersErrors.InvalidTab;
+        }
+
+        if (cursor is not null && !ObjectId.TryParse(cursor, out _))
+        {
+            return OrdersErrors.InvalidCursor;
+        }
+
+        var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
+        // Uno de mas para saber si hay otra pagina sin dar un cursor que lleve a una pagina vacia (como HU-08).
+        var fetched = await orders.FindByBuyerAsync(userId, statuses, cursor, size + 1, cancellationToken).ConfigureAwait(false);
+        var hasMore = fetched.Count > size;
+        var page = hasMore ? fetched.Take(size).ToList() : fetched;
+        var byStatus = await orders.CountByBuyerAsync(userId, cancellationToken).ConfigureAwait(false);
+        long Count(string status) => byStatus.TryGetValue(status, out var n) ? n : 0;
+        var counts = new MyOrderCounts(
+            Count(OrderStatuses.Pending) + Count(OrderStatuses.Confirmed),
+            Count(OrderStatuses.Completed),
+            Count(OrderStatuses.Cancelled));
+        var total = statuses is null ? byStatus.Values.Sum() : statuses.Sum(Count);
+        return Result<MyOrderPage>.Ok(new MyOrderPage(
+            page.Select(o => ToResponse(o, userId)).ToList(),
+            hasMore ? page[^1].Id : null,
+            total,
+            counts));
     }
 
     /// <summary>Los pedidos de una conversacion propia (el aviso del chat).</summary>

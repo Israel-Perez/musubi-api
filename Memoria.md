@@ -17,6 +17,15 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Trabajo en curso — HU-25 (SCRUM-44)
+
+- **Qué:** `GET /api/v1/orders/mine`: mis compras por pestaña (`active` = pendientes y confirmados, `completed`, `cancelled`; sin pestaña, todas), con `counts` de las tres, `total` de la pestaña y cursor. Cada elemento es un `OrderResponse`.
+- **Decisiones de la usuaria (12-Nov-2026):** solo compras (las ventas son de HU-26) y pestañas por estado en "Ver todos".
+- **Cómo:** `FindByBuyerAsync`/`CountByBuyerAsync` sobre `ix_buyer_id`; sin script, el esquema sigue en 19. Ruta propia porque `GET /orders` ya exige `conversationId` (HU-23).
+- **Versión:** `0.5.0-alpha.23` (fila compartida en `docs/versionado.md`).
+- **Verificación (12-Nov-2026):** build Release 0/0; Unit 590, Integration 167, Security 216 y Contract 21 al 100 %; `check_endpoints` OK (83).
+- **Siguiente:** la app de HU-25 y desplegar (`infra-up`) cuando la usuaria lo autorice: `alpha.20` a `alpha.23` van juntas.
+
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
 ## Estado actual (11-Nov-2026)
