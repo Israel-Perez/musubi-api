@@ -45,6 +45,5 @@
 
 ## Pendientes
 - `NOTE (HU-27)` / `NOTE (HU-45)`: calificaciones, promedio y lista de opiniones; la app muestra “Sin calificaciones” mientras tanto (RN-26).
-- `NOTE (HU-20)`: “Mensaje” desde el perfil, si la app lo habilita.
-- “Seguir” y “Responde en” no están en los criterios de Jira ni tienen datos en la API.
+- “Seguir”, “Responde en” y “A tiempo” no tienen datos en la API; la app los muestra como la maqueta sin inventarlos (ver `musubi-app:HU-05`).
 - La app de HU-05 (pantalla `Perfil-vendedor`) va en su PR de `musubi-app`.

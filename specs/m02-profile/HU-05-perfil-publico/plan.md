@@ -23,7 +23,7 @@
 - **D5 · `sellerId` vacío o ausente no filtra; mal formado devuelve página vacía:** no se agrega un error nuevo; la app solo lo usa después de un perfil `200`. Un `sellerId` de otro campus no devuelve nada porque la vitrina filtra por la comunidad del token.
 - **D6 · La reputación no se calcula en esta HU:** `ratings` es de HU-27/HU-45; `GET /profiles/{id}` ya responde `ratingAvg: null` y `ratingCount: 0`. La app muestra “Sin calificaciones” (RN-26). `NOTE (HU-27)`.
 - **D7 · Sin índice nuevo:** `ix_seller_id` de `products` (HU-06) cubre `sellerId + status`. Si alguna vez se mide lento, se optimiza con un índice compuesto y su medición; no se inventa un umbral.
-- **D8 · “Seguir”, “Responde en” y “Mensaje” quedan fuera:** no están en los criterios de Jira; “Mensaje” es HU-20 y los otros no tienen datos. La pestaña “Opiniones” queda vacía hasta HU-27/HU-45.
+- **D8 · Sin datos nuevos para “Seguir”, “Responde en” ni “A tiempo”:** la API no tiene seguidores, tiempos de respuesta ni calificaciones; la app muestra los botones de la maqueta (“Seguir” avisa que llega pronto) y “A tiempo” con “—”. “Mensaje” del perfil (app) abre la conversación con `POST /conversations` de HU-20, sin ruta nueva. La pestaña “Opiniones” queda vacía hasta HU-27/HU-45.
 
 ## 3. Excepciones al stack (00-01)
 Ninguna. No se agregan dependencias ni tecnologías.

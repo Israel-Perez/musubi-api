@@ -8,7 +8,7 @@
 - **Datos:** sin colección, script `db/`, índice ni cambio de `MongoSchema`; `ix_seller_id` de `products` cubre el filtro.
 - **Versión compartida:** `docs/versionado.md` es una sección compartida. La fila `0.5.0-alpha.21` se replicó en `musubi-app` y se registró en su `Memoria.md`; `0.5.0-alpha.20` es de HU-24, ya en `main` con el esquema 19.
 - **Verificación local (11-Nov-2026, `main` `b7bdb1d`, ya con HU-24):** build Release 0/0; Unit 564, Integration 165, Security 207 y Contract 20 al 100 % con `--no-build`; `check_endpoints` OK (81 rutas); `critic` PASS (28 archivos, 0 avisos); `check_shared_sections` OK (6 bloques); `VersioningTests` con `0.5.0-alpha.21`. `DatabaseTest` queda para el CI (Docker apagado en local). `security-reviewer` PASS y `traceability-clerk` OK.
-- **Pendiente:** app de HU-05; `NOTE (HU-27)`/`NOTE (HU-45)` (promedio y opiniones); `NOTE (HU-20)` para “Mensaje” desde el perfil.
+- **Pendiente:** app de HU-05; `NOTE (HU-27)`/`NOTE (HU-45)` (promedio y opiniones). En la revisión del PR (12-Nov-2026) la app quedó igual a la maqueta: “Mensaje” del perfil (app) abre la conversación con `POST /conversations` de HU-20, sin ruta nueva; “Seguir” y “Compartir” avisan que llegan pronto (la API no tiene seguidores) y “A tiempo” va con “—” hasta HU-27.
 
 ## Trabajo en curso — HU-54 (SCRUM-71)
 

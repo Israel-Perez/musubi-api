@@ -51,8 +51,8 @@ RNF que aplican: RNF-03 (sesión y propiedad; esta HU no escribe), RNF-05 (datos
 - **Por qué se reutiliza la vitrina:** una sola ruta y un solo DTO (`ProductPage`); se heredan paginación, cursor, `page`, caché, campus y bloqueos; la app ya sabe leer `ProductPage`. Una ruta nueva o una lista embebida en el perfil duplicaría el mapeo de productos y el contrato.
 - **Composición en la app:** `GET /profiles/{id}` para la cabecera y `GET /products?sellerId={id}&hideSoldOut=true` para la pestaña “Publicaciones (N)”. La app usa `total` para el contador y `items[]` para las tarjetas.
 - **Datos:** sin cambios en `profiles` ni en `products`. El conteo es una consulta a `products` por `sellerId` + `status = active`, con `ix_seller_id`.
-- **Pendientes en el código:** `NOTE (HU-27)` en `ProfileDirectory`/`profiles.stats` (calificaciones y promedio); la lista de opiniones y el cálculo del promedio llegan con HU-27/HU-45. `NOTE (HU-20)` si la app abre “Mensaje” desde el perfil: esa conversación es de HU-20.
-- **Fuera de alcance:** “Seguir” y “Responde en” de la maqueta no están en los criterios de Jira y no tienen datos en la API; “Opiniones” queda vacía hasta HU-27/HU-45.
+- **Pendientes en el código:** `NOTE (HU-27)` en `ProfileDirectory`/`profiles.stats` (calificaciones y promedio); la lista de opiniones y el cálculo del promedio llegan con HU-27/HU-45. “Mensaje” del perfil (app) abre la conversación con `POST /conversations` de HU-20, sin ruta nueva.
+- **Fuera de alcance en la API:** “Seguir”, “Responde en” y “A tiempo” de la maqueta no tienen datos (la app los resuelve sin inventarlos); “Opiniones” queda vacía hasta HU-27/HU-45.
 
 ## Contratos
 - **Fila modificada** en [`docs/endpoints.md`](../../../docs/endpoints.md): `GET /api/v1/products` suma `sellerId` al query. La respuesta sigue siendo `ProductPage { items, nextCursor, total }`; con `sellerId` + `hideSoldOut=true`, `total` es el número de publicaciones activas. `Spec` suma HU-05 y `Consumidor` suma `musubi-app` HU-05 (`Perfil-vendedor` → “Publicaciones”).
@@ -85,9 +85,9 @@ RNF que aplican: RNF-03 (sesión y propiedad; esta HU no escribe), RNF-05 (datos
 
 ## Límites
 - **Sin calificaciones, promedio ni opiniones:** `ratings`, el cálculo del promedio y la pestaña “Opiniones” son de HU-27/HU-45. `NOTE (HU-27)`. La app muestra “Sin calificaciones” con `ratingAvg: null` (RN-26).
-- **Sin “Seguir”:** no está en los criterios de Jira y no hay colección de seguidores.
+- **Sin seguidores:** no hay colección de seguidores; en la app, “Seguir” avisa que llega pronto.
 - **Sin “Responde en”:** la API no mide tiempos de respuesta.
-- **“Mensaje” desde el perfil:** la conversación es de HU-20; esta HU no la abre.
+- **“Mensaje” desde el perfil:** sin ruta nueva; la app usa `POST /conversations` (HU-20).
 - **Sin campo `activeListings` en `PublicProfileResponse`:** el contador sale de `total` de la vitrina filtrada; así no se duplican datos ni se agrega una consulta al perfil.
 - **Sin índice nuevo:** `ix_seller_id` cubre el filtro. Si la consulta se vuelve lenta con muchas publicaciones, un índice compuesto es una optimización posterior, con medición (`02-03`), no un umbral inventado.
 - **Sin paginación nueva:** se reutilizan `cursor`/`page` y `limit` de la vitrina.
