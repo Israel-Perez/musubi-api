@@ -127,6 +127,30 @@ public abstract class ListingRepositoryContract
     }
 
     [Fact]
+    public async Task SellerFilter_OnlyTheActiveListingsOfThatSeller_AndCountsThem()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var other = AuthIds.New();
+        await Products.InsertAsync(NewProduct(community, seller), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, title: "Calculadora graficadora"), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.SoldOut), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Hidden), Ct);
+        await Products.InsertAsync(NewProduct(community, seller, status: ProductStatuses.Sold), Ct);
+        await Products.InsertAsync(NewProduct(community, other), Ct);
+
+        var active = await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, SellerId: seller), Ct);
+        var withSoldOut = await Products.FindPageAsync(new ProductQuery(community, null, true, null, 10, SellerId: seller), Ct);
+
+        Assert.Equal(2, active.Count);
+        Assert.All(active, p => Assert.Equal(seller, p.SellerId));
+        Assert.Equal(3, withSoldOut.Count);
+        Assert.DoesNotContain(withSoldOut, p => p.Status is ProductStatuses.Hidden or ProductStatuses.Sold or ProductStatuses.Removed);
+        Assert.Equal(2, await Products.CountAsync(new ProductQuery(community, null, false, null, 10, SellerId: seller), Ct));
+        Assert.Empty(await Products.FindPageAsync(new ProductQuery(community, null, false, null, 10, SellerId: AuthIds.New()), Ct));
+    }
+
+    [Fact]
     public async Task ExcludedSellers_DoNotShow_InThePageOrTheCount()
     {
         var community = AuthIds.New();

@@ -25,6 +25,7 @@ namespace Musubi.Api.Modules.Listings.Data;
 /// <param name="Sort">Ver <see cref="ProductSorts"/> (HU-10).</param>
 /// <param name="ExcludeSellers">Vendedores que no se muestran: bloqueos de quien consulta en las dos direcciones (HU-57).</param>
 /// <param name="Page">Pagina pedida (HU-10, base 1); con ella se ignora <paramref name="After"/>.</param>
+/// <param name="SellerId">Solo las publicaciones de esta persona (HU-05: perfil publico); <c>null</c> para todas.</param>
 internal sealed record ProductQuery(
     string CommunityId,
     IReadOnlyList<string>? CategorySlugs,
@@ -37,7 +38,8 @@ internal sealed record ProductQuery(
     string? Condition = null,
     string Sort = ProductSorts.Newest,
     IReadOnlyCollection<string>? ExcludeSellers = null,
-    int? Page = null);
+    int? Page = null,
+    string? SellerId = null);
 
 /// <summary>Ordenes de la vitrina (HU-10 R5).</summary>
 internal static class ProductSorts

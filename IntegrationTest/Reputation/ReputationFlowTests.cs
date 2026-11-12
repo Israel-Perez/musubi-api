@@ -105,6 +105,8 @@ public sealed class ReputationFlowTests(AuthApiFactory factory) : IClassFixture<
         var detail = await buyer.Client.GetAsync(new Uri($"/api/v1/products/{productId}", UriKind.Relative), Ct);
         var buyerSeesSeller = await buyer.Client.GetAsync(new Uri($"/api/v1/profiles/{seller.Id}", UriKind.Relative), Ct);
         var sellerSeesBuyer = await seller.Client.GetAsync(new Uri($"/api/v1/profiles/{buyer.Id}", UriKind.Relative), Ct);
+        var buyerSeesSellerListings = await buyer.Client.GetAsync(
+            new Uri($"/api/v1/products?sellerId={seller.Id}&hideSoldOut=true", UriKind.Relative), Ct);
         var list = await AuthFlow.JsonAsync(await seller.Client.GetAsync(new Uri("/api/v1/blocks", UriKind.Relative), Ct));
 
         Assert.Equal(HttpStatusCode.NoContent, blocked.StatusCode);
@@ -119,6 +121,7 @@ public sealed class ReputationFlowTests(AuthApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.NotFound, detail.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, buyerSeesSeller.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, sellerSeesBuyer.StatusCode);
+        Assert.Equal(0, (await AuthFlow.JsonAsync(buyerSeesSellerListings)).GetProperty("total").GetInt64());
         Assert.Equal(buyer.Id, Assert.Single(list.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
 
         // "Desbloquear" en Ajustes → Privacidad.

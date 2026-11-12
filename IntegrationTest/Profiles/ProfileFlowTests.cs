@@ -66,6 +66,35 @@ public sealed class ProfileFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         return await client.PutAsync(new Uri("/api/v1/profiles/me/photo", UriKind.Relative), form, Ct).ConfigureAwait(false);
     }
 
+    /// <summary>El vendedor publica una calculadora y devuelve su id.</summary>
+    private static async Task<string> PublishAsync(HttpClient seller, string title)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent(Png(SKColors.Teal));
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(file, "photo", "foto.png");
+        var upload = await seller.PostAsync(new Uri("/api/v1/products/photos", UriKind.Relative), form, Ct).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
+        var key = (await AuthFlow.JsonAsync(upload).ConfigureAwait(false)).GetProperty("key").GetString();
+
+        var published = await seller.PostAsJsonAsync(
+            new Uri("/api/v1/products", UriKind.Relative),
+            new
+            {
+                title,
+                description = "La usé un semestre.",
+                category = "calculadoras",
+                priceCents = 45_000,
+                condition = "used",
+                conditionDetail = "good",
+                stock = 1,
+                photos = new[] { key },
+            },
+            Ct).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, published.StatusCode);
+        return (await AuthFlow.JsonAsync(published).ConfigureAwait(false)).GetProperty("id").GetString()!;
+    }
+
     [Fact]
     public async Task Edit_IsSeenAtOnceInThePublicProfile_OfSomeoneElseOfTheCampus()
     {
@@ -175,6 +204,39 @@ public sealed class ProfileFlowTests(AuthApiFactory factory) : IClassFixture<Aut
                 await ana.GetAsync(new Uri("/api/v1/profiles/6716a0000000000000000abc", UriKind.Relative), Ct),
                 HttpStatusCode.NotFound,
                 "profiles.not_found");
+        }
+    }
+
+    [Fact]
+    public async Task SellerProfile_IsReachableFromProductDetail_AndCountsOnlyActiveListings()
+    {
+        var (anaId, ana) = await SignedInAsync();
+        var (_, luis) = await SignedInAsync();
+        using (ana)
+        using (luis)
+        {
+            var active = await PublishAsync(ana, "Calculadora Casio fx-991ES Plus");
+            var paused = await PublishAsync(ana, "Libro de Cálculo");
+            var sold = await PublishAsync(ana, "Laptop Lenovo");
+            Assert.Equal(
+                HttpStatusCode.OK,
+                (await ana.PostAsync(new Uri($"/api/v1/products/{paused}/pause", UriKind.Relative), null, Ct)).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.OK,
+                (await ana.PostAsync(new Uri($"/api/v1/products/{sold}/sold", UriKind.Relative), null, Ct)).StatusCode);
+
+            var detail = await GetAsync(luis, $"/api/v1/products/{active}");
+            var profile = await GetAsync(luis, $"/api/v1/profiles/{anaId}");
+            var listings = await GetAsync(luis, $"/api/v1/products?sellerId={anaId}&hideSoldOut=true");
+            var malformed = await GetAsync(luis, "/api/v1/products?sellerId=no-es-un-id&hideSoldOut=true");
+
+            Assert.Equal(anaId, detail.GetProperty("seller").GetProperty("id").GetString());
+            Assert.Equal(JsonValueKind.Null, profile.GetProperty("stats").GetProperty("ratingAvg").ValueKind);
+            Assert.Equal(0, profile.GetProperty("stats").GetProperty("ratingCount").GetInt32());
+            Assert.False(profile.TryGetProperty("email", out _));
+            Assert.Equal(1, listings.GetProperty("total").GetInt64());
+            Assert.Equal(active, Assert.Single(listings.GetProperty("items").EnumerateArray()).GetProperty("id").GetString());
+            Assert.Equal(0, malformed.GetProperty("total").GetInt64());
         }
     }
 

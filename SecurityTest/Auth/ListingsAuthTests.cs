@@ -157,6 +157,14 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
         Assert.Contains(local, ids);
         Assert.DoesNotContain(elsewhere, ids);
 
+        // HU-05: el perfil del vendedor no cruza el campus aunque pida un sellerId.
+        var sellerResponse = await visitor.GetAsync(
+            new Uri($"/api/v1/products?sellerId={seller}&hideSoldOut=true", UriKind.Relative), Ct);
+        var sellerPage = await sellerResponse.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var sellerIds = sellerPage.GetProperty("items").EnumerateArray().Select(p => p.GetProperty("id").GetString()).ToList();
+        Assert.Contains(local, sellerIds);
+        Assert.DoesNotContain(elsewhere, sellerIds);
+
         // HU-10 R1: un valor con metacaracteres se compara como texto en $in, no como sintaxis.
         var weird = await visitor.GetAsync(
             new Uri("/api/v1/products?category=calc.*%7Clibros&category=%7B%22%24ne%22%3A%22x%22%7D&sort=priceAsc", UriKind.Relative), Ct);

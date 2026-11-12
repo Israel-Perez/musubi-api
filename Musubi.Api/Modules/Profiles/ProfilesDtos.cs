@@ -76,7 +76,7 @@ public sealed record MyProfileResponse(
 /// <param name="Sales">Ventas, o <c>null</c> si las oculta.</param>
 public sealed record PublicStatsResponse(double? RatingAvg, int RatingCount, int? Sales);
 
-/// <summary>Perfil de otra persona del campus (NOTE (HU-05): reputacion, publicaciones y opiniones).</summary>
+/// <summary>Perfil de otra persona del campus (NOTE (HU-27): reputacion y opiniones).</summary>
 /// <param name="Id">Id del usuario.</param>
 /// <param name="FullName">Nombre.</param>
 /// <param name="Campus">Campus.</param>
