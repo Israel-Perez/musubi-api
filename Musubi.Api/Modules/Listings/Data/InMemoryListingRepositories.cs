@@ -208,7 +208,8 @@ internal sealed class InMemoryProductRepository : IProductRepository
         Task.FromResult(quantity > 0 && Change(
             id,
             _ => true,
-            p => WithStock(p, p.Stock + quantity, p.Status == ProductStatuses.SoldOut ? ProductStatuses.Active : p.Status, now, p.SoldAt)));
+            // SCRUM-97: nunca mas de las 10 piezas que admite una publicacion (HU-06, HU-50).
+            p => WithStock(p, Math.Min(p.Stock + quantity, ListingService.MaxStock), p.Status == ProductStatuses.SoldOut ? ProductStatuses.Active : p.Status, now, p.SoldAt)));
 
     /// <inheritdoc />
     public Task<bool> MarkSoldIfEmptyAsync(string id, DateTime now, CancellationToken cancellationToken) =>

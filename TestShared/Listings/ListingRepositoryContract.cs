@@ -808,5 +808,20 @@ public abstract class ListingRepositoryContract
         Assert.Equal(1, (await Products.FindByIdAsync(sold.Id, Ct))!.Stock);
     }
 
+    [Fact]
+    public async Task ReleaseStock_NeverGoesAboveTheTenPieceLimit()
+    {
+        // SCRUM-97: con 10 piezas puestas a mano (HU-50), cancelar un pedido confirmado no las sube a 11.
+        var product = NewProduct(AuthIds.New(), AuthIds.New(), stock: 10);
+        await Products.InsertAsync(product, Ct);
+
+        Assert.True(await Products.ReleaseStockAsync(product.Id, 1, Now, Ct));
+        Assert.Equal(10, (await Products.FindByIdAsync(product.Id, Ct))!.Stock);
+
+        Assert.True(await Products.TryReserveStockAsync(product.Id, 3, Now, Ct));
+        Assert.True(await Products.ReleaseStockAsync(product.Id, 5, Now, Ct));
+        Assert.Equal(10, (await Products.FindByIdAsync(product.Id, Ct))!.Stock);
+    }
+
     private static (int Stock, string Status) Pair(ProductDocument? p) => (p!.Stock, p.Status);
 }

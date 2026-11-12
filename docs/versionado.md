@@ -79,6 +79,7 @@ Una fila por despliegue. La app declara la versión mínima de API que necesita;
 | 12-Nov-2026 | 0.5.0-alpha.22 | `v1` | 19 | 0.8.0+10 | Prueba cerrada | 0.3.5 | Consultar el perfil y la reputación de otro usuario (SCRUM-34, HU-05), solo la API: `GET /products?sellerId=` para las publicaciones activas del perfil (con `hideSoldOut=true`, el `total` es el contador de "Publicaciones (N)") y `GET /profiles/{id}` documenta la reputación vacía (`ratingAvg: null`, `ratingCount: 0`, RN-26) mientras llegan HU-27/HU-45. Sin cambios en el esquema |
 | 12-Nov-2026 | 0.5.0-alpha.23 | `v1` | 19 | 0.8.0+10 | Prueba cerrada | 0.3.5 | Consultar mis pedidos (SCRUM-44, HU-25), solo la API: `GET /api/v1/orders/mine` (mis compras por pestaña: activos, completados o cancelados, con los números de las tres y cursor). Sin cambios en el esquema: usa `ix_buyer_id` |
 | 12-Nov-2026 | 0.5.0-alpha.23 | `v1` | 19 | 0.9.0+11 | Prueba cerrada | 0.3.5 | Lote de la app en Google Play (SCRUM-87): aceptar, rechazar, entregar y cancelar pedidos (HU-24), "Mis pedidos" en Perfil (HU-25), el perfil de quien vende (HU-05) y cambiar las piezas o reponer en Mis productos (HU-50). Necesita la API `0.5.0-alpha.23` desplegada antes (`infra-up` del 12-Nov-2026) |
+| 12-Nov-2026 | 0.5.0-alpha.24 | `v1` | 19 | 0.9.0+11 | Prueba cerrada | 0.3.5 | Mantenimiento (SCRUM-97), solo la API: liberar las piezas de un pedido cancelado nunca deja más de 10 (con "Cambiar piezas" en 10, HU-50, ya no sube a 11). Sin cambios en el esquema ni en los contratos |
 
 ## 4. Plan hacia la evaluación
 
