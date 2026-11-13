@@ -396,6 +396,19 @@ internal interface IFavoriteRepository
     Task<long> DeleteByUserAsync(string userId, CancellationToken cancellationToken);
 }
 
+/// <summary>Agregados de vistas diarios para el ranking (HU-49).</summary>
+internal interface IProductStatsRepository
+{
+    Task IncrementViewAsync(string communityId, string productId, DateTime utcDay, CancellationToken cancellationToken);
+    Task<PopularProductPageData> PopularAsync(string communityId, DateTime fromUtcDay, DateTime toUtcDay, PopularProductCursor? cursor, int limit, CancellationToken cancellationToken);
+}
+
+/// <summary>Página y total de productos populares elegibles (HU-49).</summary>
+internal sealed record PopularProductPageData(IReadOnlyList<(ProductDocument Product, long Views)> Items, long Total, bool HasMore);
+
+/// <summary>Clave de continuación sobre el orden estable del ranking (HU-49).</summary>
+internal sealed record PopularProductCursor(long Views, DateTime CreatedAt, string ProductId);
+
 /// <summary>
 /// Categorias con cache-aside (02-02): cambian poco y se leen en cada "Filtrar" y "Vender-3". Se guardan por
 /// comunidad durante <see cref="Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl"/>.

@@ -58,6 +58,14 @@
 - **Verificación (12-Nov-2026):** build Release 0/0; Unit 590, Integration 167, Security 216 y Contract 21 al 100 %; `check_endpoints` OK (83).
 - **Siguiente:** la app de HU-25 y desplegar (`infra-up`) cuando la usuaria lo autorice: `alpha.20` a `alpha.23` van juntas.
 
+## HU-49 — Detalle de spec (12-Nov-2026, SCRUM-69)
+
+- Se detallaron `spec.md`, `plan.md` y `task.md` desde el comentario de Jira: Sprint 4, recientes reutiliza `GET /products`, y populares prevé una ruta nueva más `productStatsDaily` (R9).
+- Decisión del usuario: cada apertura válida cuenta, incluidas anónimas y repetidas, excepto la del vendedor; Hoy es el día UTC actual y Semana los últimos 7 días UTC.
+- Se implementó el agregado `productStatsDaily`, renumerado a `db/022` después de integrar `db/021-ventas-compras.js`/esquema 21 de `origin/main`; el registro de vistas en detalle excluye al vendedor y el ranking público usa caché. La contraparte Flutter solicita el ranking por Hoy/Semana y mapea `views`; la lista de recientes tiene ruta y paginación.
+- Revisión de seguridad detectó trabajo no acotado y N+1 al formar el ranking. Se reemplazó por agregación Mongo con `$lookup`, filtro de estado/comunidad y `$facet` para página/total; fake en memoria conserva semántica y evita pruebas frágiles por datos compartidos. Pruebas nuevas cubren página, orden, exclusión de inactivos y conteo.
+- Verificación API 13-Nov-2026 con SDK 10.0.404, tras integrar HU-26: build Release 0/0 (con `-p:NuGetAudit=false` por avisos NuGet NU1902/NU1903 existentes); Unit 615, Integration 173, Security 223, Contract 23 y Database 145 pasaron. El ranking usa cursor opaco keyset, sin offsets arbitrarios; `security-reviewer` PASS y `traceability-clerk` OK. Flutter no pudo ejecutarse: el SDK disponible es Dart 3.12.2 y `pubspec.yaml` exige ^3.13.5.
+
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 
 ## Estado actual (11-Nov-2026)
