@@ -54,6 +54,11 @@
 - **Runners fijos:** `ci-pr.yml` y `mutation.yml` usan `ubuntu-24.04` (como `infra-up`), no `ubuntu-latest`, que cambiará a Ubuntu 26.
 - Versión `0.5.0-alpha.24`, sin cambios en el esquema.
 
+## Despliegue del 13-Nov-2026 (SCRUM-87)
+
+- `infra-up` con `0.5.0-alpha.27` y `db/020`, `db/021` (esquema 21): SCRUM-97 (`alpha.24`), HU-27 y HU-45 (`alpha.25`), HU-26 (`alpha.26`) y HU-19 y HU-30 (`alpha.27`).
+- La app `0.10.0+12` va a la prueba cerrada de Google Play con esa API (fila compartida en `docs/versionado.md`; musubi-app #65).
+
 ## Despliegue del 12-Nov-2026 (SCRUM-87)
 
 - `infra-up` con `0.5.0-alpha.23` y `db/019` (esquema 19): HU-24, SCRUM-96 (aviso del push al arrancar), dependencias de noviembre, HU-50, HU-05 y HU-25.
