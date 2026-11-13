@@ -3,6 +3,8 @@ using Musubi.Api.Modules.Auth.Data;
 using Microsoft.Extensions.Options;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Matching;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.PurchaseRequests;
@@ -11,6 +13,7 @@ using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
+using UnitTest.Common;
 
 namespace UnitTest.PurchaseRequests;
 
@@ -30,6 +33,9 @@ public sealed class WantedServiceTests
 
     private readonly InMemoryUserRepository users = new();
     private readonly InMemoryWantedRepository requests = new();
+    private readonly InMemoryOfferRepository offers = new();
+    private readonly RecordingNotificationCenter center = new();
+    private readonly RecordingWantedMatching matching = new();
     private readonly InMemoryBlockRepository blocks = new();
     private readonly InMemoryProfileRepository profiles = new();
     private readonly RecordingOutputCacheStore outputCache = new();
@@ -40,6 +46,7 @@ public sealed class WantedServiceTests
     {
         service = new WantedService(
             requests,
+            offers,
             new MemberDirectory(new InMemoryCommunityRepository(), users),
             new CategoryDirectory(new InMemoryCategoryRepository()),
             new BlockDirectory(blocks),
@@ -47,7 +54,42 @@ public sealed class WantedServiceTests
             new InMemoryContentModerator(),
             outputCache,
             Options.Create(new CatalogOptions()),
+            center,
+            matching,
             time);
+    }
+
+    /// <summary>La cola de M-06 falsa: guarda cada solicitud publicada (HU-19).</summary>
+    private sealed class RecordingWantedMatching : IWantedMatching
+    {
+        public List<WantedPublished> Queued { get; } = [];
+
+        public bool Enqueue(WantedPublished request)
+        {
+            Queued.Add(request);
+            return true;
+        }
+    }
+
+    private async Task<OfferDocument> OfferAsync(string requestId, string requesterId, string sellerId)
+    {
+        var offer = new OfferDocument
+        {
+            Id = AuthIds.New(),
+            CommunityId = InMemoryCommunityRepository.UtttId,
+            RequestId = requestId,
+            RequesterId = requesterId,
+            SellerId = sellerId,
+            SellerName = "Diego H.",
+            Kind = OfferKinds.Direct,
+            Title = "Calculadora Casio fx-991ES Plus",
+            PriceCents = 50_000,
+            Condition = "used",
+            CreatedAt = Now.UtcDateTime,
+            UpdatedAt = Now.UtcDateTime,
+        };
+        Assert.True(await offers.TryInsertAsync(offer, Ct).ConfigureAwait(false));
+        return offer;
     }
 
     private static ShowcaseViewer Viewer(string userId) => new(userId, InMemoryCommunityRepository.UtttId);
@@ -98,6 +140,20 @@ public sealed class WantedServiceTests
         // RN-10 sin fecha: 30 dias despues.
         Assert.Equal(Now.UtcDateTime.AddDays(30), created.ExpiresAt);
         Assert.Single(await requests.FindByRequesterAsync(me, 10, Ct));
+        // HU-19: la busqueda de coincidencias queda en la cola de M-06.
+        Assert.Equal(
+            new WantedPublished(created.Id, InMemoryCommunityRepository.UtttId, me, "Ana R.", "Calculadora Casio fx-991ES Plus", "calculadoras", 60_000),
+            Assert.Single(matching.Queued));
+    }
+
+    [Fact]
+    public async Task Create_WithOther_LooksInEveryCategory()
+    {
+        var me = await MemberAsync();
+
+        await service.CreateAsync(me, Valid(title: "Tapete de yoga", category: "otro"), Ct);
+
+        Assert.Null(Assert.Single(matching.Queued).CategorySlug);
     }
 
     [Fact]
@@ -555,5 +611,52 @@ public sealed class WantedServiceTests
         Assert.Equal(WantedErrors.NotActive, (await service.CloseAsync(me, dated.Id, Ct)).Error);
         Assert.Equal(WantedErrors.NotActive, (await service.CancelAsync(me, dated.Id, Ct)).Error);
         Assert.Equal(WantedErrors.NotActive, (await service.UpdateAsync(me, dated.Id, Edit(), Ct)).Error);
+    }
+
+    [Fact]
+    public async Task Close_TellsWhoHadAPendingOffer_Once()
+    {
+        var me = await MemberAsync();
+        var diego = await MemberAsync(name: "Diego Hernández");
+        var luis = await MemberAsync(name: "Luis Martínez");
+        var paola = await MemberAsync(name: "Paola Núñez");
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        var pending = await OfferAsync(created.Id, me, diego);
+        var rejected = await OfferAsync(created.Id, me, luis);
+        var accepted = await OfferAsync(created.Id, me, paola);
+        Assert.True(await offers.TryDecideAsync(rejected.Id, OfferStatuses.Rejected, Now.UtcDateTime, Ct));
+        Assert.True(await offers.TryDecideAsync(accepted.Id, OfferStatuses.Accepted, Now.UtcDateTime, Ct));
+
+        await service.CloseAsync(me, created.Id, Ct);
+        // Cerrarla otra vez no avisa de nuevo.
+        await service.CloseAsync(me, created.Id, Ct);
+
+        var notice = Assert.Single(center.Sent);
+        Assert.Equal(
+            new Notice(
+                diego,
+                NotificationTypes.OfferClosed,
+                "Esta solicitud ya no está activa",
+                "Ana ya consiguió Calculadora Casio fx-991ES Plus. Gracias por ofrecer.",
+                NotificationTargets.None,
+                string.Empty,
+                NotificationCategories.Requests,
+                $"offer_closed:{pending.Id}"),
+            notice);
+    }
+
+    [Fact]
+    public async Task Cancel_TellsWhoHadAPendingOffer_ThatItWasCancelled()
+    {
+        var me = await MemberAsync();
+        var diego = await MemberAsync(name: "Diego Hernández");
+        var created = (await service.CreateAsync(me, Valid(), Ct)).Value!;
+        await OfferAsync(created.Id, me, diego);
+
+        await service.CancelAsync(me, created.Id, Ct);
+
+        Assert.Equal(
+            (diego, "Ana canceló su solicitud de Calculadora Casio fx-991ES Plus. Gracias por ofrecer."),
+            (Assert.Single(center.Sent).UserId, center.Sent[0].Body));
     }
 }

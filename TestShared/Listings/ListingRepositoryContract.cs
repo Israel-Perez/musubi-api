@@ -846,4 +846,37 @@ public abstract class ListingRepositoryContract
         Assert.Equal(0, await Products.CountAmongAsync(seller, [], ProductStatuses.Sold, Ct));
         Assert.Equal(2, (await Products.FindBySellerExceptAsync(seller, [ProductStatuses.Sold], [], null, 10, Ct)).Count);
     }
+
+    [Fact]
+    public async Task MatchCandidates_AreAvailable_OfTheCampusAndCategory_UpToThePrice_AndNotFromTheExcluded()
+    {
+        // HU-19: candidatas para una solicitud "Se busca".
+        var uttt = await UtttIdAsync();
+        var seller = AuthIds.New();
+        var excluded = AuthIds.New();
+        var match = NewProduct(uttt, seller, category: "laboratorio", price: 30_000, title: "Bata de laboratorio", description: "Talla M");
+        var byDescription = NewProduct(uttt, seller, category: "laboratorio", price: 25_000, title: "Bata blanca", description: "Para laboratorios");
+        var others = new[]
+        {
+            NewProduct(uttt, seller, category: "laboratorio", price: 30_001, title: "Bata de laboratorio"),
+            NewProduct(uttt, seller, category: "ropa", price: 20_000, title: "Bata de laboratorio"),
+            NewProduct(uttt, seller, category: "laboratorio", status: ProductStatuses.Hidden, price: 20_000, title: "Bata de laboratorio"),
+            NewProduct(uttt, excluded, category: "laboratorio", price: 20_000, title: "Bata de laboratorio"),
+            NewProduct(uttt, seller, category: "laboratorio", price: 20_000, title: "Gogles de seguridad", description: "Sin rayones"),
+            NewProduct(AuthIds.New(), seller, category: "laboratorio", price: 20_000, title: "Bata de laboratorio"),
+        };
+        foreach (var product in others.Append(match).Append(byDescription))
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var found = await Products.FindMatchCandidatesAsync(
+            new ProductMatchQuery(uttt, "laboratorio", ["laboratori"], 30_000, [excluded], 10), Ct);
+        var anyCategory = await Products.FindMatchCandidatesAsync(
+            new ProductMatchQuery(uttt, null, ["bata"], 30_000, [excluded], 10), Ct);
+
+        Assert.Equal([byDescription.Id, match.Id], found.Select(p => p.Id));
+        Assert.Equal(3, anyCategory.Count);
+        Assert.Empty(await Products.FindMatchCandidatesAsync(new ProductMatchQuery(uttt, null, [], 30_000, [], 10), Ct));
+    }
 }

@@ -166,6 +166,37 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProductDocument>> FindMatchCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var byTerm = query.Terms
+            .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term))))
+            .ToList();
+        if (byTerm.Count == 0 || !ObjectId.TryParse(query.CommunityId, out _))
+        {
+            return [];
+        }
+
+        // ix_community_status_search resuelve campus, estado y palabras; lo demas filtra sobre esas.
+        var filter = Filter.Eq(p => p.CommunityId, query.CommunityId)
+            & Filter.Eq(p => p.Status, ProductStatuses.Active)
+            & Filter.Or(byTerm)
+            & Filter.Lte(p => p.PriceCents, query.MaxPriceCents);
+        if (query.CategorySlug is { } category)
+        {
+            filter &= Filter.Eq(p => p.CategorySlug, category);
+        }
+
+        var excluded = query.ExcludedSellerIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        if (excluded.Count > 0)
+        {
+            filter &= Filter.Nin(p => p.SellerId, excluded);
+        }
+
+        return await products.Find(filter).SortByDescending(p => p.Id).Limit(query.Limit).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
         string sellerId,
         IReadOnlyList<string>? statuses,

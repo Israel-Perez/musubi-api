@@ -17,6 +17,16 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Trabajo en curso — HU-19 y HU-30 (SCRUM-41, SCRUM-48)
+
+- **HU-19:** módulo nuevo `Modules/Matching/` (M-06). `WantedService.CreateAsync` encola `WantedPublished` en `IWantedMatching` (cola en memoria, como la de push) y `WantedMatchWorker` llama a `WantedMatchNotifier`: pide candidatas a M-03 (`IProductMatches`, filtro por campus, disponibles, categoría, precio, personas excluidas y prefijo de palabras) y decide con `MatchRules`. Avisa con `wanted_match` en "Coincidencias", destino `wanted_board`.
+- **HU-30:** el aviso `offer_received` ya existía (HU-31); la app ahora abre esa solicitud. Al cerrar o cancelar, `WantedService` avisa `offer_closed` (destino `none`) a cada oferta `sent`.
+- **Decisiones de la usuaria (13-Nov-2026):** compatible = misma categoría (o cualquiera con "otro"), la mitad o más de las palabras del nombre buscado y hasta 20 % sobre el presupuesto; un aviso por solicitud y persona (con su publicación más parecida); hasta 3 al día; sí avisar a quien ofreció cuando se cierra o se cancela.
+- **Por qué cola en memoria y no `outbox`:** el `outbox` (R14) sigue en diseño; si la instancia se reinicia con solicitudes en la cola, esas no avisan (la solicitud igual queda en el tablero). Se registra en la spec como límite.
+- **Límite diario:** `INotificationCenter.CountSinceAsync` cuenta los `wanted_match` desde las 00:00 del campus (UTC-6). Con dos instancias, dos solicitudes al mismo tiempo podrían dar un cuarto aviso: se acepta.
+- **Versión:** `0.5.0-alpha.27`, esquema 21 (sin script: `ix_user_id` y `ix_community_status_search` ya cubren las consultas).
+- **Verificación (13-Nov-2026):** build Release 0/0; Unit 638, Integration 171, Security 222 y Contract 22; `check_endpoints` OK (86).
+
 ## Trabajo en curso — HU-26 (SCRUM-45)
 
 - **Qué:** `GET /api/v1/orders/sales`: mis ventas completadas (`OrderResponse` con `role: seller`), con `count` y `totalCents` para la tarjeta de "Vendidos". `GET /products/mine?tab=sold` deja solo lo vendido a mano (sin las publicaciones con un pedido completado, que ya salen como venta).

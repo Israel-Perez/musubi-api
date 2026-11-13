@@ -156,6 +156,25 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProductDocument>> FindMatchCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        lock (gate)
+        {
+            IReadOnlyList<ProductDocument> found = [.. products
+                .Where(p => p.CommunityId == query.CommunityId
+                    && p.Status == ProductStatuses.Active
+                    && (query.CategorySlug is null || p.CategorySlug == query.CategorySlug)
+                    && p.PriceCents <= query.MaxPriceCents
+                    && !query.ExcludedSellerIds.Contains(p.SellerId)
+                    && p.SearchWords.Any(word => query.Terms.Any(term => word.StartsWith(term, StringComparison.Ordinal))))
+                .OrderByDescending(p => p.Id, StringComparer.Ordinal)
+                .Take(query.Limit)];
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
         string sellerId,
         IReadOnlyList<string>? statuses,

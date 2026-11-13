@@ -24,7 +24,8 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 /// modera antes de guardarlo (02-07).
 /// HU-17 (RF-21): quien busca ve las ofertas de su solicitud, abre el chat con quien ofrece, la rechaza o la
 /// acepta (la conversacion se abre y el pedido sale de ella en HU-23).
-/// NOTE (HU-30): avisar a quien busca (RF-40) y a quien ofrece cuando se elige o se rechaza su oferta.
+/// HU-30 (RF-40): cada oferta nueva le llega a quien busca ("Alguien tiene lo que buscas") y abre esa solicitud con
+/// sus ofertas; al elegir o rechazar, quien ofrece se entera.
 /// </summary>
 internal sealed class OfferService(
     IOfferRepository offers,

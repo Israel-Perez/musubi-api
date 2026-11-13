@@ -9,6 +9,8 @@ using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Matching;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.PurchaseRequests.Data;
 using Musubi.Api.Modules.Reputation;
@@ -23,11 +25,14 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 /// Publicar lo que necesito y "Mis solicitudes" (HU-13, RF-16, RF-22). Reglas: RN-09 (producto, categoria,
 /// presupuesto y cantidad obligatorios), RN-10 (vence en su fecha o a los 30 dias), RN-12 (maximo de activas) y
 /// 02-07 (el texto se modera antes de guardarlo). Tablero "Se busca" del campus (HU-15, RF-19). Editar, cerrar y
-/// cancelar (HU-14, RF-17, RF-18, RN-11): solo quien la publico y solo mientras esta activa.
-/// NOTE (HU-18): avisar a quien tenga algo parecido ("Coincide con tu ...").
+/// cancelar (HU-14, RF-17, RF-18, RN-11): solo quien la publico y solo mientras esta activa. Al publicar, M-06 avisa
+/// en segundo plano a quien tenga algo compatible (HU-19); al cerrar o cancelar, se avisa a quien tenia una oferta
+/// pendiente (HU-30).
+/// NOTE (HU-18): mostrarle a quien busca lo que ya coincide ("Ya coinciden con lo que buscas").
 /// </summary>
 internal sealed class WantedService(
     IWantedRepository requests,
+    IOfferRepository offers,
     IMemberDirectory members,
     ICategoryDirectory categories,
     IBlockDirectory blocks,
@@ -35,6 +40,8 @@ internal sealed class WantedService(
     IContentModerator moderator,
     IOutputCacheStore outputCache,
     IOptions<CatalogOptions> catalog,
+    INotificationCenter center,
+    IWantedMatching matching,
     TimeProvider time)
 {
     /// <summary>Solicitudes por pagina del tablero si no se pide otro tamano (como la vitrina).</summary>
@@ -147,6 +154,15 @@ internal sealed class WantedService(
         };
         await requests.InsertAsync(document, cancellationToken).ConfigureAwait(false);
         await EvictBoardAsync(cancellationToken).ConfigureAwait(false);
+        // HU-19: "Hay una solicitud compatible con tu producto", en segundo plano (RNF-11).
+        matching.Enqueue(new WantedPublished(
+            document.Id,
+            document.CommunityId,
+            document.RequesterId,
+            document.RequesterName,
+            document.Title,
+            document.CategorySlug == OtherCategory ? null : document.CategorySlug,
+            document.BudgetCents));
         return Result<WantedResponse>.Ok(ToResponse(document, now));
     }
 
@@ -397,8 +413,37 @@ internal sealed class WantedService(
         }
 
         await EvictBoardAsync(cancellationToken).ConfigureAwait(false);
-        // NOTE (HU-30): avisar a quienes ofrecieron que la solicitud ya no esta activa.
+        await NotifyOffersClosedAsync(changed, cancellationToken).ConfigureAwait(false);
         return Result<WantedResponse>.Ok(ToResponse(changed, now));
+    }
+
+    // HU-30: quien tenia una oferta pendiente se entera de que ya no tendra respuesta (decision de la usuaria,
+    // 13-Nov-2026). Las aceptadas ya tienen su chat y las rechazadas ya recibieron su aviso.
+    private async Task NotifyOffersClosedAsync(WantedRequestDocument request, CancellationToken cancellationToken)
+    {
+        var first = Chat.ChatService.FirstName(request.RequesterName);
+        var body = request.Status == WantedStatuses.Closed
+            ? $"{first} ya consiguió {request.Title}. Gracias por ofrecer."
+            : $"{first} canceló su solicitud de {request.Title}. Gracias por ofrecer.";
+        foreach (var offer in await offers.FindByRequestAsync(request.Id, OfferService.MaxReceived, cancellationToken).ConfigureAwait(false))
+        {
+            if (offer.Status != OfferStatuses.Sent)
+            {
+                continue;
+            }
+
+            await center.NotifyAsync(
+                new Notice(
+                    offer.SellerId,
+                    NotificationTypes.OfferClosed,
+                    "Esta solicitud ya no está activa",
+                    body,
+                    NotificationTargets.None,
+                    string.Empty,
+                    NotificationCategories.Requests,
+                    $"offer_closed:{offer.Id}"),
+                cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task<Result<WantedResponse>> WhyNotChangedAsync(string userId, string id, bool productChanged, CancellationToken cancellationToken)

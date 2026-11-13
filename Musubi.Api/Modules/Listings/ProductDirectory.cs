@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +46,33 @@ internal interface IProductDirectory
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El resumen o <c>null</c> si no existe.</returns>
     Task<ProductSummary?> FindAsync(string productId, CancellationToken cancellationToken);
+}
+
+/// <summary>Una publicacion candidata para una solicitud (HU-19).</summary>
+/// <param name="Id">Publicacion.</param>
+/// <param name="SellerId">Quien la vende.</param>
+/// <param name="Title">Nombre.</param>
+/// <param name="PriceCents">Precio.</param>
+/// <param name="Words">Palabras normalizadas de su nombre y su descripcion.</param>
+internal sealed record ProductCandidate(string Id, string SellerId, string Title, long PriceCents, IReadOnlyList<string> Words);
+
+/// <summary>Contrato de M-03 para M-06 (HU-19): las publicaciones que podrian servirle a una solicitud.</summary>
+internal interface IProductMatches
+{
+    /// <summary>Las candidatas (ver <see cref="IProductRepository.FindMatchCandidatesAsync"/>).</summary>
+    /// <param name="query">Lo que se busca.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las candidatas.</returns>
+    Task<IReadOnlyList<ProductCandidate>> FindCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de M-03.</summary>
+internal sealed class ProductMatches(IProductRepository products) : IProductMatches
+{
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProductCandidate>> FindCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken) =>
+        [.. (await products.FindMatchCandidatesAsync(query, cancellationToken).ConfigureAwait(false))
+            .Select(p => new ProductCandidate(p.Id, p.SellerId, p.Title, p.PriceCents, p.SearchWords))];
 }
 
 /// <summary>Implementacion sobre el repositorio de M-03.</summary>

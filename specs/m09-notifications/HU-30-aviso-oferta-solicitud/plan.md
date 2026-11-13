@@ -1,10 +1,9 @@
-# plan.md — HU-30 Aviso de oferta en mi solicitud (borrador)
+# HU-30 — Aviso de oferta en mi solicitud (plan, API)
 
-Se completa **al iniciar la HU**, con la skill `spec-first-writing`, siguiendo la estructura de los planes ya cerrados (por ejemplo, HU-06):
+1. **T1 — Spec:** el aviso de oferta ya existe (HU-31); decisión de la usuaria sobre el cierre. ✅
+2. **T2 — Cierre:** `offer_closed` a cada oferta pendiente al cerrar o cancelar. ✅
+3. **T3 — Pruebas y documentación.** ✅
 
-1. **Componentes:** archivos y carpetas que se crean o cambian.
-2. **Decisiones:** cada una con su porqué; incluye las decisiones pendientes de Jira listadas en `spec.md` → Límites.
-3. **Excepciones al stack** (regla de 00-01), si hacen falta.
-4. **Guardarraíles:** seguridad, límites y validaciones.
-5. **Validación:** pruebas, capturas y prueba en el celular.
-6. **Secuencia de implementación.**
+**Decisiones:**
+- **D1 · Sin destino:** la solicitud cerrada ya no se puede abrir (404 para quien no la publicó); el aviso solo informa.
+- **D2 · `dedupeKey` por oferta:** cerrar dos veces (idempotente) no repite el aviso.
