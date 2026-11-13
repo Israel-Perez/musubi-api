@@ -122,6 +122,13 @@ public sealed record OrderPaymentResponse(string Method, DateTime ChosenAt);
 /// <param name="Items">Los pedidos.</param>
 public sealed record OrderListResponse(IReadOnlyList<OrderResponse> Items);
 
+/// <summary>"Vendidos" de <c>Mis-productos</c> (HU-26): mis ventas completadas, con el numero y el total real.</summary>
+/// <param name="Items">Las ventas (cada una es un pedido con <c>role: seller</c>), de la mas nueva a la mas vieja.</param>
+/// <param name="NextCursor">Cursor de la pagina siguiente, o <c>null</c> si no hay mas.</param>
+/// <param name="Count">Cuantas ventas completadas hay en total.</param>
+/// <param name="TotalCents">Lo que suman, en centavos.</param>
+public sealed record SalesPage(IReadOnlyList<OrderResponse> Items, string? NextCursor, long Count, long TotalCents);
+
 /// <summary>Los numeros de las pestanas de "Mis pedidos" (HU-25).</summary>
 /// <param name="Active">Pendientes y confirmados.</param>
 /// <param name="Completed">Completados.</param>

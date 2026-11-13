@@ -176,4 +176,28 @@ public sealed class MyOrdersTests
         Assert.Empty(empty.Items);
         Assert.Equal((0L, new MyOrderCounts(0, 0, 0)), (empty.Total, empty.Counts));
     }
+
+    [Fact]
+    public async Task Sales_OnlyMyCompletedSales_WithTheCountAndTheRealTotal()
+    {
+        // HU-26: "Vendidos" con las ventas completadas, de la mas nueva a la mas vieja, y lo que suman.
+        var diego = AuthIds.New();
+        var first = await PlaceAsync(AuthIds.New(), OrderStatuses.Completed, seller: diego);
+        var second = await PlaceAsync(AuthIds.New(), OrderStatuses.Completed, seller: diego);
+        await PlaceAsync(AuthIds.New(), OrderStatuses.Confirmed, seller: diego);
+        await PlaceAsync(AuthIds.New(), OrderStatuses.Cancelled, seller: diego);
+        await PlaceAsync(diego, OrderStatuses.Completed);
+
+        var page = (await service.SalesAsync(diego, null, 1, Ct)).Value!;
+        var rest = (await service.SalesAsync(diego, page.NextCursor, 1, Ct)).Value!;
+
+        Assert.Equal([second.Id], page.Items.Select(o => o.Id));
+        Assert.Equal([first.Id], rest.Items.Select(o => o.Id));
+        Assert.Null(rest.NextCursor);
+        Assert.Equal((2L, 100_000L), (page.Count, page.TotalCents));
+        Assert.All(page.Items, o => Assert.Equal((OrderRoles.Seller, "Ana Sofía Ramírez"), (o.Role, o.Buyer.Name)));
+        Assert.Equal(OrdersErrors.InvalidCursor, (await service.SalesAsync(diego, "x", null, Ct)).Error);
+        var none = (await service.SalesAsync(AuthIds.New(), null, null, Ct)).Value!;
+        Assert.Equal((0L, 0L), (none.Count, none.TotalCents));
+    }
 }

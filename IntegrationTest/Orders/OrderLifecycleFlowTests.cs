@@ -170,6 +170,37 @@ public sealed class OrderLifecycleFlowTests(AuthApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task Sales_ShowTheCompletedOrder_AndSoldOnlyKeepsWhatWasMarkedByHand()
+    {
+        // HU-26: "Vendidos" = ventas completadas (con comprador, piezas, monto y fecha) + lo marcado a mano, sin
+        // repetir la publicacion que se vendio por el pedido; "Ventas" y "Compras" del Perfil las cuentan.
+        var diego = await MemberAsync();
+        var ana = await MemberAsync();
+        var product = await PublishAsync(diego, stock: 2);
+        var byHand = await PublishAsync(diego, stock: 1);
+        var order = await PaidOrderAsync(ana, product, quantity: 2);
+        await PostAsync(diego, $"/api/v1/orders/{order}/accept");
+        await PostAsync(diego, $"/api/v1/orders/{order}/handover");
+        await PostAsync(ana, $"/api/v1/orders/{order}/handover");
+        await PostAsync(diego, $"/api/v1/products/{byHand}/sold");
+
+        var sales = await AuthFlow.JsonAsync(await diego.Client.GetAsync(new Uri("/api/v1/orders/sales", UriKind.Relative), Ct));
+        var sold = await AuthFlow.JsonAsync(await diego.Client.GetAsync(new Uri("/api/v1/products/mine?tab=sold", UriKind.Relative), Ct));
+        var sellerStats = (await AuthFlow.JsonAsync(await diego.Client.GetAsync(new Uri("/api/v1/profiles/me", UriKind.Relative), Ct))).GetProperty("stats");
+        var buyerStats = (await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri("/api/v1/profiles/me", UriKind.Relative), Ct))).GetProperty("stats");
+
+        var sale = Assert.Single(sales.GetProperty("items").EnumerateArray());
+        Assert.Equal((order, "completed", "seller"), (sale.GetProperty("id").GetString(), sale.GetProperty("status").GetString(), sale.GetProperty("role").GetString()));
+        Assert.Equal((2, 100_000L), (sale.GetProperty("item").GetProperty("quantity").GetInt32(), sale.GetProperty("item").GetProperty("totalCents").GetInt64()));
+        Assert.Equal(ana.Id, sale.GetProperty("buyer").GetProperty("id").GetString());
+        Assert.Equal((1L, 100_000L), (sales.GetProperty("count").GetInt64(), sales.GetProperty("totalCents").GetInt64()));
+        Assert.Equal([byHand], Ids(sold));
+        Assert.Equal(1, sold.GetProperty("counts").GetProperty("sold").GetInt64());
+        Assert.Equal((1, 0), (sellerStats.GetProperty("sales").GetInt32(), sellerStats.GetProperty("purchases").GetInt32()));
+        Assert.Equal((0, 1), (buyerStats.GetProperty("sales").GetInt32(), buyerStats.GetProperty("purchases").GetInt32()));
+    }
+
+    [Fact]
     public async Task MyOrders_ShowMyPurchasesByTab_WithTheirCounts_ButNotMySales()
     {
         // HU-25: "Mis pedidos" de Perfil y "Ver todos" con las pestanas Activos, Completados y Cancelados.

@@ -120,3 +120,44 @@ internal sealed class ProfileRatings(IProfileRepository profiles) : IProfileRati
     public Task AddAsync(string userId, string communityId, string fullName, int stars, bool onTime, DateTime now, CancellationToken cancellationToken) =>
         profiles.AddRatingAsync(new ProfileOwner(userId, communityId, fullName), stars, onTime, now, cancellationToken);
 }
+
+/// <summary>Contrato de M-02 para M-08: contar las ventas y compras completadas (HU-26).</summary>
+internal interface IProfileTrades
+{
+    /// <summary>Suma una venta a quien vende y una compra a quien compra.</summary>
+    /// <param name="sellerId">Quien vende.</param>
+    /// <param name="sellerName">Su nombre (si aun no tiene perfil, se crea con el).</param>
+    /// <param name="buyerId">Quien compra.</param>
+    /// <param name="buyerName">Su nombre.</param>
+    /// <param name="communityId">Campus del pedido.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La tarea.</returns>
+    Task AddCompletedAsync(
+        string sellerId,
+        string sellerName,
+        string buyerId,
+        string buyerName,
+        string communityId,
+        DateTime now,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de perfiles.</summary>
+internal sealed class ProfileTrades(IProfileRepository profiles) : IProfileTrades
+{
+    /// <inheritdoc />
+    public async Task AddCompletedAsync(
+        string sellerId,
+        string sellerName,
+        string buyerId,
+        string buyerName,
+        string communityId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        await profiles.AddTradeAsync(new ProfileOwner(sellerId, communityId, sellerName), asSeller: true, now, cancellationToken).ConfigureAwait(false);
+        await profiles.AddTradeAsync(new ProfileOwner(buyerId, communityId, buyerName), asSeller: false, now, cancellationToken).ConfigureAwait(false);
+    }
+}
+

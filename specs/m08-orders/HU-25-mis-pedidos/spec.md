@@ -45,7 +45,7 @@ RNF que aplican: RNF-03 (solo lo propio).
 - [x] Build Release 0/0 · Unit 590 · Integration 167 · Security 216 · Contract 21 (100 %) · `check_endpoints` OK (83) · critic PASS.
 
 ## Límites
-- `NOTE (HU-26)`: las ventas (historial de quien vende) no salen aquí.
+- Las ventas (historial de quien vende) no salen aquí: van en `GET /orders/sales` (HU-26).
 - Sin búsqueda ni filtro por fecha; el orden es siempre del más nuevo al más viejo.
 
 ## Aprobación y Control de Cambios

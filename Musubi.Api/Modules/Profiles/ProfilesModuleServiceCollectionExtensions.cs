@@ -37,6 +37,7 @@ internal static class ProfilesModuleServiceCollectionExtensions
 
         services.AddSingleton<IProfileDirectory, ProfileDirectory>();
         services.AddSingleton<IProfileRatings, ProfileRatings>();
+        services.AddSingleton<IProfileTrades, ProfileTrades>();
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ProfilePhotoService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();

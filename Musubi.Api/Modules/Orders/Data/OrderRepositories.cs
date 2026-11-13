@@ -121,6 +121,26 @@ internal interface IOrderRepository
         int limit,
         CancellationToken cancellationToken);
 
+    /// <summary>"Vendidos" (HU-26): las ventas completadas de quien vende, de la mas nueva a la mas vieja (<c>ix_seller_id</c>).</summary>
+    /// <param name="sellerId">Quien vende (del token).</param>
+    /// <param name="beforeId">Cursor: solo las anteriores a este id, o <c>null</c>.</param>
+    /// <param name="limit">Cuantas.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los pedidos completados.</returns>
+    Task<IReadOnlyList<OrderDocument>> FindSalesAsync(string sellerId, string? beforeId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Cuantas ventas completadas tiene quien vende y su total en centavos (la tarjeta de "Vendidos").</summary>
+    /// <param name="sellerId">Quien vende.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El numero y el total.</returns>
+    Task<(long Count, long TotalCents)> SalesSummaryAsync(string sellerId, CancellationToken cancellationToken);
+
+    /// <summary>Las publicaciones de quien vende con al menos un pedido completado (HU-26).</summary>
+    /// <param name="sellerId">Quien vende.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los ids, sin repetir.</returns>
+    Task<IReadOnlyCollection<string>> SoldProductIdsAsync(string sellerId, CancellationToken cancellationToken);
+
     /// <summary>Cuantos pedidos tiene quien compra en cada estado (los numeros de las pestanas de HU-25).</summary>
     /// <param name="buyerId">Quien compra.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
@@ -326,6 +346,42 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             .SortByDescending(o => o.Id)
             .Limit(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrderDocument>> FindSalesAsync(string sellerId, string? beforeId, int limit, CancellationToken cancellationToken)
+    {
+        var filter = Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Completed);
+        if (beforeId is not null)
+        {
+            filter &= Filter.Lt("_id", ObjectId.Parse(beforeId));
+        }
+
+        return await orders.Find(filter)
+            .SortByDescending(o => o.Id)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<(long Count, long TotalCents)> SalesSummaryAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        // Un solo viaje: $match con ix_seller_id y $group con el numero y la suma.
+        var groups = await orders.Aggregate()
+            .Match(Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Completed))
+            .Group(o => o.SellerId, g => new { Count = g.LongCount(), Total = g.Sum(o => o.Item.TotalCents) })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return groups.Count == 0 ? (0, 0) : (groups[0].Count, groups[0].Total);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<string>> SoldProductIdsAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        var ids = await orders.Find(
+                Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Completed) & Filter.Ne(o => o.Item.ProductId, null))
+            .Project(o => o.Item.ProductId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return ids.OfType<string>().ToHashSet(StringComparer.Ordinal);
     }
 
     /// <inheritdoc />
@@ -548,6 +604,48 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
                 .Take(limit)
                 .ToList();
             return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OrderDocument>> FindSalesAsync(string sellerId, string? beforeId, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<OrderDocument> found = orders
+                .Where(o => string.Equals(o.SellerId, sellerId, StringComparison.Ordinal)
+                    && o.Status == OrderStatuses.Completed
+                    && (beforeId is null || string.CompareOrdinal(o.Id, beforeId) < 0))
+                .OrderByDescending(o => o.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<(long Count, long TotalCents)> SalesSummaryAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var sales = orders
+                .Where(o => string.Equals(o.SellerId, sellerId, StringComparison.Ordinal) && o.Status == OrderStatuses.Completed)
+                .ToList();
+            return Task.FromResult(((long)sales.Count, sales.Sum(o => o.Item.TotalCents)));
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyCollection<string>> SoldProductIdsAsync(string sellerId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyCollection<string> ids = orders
+                .Where(o => string.Equals(o.SellerId, sellerId, StringComparison.Ordinal) && o.Status == OrderStatuses.Completed)
+                .Select(o => o.Item.ProductId)
+                .OfType<string>()
+                .ToHashSet(StringComparer.Ordinal);
+            return Task.FromResult(ids);
         }
     }
 

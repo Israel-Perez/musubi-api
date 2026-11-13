@@ -149,6 +149,33 @@ internal sealed class InMemoryProfileRepository : IProfileRepository
     }
 
     /// <inheritdoc />
+    public Task AddTradeAsync(ProfileOwner owner, bool asSeller, DateTime now, CancellationToken cancellationToken)
+    {
+        Upsert(owner, now, p => new ProfileDocument
+        {
+            Id = p.Id,
+            CommunityId = p.CommunityId,
+            FullName = p.FullName,
+            CareerSlug = p.CareerSlug,
+            Term = p.Term,
+            AvatarKey = p.AvatarKey,
+            Visibility = p.Visibility,
+            Stats = new ProfileStats
+            {
+                RatingSum = p.Stats.RatingSum,
+                RatingCount = p.Stats.RatingCount,
+                RatingAvg = p.Stats.RatingAvg,
+                OnTimeCount = p.Stats.OnTimeCount,
+                Sales = p.Stats.Sales + (asSeller ? 1 : 0),
+                Purchases = p.Stats.Purchases + (asSeller ? 0 : 1),
+            },
+            SchemaVersion = p.SchemaVersion,
+            UpdatedAt = now,
+        });
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
     public Task<string?> SetAvatarAsync(ProfileOwner owner, string? avatarKey, DateTime now, CancellationToken cancellationToken) =>
         Task.FromResult(Upsert(owner, now, p => With(p, now, p.CareerSlug, p.Term, avatarKey, p.Visibility)).Before?.AvatarKey);
 

@@ -281,6 +281,34 @@ internal sealed class OrderService(
             counts));
     }
 
+    /// <summary>
+    /// "Vendidos" (HU-26, RF-33): mis ventas completadas, de la mas nueva a la mas vieja, con el numero y el total
+    /// real. Cada una trae el producto, quien compro, las piezas, el monto, la fecha y el estado.
+    /// </summary>
+    /// <param name="userId">Quien vende (del token).</param>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50; 20 por defecto).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina o el error.</returns>
+    public async Task<Result<SalesPage>> SalesAsync(string userId, string? cursor, int? limit, CancellationToken cancellationToken)
+    {
+        if (cursor is not null && !ObjectId.TryParse(cursor, out _))
+        {
+            return OrdersErrors.InvalidCursor;
+        }
+
+        var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
+        var fetched = await orders.FindSalesAsync(userId, cursor, size + 1, cancellationToken).ConfigureAwait(false);
+        var hasMore = fetched.Count > size;
+        var page = hasMore ? fetched.Take(size).ToList() : fetched;
+        var (count, total) = await orders.SalesSummaryAsync(userId, cancellationToken).ConfigureAwait(false);
+        return Result<SalesPage>.Ok(new SalesPage(
+            page.Select(o => ToResponse(o, userId)).ToList(),
+            hasMore ? page[^1].Id : null,
+            count,
+            total));
+    }
+
     /// <summary>Los pedidos de una conversacion propia (el aviso del chat).</summary>
     /// <param name="userId">Quien consulta (del token).</param>
     /// <param name="conversationId">La conversacion.</param>

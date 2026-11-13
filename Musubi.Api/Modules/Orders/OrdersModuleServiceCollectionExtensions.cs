@@ -55,6 +55,15 @@ internal interface IOpenOrders
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns><c>true</c> si tiene.</returns>
     Task<bool> ForConversationAsync(string conversationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Las publicaciones de quien vende que ya se vendieron por un pedido completado (HU-26): en "Vendidos" salen como
+    /// venta, no otra vez como publicacion vendida.
+    /// </summary>
+    /// <param name="sellerId">Quien vende.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los ids.</returns>
+    Task<IReadOnlyCollection<string>> SoldProductIdsAsync(string sellerId, CancellationToken cancellationToken);
 }
 
 /// <summary>Implementacion sobre el repositorio de pedidos.</summary>
@@ -68,6 +77,10 @@ internal sealed class OpenOrders(IOrderRepository orders) : IOpenOrders
     public async Task<bool> ForConversationAsync(string conversationId, CancellationToken cancellationToken) =>
         (await orders.FindByConversationAsync(conversationId, OrderService.MaxPerConversation, cancellationToken).ConfigureAwait(false))
             .Any(o => OrderStatuses.Open.Contains(o.Status));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyCollection<string>> SoldProductIdsAsync(string sellerId, CancellationToken cancellationToken) =>
+        orders.SoldProductIdsAsync(sellerId, cancellationToken);
 }
 
 /// <summary>Un punto de entrega del campus para otro modulo.</summary>
