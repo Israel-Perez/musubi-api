@@ -11,7 +11,7 @@ internal static class NotificationCategories
     /// <summary>"Solicitudes".</summary>
     public const string Requests = "requests";
 
-    /// <summary>"Coincidencias" (HU-29/30).</summary>
+    /// <summary>"Coincidencias" (HU-19 y HU-29).</summary>
     public const string Matches = "matches";
 
     /// <summary>Las tres.</summary>
@@ -56,6 +56,12 @@ internal static class NotificationTypes
 
     /// <summary>Mi solicitud vencio.</summary>
     public const string RequestExpired = "request_expired";
+
+    /// <summary>Una solicitud nueva es compatible con mi publicacion (HU-19).</summary>
+    public const string WantedMatch = "wanted_match";
+
+    /// <summary>La solicitud a la que ofreci se cerro o se cancelo (HU-30).</summary>
+    public const string OfferClosed = "offer_closed";
 }
 
 /// <summary>Lo que abre un aviso.</summary>
@@ -67,6 +73,12 @@ internal static class NotificationTargets
     /// <summary>Un pedido.</summary>
     public const string Order = "order";
 
-    /// <summary>Una solicitud "Se busca".</summary>
+    /// <summary>Mi solicitud "Se busca", con sus ofertas (HU-30).</summary>
     public const string Wanted = "wanted";
+
+    /// <summary>Una solicitud del tablero, para responder "Yo tengo este producto" (HU-19).</summary>
+    public const string WantedBoard = "wanted_board";
+
+    /// <summary>Nada que abrir (la solicitud ya no esta activa, HU-30).</summary>
+    public const string None = "none";
 }

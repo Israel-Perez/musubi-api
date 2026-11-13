@@ -36,6 +36,14 @@ internal interface INotificationRepository
     /// <returns>El numero.</returns>
     Task<long> CountUnreadAsync(string userId, CancellationToken cancellationToken);
 
+    /// <summary>Cuantos de un tipo tiene una persona desde un momento (HU-19, RN-30).</summary>
+    /// <param name="userId">Usuario.</param>
+    /// <param name="type">Tipo.</param>
+    /// <param name="since">Desde (UTC, incluido).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El numero.</returns>
+    Task<long> CountSinceAsync(string userId, string type, DateTime since, CancellationToken cancellationToken);
+
     /// <summary>Marca como leidos los suyos (uno, o todos con <paramref name="id"/> <c>null</c>).</summary>
     /// <param name="userId">Usuario.</param>
     /// <param name="id">El aviso, o <c>null</c>.</param>
@@ -127,6 +135,14 @@ internal sealed class MongoNotificationRepository(IMongoDatabase database) : INo
 
         return await notifications.Find(filter).SortByDescending(n => n.Id).Limit(limit).ToListAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public async Task<long> CountSinceAsync(string userId, string type, DateTime since, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(userId, out _)
+            ? await notifications.CountDocumentsAsync(
+                Filter.Eq(n => n.UserId, userId) & Filter.Eq(n => n.Type, type) & Filter.Gte(n => n.CreatedAt, since),
+                cancellationToken: cancellationToken).ConfigureAwait(false)
+            : 0;
 
     /// <inheritdoc />
     public async Task<long> CountUnreadAsync(string userId, CancellationToken cancellationToken) =>
@@ -250,6 +266,15 @@ internal sealed class InMemoryNotificationRepository : INotificationRepository
                 .Take(limit)
                 .ToList();
             return Task.FromResult(page);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> CountSinceAsync(string userId, string type, DateTime since, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult((long)notifications.Count(n => n.UserId == userId && n.Type == type && n.CreatedAt >= since));
         }
     }
 

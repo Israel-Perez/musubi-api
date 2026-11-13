@@ -364,7 +364,32 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Candidatas para una solicitud "Se busca" (HU-19): disponibles del campus, de la categoria (o de cualquiera),
+    /// hasta un precio, de otras personas y con al menos una palabra que empiece como algun termino. De la mas nueva
+    /// a la mas vieja.
+    /// </summary>
+    /// <param name="query">Lo que se busca.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las candidatas (hasta <see cref="ProductMatchQuery.Limit"/>).</returns>
+    Task<IReadOnlyList<ProductDocument>> FindMatchCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken);
 }
+
+/// <summary>Lo que busca una solicitud, para encontrar publicaciones compatibles (HU-19).</summary>
+/// <param name="CommunityId">Campus.</param>
+/// <param name="CategorySlug">Categoria, o <c>null</c> para cualquiera ("otro").</param>
+/// <param name="Terms">Palabras normalizadas del nombre buscado (<see cref="SearchWord.Normalize"/>).</param>
+/// <param name="MaxPriceCents">Precio maximo.</param>
+/// <param name="ExcludedSellerIds">Quien busca y las personas bloqueadas con ella (RN-31, HU-57).</param>
+/// <param name="Limit">Candidatas como maximo.</param>
+internal sealed record ProductMatchQuery(
+    string CommunityId,
+    string? CategorySlug,
+    IReadOnlyList<string> Terms,
+    long MaxPriceCents,
+    IReadOnlyCollection<string> ExcludedSellerIds,
+    int Limit);
 
 /// <summary>Favoritos de una persona (HU-53).</summary>
 internal interface IFavoriteRepository
