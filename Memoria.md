@@ -26,8 +26,14 @@
   - El perfil suma con `$inc` (`ratingSum`, `ratingCount`, `onTimeCount`) y después fija `ratingAvg = ratingSum / ratingCount` con un pipeline: dos calificaciones a la vez terminan igual.
   - M-13 usa contratos de los otros módulos: `IOrderRatingGate` (M-08) e `IProfileRatings` (M-02).
   - Al borrar una cuenta se borran las que recibió; en las que dio queda "Usuario eliminado".
-- **Versión:** `0.5.0-alpha.25`, esquema 20 (`alpha.24` es SCRUM-97, en revisión).
+- **Versión:** `0.5.0-alpha.25`, esquema 20 (va después de `alpha.24`, SCRUM-97, ya en `main`).
 - **Verificación (12-Nov-2026):** build Release 0/0; Unit 610, Integration 168, Security 220 y Contract 22; `check_endpoints` OK (85). `DatabaseTest` corre en el CI (sin Docker local).
+
+## Mantenimiento — SCRUM-97 (12-Nov-2026)
+
+- **Tope de piezas:** `ReleaseStockAsync` (Mongo con `$min` y memoria con `Math.Min`) nunca deja más de `ListingService.MaxStock` (10). Antes, con 10 puestas a mano (HU-50) y un pedido confirmado cancelado, quedaban 11. Prueba: `ReleaseStock_NeverGoesAboveTheTenPieceLimit` (TestShared).
+- **Runners fijos:** `ci-pr.yml` y `mutation.yml` usan `ubuntu-24.04` (como `infra-up`), no `ubuntu-latest`, que cambiará a Ubuntu 26.
+- Versión `0.5.0-alpha.24`, sin cambios en el esquema.
 
 ## Despliegue del 12-Nov-2026 (SCRUM-87)
 
