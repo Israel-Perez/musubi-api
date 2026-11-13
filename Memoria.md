@@ -17,6 +17,12 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Mantenimiento — SCRUM-97 (12-Nov-2026)
+
+- **Tope de piezas:** `ReleaseStockAsync` (Mongo con `$min` y memoria con `Math.Min`) nunca deja más de `ListingService.MaxStock` (10). Antes, con 10 puestas a mano (HU-50) y un pedido confirmado cancelado, quedaban 11. Prueba: `ReleaseStock_NeverGoesAboveTheTenPieceLimit` (TestShared).
+- **Runners fijos:** `ci-pr.yml` y `mutation.yml` usan `ubuntu-24.04` (como `infra-up`), no `ubuntu-latest`, que cambiará a Ubuntu 26.
+- Versión `0.5.0-alpha.24`, sin cambios en el esquema.
+
 ## Despliegue del 12-Nov-2026 (SCRUM-87)
 
 - `infra-up` con `0.5.0-alpha.23` y `db/019` (esquema 19): HU-24, SCRUM-96 (aviso del push al arrancar), dependencias de noviembre, HU-50, HU-05 y HU-25.

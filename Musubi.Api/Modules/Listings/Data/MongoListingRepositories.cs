@@ -243,7 +243,8 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
 
         var stage = new BsonDocument("$set", new BsonDocument
         {
-            { "stock", new BsonDocument("$add", new BsonArray { "$stock", quantity }) },
+            // SCRUM-97: nunca mas de las 10 piezas que admite una publicacion (HU-06, HU-50).
+            { "stock", new BsonDocument("$min", new BsonArray { new BsonDocument("$add", new BsonArray { "$stock", quantity }), ListingService.MaxStock }) },
             { "status", new BsonDocument("$cond", new BsonArray { new BsonDocument("$eq", new BsonArray { "$status", ProductStatuses.SoldOut }), ProductStatuses.Active, "$status" }) },
             { "updatedAt", new BsonDateTime(now) },
         });
