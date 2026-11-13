@@ -485,3 +485,62 @@ internal sealed class InMemoryFavoriteRepository : IFavoriteRepository
     private static bool Is(FavoriteDocument favorite, string userId, string productId) =>
         string.Equals(favorite.UserId, userId, StringComparison.Ordinal) && string.Equals(favorite.ProductId, productId, StringComparison.Ordinal);
 }
+
+/// <summary>Agregados de vistas en memoria sin identidad de visitante (HU-49).</summary>
+internal sealed class InMemoryProductStatsRepository(InMemoryProductRepository products) : IProductStatsRepository
+{
+    private readonly Lock gate = new();
+    private readonly Dictionary<(string CommunityId, string ProductId, DateTime Day), long> views = new();
+
+    public Task IncrementViewAsync(string communityId, string productId, DateTime utcDay, CancellationToken cancellationToken)
+    {
+        var key = (communityId, productId, DateTime.SpecifyKind(utcDay.Date, DateTimeKind.Utc));
+        lock (gate)
+        {
+            views[key] = views.GetValueOrDefault(key) + 1;
+        }
+        return Task.CompletedTask;
+    }
+
+    public async Task<PopularProductPageData> PopularAsync(string communityId, DateTime fromUtcDay, DateTime toUtcDay, PopularProductCursor? cursor, int limit, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<(string ProductId, long Views)> ranking;
+        lock (gate)
+        {
+            ranking = views
+                .Where(pair => pair.Key.CommunityId == communityId && pair.Key.Day >= fromUtcDay && pair.Key.Day <= toUtcDay)
+                .GroupBy(pair => pair.Key.ProductId)
+                .Select(group => (group.Key, group.Sum(pair => pair.Value)))
+                .OrderByDescending(row => row.Item2)
+                .ToList();
+        }
+
+        var found = await products.FindByIdsAsync(ranking.Select(row => row.ProductId).ToList(), cancellationToken).ConfigureAwait(false);
+        var byId = found.ToDictionary(product => product.Id, StringComparer.Ordinal);
+        var eligible = ranking
+            .Where(row => byId.TryGetValue(row.ProductId, out var product)
+                && product.CommunityId == communityId
+                && product.Status == ProductStatuses.Active)
+            .Select(row => (Product: byId[row.ProductId], Views: row.Views))
+            .OrderByDescending(row => row.Views)
+            .ThenByDescending(row => row.Product.CreatedAt)
+            .ThenBy(row => row.Product.Id, StringComparer.Ordinal)
+            .ToList();
+        var remaining = eligible
+            .Where(row => IsAfter(row, cursor))
+            .ToList();
+        var page = remaining.Take(limit + 1).ToList();
+        var hasMore = page.Count > limit;
+        if (hasMore)
+        {
+            page.RemoveAt(page.Count - 1);
+        }
+        return new PopularProductPageData(page, eligible.Count, hasMore);
+    }
+
+    private static bool IsAfter((ProductDocument Product, long Views) row, PopularProductCursor? cursor) => cursor is null
+        || row.Views < cursor.Views
+        || (row.Views == cursor.Views && row.Product.CreatedAt < cursor.CreatedAt)
+        || (row.Views == cursor.Views && row.Product.CreatedAt == cursor.CreatedAt
+            && string.CompareOrdinal(row.Product.Id, cursor.ProductId) > 0);
+}

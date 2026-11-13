@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Musubi.Api.Platform.Data;
 
@@ -471,5 +472,116 @@ internal sealed class MongoFavoriteRepository(IMongoDatabase database) : IFavori
     {
         var result = await favorites.DeleteManyAsync(f => f.UserId == userId, cancellationToken).ConfigureAwait(false);
         return result.DeletedCount;
+    }
+}
+
+/// <summary>Agregados diarios sin identificadores de visitantes (HU-49).</summary>
+internal sealed class MongoProductStatsRepository(IMongoDatabase database) : IProductStatsRepository
+{
+    private readonly IMongoCollection<ProductStatsDailyDocument> stats = database.GetCollection<ProductStatsDailyDocument>(MongoSchema.ProductStatsDaily);
+
+    public Task IncrementViewAsync(string communityId, string productId, DateTime utcDay, CancellationToken cancellationToken)
+    {
+        var day = DateTime.SpecifyKind(utcDay.Date, DateTimeKind.Utc);
+        var filter = Builders<ProductStatsDailyDocument>.Filter.Eq(x => x.CommunityId, communityId)
+            & Builders<ProductStatsDailyDocument>.Filter.Eq(x => x.ProductId, productId)
+            & Builders<ProductStatsDailyDocument>.Filter.Eq(x => x.Day, day);
+        var update = Builders<ProductStatsDailyDocument>.Update
+            .Inc(x => x.Views, 1)
+            .SetOnInsert(x => x.Id, $"{communityId}:{productId}:{day:yyyyMMdd}")
+            .SetOnInsert(x => x.CommunityId, communityId)
+            .SetOnInsert(x => x.ProductId, productId)
+            .SetOnInsert(x => x.Day, day)
+            .SetOnInsert(x => x.ExpiresAt, day.AddDays(30));
+        return stats.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    public async Task<PopularProductPageData> PopularAsync(string communityId, DateTime fromUtcDay, DateTime toUtcDay, PopularProductCursor? cursor, int limit, CancellationToken cancellationToken)
+    {
+        var communityObjectId = ObjectId.Parse(communityId);
+        var itemStages = new BsonArray();
+        if (cursor is not null)
+        {
+            var productObjectId = ObjectId.Parse(cursor.ProductId);
+            itemStages.Add(new BsonDocument("$match", new BsonDocument("$or", new BsonArray
+            {
+                new BsonDocument("views", new BsonDocument("$lt", cursor.Views)),
+                new BsonDocument
+                {
+                    { "views", cursor.Views },
+                    { "product.createdAt", new BsonDocument("$lt", cursor.CreatedAt) },
+                },
+                new BsonDocument
+                {
+                    { "views", cursor.Views },
+                    { "product.createdAt", cursor.CreatedAt },
+                    { "product._id", new BsonDocument("$gt", productObjectId) },
+                },
+            })));
+        }
+        itemStages.Add(new BsonDocument("$limit", limit + 1));
+        itemStages.Add(new BsonDocument("$project", new BsonDocument { { "product", 1 }, { "views", 1 } }));
+        var pipeline = new[]
+        {
+            new BsonDocument("$match", new BsonDocument
+            {
+                { "communityId", communityObjectId },
+                { "day", new BsonDocument { { "$gte", fromUtcDay }, { "$lte", toUtcDay } } },
+            }),
+            new BsonDocument("$group", new BsonDocument
+            {
+                { "_id", "$productId" },
+                { "views", new BsonDocument("$sum", "$views") },
+            }),
+            new BsonDocument("$lookup", new BsonDocument
+            {
+                { "from", MongoSchema.Products },
+                { "localField", "_id" },
+                { "foreignField", "_id" },
+                { "as", "product" },
+            }),
+            new BsonDocument("$unwind", "$product"),
+            new BsonDocument("$match", new BsonDocument
+            {
+                { "product.communityId", communityObjectId },
+                { "product.status", ProductStatuses.Active },
+            }),
+            new BsonDocument("$sort", new BsonDocument
+            {
+                { "views", -1 },
+                { "product.createdAt", -1 },
+                { "product._id", 1 },
+            }),
+            new BsonDocument("$facet", new BsonDocument
+            {
+                {
+                    "items", itemStages
+                },
+                { "metadata", new BsonArray { new BsonDocument("$count", "total") } },
+            }),
+        };
+        using var aggregateCursor = await stats.AggregateAsync<BsonDocument>(pipeline, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var result = await aggregateCursor.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (result is null)
+        {
+            return new PopularProductPageData([], 0, false);
+        }
+
+        var items = result["items"].AsBsonArray
+            .Select(item =>
+            {
+                var row = item.AsBsonDocument;
+                return (BsonSerializer.Deserialize<ProductDocument>(row["product"].AsBsonDocument), row["views"].ToInt64());
+            })
+            .Select(row => (Product: row.Item1, Views: row.Item2))
+            .ToList();
+        var hasMore = items.Count > limit;
+        if (hasMore)
+        {
+            items.RemoveAt(items.Count - 1);
+        }
+        var metadata = result["metadata"].AsBsonArray;
+        var total = metadata.Count == 0 ? 0 : metadata[0]["total"].ToInt64();
+        return new PopularProductPageData(items, total, hasMore);
     }
 }

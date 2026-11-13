@@ -86,6 +86,16 @@ public sealed class ProductsController : ControllerBase
                 cancellationToken).ConfigureAwait(false),
             StatusCodes.Status200OK);
 
+    /// <summary>Productos populares del campus por periodo UTC (HU-49).</summary>
+    [HttpGet("popular")]
+    [AllowAnonymous]
+    [OutputCache(PolicyName = CachingServiceCollectionExtensions.PopularPolicy)]
+    [ProducesResponseType<PopularProductPage>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Popular([FromQuery] string? period, [FromQuery] string? campus, [FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken cancellationToken) =>
+        this.Respond(await listings.PopularAsync(new ShowcaseViewer(communityId is null ? null : userId, communityId), campus, period, cursor, limit, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
     /// <summary>Mis publicaciones por pestana, con los conteos de las tres (HU-08, maqueta <c>Mis-productos</c>).</summary>
     /// <param name="tab"><c>active</c>, <c>sold</c> o <c>soldOut</c>; sin pestana, todas menos las quitadas.</param>
     /// <param name="cursor">Cursor de la pagina anterior.</param>

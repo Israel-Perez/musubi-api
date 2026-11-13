@@ -137,6 +137,29 @@ public sealed class ListingsAuthTests(ProductionApiFactory production) : IClassF
 
         Assert.Equal(HttpStatusCode.OK, showcase.StatusCode);
         Assert.Equal(HttpStatusCode.OK, categories.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(new Uri("/api/v1/products/popular?period=today", UriKind.Relative), Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Popular_UsesTheTokenCommunityAndNeverReturnsOtherCampusProducts()
+    {
+        var seller = AuthIds.New();
+        var sameCampus = await InsertAsync(seller, InMemoryCommunityRepository.UtttId, ProductStatuses.Active);
+        var otherCampus = await InsertAsync(seller, OtherCommunity, ProductStatuses.Active);
+        var stats = production.Services.GetRequiredService<IProductStatsRepository>();
+        var today = DateTime.UtcNow.Date;
+        await stats.IncrementViewAsync(InMemoryCommunityRepository.UtttId, sameCampus, today, Ct);
+        await stats.IncrementViewAsync(OtherCommunity, otherCampus, today, Ct);
+        using var member = ClientFor(AuthIds.New(), InMemoryCommunityRepository.UtttId);
+
+        var response = await member.GetAsync(new Uri($"/api/v1/products/popular?period=today&campus=ignored-other-campus&test={Guid.NewGuid():N}", UriKind.Relative), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+        var ids = json.RootElement.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("product").GetProperty("id").GetString()).ToList();
+        Assert.Contains(sameCampus, ids);
+        Assert.DoesNotContain(otherCampus, ids);
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,6 +42,7 @@ internal sealed record ShowcaseViewer(string? UserId, string? CommunityId);
 /// </summary>
 internal sealed partial class ListingService(
     IProductRepository products,
+    IProductStatsRepository productStats,
     ICategoryRepository categories,
     IMemberDirectory members,
     IMediaStorage media,
@@ -362,7 +364,11 @@ internal sealed partial class ListingService(
 
         var category = (await categories.ListActiveAsync(product.CommunityId, cancellationToken).ConfigureAwait(false))
             .FirstOrDefault(c => string.Equals(c.Slug, product.CategorySlug, StringComparison.Ordinal));
-        // NOTE (HU-49): contar la vista para "Populares".
+        if (!owner)
+        {
+            var utcDay = time.GetUtcNow().UtcDateTime.Date;
+            await productStats.IncrementViewAsync(product.CommunityId, product.Id, utcDay, cancellationToken).ConfigureAwait(false);
+        }
         return Result<ProductDetailResponse>.Ok(new ProductDetailResponse(
             product.Id,
             product.Title,
@@ -376,6 +382,70 @@ internal sealed partial class ListingService(
             product.Photos.Select(PhotoUrl).ToList(),
             userCommunityId is null ? null : new ProductSellerResponse(product.SellerId, product.Seller.Name),
             product.CreatedAt));
+    }
+
+    /// <summary>Ranking por vistas agregadas, aislado por comunidad (HU-49).</summary>
+    public async Task<Result<PopularProductPage>> PopularAsync(ShowcaseViewer viewer, string? campus, string? period, string? cursor, int? limit, CancellationToken cancellationToken)
+    {
+        if (period is not ("today" or "week"))
+        {
+            return ListingsErrors.InvalidPopularPeriod;
+        }
+        var size = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
+        PopularProductCursor? after = null;
+        if (!string.IsNullOrWhiteSpace(cursor) && !TryDecodePopularCursor(cursor, out after))
+        {
+            return ListingsErrors.InvalidCursor;
+        }
+        var communityId = viewer.CommunityId ?? await FindCampusAsync(campus, cancellationToken).ConfigureAwait(false);
+        if (communityId is null)
+        {
+            return ListingsErrors.UnknownCampus;
+        }
+        var today = time.GetUtcNow().UtcDateTime.Date;
+        var from = period == "today" ? today : today.AddDays(-6);
+        var page = await productStats.PopularAsync(communityId, from, today, after, size, cancellationToken).ConfigureAwait(false);
+        var next = page.HasMore && page.Items.Count > 0
+            ? EncodePopularCursor(new PopularProductCursor(page.Items[^1].Views, page.Items[^1].Product.CreatedAt, page.Items[^1].Product.Id))
+            : null;
+        return Result<PopularProductPage>.Ok(new PopularProductPage(
+            page.Items.Select(row => new PopularProductResponse(ToResponse(row.Product, viewer.CommunityId is not null), row.Views)).ToList(),
+            next,
+            page.Total));
+    }
+
+    private static string EncodePopularCursor(PopularProductCursor cursor)
+    {
+        var payload = string.Create(CultureInfo.InvariantCulture, $"{cursor.Views}|{cursor.CreatedAt.Ticks}|{cursor.ProductId}");
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    private static bool TryDecodePopularCursor(string value, out PopularProductCursor? cursor)
+    {
+        cursor = null;
+        var normalized = value.Replace('-', '+').Replace('_', '/');
+        normalized = normalized.PadRight(normalized.Length + ((4 - normalized.Length % 4) % 4), '=');
+        try
+        {
+            var parts = Encoding.UTF8.GetString(Convert.FromBase64String(normalized)).Split('|');
+            if (parts.Length != 3
+                || !long.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var views)
+                || views < 0
+                || !long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
+                || ticks < DateTime.MinValue.Ticks
+                || ticks > DateTime.MaxValue.Ticks
+                || !ObjectId.TryParse(parts[2], out _))
+            {
+                return false;
+            }
+
+            cursor = new PopularProductCursor(views, new DateTime(ticks, DateTimeKind.Utc), parts[2]);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     /// <summary>"Mis productos" por pestana, con los conteos de las tres (HU-08, maqueta <c>Mis-productos</c>).</summary>
