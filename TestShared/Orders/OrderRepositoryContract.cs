@@ -309,4 +309,30 @@ public abstract class OrderRepositoryContract
         Assert.Empty(await Orders.FindByBuyerAsync(AuthIds.New(), null, null, 10, Ct));
         Assert.Empty(await Orders.CountByBuyerAsync(AuthIds.New(), Ct));
     }
+
+    [Fact]
+    public async Task MarkRated_OncePerSide_OnlyACompletedOrder_OnlyItsParties()
+    {
+        // HU-27/HU-45 (RN-24): cada parte califica una vez y solo un pedido completado.
+        var buyer = AuthIds.New();
+        var seller = AuthIds.New();
+        var order = Order(buyerId: buyer, sellerId: seller, status: OrderStatuses.Completed);
+        var open = Order(buyerId: buyer, sellerId: seller, status: OrderStatuses.Confirmed);
+        await Orders.TryInsertAsync(order, Ct);
+        await Orders.TryInsertAsync(open, Ct);
+
+        Assert.False(await Orders.MarkRatedAsync(order.Id, AuthIds.New(), OrderRoles.Buyer, Now, Ct));
+        Assert.False(await Orders.MarkRatedAsync(order.Id, seller, OrderRoles.Buyer, Now, Ct));
+        Assert.False(await Orders.MarkRatedAsync(open.Id, buyer, OrderRoles.Buyer, Now, Ct));
+        Assert.True(await Orders.MarkRatedAsync(order.Id, buyer, OrderRoles.Buyer, Now, Ct));
+        Assert.False(await Orders.MarkRatedAsync(order.Id, buyer, OrderRoles.Buyer, Now.AddHours(1), Ct));
+        Assert.True(await Orders.MarkRatedAsync(order.Id, seller, OrderRoles.Seller, Now.AddHours(2), Ct));
+        Assert.False(await Orders.MarkRatedAsync("no-es-un-id", buyer, OrderRoles.Buyer, Now, Ct));
+
+        var rated = await Orders.FindByIdAsync(order.Id, Ct);
+        Assert.Equal(((DateTime?)Now, (DateTime?)Now.AddHours(2)), (rated!.Ratings!.BuyerAt, rated.Ratings.SellerAt));
+        Assert.Equal(Now + OrderRatingWindow.Length, OrderRatingWindow.Until(rated));
+        Assert.Null(OrderRatingWindow.Until(open));
+    }
 }
+

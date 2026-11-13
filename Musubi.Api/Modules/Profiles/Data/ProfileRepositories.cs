@@ -56,6 +56,17 @@ internal interface IProfileRepository
     /// <returns>El perfil guardado.</returns>
     Task<ProfileDocument> SetVisibilityAsync(ProfileOwner owner, ProfileVisibility visibility, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Suma una calificacion recibida (HU-27, HU-45) y recalcula el promedio. Crea el perfil si aun no existe.
+    /// </summary>
+    /// <param name="owner">Quien la recibe.</param>
+    /// <param name="stars">De 1 a 5.</param>
+    /// <param name="onTime">Si la marcaron "Puntual".</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La tarea.</returns>
+    Task AddRatingAsync(ProfileOwner owner, int stars, bool onTime, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Cambia o quita la foto y devuelve la llave anterior, para borrarla de S3 (R11).</summary>
     /// <param name="owner">Dueno.</param>
     /// <param name="avatarKey">Llave nueva o <c>null</c>.</param>

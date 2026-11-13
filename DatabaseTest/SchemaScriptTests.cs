@@ -48,6 +48,7 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Equal(14, await db.GetCollection<BsonDocument>(MongoSchema.MeetingPoints).CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: Ct));
         Assert.Single(meta["applied"].AsBsonArray, v => v == "018-preferencias");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "019-pedidos-estados");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "020-calificaciones");
         var preferences = await IndexesAsync(db, MongoSchema.Preferences);
         Assert.Contains(preferences, i => i["name"] == "_id_");
         Assert.Contains(await IndexesAsync(db, MongoSchema.Offers), i => i["name"] == "ux_request_seller" && i.GetValue("unique", false).ToBoolean());
@@ -454,4 +455,56 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
 
         await Assert.ThrowsAsync<MongoWriteException>(() => collection.InsertOneAsync(Notice("spam"), cancellationToken: Ct));
     }
+
+    [Fact]
+    public async Task Ratings_HaveTheirIndexes_AndRejectAnInvalidRating()
+    {
+        // 020 (HU-27/HU-45): una calificacion por pedido y por quien califica, de 1 a 5 y con chips de la lista.
+        var db = await mongo.MigratedDatabaseAsync("script_calificaciones");
+        var indexes = (await IndexesAsync(db, MongoSchema.Ratings)).ToDictionary(i => i["name"].AsString);
+
+        Assert.True(indexes["ux_order_rater"]["unique"].AsBoolean);
+        Assert.Contains("ix_rated_id", indexes.Keys);
+
+        var order = ObjectId.GenerateNewId();
+        var rater = ObjectId.GenerateNewId();
+        BsonDocument Rating(int stars, string tag, ObjectId? orderId = null) => new()
+        {
+            { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "orderId", orderId ?? ObjectId.GenerateNewId() },
+            { "raterId", rater }, { "raterName", "Ana R." }, { "ratedId", ObjectId.GenerateNewId() }, { "ratedRole", "seller" },
+            { "stars", stars }, { "tags", new BsonArray { tag } }, { "comment", "Muy puntual." },
+            { "createdAt", DateTime.UtcNow }, { "schemaVersion", 1 },
+        };
+        var ratings = db.GetCollection<BsonDocument>(MongoSchema.Ratings);
+
+        await ratings.InsertOneAsync(Rating(5, "on_time", order), cancellationToken: Ct);
+        await Assert.ThrowsAsync<MongoWriteException>(() => ratings.InsertOneAsync(Rating(4, "friendly", order), cancellationToken: Ct));
+        await Assert.ThrowsAsync<MongoWriteException>(() => ratings.InsertOneAsync(Rating(6, "on_time"), cancellationToken: Ct));
+        await Assert.ThrowsAsync<MongoWriteException>(() => ratings.InsertOneAsync(Rating(5, "barato"), cancellationToken: Ct));
+
+        // El pedido acepta quien ya califico, y el perfil la suma y "Puntual".
+        var profiles = db.GetCollection<BsonDocument>(MongoSchema.Profiles);
+        var stats = new BsonDocument
+        {
+            { "ratingAvg", 4.5 }, { "ratingCount", 2 }, { "ratingSum", 9.0 }, { "onTimeCount", 1 }, { "sales", 0 }, { "purchases", 0 },
+        };
+        await profiles.InsertOneAsync(
+            new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "fullName", "Diego Hernández" },
+                { "visibility", new BsonDocument { { "career", true }, { "sales", true }, { "online", false } } },
+                { "stats", stats }, { "schemaVersion", 1 }, { "updatedAt", DateTime.UtcNow },
+            },
+            cancellationToken: Ct);
+        stats["onTimeCount"] = -1;
+        await Assert.ThrowsAsync<MongoWriteException>(() => profiles.InsertOneAsync(
+            new BsonDocument
+            {
+                { "_id", ObjectId.GenerateNewId() }, { "communityId", ObjectId.GenerateNewId() }, { "fullName", "Diego Hernández" },
+                { "visibility", new BsonDocument { { "career", true }, { "sales", true }, { "online", false } } },
+                { "stats", stats }, { "schemaVersion", 1 }, { "updatedAt", DateTime.UtcNow },
+            },
+            cancellationToken: Ct));
+    }
 }
+

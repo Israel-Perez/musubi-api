@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -57,6 +58,10 @@ internal sealed class OrderDocument
     /// <summary>Quien ya confirmo la entrega (HU-24, RN-19), o <c>null</c> mientras nadie lo hace.</summary>
     [BsonIgnoreIfNull]
     public OrderHandover? Handover { get; init; }
+
+    /// <summary>Quien ya califico el pedido (HU-27, HU-45), o <c>null</c> mientras nadie lo hace.</summary>
+    [BsonIgnoreIfNull]
+    public OrderRatings? Ratings { get; init; }
 
     /// <summary>Quien cancelo y por que (HU-24, RN-20), o <c>null</c>.</summary>
     [BsonIgnoreIfNull]
@@ -228,6 +233,57 @@ internal sealed class OrderHandover
     /// <summary>Cuando quien vende marco "Entregue" (UTC), o <c>null</c>.</summary>
     [BsonIgnoreIfNull]
     public DateTime? SellerAt { get; init; }
+}
+
+/// <summary>Cuando califico cada parte (HU-27, HU-45): una vez por pedido (RN-24).</summary>
+internal sealed class OrderRatings
+{
+    /// <summary>Cuando quien compra califico a quien vende (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? BuyerAt { get; init; }
+
+    /// <summary>Cuando quien vende califico a quien compra (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? SellerAt { get; init; }
+}
+
+/// <summary>El plazo para calificar un pedido (decision de la usuaria del 12-Nov-2026).</summary>
+internal static class OrderRatingWindow
+{
+    /// <summary>Dias despues de completado.</summary>
+    public static readonly TimeSpan Length = TimeSpan.FromDays(7);
+
+    /// <summary>Cuando se completo el pedido, o <c>null</c> si no esta completado.</summary>
+    /// <param name="order">El pedido.</param>
+    /// <returns>La fecha (UTC).</returns>
+    public static DateTime? CompletedAt(OrderDocument order)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        if (order.Status != OrderStatuses.Completed)
+        {
+            return null;
+        }
+
+        var completed = order.History.LastOrDefault(h => h.Status == OrderStatuses.Completed);
+        return completed?.At ?? order.UpdatedAt;
+    }
+
+    /// <summary>Hasta cuando se puede calificar, o <c>null</c> si no esta completado.</summary>
+    /// <param name="order">El pedido.</param>
+    /// <returns>La fecha (UTC).</returns>
+    public static DateTime? Until(OrderDocument order) => CompletedAt(order) is { } at ? at + Length : null;
+
+    /// <summary>Si una parte ya califico.</summary>
+    /// <param name="order">El pedido.</param>
+    /// <param name="role">La parte (<see cref="OrderRoles"/>).</param>
+    /// <returns><c>true</c> si ya califico.</returns>
+    public static bool Rated(OrderDocument order, string role)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        return string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal)
+            ? order.Ratings?.SellerAt is not null
+            : order.Ratings?.BuyerAt is not null;
+    }
 }
 
 /// <summary>La cancelacion de un pedido (HU-24, RN-20).</summary>

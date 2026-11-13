@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Platform.Email;
 using Musubi.TestShared;
 
@@ -20,6 +21,9 @@ namespace ContractTest;
 public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    // HU-27: "Puntual".
+    private static readonly string[] OnTime = ["on_time"];
 
     private static async Task<JsonElement> FixtureAsync(string name)
     {
@@ -177,6 +181,64 @@ public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixt
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(Shape(await FixtureAsync("my-order-page.json")), Shape(page));
         Assert.Equal(Shape(await FixtureAsync("order.json")), Shape(page.GetProperty("items")[0]));
+    }
+
+    [Fact]
+    public async Task Rate_AndTheOpinions_MatchTheirFixtures()
+    {
+        // HU-27/HU-45: Luis califica a Ana al completarse el pedido; la calificacion y las opiniones tienen su forma.
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var (ana, anaId) = await SignedInAsync(app, emails);
+        var (luis, luisId) = await SignedInAsync(app, emails);
+        using var seller = ana;
+        using var buyer = luis;
+        var at = DateTime.UtcNow.AddHours(-1);
+        var product = AuthIds.New();
+        var order = new OrderDocument
+        {
+            Id = AuthIds.New(),
+            CommunityId = InMemoryCommunityRepository.UtttId,
+            Number = 1001,
+            BuyerId = luisId,
+            SellerId = anaId,
+            BuyerName = "Luis Martínez",
+            SellerName = "Ana Sofía Ramírez",
+            ConversationId = AuthIds.New(),
+            Item = new OrderItem
+            {
+                Source = OrderSources.Product,
+                SourceId = product,
+                ProductId = product,
+                Title = "Calculadora",
+                Photo = $"/media/products/{anaId}/{Guid.NewGuid():N}.webp",
+                PriceCents = 50_000,
+                Quantity = 1,
+                TotalCents = 50_000,
+            },
+            Delivery = new OrderDelivery { PointSlug = "biblioteca", PointName = "Biblioteca", Detail = "Planta baja", At = at },
+            Status = OrderStatuses.Completed,
+            History = [new OrderTransition { Status = OrderStatuses.Completed, At = at }],
+            CreatedAt = at,
+            UpdatedAt = at,
+        };
+        await app.Services.GetRequiredService<IOrderRepository>().TryInsertAsync(order, Ct);
+
+        var rated = await buyer.PostAsJsonAsync(
+            new Uri($"/api/v1/orders/{order.Id}/rating", UriKind.Relative),
+            new { stars = 5, tags = OnTime, comment = "Muy puntual en la biblioteca." },
+            Ct);
+        var page = await BodyAsync(await buyer.GetAsync(new Uri($"/api/v1/profiles/{anaId}/ratings", UriKind.Relative), Ct));
+        var seen = await BodyAsync(await buyer.GetAsync(new Uri($"/api/v1/orders/{order.Id}", UriKind.Relative), Ct));
+
+        Assert.Equal(HttpStatusCode.Created, rated.StatusCode);
+        Assert.Equal(Shape(await FixtureAsync("rating.json")), Shape(await BodyAsync(rated)));
+        Assert.Equal(Shape(await FixtureAsync("profile-rating-page.json")), Shape(page));
+        Assert.Equal(Shape(await FixtureAsync("profile-rating.json")), Shape(page.GetProperty("items")[0]));
+        Assert.Equal(
+            Shape(await FixtureAsync("order.json")).Where(p => !p.StartsWith("payment", StringComparison.Ordinal) && !p.StartsWith("rate", StringComparison.Ordinal)),
+            Shape(seen).Where(p => !p.StartsWith("payment", StringComparison.Ordinal) && !p.StartsWith("rate", StringComparison.Ordinal)));
+        Assert.Equal(JsonValueKind.String, seen.GetProperty("rateUntil").ValueKind);
     }
 
     [Fact]

@@ -8,6 +8,7 @@ using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Orders.Data;
+using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Auth;
 using SecurityTest.Common;
 
@@ -35,6 +36,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
         { "POST", "/api/v1/orders/" + AnyId + "/accept" },
         { "POST", "/api/v1/orders/" + AnyId + "/cancel" },
         { "POST", "/api/v1/orders/" + AnyId + "/handover" },
+        { "POST", "/api/v1/orders/" + AnyId + "/rating" },
     };
 
     private IOrderRepository Orders => production.Services.GetRequiredService<IOrderRepository>();
@@ -215,6 +217,25 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
 
         Assert.Equal([mine.Id], anas.GetProperty("items").EnumerateArray().Select(o => o.GetProperty("id").GetString()));
         Assert.Equal(0, diegos.GetProperty("total").GetInt64());
+    }
+
+    [Fact]
+    public async Task SomeoneElse_CannotRateAnOrder_AndTheBodyHasItsOwnLimit()
+    {
+        // HU-27/HU-45 (OWASP API1): quien califica sale del token; un pedido ajeno responde como inexistente.
+        var order = await OrderAsync(await MemberAsync(), await MemberAsync());
+        using var outsider = ClientFor(await MemberAsync());
+        using var rate = Request("POST", $"/api/v1/orders/{order.Id}/rating", new { stars = 1 });
+
+        var response = await outsider.SendAsync(rate, Ct);
+        var limit = typeof(RatingsController).GetMethod(nameof(RatingsController.Rate))!
+            .GetCustomAttributes(typeof(RequestSizeLimitAttribute), inherit: false);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("orders.not_found", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Null((await Orders.FindByIdAsync(order.Id, Ct))!.Ratings);
+        Assert.Single(limit);
+        Assert.Equal(4 * 1024, RatingsController.MaxBodyBytes);
     }
 
     [Fact]

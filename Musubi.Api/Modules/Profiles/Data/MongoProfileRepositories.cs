@@ -68,6 +68,35 @@ internal sealed class MongoProfileRepository(IMongoDatabase database) : IProfile
     }
 
     /// <inheritdoc />
+    public async Task AddRatingAsync(ProfileOwner owner, int stars, bool onTime, DateTime now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        // $inc por campo (no SetOnInsert de stats completo: chocarian las rutas); el resto, como Defaults.
+        var add = Update.Combine(
+            Update.Inc("stats.ratingSum", (double)stars),
+            Update.Inc("stats.ratingCount", 1),
+            Update.Inc("stats.onTimeCount", onTime ? 1 : 0),
+            Update.SetOnInsert("stats.sales", 0),
+            Update.SetOnInsert("stats.purchases", 0),
+            Update.SetOnInsert(p => p.Visibility, new ProfileVisibility()),
+            Update.Set(p => p.UpdatedAt, now),
+            Update.SetOnInsert(p => p.CommunityId, owner.CommunityId),
+            Update.SetOnInsert(p => p.FullName, owner.FullName),
+            Update.SetOnInsert(p => p.SchemaVersion, 1));
+        var mine = Builders<ProfileDocument>.Filter.Eq(p => p.Id, owner.UserId);
+        await profiles.UpdateOneAsync(mine, add, new UpdateOptions { IsUpsert = true }, cancellationToken).ConfigureAwait(false);
+
+        // El promedio sale de la suma y el numero ya guardados: dos calificaciones a la vez terminan igual.
+        var average = new BsonDocument("$set", new BsonDocument(
+            "stats.ratingAvg",
+            new BsonDocument("$divide", new BsonArray { "$stats.ratingSum", "$stats.ratingCount" })));
+        await profiles.UpdateOneAsync(
+            mine,
+            new PipelineUpdateDefinition<ProfileDocument>(new BsonDocumentStagePipelineDefinition<ProfileDocument, ProfileDocument>([average])),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<string?> SetAvatarAsync(ProfileOwner owner, string? avatarKey, DateTime now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(owner);

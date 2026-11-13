@@ -36,6 +36,7 @@ internal static class ProfilesModuleServiceCollectionExtensions
             : new MongoPreferenceRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddSingleton<IProfileDirectory, ProfileDirectory>();
+        services.AddSingleton<IProfileRatings, ProfileRatings>();
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ProfilePhotoService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();

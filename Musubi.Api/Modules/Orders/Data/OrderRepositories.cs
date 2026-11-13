@@ -95,6 +95,18 @@ internal interface IOrderRepository
     /// <returns>Los pedidos.</returns>
     Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Marca que una parte califico un pedido completado (HU-27, HU-45). Atomico: si ya califico, o el pedido no esta
+    /// completado o no es suyo, no cambia nada (RN-24).
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="userId">Quien califica.</param>
+    /// <param name="role">Su parte (<see cref="OrderRoles"/>).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si se marco.</returns>
+    Task<bool> MarkRatedAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>"Mis pedidos" (HU-25): los de quien compra, del mas nuevo al mas viejo (indice <c>ix_buyer_id</c>).</summary>
     /// <param name="buyerId">Quien compra (del token).</param>
     /// <param name="statuses">Los estados de la pestana, o <c>null</c> para todos.</param>
@@ -274,6 +286,22 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             ? await orders.Find((Filter.Eq(o => o.BuyerId, userId) | Filter.Eq(o => o.SellerId, userId)) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed))
                 .ToListAsync(cancellationToken).ConfigureAwait(false)
             : [];
+
+    /// <inheritdoc />
+    public async Task<bool> MarkRatedAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _) || !ObjectId.TryParse(userId, out _))
+        {
+            return false;
+        }
+
+        var field = string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal) ? "ratings.sellerAt" : "ratings.buyerAt";
+        var result = await orders.UpdateOneAsync(
+            Filter.Eq(o => o.Id, id) & Party(userId, role) & Filter.Eq(o => o.Status, OrderStatuses.Completed) & Filter.Exists(field, exists: false),
+            Builders<OrderDocument>.Update.Set(field, now),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount == 1;
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrderDocument>> FindByBuyerAsync(
@@ -495,6 +523,14 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
     }
 
     /// <inheritdoc />
+    public Task<bool> MarkRatedAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => Is(o, id) && IsParty(o, userId, role) && o.Status == OrderStatuses.Completed && !OrderRatingWindow.Rated(o, role),
+            o => Copy(o, ratings: string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal)
+                ? new OrderRatings { BuyerAt = o.Ratings?.BuyerAt, SellerAt = now }
+                : new OrderRatings { BuyerAt = now, SellerAt = o.Ratings?.SellerAt })) is not null);
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<OrderDocument>> FindByBuyerAsync(
         string buyerId,
         IReadOnlyList<string>? statuses,
@@ -603,7 +639,8 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
         string? buyerName = null,
         string? sellerName = null,
         OrderHandover? handover = null,
-        OrderCancellation? cancellation = null) => new()
+        OrderCancellation? cancellation = null,
+        OrderRatings? ratings = null) => new()
         {
             Id = o.Id,
             CommunityId = o.CommunityId,
@@ -617,6 +654,7 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
             Delivery = o.Delivery,
             Payment = payment ?? o.Payment,
             Handover = handover ?? o.Handover,
+            Ratings = ratings ?? o.Ratings,
             Cancellation = cancellation ?? o.Cancellation,
             Status = status ?? o.Status,
             History = transition is null ? o.History : [.. o.History, transition],

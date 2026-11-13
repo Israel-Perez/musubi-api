@@ -118,6 +118,13 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `reports.target_not_found` | 404 | No encontramos lo que quieres reportar. | HU-28 (persona, publicación o conversación inexistente, de otro campus o ajena: no revela cuál) |
 | `blocks.self` | 400 | No puedes bloquearte a ti mismo. | HU-57 |
 | `blocks.user_not_found` | 404 | No encontramos a esta persona. | HU-57 (inexistente o de otro campus: no revela cuál) |
+| `ratings.invalid_stars` | 400 | Elige de 1 a 5 estrellas. | HU-27/HU-45 (RN-25) |
+| `ratings.invalid_tags` | 400 | Elige solo lo que aparece en la lista. | HU-27/HU-45 (un chip que no es de la lista de quien recibe la calificación) |
+| `ratings.invalid_comment` | 400 | El comentario puede tener hasta 280 caracteres. | HU-27/HU-45 |
+| `ratings.not_completed` | 409 | Podrás calificar cuando los dos confirmen la entrega. | HU-27/HU-45 (RN-24: solo un pedido completado) |
+| `ratings.expired` | 409 | Ya pasaron 7 días desde la entrega: este pedido ya no se puede calificar. | HU-27/HU-45 (decisión de la usuaria del 12-Nov-2026) |
+| `ratings.already_rated` | 409 | Ya calificaste este pedido. | HU-27/HU-45 (una vez por pedido y por parte, RN-24) |
+| `ratings.invalid_cursor` | 400 | No pudimos cargar más opiniones. Actualiza la lista. | HU-27 ("Opiniones" con un cursor que no es de la lista) |
 | `wanted.invalid_title` | 400 | Escribe qué buscas, de 3 a 80 caracteres. | HU-13 (RN-09) |
 | `wanted.invalid_category` | 400 | Elige una categoría. | HU-13 (RN-09; slug del campus u "otro") |
 | `wanted.invalid_description` | 400 | La descripción puede tener hasta 300 caracteres. | HU-13 |

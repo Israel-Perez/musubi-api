@@ -43,5 +43,7 @@
     "reason": "changed_mind",
     "at": "2026-11-10T18:10:00Z"
   },
-  "updatedAt": "2026-11-10T18:10:00Z"
+  "updatedAt": "2026-11-10T18:10:00Z",
+  "ratedByMe": false,
+  "rateUntil": null
 }

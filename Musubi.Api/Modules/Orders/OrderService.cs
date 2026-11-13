@@ -347,11 +347,17 @@ internal sealed class OrderService(
     /// <param name="order">El pedido.</param>
     /// <param name="userId">Quien consulta.</param>
     /// <returns>La respuesta.</returns>
-    internal static OrderResponse ToResponse(OrderDocument order, string userId) => new(
+    internal static OrderResponse ToResponse(OrderDocument order, string userId)
+    {
+        var role = string.Equals(order.BuyerId, userId, StringComparison.Ordinal) ? OrderRoles.Buyer : OrderRoles.Seller;
+        return Build(order, role);
+    }
+
+    private static OrderResponse Build(OrderDocument order, string role) => new(
         order.Id,
         OrderNumbers.Display(order.Number),
         order.Status,
-        string.Equals(order.BuyerId, userId, StringComparison.Ordinal) ? OrderRoles.Buyer : OrderRoles.Seller,
+        role,
         order.ConversationId,
         new OrderItemResponse(
             order.Item.Source,
@@ -370,7 +376,9 @@ internal sealed class OrderService(
         order.CreatedAt,
         new OrderHandoverResponse(order.Handover?.BuyerAt, order.Handover?.SellerAt),
         order.Cancellation is null ? null : new OrderCancellationResponse(order.Cancellation.By, order.Cancellation.Reason, order.Cancellation.At),
-        order.UpdatedAt);
+        order.UpdatedAt,
+        OrderRatingWindow.Rated(order, role),
+        OrderRatingWindow.Until(order));
 
     private static bool IsParty(string buyerId, string sellerId, string userId) =>
         string.Equals(buyerId, userId, StringComparison.Ordinal) || string.Equals(sellerId, userId, StringComparison.Ordinal);

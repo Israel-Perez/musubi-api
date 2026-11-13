@@ -74,7 +74,8 @@ public sealed record MyProfileResponse(
 /// <param name="RatingAvg">Promedio o <c>null</c>.</param>
 /// <param name="RatingCount">Calificaciones.</param>
 /// <param name="Sales">Ventas, o <c>null</c> si las oculta.</param>
-public sealed record PublicStatsResponse(double? RatingAvg, int RatingCount, int? Sales);
+/// <param name="OnTime">"A tiempo" de <c>Perfil-vendedor</c>: porcentaje (0 a 100) de calificaciones con "Puntual", o <c>null</c> sin calificaciones (HU-27).</param>
+public sealed record PublicStatsResponse(double? RatingAvg, int RatingCount, int? Sales, int? OnTime);
 
 /// <summary>Perfil de otra persona del campus (NOTE (HU-27): reputacion y opiniones).</summary>
 /// <param name="Id">Id del usuario.</param>

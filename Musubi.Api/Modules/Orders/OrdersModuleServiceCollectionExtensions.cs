@@ -32,6 +32,7 @@ internal static class OrdersModuleServiceCollectionExtensions
         services.AddSingleton<OrderService>();
         services.AddSingleton<OrderLifecycleService>();
         services.AddSingleton<IOpenOrders, OpenOrders>();
+        services.AddSingleton<IOrderRatingGate, OrderRatingGate>();
         services.AddSingleton<IMeetingPointDirectory, MeetingPointDirectory>();
         services.AddSingleton<IAccountDataEraser, OrderAccountEraser>();
     }

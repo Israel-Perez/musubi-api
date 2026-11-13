@@ -30,6 +30,7 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
         { "PUT", "/api/v1/profiles/me/photo" },
         { "DELETE", "/api/v1/profiles/me/photo" },
         { "GET", "/api/v1/profiles/6716a0000000000000000001" },
+        { "GET", "/api/v1/profiles/6716a0000000000000000001/ratings" },
         { "GET", "/api/v1/careers" },
         { "POST", "/api/v1/auth/password/change" },
     };
@@ -63,6 +64,12 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
         Assert.Equal("profiles.not_found", await CodeAsync(outside));
         Assert.Equal("profiles.not_found", await CodeAsync(missing));
+
+        // HU-27/HU-45: las opiniones siguen la misma regla que el perfil.
+        var opinionsInside = await sameCampus.GetAsync(new Uri($"/api/v1/profiles/{member}/ratings", UriKind.Relative), Ct);
+        var opinionsOutside = await otherCampus.GetAsync(new Uri($"/api/v1/profiles/{member}/ratings", UriKind.Relative), Ct);
+        Assert.Equal(HttpStatusCode.OK, opinionsInside.StatusCode);
+        Assert.Equal("profiles.not_found", await CodeAsync(opinionsOutside));
     }
 
     private static async Task<string?> CodeAsync(HttpResponseMessage response)

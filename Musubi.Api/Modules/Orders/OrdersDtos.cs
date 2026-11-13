@@ -43,6 +43,8 @@ public sealed record SetPaymentRequest(string? Method);
 /// <param name="Handover">Quien ya confirmo la entrega (HU-24, RN-19).</param>
 /// <param name="Cancellation">Quien cancelo y por que (HU-24, RN-20), o <c>null</c>.</param>
 /// <param name="UpdatedAt">Ultimo cambio (UTC).</param>
+/// <param name="RatedByMe">Quien consulta ya califico el pedido (HU-27, HU-45).</param>
+/// <param name="RateUntil">Hasta cuando se puede calificar (7 dias despues de completado), o <c>null</c> si no esta completado.</param>
 public sealed record OrderResponse(
     string Id,
     string Number,
@@ -58,7 +60,9 @@ public sealed record OrderResponse(
     DateTime CreatedAt,
     OrderHandoverResponse Handover,
     OrderCancellationResponse? Cancellation,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    bool RatedByMe,
+    DateTime? RateUntil);
 
 /// <summary>"Rechazar" o "Cancelar pedido" (HU-24, RN-20).</summary>
 /// <param name="Reason">
