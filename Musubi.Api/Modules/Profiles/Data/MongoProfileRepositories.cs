@@ -97,6 +97,27 @@ internal sealed class MongoProfileRepository(IMongoDatabase database) : IProfile
     }
 
     /// <inheritdoc />
+    public Task AddTradeAsync(ProfileOwner owner, bool asSeller, DateTime now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        // $inc del contador y $setOnInsert del resto de stats por campo (no chocan las rutas), como AddRatingAsync.
+        var update = Update.Combine(
+            Update.Inc(asSeller ? "stats.sales" : "stats.purchases", 1),
+            Update.SetOnInsert(asSeller ? "stats.purchases" : "stats.sales", 0),
+            Update.SetOnInsert("stats.ratingCount", 0),
+            Update.SetOnInsert(p => p.Visibility, new ProfileVisibility()),
+            Update.Set(p => p.UpdatedAt, now),
+            Update.SetOnInsert(p => p.CommunityId, owner.CommunityId),
+            Update.SetOnInsert(p => p.FullName, owner.FullName),
+            Update.SetOnInsert(p => p.SchemaVersion, 1));
+        return profiles.UpdateOneAsync(
+            Builders<ProfileDocument>.Filter.Eq(p => p.Id, owner.UserId),
+            update,
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<string?> SetAvatarAsync(ProfileOwner owner, string? avatarKey, DateTime now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(owner);

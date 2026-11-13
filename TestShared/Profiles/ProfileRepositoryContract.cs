@@ -156,5 +156,19 @@ public abstract class ProfileRepositoryContract
         Assert.Equal((2, 9.0, 4.5, 1), (profile!.Stats.RatingCount, profile.Stats.RatingSum, profile.Stats.RatingAvg, profile.Stats.OnTimeCount));
         Assert.Equal((owner.FullName, true, 0), (profile.FullName, profile.Visibility.Career, profile.Stats.Sales));
     }
-}
 
+    [Fact]
+    public async Task AddTrade_CountsSalesAndPurchases_AndCreatesTheProfileIfNeeded()
+    {
+        // HU-26: "Ventas" y "Compras" del Perfil.
+        var owner = NewOwner();
+
+        await Profiles.AddTradeAsync(owner, asSeller: true, Now, Ct);
+        await Profiles.AddTradeAsync(owner, asSeller: true, Now, Ct);
+        await Profiles.AddTradeAsync(owner, asSeller: false, Now, Ct);
+        var profile = await Profiles.FindAsync(owner.UserId, Ct);
+
+        Assert.Equal((2, 1, 0), (profile!.Stats.Sales, profile.Stats.Purchases, profile.Stats.RatingCount));
+        Assert.Equal(owner.FullName, profile.FullName);
+    }
+}

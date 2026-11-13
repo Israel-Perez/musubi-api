@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Data;
@@ -47,6 +48,7 @@ internal sealed partial class ListingService(
     IBlockDirectory blocks,
     IOutputCacheStore outputCache,
     IOptions<CatalogOptions> catalog,
+    IOpenOrders orders,
     TimeProvider time)
 {
     /// <summary>Fotos por publicacion (maqueta: "Puedes subir hasta 8").</summary>
@@ -397,19 +399,25 @@ internal sealed partial class ListingService(
         }
 
         var size = Math.Clamp(limit ?? MaxPageSize, 1, MaxPageSize);
+        // HU-26: las vendidas por un pedido completado ya salen como venta en "Vendidos" (GET /orders/sales).
+        var soldByOrder = await orders.SoldProductIdsAsync(userId, cancellationToken).ConfigureAwait(false);
+        var onlySold = statuses is [ProductStatuses.Sold];
         // Se pide una de mas para saber si hay otra pagina: si la ultima llega justo llena, no se da un cursor
         // que lleve a una pagina vacia (revision del PR #61).
-        var fetched = await products.FindBySellerAsync(userId, statuses, cursor, size + 1, cancellationToken).ConfigureAwait(false);
+        var fetched = onlySold
+            ? await products.FindBySellerExceptAsync(userId, statuses!, soldByOrder, cursor, size + 1, cancellationToken).ConfigureAwait(false)
+            : await products.FindBySellerAsync(userId, statuses, cursor, size + 1, cancellationToken).ConfigureAwait(false);
         var hasMore = fetched.Count > size;
         var page = hasMore ? fetched.Take(size).ToList() : fetched;
         var byStatus = await products.CountBySellerAsync(userId, cancellationToken).ConfigureAwait(false);
-        long Count(string status) => byStatus.TryGetValue(status, out var n) ? n : 0;
+        var soldByOrderCount = await products.CountAmongAsync(userId, soldByOrder, ProductStatuses.Sold, cancellationToken).ConfigureAwait(false);
+        long Count(string status) =>
+            (byStatus.TryGetValue(status, out var n) ? n : 0) - (status == ProductStatuses.Sold ? soldByOrderCount : 0);
         var counts = new MyProductCounts(
             Count(ProductStatuses.Active) + Count(ProductStatuses.Hidden),
             Count(ProductStatuses.Sold),
             Count(ProductStatuses.SoldOut));
         var total = statuses is null ? byStatus.Values.Sum() : statuses.Sum(Count);
-        // NOTE (HU-25): en Vendidos, el comprador y el monto real llegan con el pedido; hoy se muestra el precio publicado.
         return Result<MyProductPage>.Ok(new MyProductPage(
             page.Select(p => ToResponse(p, includeSeller: true)).ToList(),
             hasMore ? page[^1].Id : null,

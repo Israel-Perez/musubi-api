@@ -5,6 +5,8 @@ using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Orders.Data;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Modules.Reputation.Data;
 using Musubi.TestShared;
@@ -28,6 +30,7 @@ public sealed class OrderLifecycleTests
     private readonly InMemoryProductRepository products = new();
     private readonly InMemoryOrderRepository orders = new();
     private readonly InMemoryBlockRepository blocks = new();
+    private readonly InMemoryProfileRepository profiles = new();
     private readonly RecordingNotificationCenter center = new();
     private readonly RecordingOutputCacheStore cache = new();
     private readonly ManualTimeProvider time = new(Now);
@@ -44,6 +47,7 @@ public sealed class OrderLifecycleTests
             new BlockDirectory(blocks),
             new MemberDirectory(new InMemoryCommunityRepository(), users),
             center,
+            new ProfileTrades(profiles),
             time);
     }
 
@@ -333,6 +337,11 @@ public sealed class OrderLifecycleTests
             [(ana, NotificationTypes.OrderHandover), (diego, NotificationTypes.OrderCompleted)],
             center.Sent.Select(n => (n.UserId, n.Type)));
         Assert.Equal("Diego marcó el pedido #MS-1001 como entregado. Confírmalo cuando lo tengas.", center.Sent[0].Body);
+
+        // HU-26: una venta para Diego y una compra para Ana, una sola vez aunque se repita la confirmacion.
+        await service.ConfirmHandoverAsync(ana, order, Ct);
+        Assert.Equal((1, 0), ((await profiles.FindAsync(diego, Ct))!.Stats.Sales, (await profiles.FindAsync(diego, Ct))!.Stats.Purchases));
+        Assert.Equal((0, 1), ((await profiles.FindAsync(ana, Ct))!.Stats.Sales, (await profiles.FindAsync(ana, Ct))!.Stats.Purchases));
     }
 
     [Fact]

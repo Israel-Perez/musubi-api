@@ -187,6 +187,46 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProductDocument>> FindBySellerExceptAsync(
+        string sellerId,
+        IReadOnlyList<string> statuses,
+        IReadOnlyCollection<string> excludedIds,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(excludedIds);
+        var filter = Filter.Eq(p => p.SellerId, sellerId) & Filter.In(p => p.Status, statuses);
+        var excluded = excludedIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        if (excluded.Count > 0)
+        {
+            filter &= Filter.Nin(p => p.Id, excluded);
+        }
+
+        if (beforeId is not null)
+        {
+            filter &= Filter.Lt("_id", ObjectId.Parse(beforeId));
+        }
+
+        return await products.Find(filter)
+            .SortByDescending(p => p.Id)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<long> CountAmongAsync(string sellerId, IReadOnlyCollection<string> ids, string status, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var valid = ids.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        return valid.Count == 0
+            ? 0
+            : await products.CountDocumentsAsync(
+                Filter.Eq(p => p.SellerId, sellerId) & Filter.In(p => p.Id, valid) & Filter.Eq(p => p.Status, status),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyDictionary<string, long>> CountBySellerAsync(string sellerId, CancellationToken cancellationToken)
     {
         // Un solo viaje: $match con ix_seller_id y $group por estado.

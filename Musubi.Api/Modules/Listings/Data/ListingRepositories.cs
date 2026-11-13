@@ -235,6 +235,33 @@ internal interface IProductRepository
         int limit,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Como <see cref="FindBySellerAsync"/> pero sin <paramref name="excludedIds"/> (HU-26: en "Vendidos" no se repiten
+    /// las que ya salen como venta).
+    /// </summary>
+    /// <param name="sellerId">Vendedor.</param>
+    /// <param name="statuses">Solo estos estados.</param>
+    /// <param name="excludedIds">Las que no se incluyen.</param>
+    /// <param name="beforeId">Cursor, o <c>null</c>.</param>
+    /// <param name="limit">Maximo de resultados.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las publicaciones.</returns>
+    Task<IReadOnlyList<ProductDocument>> FindBySellerExceptAsync(
+        string sellerId,
+        IReadOnlyList<string> statuses,
+        IReadOnlyCollection<string> excludedIds,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>Cuantas de <paramref name="ids"/> son del vendedor y estan en <paramref name="status"/> (HU-26).</summary>
+    /// <param name="sellerId">Vendedor.</param>
+    /// <param name="ids">Las publicaciones.</param>
+    /// <param name="status">El estado.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantas.</returns>
+    Task<long> CountAmongAsync(string sellerId, IReadOnlyCollection<string> ids, string status, CancellationToken cancellationToken);
+
     /// <summary>Cuantas publicaciones tiene el vendedor en cada estado (sin las quitadas), en una sola consulta (HU-08).</summary>
     /// <param name="sellerId">Vendedor.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

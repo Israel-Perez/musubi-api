@@ -177,6 +177,42 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProductDocument>> FindBySellerExceptAsync(
+        string sellerId,
+        IReadOnlyList<string> statuses,
+        IReadOnlyCollection<string> excludedIds,
+        string? beforeId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(excludedIds);
+        lock (gate)
+        {
+            var mine = products
+                .Where(p => string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)
+                    && statuses.Contains(p.Status)
+                    && !excludedIds.Contains(p.Id, StringComparer.Ordinal)
+                    && (beforeId is null || string.CompareOrdinal(p.Id, beforeId) < 0))
+                .OrderByDescending(p => p.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<ProductDocument>>(mine);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> CountAmongAsync(string sellerId, IReadOnlyCollection<string> ids, string status, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        lock (gate)
+        {
+            return Task.FromResult((long)products.Count(p => string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)
+                && ids.Contains(p.Id, StringComparer.Ordinal)
+                && p.Status == status));
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyDictionary<string, long>> CountBySellerAsync(string sellerId, CancellationToken cancellationToken)
     {
         lock (gate)

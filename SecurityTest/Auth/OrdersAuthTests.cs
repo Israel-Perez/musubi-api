@@ -29,6 +29,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     {
         { "GET", "/api/v1/orders/meeting-points" },
         { "GET", "/api/v1/orders/mine" },
+        { "GET", "/api/v1/orders/sales" },
         { "POST", "/api/v1/orders" },
         { "GET", "/api/v1/orders?conversationId=" + AnyId },
         { "GET", "/api/v1/orders/" + AnyId },
@@ -189,6 +190,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     [InlineData("GET", "/api/v1/orders", HttpStatusCode.BadRequest)]
     [InlineData("GET", "/api/v1/orders/mine?cursor=no-es-un-id", HttpStatusCode.BadRequest)]
     [InlineData("GET", "/api/v1/orders/mine?tab=pending", HttpStatusCode.BadRequest)]
+    [InlineData("GET", "/api/v1/orders/sales?cursor=no-es-un-id", HttpStatusCode.BadRequest)]
     public async Task AnIdThatIsNotAnObjectId_IsRejected(string method, string path, HttpStatusCode status)
     {
         using var member = ClientFor(await MemberAsync());

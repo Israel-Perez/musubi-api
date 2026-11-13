@@ -82,6 +82,17 @@ public sealed class OrdersController : ControllerBase
         CancellationToken cancellationToken) =>
         this.Respond(await orders.MineAsync(userId, tab, cursor, limit, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
+    /// <summary>"Vendidos" (HU-26): mis ventas completadas, con el numero y el total.</summary>
+    /// <param name="cursor">Cursor de la pagina anterior.</param>
+    /// <param name="limit">Tamano de pagina (1 a 50; 20 por defecto).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La pagina.</returns>
+    [HttpGet("sales")]
+    [ProducesResponseType<SalesPage>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Sales([FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken cancellationToken) =>
+        this.Respond(await orders.SalesAsync(userId, cursor, limit, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
     /// <summary>"Tu pedido": solo lo ven quien compra y quien vende.</summary>
     /// <param name="id">El pedido.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

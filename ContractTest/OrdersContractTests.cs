@@ -184,7 +184,7 @@ public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task Rate_AndTheOpinions_MatchTheirFixtures()
+    public async Task Rate_TheOpinions_AndTheSales_MatchTheirFixtures()
     {
         // HU-27/HU-45: Luis califica a Ana al completarse el pedido; la calificacion y las opiniones tienen su forma.
         var emails = new RecordingEmailSender();
@@ -229,6 +229,8 @@ public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixt
             new { stars = 5, tags = OnTime, comment = "Muy puntual en la biblioteca." },
             Ct);
         var page = await BodyAsync(await buyer.GetAsync(new Uri($"/api/v1/profiles/{anaId}/ratings", UriKind.Relative), Ct));
+        // HU-26: "Vendidos" de Ana trae la venta con la forma de order.json.
+        var sales = await BodyAsync(await seller.GetAsync(new Uri("/api/v1/orders/sales", UriKind.Relative), Ct));
         var seen = await BodyAsync(await buyer.GetAsync(new Uri($"/api/v1/orders/{order.Id}", UriKind.Relative), Ct));
 
         Assert.Equal(HttpStatusCode.Created, rated.StatusCode);
@@ -239,6 +241,10 @@ public sealed class OrdersContractTests(ContractApiFactory factory) : IClassFixt
             Shape(await FixtureAsync("order.json")).Where(p => !p.StartsWith("payment", StringComparison.Ordinal) && !p.StartsWith("rate", StringComparison.Ordinal)),
             Shape(seen).Where(p => !p.StartsWith("payment", StringComparison.Ordinal) && !p.StartsWith("rate", StringComparison.Ordinal)));
         Assert.Equal(JsonValueKind.String, seen.GetProperty("rateUntil").ValueKind);
+        Assert.Equal(Shape(await FixtureAsync("sales-page.json")), Shape(sales));
+        Assert.Equal(
+            Shape(await FixtureAsync("order.json")).Where(p => !p.StartsWith("payment", StringComparison.Ordinal) && !p.StartsWith("rate", StringComparison.Ordinal)),
+            Shape(sales.GetProperty("items")[0]).Where(p => !p.StartsWith("payment", StringComparison.Ordinal) && !p.StartsWith("rate", StringComparison.Ordinal)));
     }
 
     [Fact]

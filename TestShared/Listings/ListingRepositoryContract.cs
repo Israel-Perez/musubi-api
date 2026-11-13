@@ -824,4 +824,26 @@ public abstract class ListingRepositoryContract
     }
 
     private static (int Stock, string Status) Pair(ProductDocument? p) => (p!.Stock, p.Status);
+
+    [Fact]
+    public async Task SoldExcept_LeavesOutTheGivenIds_AndCountAmongCountsOnlyThatStatus()
+    {
+        // HU-26: "Vendidos" no repite las que ya salen como venta.
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var byOrder = NewProduct(community, seller, status: ProductStatuses.Sold);
+        var byHand = NewProduct(community, seller, status: ProductStatuses.Sold);
+        var active = NewProduct(community, seller);
+        foreach (var p in new[] { byOrder, byHand, active })
+        {
+            await Products.InsertAsync(p, Ct);
+        }
+
+        var sold = await Products.FindBySellerExceptAsync(seller, [ProductStatuses.Sold], [byOrder.Id, "no-es-un-id"], null, 10, Ct);
+
+        Assert.Equal([byHand.Id], sold.Select(p => p.Id));
+        Assert.Equal(1, await Products.CountAmongAsync(seller, [byOrder.Id, active.Id], ProductStatuses.Sold, Ct));
+        Assert.Equal(0, await Products.CountAmongAsync(seller, [], ProductStatuses.Sold, Ct));
+        Assert.Equal(2, (await Products.FindBySellerExceptAsync(seller, [ProductStatuses.Sold], [], null, 10, Ct)).Count);
+    }
 }

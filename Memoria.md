@@ -17,6 +17,15 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Trabajo en curso — HU-26 (SCRUM-45)
+
+- **Qué:** `GET /api/v1/orders/sales`: mis ventas completadas (`OrderResponse` con `role: seller`), con `count` y `totalCents` para la tarjeta de "Vendidos". `GET /products/mine?tab=sold` deja solo lo vendido a mano (sin las publicaciones con un pedido completado, que ya salen como venta).
+- **Ventas y Compras del perfil:** `OrderLifecycleService` suma una venta y una compra al completarse el pedido (`IProfileTrades`; `CompleteAsync` es atómico, se cuenta una vez). `db/021-ventas-compras.js` cuenta los completados que ya existían con `$set`, así que correrlo en cada `infra-up` no cambia el resultado; no recrea el perfil de una cuenta borrada.
+- **Decisiones de la usuaria (13-Nov-2026):** el historial va en "Vendidos" de `Mis-productos` (lo marcado a mano sigue apareciendo, sin comprador) y los contadores son los pedidos completados.
+- **Contratos entre módulos:** `IOpenOrders.SoldProductIdsAsync` (M-08 → M-03) e `IProfileTrades` (M-02 → M-08).
+- **Versión:** `0.5.0-alpha.26`, esquema 21.
+- **Verificación (13-Nov-2026):** build Release 0/0; Unit 615, Integration 169, Security 222 y Contract 22; `check_endpoints` OK (86). `DatabaseTest` (con `SalesBackfillScriptTests`) corre en el CI.
+
 ## Trabajo en curso — HU-27 y HU-45 (SCRUM-46, SCRUM-50)
 
 - **Qué:** calificar un pedido completado. `POST /orders/{id}/rating` (quien compra califica a quien vende y al revés), `GET /profiles/{id}/ratings` ("Opiniones"), `stats.onTime` en el perfil público y `ratedByMe`/`rateUntil` en `OrderResponse`.

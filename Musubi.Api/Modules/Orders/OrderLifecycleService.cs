@@ -7,6 +7,7 @@ using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Orders.Data;
+using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Errors;
 
@@ -27,6 +28,7 @@ internal sealed class OrderLifecycleService(
     IBlockDirectory blocks,
     IMemberDirectory members,
     INotificationCenter center,
+    IProfileTrades trades,
     TimeProvider time)
 {
     /// <summary>"Aceptar pedido" (RF-34): pasa a Confirmado y aparta las piezas.</summary>
@@ -199,6 +201,15 @@ internal sealed class OrderLifecycleService(
             }
 
             await MarkSoldIfEmptyAsync(completed, cancellationToken).ConfigureAwait(false);
+            // HU-26: "Ventas" y "Compras" del Perfil. CompleteAsync es atomico: se cuenta una sola vez.
+            await trades.AddCompletedAsync(
+                completed.SellerId,
+                completed.SellerName,
+                completed.BuyerId,
+                completed.BuyerName,
+                completed.CommunityId,
+                now,
+                cancellationToken).ConfigureAwait(false);
             await NotifyAsync(
                 OtherParty(completed, role),
                 NotificationTypes.OrderCompleted,

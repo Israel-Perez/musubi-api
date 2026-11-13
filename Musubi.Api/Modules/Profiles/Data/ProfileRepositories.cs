@@ -67,6 +67,14 @@ internal interface IProfileRepository
     /// <returns>La tarea.</returns>
     Task AddRatingAsync(ProfileOwner owner, int stars, bool onTime, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>Suma una venta o una compra completada (HU-26: "Ventas" y "Compras" del Perfil). Crea el perfil si no existe.</summary>
+    /// <param name="owner">La persona.</param>
+    /// <param name="asSeller"><c>true</c> suma una venta; <c>false</c>, una compra.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La tarea.</returns>
+    Task AddTradeAsync(ProfileOwner owner, bool asSeller, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Cambia o quita la foto y devuelve la llave anterior, para borrarla de S3 (R11).</summary>
     /// <param name="owner">Dueno.</param>
     /// <param name="avatarKey">Llave nueva o <c>null</c>.</param>

@@ -334,5 +334,30 @@ public abstract class OrderRepositoryContract
         Assert.Equal(Now + OrderRatingWindow.Length, OrderRatingWindow.Until(rated));
         Assert.Null(OrderRatingWindow.Until(open));
     }
-}
 
+    [Fact]
+    public async Task Sales_OnlyTheCompletedOfTheSeller_WithTheSummaryAndTheirProducts()
+    {
+        // HU-26: ventas completadas (con cursor), su numero y total, y las publicaciones que vendieron.
+        var seller = AuthIds.New();
+        var product = AuthIds.New();
+        var sold = Order(sellerId: seller, productId: product, status: OrderStatuses.Completed);
+        var direct = Order(sellerId: seller, status: OrderStatuses.Completed);
+        var open = Order(sellerId: seller, productId: AuthIds.New(), status: OrderStatuses.Confirmed);
+        var bought = Order(buyerId: seller, productId: AuthIds.New(), status: OrderStatuses.Completed);
+        foreach (var order in new[] { sold, direct, open, bought })
+        {
+            await Orders.TryInsertAsync(order, Ct);
+        }
+
+        var page = await Orders.FindSalesAsync(seller, null, 1, Ct);
+        var rest = await Orders.FindSalesAsync(seller, page[^1].Id, 10, Ct);
+        var summary = await Orders.SalesSummaryAsync(seller, Ct);
+
+        Assert.Equal([direct.Id], page.Select(o => o.Id));
+        Assert.Equal([sold.Id], rest.Select(o => o.Id));
+        Assert.Equal((2L, 100_000L), summary);
+        Assert.Equal([product], await Orders.SoldProductIdsAsync(seller, Ct));
+        Assert.Equal((0L, 0L), await Orders.SalesSummaryAsync(AuthIds.New(), Ct));
+    }
+}
