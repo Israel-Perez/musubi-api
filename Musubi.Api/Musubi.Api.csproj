@@ -30,7 +30,7 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.18.7" />
     <!-- Fotos de HU-06: decodificar, enderezar, reducir y volver a codificar a WebP sin metadatos (MIT; excepcion 00-01). -->
     <PackageReference Include="SkiaSharp" Version="4.153.1" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
     <PackageReference Include="StackExchange.Redis" Version="3.4.31" />
   </ItemGroup>
 
