@@ -10,6 +10,10 @@ internal static class ProfilesErrors
     public static readonly ApiError InvalidTheme = new(
         "profiles.invalid_theme", StatusCodes.Status400BadRequest, "Elige un tema válido.");
 
+    /// <summary>Interes que no es una categoria activa del campus (HU-66).</summary>
+    public static readonly ApiError InvalidInterest = new(
+        "profiles.invalid_interest", StatusCodes.Status400BadRequest, "Elige categorías de la lista.");
+
     /// <summary>Carrera que no existe o no esta activa en el campus.</summary>
     public static readonly ApiError InvalidCareer = new(
         "profiles.invalid_career", StatusCodes.Status400BadRequest, "Elige una carrera de la lista.");

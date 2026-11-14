@@ -120,4 +120,28 @@ public sealed class ProfilesContractTests(ContractApiFactory factory) : IClassFi
             Assert.Equal("dark", saved.GetProperty("theme").GetString());
         }
     }
+
+    [Fact]
+    public async Task Interests_MatchFixturesForEmptyAndUpdate()
+    {
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var (client, _) = await SignedInAsync(app, emails);
+        using (client)
+        {
+            var initial = await BodyAsync(await client.GetAsync(new Uri("/api/v1/profiles/me/interests", UriKind.Relative), Ct));
+            var requestFixture = await FixtureAsync("update-interests.json");
+            var saved = await BodyAsync(await client.PutAsJsonAsync(
+                new Uri("/api/v1/profiles/me/interests", UriKind.Relative), requestFixture, Ct));
+            var fixture = await FixtureAsync("interests.json");
+
+            Assert.Equal(Shape(fixture), Shape(initial));
+            Assert.Equal(0, initial.GetProperty("categories").GetArrayLength());
+            Assert.Equal(Shape(fixture), Shape(saved));
+            Assert.Equal(JsonValueKind.String, saved.GetProperty("categories")[0].ValueKind);
+            Assert.Equal(
+                fixture.GetProperty("categories").EnumerateArray().Select(c => c.GetString()),
+                saved.GetProperty("categories").EnumerateArray().Select(c => c.GetString()));
+        }
+    }
 }

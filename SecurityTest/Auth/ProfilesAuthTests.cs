@@ -18,6 +18,8 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
 {
     private const string OtherCommunity = "000000000000000000000002";
 
+    private static readonly string[] Lab = ["laboratorio"];
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     public static TheoryData<string, string> MemberOnly() => new()
@@ -25,6 +27,8 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
         { "GET", "/api/v1/profiles/me" },
         { "GET", "/api/v1/profiles/me/preferences" },
         { "PUT", "/api/v1/profiles/me/preferences" },
+        { "GET", "/api/v1/profiles/me/interests" },
+        { "PUT", "/api/v1/profiles/me/interests" },
         { "PUT", "/api/v1/profiles/me" },
         { "PUT", "/api/v1/profiles/me/visibility" },
         { "PUT", "/api/v1/profiles/me/photo" },
@@ -84,6 +88,7 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
     [InlineData("DELETE", "/api/v1/profiles/6716a0000000000000000001/photo")]
     [InlineData("PUT", "/api/v1/profiles/6716a0000000000000000001/visibility")]
     [InlineData("PUT", "/api/v1/profiles/me/preferences/6716a0000000000000000001")]
+    [InlineData("PUT", "/api/v1/profiles/me/interests/6716a0000000000000000001")]
     public async Task NoWriteRouteTakesAnId(string method, string path)
     {
         using var client = ClientFor(AuthIds.New(), InMemoryCommunityRepository.UtttId);
@@ -118,6 +123,33 @@ public sealed class ProfilesAuthTests(ProductionApiFactory production) : IClassF
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
         Assert.Equal("system", otherPreferences.GetProperty("theme").GetString());
         Assert.Null(await production.Services.GetRequiredService<IPreferenceRepository>().FindAsync(otherId, Ct));
+    }
+
+    [Fact]
+    public async Task Interests_IgnoreAnyUserId_AndNeverReachThePublicProfile()
+    {
+        var ownerId = await ActiveMemberAsync();
+        var otherId = await ActiveMemberAsync();
+        using var owner = ClientFor(ownerId, InMemoryCommunityRepository.UtttId);
+        using var other = ClientFor(otherId, InMemoryCommunityRepository.UtttId);
+
+        var saved = await owner.PutAsJsonAsync(
+            new Uri("/api/v1/profiles/me/interests", UriKind.Relative),
+            new { categories = Lab, userId = otherId },
+            Ct);
+        var otherInterests = await other.GetFromJsonAsync<JsonElement>(
+            new Uri("/api/v1/profiles/me/interests", UriKind.Relative),
+            Ct);
+        var seen = await other.GetAsync(new Uri($"/api/v1/profiles/{ownerId}", UriKind.Relative), Ct);
+        var publicBody = await seen.Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal(0, otherInterests.GetProperty("categories").GetArrayLength());
+        Assert.Null(await production.Services.GetRequiredService<IPreferenceRepository>().FindAsync(otherId, Ct));
+        // RNF-07: los intereses son privados; el perfil publico no los muestra.
+        Assert.Equal(HttpStatusCode.OK, seen.StatusCode);
+        Assert.DoesNotContain("laboratorio", publicBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("interest", publicBody, StringComparison.OrdinalIgnoreCase);
     }
 
     private HttpClient ClientFor(string userId, string communityId)

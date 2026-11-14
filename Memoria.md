@@ -1,5 +1,17 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-66 (SCRUM-106, Kazumi)
+
+- **Qué:** `GET` y `PUT /api/v1/profiles/me/interests` ("¿Qué te interesa?" y "Mis intereses" de la app): slugs de categorías activas del campus, hasta 20 y sin repetidos; `[]` los borra. Error nuevo `profiles.invalid_interest`.
+- **Dónde se guardan:** `preferences.interests[]` (el documento del tema, HU-54), no en `profiles`: el perfil público nunca lee `preferences`, así que son privados (RNF-07) sin depender de un filtro. Se borran con la cuenta (HU-46).
+- **Sin script en `db/`:** el validador de `preferences` (db/018) no cierra los campos. El upsert pone `theme: "system"` con `$setOnInsert` porque ese validador lo exige. API `0.5.0-alpha.29` sobre el esquema 22 de HU-35 (fila compartida replicada en `musubi-app`).
+- **Por qué sin script:** el validador de `preferences` no cierra los campos; HU-35 ya tomó `db/022` y HU-49 (PR #96) va en `db/023`.
+- **Al actualizar con `main` (14-Nov-2026):** HU-35 agregó `preferences.recommendations`; los tres setters (`SetThemeAsync`, `SetInterestsAsync`, `SetRecommendationsAsync`) conservan los otros dos campos.
+- **Error a evitar:** `InMemoryPreferenceRepository.SetThemeAsync` reemplazaba el documento completo; con un campo nuevo en el mismo documento, cada escritura debe conservar los demás campos (`ThemeAndInterests_KeepEachOther`).
+- **Error a evitar:** CA1861 rompe el build de las pruebas con un `new[] { "x" }` constante dentro de un `new { ... }`: usa un campo `static readonly`.
+- **Pendiente con dueño:** `NOTE (HU-35)`: "Para ti" los lee en el arranque en frío (RN-46) por un contrato de M-02 e ignora los slugs de categorías desactivadas.
+- **Verificación (14-Nov-2026, sobre `main` `892856f`, con HU-35):** build Release 0/0; Unit 642, Integration 177, Security 227 y Contract 23; `check_endpoints` OK (88); critic PASS; `check_shared_sections` OK. `DatabaseTest` (upsert contra el validador real) corre en el CI: Docker apagado en local. Semgrep no está instalado en local: lo corre el CI.
+
 ## Trabajo en curso — HU-05 (SCRUM-34)
 
 - **Qué:** API de “Consultar perfil y reputación de otro usuario”. `GET /profiles/{id}` ya existía (HU-04) con nombre, foto, campus, `memberSince`, carrera/periodo y `stats { ratingAvg, ratingCount, sales }`, sin correo y con 404 para otro campus/bloqueo. Faltaba la pestaña “Publicaciones (N)” de `Perfil-vendedor`.
@@ -94,7 +106,7 @@
 - Se implementó el agregado `productStatsDaily`, renumerado a `db/023` (14-Nov-2026: `db/022` ya lo tomó HU-35, `022-interacciones.js`); el registro de vistas en detalle excluye al vendedor y el ranking público usa caché. La contraparte Flutter solicita el ranking por Hoy/Semana y mapea `views`; la lista de recientes tiene ruta y paginación.
 - Revisión de seguridad detectó trabajo no acotado y N+1 al formar el ranking. Se reemplazó por agregación Mongo con `$lookup`, filtro de estado/comunidad y `$facet` para página/total; fake en memoria conserva semántica y evita pruebas frágiles por datos compartidos. Pruebas nuevas cubren página, orden, exclusión de inactivos y conteo.
 - Verificación API 13-Nov-2026 con SDK 10.0.404, tras integrar HU-26: build Release 0/0 (con `-p:NuGetAudit=false` por avisos NuGet NU1902/NU1903 existentes); Unit 615, Integration 173, Security 223, Contract 23 y Database 145 pasaron. El ranking usa cursor opaco keyset, sin offsets arbitrarios; `security-reviewer` PASS y `traceability-clerk` OK. Flutter no pudo ejecutarse: el SDK disponible es Dart 3.12.2 y `pubspec.yaml` exige ^3.13.5.
-- **Al actualizar con `main` (14-Nov-2026, con HU-35):** `db/023` y esquema 23; HU-35 sacó `FindVisibleAsync` de `DetailAsync`, así que la vista se cuenta si quien abre no es quien vende (`product.SellerId`). API `0.5.0-alpha.30` (`alpha.28` es de HU-35 y `alpha.29` de HU-66, PR #98, que va antes). Build 0/0; Unit 669, Integration 178, Security 227 y Contract 23; `check_endpoints` OK (89).
+- **Al actualizar con `main` (14-Nov-2026, con HU-35):** `db/023` y esquema 23; HU-35 sacó `FindVisibleAsync` de `DetailAsync`, así que la vista se cuenta si quien abre no es quien vende (`product.SellerId`). API `0.5.0-alpha.30` (`alpha.28` es de HU-35 y `alpha.29` de HU-66, PR #98, que va antes). Build 0/0; Unit 669, Integration 178, Security 227 y Contract 23; `check_endpoints` OK (89). Tras fusionar HU-66: Unit 675, Integration 184, Security 232, Contract 24 y `check_endpoints` OK (91).
 - **Error a evitar:** dos HU en paralelo tomaron el mismo número de script; antes de abrir el PR, revisar el último `db/NNN` de `main` y de los PR abiertos.
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
