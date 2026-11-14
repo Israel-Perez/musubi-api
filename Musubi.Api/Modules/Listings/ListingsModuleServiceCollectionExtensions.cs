@@ -51,6 +51,8 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<PhotoUploadService>();
         services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
         services.AddSingleton<IProductDirectory, ProductDirectory>();
+        services.AddSingleton<IProductMatches, ProductMatches>();
+        services.AddSingleton<IRecommendationCatalog, RecommendationCatalog>();
         services.AddSingleton<IProductStock, ProductStock>();
         services.AddSingleton<IListingPhotos, ListingPhotos>();
 

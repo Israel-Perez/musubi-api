@@ -13,7 +13,8 @@ public sealed record DeviceRequest(string? Token);
 /// <param name="Id">Id.</param>
 /// <param name="Type">
 /// <c>order_created</c>, <c>agreement_confirmed</c>, <c>offer_received</c>, <c>offer_accepted</c>,
-/// <c>offer_rejected</c>, <c>request_expiring</c> o <c>request_expired</c>.
+/// <c>offer_rejected</c>, <c>offer_closed</c>, <c>request_expiring</c>, <c>request_expired</c> o <c>wanted_match</c>
+/// (y los de pedidos de HU-24).
 /// </param>
 /// <param name="Category">Pestana: <c>orders</c>, <c>requests</c> o <c>matches</c>.</param>
 /// <param name="Title">Titulo.</param>
@@ -32,7 +33,7 @@ public sealed record NotificationResponse(
     DateTime CreatedAt);
 
 /// <summary>Lo que abre un aviso.</summary>
-/// <param name="Type"><c>conversation</c>, <c>order</c> o <c>wanted</c>.</param>
+/// <param name="Type"><c>conversation</c>, <c>order</c>, <c>wanted</c> (mi solicitud), <c>wanted_board</c> (una del tablero) o <c>none</c>.</param>
 /// <param name="Id">Su id.</param>
 public sealed record NotificationTargetResponse(string Type, string Id);
 

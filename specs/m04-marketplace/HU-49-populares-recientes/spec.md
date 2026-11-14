@@ -29,7 +29,7 @@ RNF aplicables: RNF-03 (sesión y acceso explícito cuando aplique), RNF-05/RNF-
 - **Registro:** `ListingService.DetailAsync` incrementa en cada respuesta válida de detalle, incluso visitante; omite cuando `userId` es el vendedor. El conteo usa interfaz/repositorios Mongo e InMemory y colección `productStatsDaily`; R9 exige `$inc` + upsert.
 - **Índices/retención:** `ux_product_day`, `ix_community_day_views` y TTL de 30 días, conforme al catálogo canónico. La consulta semanal filtra solo siete días UTC.
 - **Consulta y recursos (OWASP API4):** Mongo filtra por comunidad/rango máximo de siete días (índice `ix_community_day_views`), agrupa, hace `$lookup` con `products`, descarta en base los estados/comunidades no elegibles y pagina por keyset con `$facet`; `total` se calcula sin cursor. El servicio no carga el ranking completo ni hace N+1, y no acepta offsets arbitrarios. La implementación en memoria mantiene orden/filtrado/cursor para pruebas. La respuesta pública mantiene el output cache de 30 s.
-- **Script:** tras integrar `origin/main` con `db/021-ventas-compras.js` y esquema 21, HU-49 usa `db/022-popularidad.js` y `MongoSchema.ExpectedVersion = 22`; no se renumeran scripts ya aplicados.
+- **Script:** tras integrar `origin/main` con `db/022-interacciones.js` (HU-35) y esquema 22, HU-49 usa `db/023-popularidad.js` y `MongoSchema.ExpectedVersion = 23`; no se renumeran scripts ya aplicados.
 - **Caché:** política de salida pública variada por campus y periodo; usar el TTL medido/configurado del catálogo y documentar frescura observada. La ventana “today” es UTC day; “week” filtra `day >= utcToday - 6 days`.
 - **Contraparte:** la app implementa selector Hoy/Semana y navegación “Ver todo” para recientes en la spec enlazada; esta spec no afirma que esa contraparte ya esté implementada.
 
@@ -38,7 +38,7 @@ RNF aplicables: RNF-03 (sesión y acceso explícito cuando aplique), RNF-05/RNF-
 - **Fila existente a conservar:** [`docs/endpoints.md`](../../../docs/endpoints.md), `GET /api/v1/products` (orden, cursor, filtros y caché).
 - **Fila implementada:** `GET /api/v1/products/popular?period=today|week` en [`docs/endpoints.md`](../../../docs/endpoints.md): respuesta paginada con cursor opaco, auth opcional, errores y caché.
 - **Detalle existente:** [`docs/endpoints.md`](../../../docs/endpoints.md), `GET /api/v1/products/{id}`; la respuesta pública actual no debe revelar estadísticas.
-- **Datos:** fila `productStatsDaily` en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); script `db/022-popularidad.js` y `MongoSchema.ExpectedVersion = 22`.
+- **Datos:** fila `productStatsDaily` en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); script `db/023-popularidad.js` y `MongoSchema.ExpectedVersion = 23`.
 - **Fixture:** `ContractTest/Fixtures/popular-product-page.json` fija la forma del ranking.
 - **Errores:** catálogo [`docs/errores.md`](../../../docs/errores.md): errores existentes de periodo, cursor y campus.
 
@@ -78,4 +78,4 @@ RNF aplicables: RNF-03 (sesión y acceso explícito cuando aplique), RNF-05/RNF-
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 13-Nov-2026
-- **Detalle:** Implementada sobre `origin/main` con `db/021`/esquema 21; HU-49 agrega `db/022`/esquema 22. Se optimizó el ranking con agregación, join y paginación Mongo para evitar N+1 y cargar toda la lista en el servicio. Build y suites API verificadas el 13-Nov-2026; suite Flutter completa pendiente por SDK insuficiente. Falta revisor indicado por la usuaria; no aprobada.
+- **Detalle:** Implementada sobre `origin/main` con `db/022`/esquema 22 (HU-35); HU-49 agrega `db/023`/esquema 23. Se optimizó el ranking con agregación, join y paginación Mongo para evitar N+1 y cargar toda la lista en el servicio. Build y suites API verificadas el 13-Nov-2026; suite Flutter completa pendiente por SDK insuficiente. Falta revisor indicado por la usuaria; no aprobada.

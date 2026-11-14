@@ -339,32 +339,15 @@ internal sealed partial class ListingService(
     /// <returns>El detalle o <c>listings.product_not_found</c>.</returns>
     public async Task<Result<ProductDetailResponse>> DetailAsync(string? userId, string? userCommunityId, string productId, CancellationToken cancellationToken)
     {
-        var product = string.IsNullOrEmpty(productId) ? null : await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
-        if (product is null)
-        {
-            return ListingsErrors.ProductNotFound;
-        }
-
-        var owner = userId is not null && string.Equals(product.SellerId, userId, StringComparison.Ordinal);
-        // Pausada y vendida (HU-08) solo para su dueno; para los demas es como si no existiera.
-        var visible = product.Status is ProductStatuses.Active or ProductStatuses.SoldOut
-            || (owner && product.Status is ProductStatuses.Hidden or ProductStatuses.Sold);
-        // Con sesion, otro campus es como si no existiera (RNF-21, OWASP API1).
-        var otherCampus = userCommunityId is not null && !string.Equals(product.CommunityId, userCommunityId, StringComparison.Ordinal);
-        if (!visible || otherCampus)
-        {
-            return ListingsErrors.ProductNotFound;
-        }
-
-        // HU-57: con un bloqueo entre quien consulta y quien vende, tampoco existe para el.
-        if (!owner && userId is not null && await blocks.BetweenAsync(userId, product.SellerId, cancellationToken).ConfigureAwait(false))
+        if (await FindVisibleAsync(userId, userCommunityId, productId, cancellationToken).ConfigureAwait(false) is not { } product)
         {
             return ListingsErrors.ProductNotFound;
         }
 
         var category = (await categories.ListActiveAsync(product.CommunityId, cancellationToken).ConfigureAwait(false))
             .FirstOrDefault(c => string.Equals(c.Slug, product.CategorySlug, StringComparison.Ordinal));
-        if (!owner)
+        // HU-49: la vista de quien vende no cuenta para "Populares".
+        if (!string.Equals(product.SellerId, userId, StringComparison.Ordinal))
         {
             var utcDay = time.GetUtcNow().UtcDateTime.Date;
             await productStats.IncrementViewAsync(product.CommunityId, product.Id, utcDay, cancellationToken).ConfigureAwait(false);
@@ -550,6 +533,40 @@ internal sealed partial class ListingService(
         var lower = (int)Math.Floor(position);
         var upper = Math.Min(lower + 1, sorted.Count - 1);
         return (long)Math.Round(sorted[lower] + ((sorted[upper] - sorted[lower]) * (position - lower)), MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// La publicacion si quien consulta la puede ver (detalle, HU-11, y "Ver parecidos", HU-35); si no, <c>null</c>, sin
+    /// revelar por que (OWASP API1).
+    /// </summary>
+    /// <param name="userId">Quien consulta, o <c>null</c> sin sesion.</param>
+    /// <param name="userCommunityId">Su campus, o <c>null</c> sin sesion.</param>
+    /// <param name="productId">La publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion o <c>null</c>.</returns>
+    internal async Task<ProductDocument?> FindVisibleAsync(string? userId, string? userCommunityId, string productId, CancellationToken cancellationToken)
+    {
+        var product = string.IsNullOrEmpty(productId) ? null : await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
+        if (product is null)
+        {
+            return null;
+        }
+
+        var owner = userId is not null && string.Equals(product.SellerId, userId, StringComparison.Ordinal);
+        // Pausada y vendida (HU-08) solo para su dueno; para los demas es como si no existiera.
+        var visible = product.Status is ProductStatuses.Active or ProductStatuses.SoldOut
+            || (owner && product.Status is ProductStatuses.Hidden or ProductStatuses.Sold);
+        // Con sesion, otro campus es como si no existiera (RNF-21, OWASP API1).
+        var otherCampus = userCommunityId is not null && !string.Equals(product.CommunityId, userCommunityId, StringComparison.Ordinal);
+        if (!visible || otherCampus)
+        {
+            return null;
+        }
+
+        // HU-57: con un bloqueo entre quien consulta y quien vende, tampoco existe para el.
+        return !owner && userId is not null && await blocks.BetweenAsync(userId, product.SellerId, cancellationToken).ConfigureAwait(false)
+            ? null
+            : product;
     }
 
     /// <summary>Forma publica de una publicacion (tambien la usan editar, pausar y reactivar, HU-07).</summary>

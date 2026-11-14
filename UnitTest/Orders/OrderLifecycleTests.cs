@@ -7,6 +7,7 @@ using Musubi.Api.Modules.Orders;
 using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Profiles.Data;
+using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Modules.Reputation.Data;
 using Musubi.TestShared;
@@ -32,6 +33,7 @@ public sealed class OrderLifecycleTests
     private readonly InMemoryBlockRepository blocks = new();
     private readonly InMemoryProfileRepository profiles = new();
     private readonly RecordingNotificationCenter center = new();
+    private readonly RecordingInteractionRecorder recorder = new();
     private readonly RecordingOutputCacheStore cache = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly ProductStock stock;
@@ -48,6 +50,7 @@ public sealed class OrderLifecycleTests
             new MemberDirectory(new InMemoryCommunityRepository(), users),
             center,
             new ProfileTrades(profiles),
+            recorder,
             time);
     }
 
@@ -342,6 +345,9 @@ public sealed class OrderLifecycleTests
         await service.ConfirmHandoverAsync(ana, order, Ct);
         Assert.Equal((1, 0), ((await profiles.FindAsync(diego, Ct))!.Stats.Sales, (await profiles.FindAsync(diego, Ct))!.Stats.Purchases));
         Assert.Equal((0, 1), ((await profiles.FindAsync(ana, Ct))!.Stats.Sales, (await profiles.FindAsync(ana, Ct))!.Stats.Purchases));
+        // HU-35: la compra alimenta "Recomendado para ti" de Ana, una sola vez.
+        var purchase = Assert.Single(recorder.Recorded);
+        Assert.Equal((ana, product, InteractionKinds.Purchase), (purchase.UserId, purchase.ProductId, purchase.Kind));
     }
 
     [Fact]

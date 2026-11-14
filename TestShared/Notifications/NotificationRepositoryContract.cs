@@ -133,4 +133,19 @@ public abstract class NotificationRepositoryContract
         Assert.Single(await Notifications.FindPageAsync(luis, null, null, 10, Ct));
         Assert.Single(await Tokens.FindByUserAsync(luis, Now, Ct));
     }
+
+    [Fact]
+    public async Task CountSince_CountsOnlyThatTypeForThatPerson_FromThatMoment()
+    {
+        // HU-19: el limite diario de "solicitud compatible" (RN-30).
+        var ana = AuthIds.New();
+        foreach (var n in new[] { Notice(ana, minutes: -1), Notice(ana), Notice(ana, minutes: 5), Notice(ana, NotificationCategories.Requests, minutes: 5), Notice(AuthIds.New(), minutes: 5) })
+        {
+            Assert.True(await Notifications.TryInsertAsync(n, Ct));
+        }
+
+        Assert.Equal(2, await Notifications.CountSinceAsync(ana, NotificationTypes.OrderCreated, Now, Ct));
+        Assert.Equal(1, await Notifications.CountSinceAsync(ana, NotificationTypes.OfferReceived, Now, Ct));
+        Assert.Equal(0, await Notifications.CountSinceAsync("no-es-un-id", NotificationTypes.OrderCreated, Now, Ct));
+    }
 }

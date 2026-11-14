@@ -846,4 +846,69 @@ public abstract class ListingRepositoryContract
         Assert.Equal(0, await Products.CountAmongAsync(seller, [], ProductStatuses.Sold, Ct));
         Assert.Equal(2, (await Products.FindBySellerExceptAsync(seller, [ProductStatuses.Sold], [], null, 10, Ct)).Count);
     }
+
+    [Fact]
+    public async Task MatchCandidates_AreAvailable_OfTheCampusAndCategory_UpToThePrice_AndNotFromTheExcluded()
+    {
+        // HU-19: candidatas para una solicitud "Se busca".
+        var uttt = await UtttIdAsync();
+        var seller = AuthIds.New();
+        var excluded = AuthIds.New();
+        var match = NewProduct(uttt, seller, category: "laboratorio", price: 30_000, title: "Bata de laboratorio", description: "Talla M");
+        var byDescription = NewProduct(uttt, seller, category: "laboratorio", price: 25_000, title: "Bata blanca", description: "Para laboratorios");
+        var others = new[]
+        {
+            NewProduct(uttt, seller, category: "laboratorio", price: 30_001, title: "Bata de laboratorio"),
+            NewProduct(uttt, seller, category: "ropa", price: 20_000, title: "Bata de laboratorio"),
+            NewProduct(uttt, seller, category: "laboratorio", status: ProductStatuses.Hidden, price: 20_000, title: "Bata de laboratorio"),
+            NewProduct(uttt, excluded, category: "laboratorio", price: 20_000, title: "Bata de laboratorio"),
+            NewProduct(uttt, seller, category: "laboratorio", price: 20_000, title: "Gogles de seguridad", description: "Sin rayones"),
+            NewProduct(AuthIds.New(), seller, category: "laboratorio", price: 20_000, title: "Bata de laboratorio"),
+        };
+        foreach (var product in others.Append(match).Append(byDescription))
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var found = await Products.FindMatchCandidatesAsync(
+            new ProductMatchQuery(uttt, "laboratorio", ["laboratori"], 30_000, [excluded], 10), Ct);
+        var anyCategory = await Products.FindMatchCandidatesAsync(
+            new ProductMatchQuery(uttt, null, ["bata"], 30_000, [excluded], 10), Ct);
+
+        Assert.Equal([byDescription.Id, match.Id], found.Select(p => p.Id));
+        Assert.Equal(3, anyCategory.Count);
+        Assert.Empty(await Products.FindMatchCandidatesAsync(new ProductMatchQuery(uttt, null, [], 30_000, [], 10), Ct));
+    }
+
+    [Fact]
+    public async Task Available_AreOnlyActive_OfTheCampus_NewestFirst_UpToTheLimit()
+    {
+        // HU-35: el catalogo de las recomendaciones.
+        var uttt = await UtttIdAsync();
+        var seller = AuthIds.New();
+        var older = NewProduct(uttt, seller, title: "Calculadora vieja");
+        var newer = NewProduct(uttt, seller, title: "Calculadora nueva");
+        var newest = NewProduct(uttt, seller, title: "Calculadora más nueva");
+        foreach (var product in new[]
+        {
+            older,
+            newer,
+            NewProduct(uttt, seller, status: ProductStatuses.SoldOut),
+            NewProduct(uttt, seller, status: ProductStatuses.Hidden),
+            NewProduct(uttt, seller, status: ProductStatuses.Sold),
+            NewProduct(AuthIds.New(), seller),
+            newest,
+        })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var available = await Products.FindAvailableAsync(uttt, 100, Ct);
+        var two = await Products.FindAvailableAsync(uttt, 2, Ct);
+
+        Assert.Equal([newest.Id, newer.Id], two.Select(p => p.Id));
+        Assert.Contains(older.Id, available.Select(p => p.Id));
+        Assert.All(available, p => Assert.Equal((ProductStatuses.Active, uttt), (p.Status, p.CommunityId)));
+        Assert.Empty(await Products.FindAvailableAsync("no-es-un-id", 10, Ct));
+    }
 }

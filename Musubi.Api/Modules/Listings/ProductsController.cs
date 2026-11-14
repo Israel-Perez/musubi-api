@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Caching;
 using Musubi.Api.Platform.Errors;
@@ -139,9 +140,16 @@ public sealed class ProductsController : ControllerBase
     {
         // Con [AllowAnonymous] la sesion es opcional: si viene, se usa.
         var viewer = string.IsNullOrEmpty(userId) ? null : userId;
-        return this.Respond(
-            await listings.DetailAsync(viewer, communityId, id, cancellationToken).ConfigureAwait(false),
-            StatusCodes.Status200OK);
+        var result = await listings.DetailAsync(viewer, communityId, id, cancellationToken).ConfigureAwait(false);
+        // HU-35: abrir el detalle de algo ajeno es una senal de interes (lo propio no cuenta).
+        if (viewer is not null && communityId is not null && result.Value is { } detail && detail.Seller?.Id != viewer)
+        {
+            await HttpContext.RequestServices.GetRequiredService<IInteractionRecorder>()
+                .RecordAsync(new Interaction(viewer, communityId, detail.Id, InteractionKinds.View), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return this.Respond(result, StatusCodes.Status200OK);
     }
 
     /// <summary>Publica un producto (maqueta <c>Vender-4</c> → <c>Vender-listo</c>).</summary>

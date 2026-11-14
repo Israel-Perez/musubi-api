@@ -1,10 +1,12 @@
-# plan.md — HU-19 Aviso al vendedor de solicitud compatible (borrador)
+# HU-19 — Aviso al vendedor de solicitud compatible (plan, API)
 
-Se completa **al iniciar la HU**, con la skill `spec-first-writing`, siguiendo la estructura de los planes ya cerrados (por ejemplo, HU-06):
+1. **T1 — Spec:** decisiones de la usuaria (compatible, no repetir, límite diario). ✅
+2. **T2 — Candidatas (M-03):** `FindMatchCandidatesAsync` e `IProductMatches`. ✅
+3. **T3 — Reglas y aviso (M-06):** `MatchRules` y `WantedMatchNotifier`. ✅
+4. **T4 — Segundo plano:** `IWantedMatching`, `WantedMatchQueue` y `WantedMatchWorker`; `WantedService` encola al publicar. ✅
+5. **T5 — Pruebas y documentación.** ✅
 
-1. **Componentes:** archivos y carpetas que se crean o cambian.
-2. **Decisiones:** cada una con su porqué; incluye las decisiones pendientes de Jira listadas en `spec.md` → Límites.
-3. **Excepciones al stack** (regla de 00-01), si hacen falta.
-4. **Guardarraíles:** seguridad, límites y validaciones.
-5. **Validación:** pruebas, capturas y prueba en el celular.
-6. **Secuencia de implementación.**
+**Decisiones:**
+- **D1 · Cola en memoria:** igual que la de push; el `outbox` sigue en diseño (límite en la spec).
+- **D2 · Un aviso por persona con su publicación más parecida:** se elige la de más palabras en común y, al empate, la de precio más cercano al presupuesto.
+- **D3 · El límite diario se cuenta en el historial de avisos:** no hace falta otra colección; `ix_user_id` cubre la consulta.

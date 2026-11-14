@@ -1,17 +1,23 @@
-# HU-19 — Aviso al vendedor de solicitud compatible (tareas)
+# HU-19 — Aviso al vendedor de solicitud compatible (tareas, API)
 
-## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+## T1 — Spec
+- **Estado:** ✅ Hecho (13-Nov-2026).
 
-## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+## T2 — Candidatas (M-03)
+- **Prueba:** `MatchCandidates_*` (TestShared).
+- **Estado:** ✅ Hecho.
 
-## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+## T3 — Reglas y aviso (M-06)
+- **Prueba:** `UnitTest/Matching/WantedMatchTests.cs`.
+- **Estado:** ✅ Hecho.
 
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
+## T4 — Segundo plano
+- **Prueba:** `WantedServiceTests` (encola) e `IntegrationTest/Matching/WantedMatchFlowTests.cs`.
+- **Estado:** ✅ Hecho.
+
+## T5 — Pruebas y documentación
+- **Estado:** ✅ Hecho: Unit 638 · Integration 171 · Security 222 · Contract 22.
+
+## T6 — Prueba en el celular
+- **Qué:** con la API desplegada, publicar una solicitud desde otra cuenta y ver el aviso en "Coincidencias".
 - **Estado:** ⏳ Por hacer.

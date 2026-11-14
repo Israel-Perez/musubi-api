@@ -18,7 +18,7 @@ namespace Musubi.Api.Modules.Notifications;
 /// <param name="Type">Ver <see cref="NotificationTypes"/>.</param>
 /// <param name="Title">Titulo.</param>
 /// <param name="Body">Texto.</param>
-/// <param name="TargetType">Lo que abre: <c>conversation</c>, <c>order</c> o <c>wanted</c>.</param>
+/// <param name="TargetType">Lo que abre: ver <see cref="NotificationTargets"/>.</param>
 /// <param name="TargetId">Su id.</param>
 /// <param name="Category">Pestana del historial; <c>null</c> = solo push (un mensaje: su historial es la bandeja).</param>
 /// <param name="DedupeKey">Para no repetirlo, o <c>null</c>.</param>
@@ -44,6 +44,17 @@ internal interface INotificationCenter
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
     Task NotifyAsync(Notice notice, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Cuantos avisos de un tipo se le guardaron a una persona desde un momento (el limite diario de HU-19, RN-30).
+    /// Si la base no responde, 0.
+    /// </summary>
+    /// <param name="userId">La persona.</param>
+    /// <param name="type">Ver <see cref="NotificationTypes"/>.</param>
+    /// <param name="since">Desde (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El numero.</returns>
+    Task<long> CountSinceAsync(string userId, string type, DateTime since, CancellationToken cancellationToken);
 }
 
 /// <summary>Implementacion sobre el historial y la cola de push.</summary>
@@ -114,6 +125,23 @@ internal sealed partial class NotificationCenter(
             LogQueueFull(logger, notice.Type);
         }
     }
+
+    /// <inheritdoc />
+    public async Task<long> CountSinceAsync(string userId, string type, DateTime since, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await notifications.CountSinceAsync(userId, type, since, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is MongoException or TimeoutException)
+        {
+            LogNotCounted(logger, type);
+            return 0;
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No se contaron los avisos {Type}: base no disponible")]
+    private static partial void LogNotCounted(ILogger logger, string type);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "No se guardo un aviso {Type}: base no disponible")]
     private static partial void LogNotSaved(ILogger logger, string type);

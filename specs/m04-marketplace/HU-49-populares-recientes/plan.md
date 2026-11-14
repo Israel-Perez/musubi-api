@@ -6,7 +6,7 @@
 - Extender `ProductsController` con `GET /api/v1/products/popular` y `ListingService` con la consulta del periodo, salvo que el detalle de implementación justifique separar el controlador.
 - Incorporar repositorio Mongo/InMemory para `productStatsDaily`, documento y contrato compartido; registrar dependencias en `ListingsModuleServiceCollectionExtensions`.
 - `ListingService.DetailAsync` registra la vista válida; nunca actualizar `products` con un contador.
-- Crear `db/022-popularidad.js` y subir `MongoSchema.ExpectedVersion` a 22, ya que `origin/main` trae `db/021-ventas-compras.js` y esquema 21; no reescribir scripts ya aplicados.
+- Crear `db/023-popularidad.js` y subir `MongoSchema.ExpectedVersion` a 23, ya que `origin/main` trae `db/022-interacciones.js` (HU-35) y esquema 22; no reescribir scripts ya aplicados.
 - Enlazar la fila `productStatsDaily` ya diseñada en `docs/modelo-datos.md`; al implementar, actualizar también `db/README.md`, `docs/endpoints.md`, `docs/errores.md` si aparece algún error nuevo y `docs/trazabilidad.md`.
 - La contraparte es `musubi-app:HU-49` en `specs/m04-marketplace/HU-49-populares-recientes/`; este plan no sustituye su spec ni autoriza cambios fuera de este repositorio.
 

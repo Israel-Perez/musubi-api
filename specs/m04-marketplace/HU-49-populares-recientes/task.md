@@ -13,9 +13,9 @@
 
 ## T3 — Esquema y repositorios
 - **Qué:** implementar `productStatsDaily` con incremento atómico `$inc`/upsert, índices y TTL previstos; compartir batería Mongo/InMemory.
-- **Archivos:** `Musubi.Api/Modules/Listings/Data/`, `db/022-popularidad.js`, `Platform/Data/MongoSchema.cs`, `db/README.md`, `DatabaseTest/MongoListingRepositoryTests.cs`.
+- **Archivos:** `Musubi.Api/Modules/Listings/Data/`, `db/023-popularidad.js`, `Platform/Data/MongoSchema.cs`, `db/README.md`, `DatabaseTest/MongoListingRepositoryTests.cs`.
 - **Verificación:** contrato de repositorio en memoria y Mongo; `SchemaScriptTests` confirma script, índices, TTL y validador.
-- **Estado:** ✅ Script 022/esquema 22 y query Mongo paginada con `$lookup`/`$facet`; Database 145/145 y Unit 615/615.
+- **Estado:** ✅ Script 023/esquema 23 y query Mongo paginada con `$lookup`/`$facet`; Database 145/145 y Unit 615/615.
 
 ## T4 — Registro de vistas y ranking
 - **Qué:** agregar el registro de vista en detalle y `GET /api/v1/products/popular?period=today|week`; reutilizar `GET /products` para recientes.

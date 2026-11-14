@@ -17,6 +17,28 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Trabajo en curso — HU-35 (SCRUM-58)
+
+- **Qué:** módulo nuevo `Modules/Recommendations/` (M-11). `GET /recommendations` ("Recomendado para ti") y `GET /products/{id}/similar` ("Ver parecidos").
+- **Modelo (ML.NET 5.0.1):** `RecommendationModel` aprende TF-IDF (palabras y trigramas de letras, sin palabras vacías del español) del catálogo disponible del campus. "Ver parecidos" son los vecinos más cercanos (0.8 texto, 0.1 categoría, 0.1 precio). "Para ti" compara el perfil de la persona (suma de vectores con pesos compra 5, chat 3, favorito 2, ver 1 y olvido de 30 días) con cada publicación; con 20 pares o más y 3 personas se mezcla 60/40 con factorización de matrices de una clase (`CollaborativeScorer`). Sin historial: lo más activo de 14 días y lo más nuevo (RN-46).
+- **Evidencia de ML (L-16i):** `RecommendationModel.Evaluate` hace leave-one-out; la prueba exige hit@3 ≥ 0.8 y al menos el doble del azar. Cada entrenamiento escribe su hit@5 en los logs (CloudWatch).
+- **Señales:** `IInteractionRecorder` desde `ProductsController.Detail` (lo ajeno), `FavoritesController.Save`, `ConversationsController.Start` y `OrderLifecycleService` al completar (compra de quien compra). Nunca falla hacia quien llama.
+- **Decisiones de la usuaria (13-Nov-2026):** Inicio + Producto; ver, favorito, chat y compra (sin textos de búsqueda); 90 días.
+- **Errores a evitar:** ML.NET no puede ajustar TF-IDF sin filas (catálogo vacío): se salta el ajuste. Mezclar el coseno (0.1–0.3) con la factorización ya normalizada (0 a 1) hacía que la factorización dominara (hit@3 = 0.40): el coseno se normaliza entre los candidatos antes de mezclar. Microsoft.ML 6.0.0 salió el 11-Nov-2026: se usa 5.0.1 por el cooldown de 7 días.
+- **Versión:** `0.5.0-alpha.28`, esquema 22 (`db/022-interacciones.js`). `Newtonsoft.Json` entra al Package Source Mapping (transitiva de ML.NET; restauración con caché vacía OK).
+- **Se puede rechazar (aviso de privacidad, HU-47):** el aviso ya prometía "Recomendarte productos según tu actividad" como finalidad adicional rechazable en `Ajustes`. `preferences.recommendations` (sin el campo es `true`); `PUT /profiles/me/preferences` acepta `recommendations?` (la app anterior solo manda `theme` y no la cambia). Apagarla borra el historial (`IInteractionHistory`), deja de registrar (`IRecommendationConsent`) y "Para ti" queda general.
+- **Verificación (14-Nov-2026):** build Release 0/0; Unit 669, Integration 174, Security 226 y Contract 22.
+
+## Trabajo en curso — HU-19 y HU-30 (SCRUM-41, SCRUM-48)
+
+- **HU-19:** módulo nuevo `Modules/Matching/` (M-06). `WantedService.CreateAsync` encola `WantedPublished` en `IWantedMatching` (cola en memoria, como la de push) y `WantedMatchWorker` llama a `WantedMatchNotifier`: pide candidatas a M-03 (`IProductMatches`, filtro por campus, disponibles, categoría, precio, personas excluidas y prefijo de palabras) y decide con `MatchRules`. Avisa con `wanted_match` en "Coincidencias", destino `wanted_board`.
+- **HU-30:** el aviso `offer_received` ya existía (HU-31); la app ahora abre esa solicitud. Al cerrar o cancelar, `WantedService` avisa `offer_closed` (destino `none`) a cada oferta `sent`.
+- **Decisiones de la usuaria (13-Nov-2026):** compatible = misma categoría (o cualquiera con "otro"), la mitad o más de las palabras del nombre buscado y hasta 20 % sobre el presupuesto; un aviso por solicitud y persona (con su publicación más parecida); hasta 3 al día; sí avisar a quien ofreció cuando se cierra o se cancela.
+- **Por qué cola en memoria y no `outbox`:** el `outbox` (R14) sigue en diseño; si la instancia se reinicia con solicitudes en la cola, esas no avisan (la solicitud igual queda en el tablero). Se registra en la spec como límite.
+- **Límite diario:** `INotificationCenter.CountSinceAsync` cuenta los `wanted_match` desde las 00:00 del campus (UTC-6). Con dos instancias, dos solicitudes al mismo tiempo podrían dar un cuarto aviso: se acepta.
+- **Versión:** `0.5.0-alpha.27`, esquema 21 (sin script: `ix_user_id` y `ix_community_status_search` ya cubren las consultas).
+- **Verificación (13-Nov-2026):** build Release 0/0; Unit 638, Integration 171, Security 222 y Contract 22; `check_endpoints` OK (86).
+
 ## Trabajo en curso — HU-26 (SCRUM-45)
 
 - **Qué:** `GET /api/v1/orders/sales`: mis ventas completadas (`OrderResponse` con `role: seller`), con `count` y `totalCents` para la tarjeta de "Vendidos". `GET /products/mine?tab=sold` deja solo lo vendido a mano (sin las publicaciones con un pedido completado, que ya salen como venta).
@@ -44,6 +66,11 @@
 - **Runners fijos:** `ci-pr.yml` y `mutation.yml` usan `ubuntu-24.04` (como `infra-up`), no `ubuntu-latest`, que cambiará a Ubuntu 26.
 - Versión `0.5.0-alpha.24`, sin cambios en el esquema.
 
+## Despliegue del 13-Nov-2026 (SCRUM-87)
+
+- `infra-up` con `0.5.0-alpha.27` y `db/020`, `db/021` (esquema 21): SCRUM-97 (`alpha.24`), HU-27 y HU-45 (`alpha.25`), HU-26 (`alpha.26`) y HU-19 y HU-30 (`alpha.27`).
+- La app `0.10.0+12` va a la prueba cerrada de Google Play con esa API (fila compartida en `docs/versionado.md`; musubi-app #65).
+
 ## Despliegue del 12-Nov-2026 (SCRUM-87)
 
 - `infra-up` con `0.5.0-alpha.23` y `db/019` (esquema 19): HU-24, SCRUM-96 (aviso del push al arrancar), dependencias de noviembre, HU-50, HU-05 y HU-25.
@@ -62,9 +89,11 @@
 
 - Se detallaron `spec.md`, `plan.md` y `task.md` desde el comentario de Jira: Sprint 4, recientes reutiliza `GET /products`, y populares prevé una ruta nueva más `productStatsDaily` (R9).
 - Decisión del usuario: cada apertura válida cuenta, incluidas anónimas y repetidas, excepto la del vendedor; Hoy es el día UTC actual y Semana los últimos 7 días UTC.
-- Se implementó el agregado `productStatsDaily`, renumerado a `db/022` después de integrar `db/021-ventas-compras.js`/esquema 21 de `origin/main`; el registro de vistas en detalle excluye al vendedor y el ranking público usa caché. La contraparte Flutter solicita el ranking por Hoy/Semana y mapea `views`; la lista de recientes tiene ruta y paginación.
+- Se implementó el agregado `productStatsDaily`, renumerado a `db/023` (14-Nov-2026: `db/022` ya lo tomó HU-35, `022-interacciones.js`); el registro de vistas en detalle excluye al vendedor y el ranking público usa caché. La contraparte Flutter solicita el ranking por Hoy/Semana y mapea `views`; la lista de recientes tiene ruta y paginación.
 - Revisión de seguridad detectó trabajo no acotado y N+1 al formar el ranking. Se reemplazó por agregación Mongo con `$lookup`, filtro de estado/comunidad y `$facet` para página/total; fake en memoria conserva semántica y evita pruebas frágiles por datos compartidos. Pruebas nuevas cubren página, orden, exclusión de inactivos y conteo.
 - Verificación API 13-Nov-2026 con SDK 10.0.404, tras integrar HU-26: build Release 0/0 (con `-p:NuGetAudit=false` por avisos NuGet NU1902/NU1903 existentes); Unit 615, Integration 173, Security 223, Contract 23 y Database 145 pasaron. El ranking usa cursor opaco keyset, sin offsets arbitrarios; `security-reviewer` PASS y `traceability-clerk` OK. Flutter no pudo ejecutarse: el SDK disponible es Dart 3.12.2 y `pubspec.yaml` exige ^3.13.5.
+- **Al actualizar con `main` (14-Nov-2026, con HU-35):** `db/023` y esquema 23; HU-35 sacó `FindVisibleAsync` de `DetailAsync`, así que la vista se cuenta si quien abre no es quien vende (`product.SellerId`). API `0.5.0-alpha.30` (`alpha.28` es de HU-35 y `alpha.29` de HU-66, PR #98, que va antes). Build 0/0; Unit 669, Integration 178, Security 227 y Contract 23; `check_endpoints` OK (89).
+- **Error a evitar:** dos HU en paralelo tomaron el mismo número de script; antes de abrir el PR, revisar el último `db/NNN` de `main` y de los PR abiertos.
 
 Bitácora viva: estado, decisiones con su porqué y errores a evitar. Reglas de mantenimiento en `AGENTS.md` §2. Las lecciones permanentes viven en `specs/phase-00-constitution/00-04-lessons-learned/spec.md`.
 

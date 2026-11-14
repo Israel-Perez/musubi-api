@@ -1,6 +1,6 @@
-// 022-popularidad (HU-49): métricas agregadas por producto/día UTC, sin identidad.
-const SCRIPT_ID = '022-popularidad';
-const SCHEMA_VERSION = 22;
+// 023-popularidad (HU-49): métricas agregadas por producto/día UTC, sin identidad.
+const SCRIPT_ID = '023-popularidad';
+const SCHEMA_VERSION = 23;
 const options = {
   validator: { $jsonSchema: { bsonType: 'object', required: ['_id', 'communityId', 'productId', 'day', 'views', 'expiresAt'], properties: {
     _id: { bsonType: 'string' }, communityId: { bsonType: 'objectId' }, productId: { bsonType: 'objectId' },
