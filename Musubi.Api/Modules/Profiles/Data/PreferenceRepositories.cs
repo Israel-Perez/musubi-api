@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Driver;
@@ -10,6 +11,8 @@ internal interface IPreferenceRepository
     Task<PreferenceDocument?> FindAsync(string userId, CancellationToken cancellationToken);
 
     Task<PreferenceDocument> SetThemeAsync(string userId, string theme, CancellationToken cancellationToken);
+
+    Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken);
 
     Task DeleteAsync(string userId, CancellationToken cancellationToken);
 }
@@ -27,6 +30,17 @@ internal sealed class MongoPreferenceRepository(IMongoDatabase database) : IPref
             Builders<PreferenceDocument>.Update.SetOnInsert(p => p.UserId, userId)
                 .SetOnInsert(p => p.SchemaVersion, 1)
                 .Set(p => p.Theme, theme),
+            new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+
+    // El tema por defecto entra solo al crear el documento: el validador de db/018 lo exige y no pisa el elegido.
+    public async Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken) =>
+        await preferences.FindOneAndUpdateAsync(
+            p => p.UserId == userId,
+            Builders<PreferenceDocument>.Update.SetOnInsert(p => p.UserId, userId)
+                .SetOnInsert(p => p.SchemaVersion, 1)
+                .SetOnInsert(p => p.Theme, "system")
+                .Set(p => p.Interests, interests),
             new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
             cancellationToken).ConfigureAwait(false);
 
@@ -51,7 +65,19 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
     {
         lock (gate)
         {
-            var document = new PreferenceDocument { UserId = userId, Theme = theme };
+            var interests = preferences.TryGetValue(userId, out var current) ? current.Interests : [];
+            var document = new PreferenceDocument { UserId = userId, Theme = theme, Interests = interests };
+            preferences[userId] = document;
+            return Task.FromResult(document);
+        }
+    }
+
+    public Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var theme = preferences.TryGetValue(userId, out var current) ? current.Theme : "system";
+            var document = new PreferenceDocument { UserId = userId, Theme = theme, Interests = [.. interests] };
             preferences[userId] = document;
             return Task.FromResult(document);
         }

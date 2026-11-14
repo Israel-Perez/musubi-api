@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -11,6 +12,9 @@ internal sealed class PreferenceDocument
     public string UserId { get; init; } = string.Empty;
 
     public string Theme { get; init; } = "system";
+
+    /// <summary>Slugs de las categorias que le interesan (HU-66). Privados: el perfil publico no lee esta coleccion.</summary>
+    public IReadOnlyList<string> Interests { get; init; } = [];
 
     public int SchemaVersion { get; init; } = 1;
 }

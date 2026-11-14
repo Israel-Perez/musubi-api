@@ -41,6 +41,7 @@ internal static class ProfilesModuleServiceCollectionExtensions
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ProfilePhotoService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();
+        services.AddSingleton<IInterestsService, InterestsService>();
         services.AddSingleton<IAccountDataEraser, ProfileAccountEraser>();
     }
 }
