@@ -23,6 +23,10 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `017-avisos.js` | `notifications` (HU-31: el centro de notificaciones, TTL de 60 días, un aviso por `dedupeKey`), `deviceTokens` (tokens de FCM, TTL de 60 días) e `ix_status_expires` en `wantedRequests` (recordatorios de vencimiento) | 17 |
 | `018-preferencias.js` | `preferences` (HU-54): tema de apariencia por cuenta | 18 |
 | `019-pedidos-estados.js` | Pedidos aceptados, cancelados y completados (HU-24): `orders.handover` (la entrega confirmada por cada parte) y `orders.cancellation` (quién y el motivo de la lista); `notifications.type` admite los cuatro avisos de los pedidos | 19 |
+| `020-calificaciones.js` | Calificaciones (HU-27/45) | 20 |
+| `021-ventas-compras.js` | `orders`/`profiles` con historial de ventas y compras (HU-26) | 21 |
+| `022-interacciones.js` | `interactions` (HU-35: lo que cada persona vio, guardó, escribió y compró, TTL de 90 días) y `preferences.recommendations` | 22 |
+| `023-popularidad.js` | `productStatsDaily` (HU-49): vistas agregadas por producto/día UTC, TTL de 30 días | 23 |
 
 ## Aplicar
 

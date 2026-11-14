@@ -54,6 +54,10 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidCursor = new(
         "listings.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más publicaciones. Actualiza la lista.");
 
+    /// <summary>Periodo inválido para el ranking popular (HU-49).</summary>
+    public static readonly ApiError InvalidPopularPeriod = new(
+        "listings.invalid_popular_period", StatusCodes.Status400BadRequest, "Elige Hoy o Semana.");
+
     /// <summary>Texto de busqueda sin letras ni digitos, o de mas de 80 caracteres (HU-09).</summary>
     public static readonly ApiError InvalidQuery = new(
         "listings.invalid_query", StatusCodes.Status400BadRequest, "Escribe lo que quieres buscar.");

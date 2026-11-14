@@ -109,6 +109,11 @@ public sealed record MyProductCounts(long Active, long Sold, long SoldOut);
 /// <param name="Total">Total de la pestana (o de todas, sin pestana).</param>
 /// <param name="Counts">Conteos de las tres pestanas.</param>
 public sealed record MyProductPage(IReadOnlyList<ProductResponse> Items, string? NextCursor, long Total, MyProductCounts Counts);
+/// <summary>Producto y conteo agregado para Populares (HU-49).</summary>
+public sealed record PopularProductResponse(ProductResponse Product, long Views);
+
+/// <summary>Página del ranking popular.</summary>
+public sealed record PopularProductPage(IReadOnlyList<PopularProductResponse> Items, string? NextCursor, long Total);
 
 /// <summary>Rango de precios de productos parecidos (maqueta <c>Vender-3</c>).</summary>
 /// <param name="LowCents">Percentil 25.</param>

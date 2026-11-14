@@ -23,6 +23,8 @@ internal static class CachingServiceCollectionExtensions
 
     /// <summary>Politica de salida de la vitrina del visitante: vida corta, se invalida al publicar.</summary>
     public const string ShowcasePolicy = "showcase";
+    /// <summary>Política pública del ranking popular (HU-49).</summary>
+    public const string PopularPolicy = "popular-products";
 
     /// <summary>Etiqueta de las respuestas de la vitrina (se borran al publicar o eliminar una cuenta).</summary>
     public const string ShowcaseTag = "showcase";
@@ -71,6 +73,7 @@ internal static class CachingServiceCollectionExtensions
         {
             options.AddPolicy(CatalogPolicy, policy => policy.Expire(CatalogTtl).SetVaryByQuery("campus"));
             options.AddPolicy(ShowcasePolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(ShowcaseTag));
+            options.AddPolicy(PopularPolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(ShowcaseTag));
             options.AddPolicy(WantedBoardPolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(WantedBoardTag));
         });
     }

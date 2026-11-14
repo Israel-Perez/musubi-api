@@ -127,6 +127,26 @@ internal sealed class FavoriteDocument
     public int SchemaVersion { get; init; } = 1;
 }
 
+/// <summary>Vistas agregadas por producto y día UTC; no contiene identidad del visitante (HU-49).</summary>
+[SuppressMessage("Performance", "CA1812", Justification = "Lo instancia el serializador BSON.")]
+internal sealed class ProductStatsDailyDocument
+{
+    /// <summary>Id compuesto comunidad:producto:fecha para facilitar upsert determinista.</summary>
+    public string Id { get; init; } = string.Empty;
+    /// <summary>Comunidad del producto.</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string CommunityId { get; init; } = string.Empty;
+    /// <summary>Producto visto.</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string ProductId { get; init; } = string.Empty;
+    /// <summary>Día UTC.</summary>
+    public DateTime Day { get; init; }
+    /// <summary>Vistas agregadas.</summary>
+    public long Views { get; init; }
+    /// <summary>Vencimiento de retención.</summary>
+    public DateTime ExpiresAt { get; init; }
+}
+
 /// <summary>Copia de lectura del vendedor dentro de la publicacion.</summary>
 internal sealed class ProductSeller
 {

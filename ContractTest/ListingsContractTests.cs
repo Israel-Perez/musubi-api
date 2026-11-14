@@ -56,6 +56,41 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task PopularProducts_MatchesItsFixtureAndHidesSellerForVisitor()
+    {
+        var sellerId = Musubi.Api.Modules.Auth.Data.AuthIds.New();
+        var productId = Musubi.Api.Modules.Auth.Data.AuthIds.New();
+        var now = DateTime.UtcNow;
+        await factory.Services.GetRequiredService<IProductRepository>().InsertAsync(new ProductDocument
+        {
+            Id = productId,
+            CommunityId = InMemoryCommunityRepository.UtttId,
+            SellerId = sellerId,
+            Seller = new ProductSeller { Name = "Ana R." },
+            Title = "Producto del contrato de populares",
+            Description = "Fixture de HU-49",
+            CategorySlug = "calculadoras",
+            PriceCents = 45_000,
+            Condition = ProductConditions.Used,
+            ConditionDetail = "likeNew",
+            Stock = 1,
+            Status = ProductStatuses.Active,
+            Photos = [$"media/products/{sellerId}/0123456789abcdef0123456789abcdef.webp"],
+            CreatedAt = now,
+            UpdatedAt = now,
+        }, Ct);
+        await factory.Services.GetRequiredService<IProductStatsRepository>().IncrementViewAsync(
+            InMemoryCommunityRepository.UtttId, productId, now.Date, Ct);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(new Uri($"/api/v1/products/popular?period=today&campus=uttt&test={Guid.NewGuid():N}", UriKind.Relative), Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await BodyAsync(response);
+        Assert.Equal(Shape(await FixtureAsync("popular-product-page.json")), Shape(body));
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("items")[0].GetProperty("product").GetProperty("seller").ValueKind);
+    }
+
+    [Fact]
     public async Task PhotoProductPageCategoriesEditsAndFavorites_MatchTheirFixtures()
     {
         var emails = new RecordingEmailSender();
