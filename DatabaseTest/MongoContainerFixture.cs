@@ -56,7 +56,8 @@ public sealed class MongoContainerFixture : IAsyncLifetime
     {
         foreach (var script in Directory.GetFiles(RepoRoot.File("db"), "*.js").Order(StringComparer.Ordinal))
         {
-            var target = $"/tmp/db/{Path.GetFileName(script)}";
+            // Una carpeta por base: dos bases que se migran a la vez no se pisan el archivo (ENOENT en el CI).
+            var target = $"/tmp/db/{databaseName}/{Path.GetFileName(script)}";
             var content = await File.ReadAllTextAsync(script).ConfigureAwait(false);
             await container.CopyAsync(Encoding.UTF8.GetBytes(content), target).ConfigureAwait(false);
             var result = await container.ExecAsync(

@@ -127,7 +127,8 @@ internal sealed class SparseVector
 /// <param name="K">Tamano de la lista.</param>
 /// <param name="HitRate">Parte de las personas cuya ultima interaccion quedo entre las K recomendadas.</param>
 /// <param name="RandomBaseline">Lo que lograria recomendar al azar.</param>
-internal sealed record RecommendationEvaluation(int Users, int K, double HitRate, double RandomBaseline);
+/// <param name="Collaborative">Si gano la mezcla con filtrado colaborativo (si no, solo el contenido).</param>
+internal sealed record RecommendationEvaluation(int Users, int K, double HitRate, double RandomBaseline, bool Collaborative);
 
 /// <summary>
 /// Modelo de recomendaciones de un campus (HU-35, M-11), entrenado con ML.NET dentro de la API:
@@ -136,7 +137,7 @@ internal sealed record RecommendationEvaluation(int Users, int K, double HitRate
 /// aprendido del catalogo: "Ver parecidos" son los vecinos mas cercanos.</item>
 /// <item>"Para ti": el perfil de cada persona (suma de lo que vio, guardo, escribio y compro, con pesos y olvido de 30
 /// dias) comparado con cada publicacion; con datos suficientes se mezcla con factorizacion de matrices de una clase
-/// (filtrado colaborativo: personas con gustos parecidos).</item>
+/// (filtrado colaborativo: personas con gustos parecidos), solo si la evaluacion leave-one-out muestra que mejora.</item>
 /// <item>Sin historial: lo mas activo del campus en 14 dias y luego lo mas nuevo (RN-46).</item>
 /// </list>
 /// </summary>
@@ -200,7 +201,10 @@ internal sealed class RecommendationModel
     /// <param name="items">Publicaciones disponibles.</param>
     /// <param name="interactions">Interacciones del campus (90 dias).</param>
     /// <param name="now">Ahora (UTC).</param>
-    /// <param name="evaluate">Medir hit@5 con leave-one-out (entrena una segunda vez).</param>
+    /// <param name="evaluate">
+    /// Medir hit@5 con leave-one-out (entrena de nuevo con y sin filtrado colaborativo) y quedarse con el colaborativo
+    /// solo si mejora: con pocos datos la factorizacion puede empeorar las recomendaciones.
+    /// </param>
     /// <returns>El modelo.</returns>
     public static RecommendationModel Train(
         string communityId,
@@ -208,6 +212,18 @@ internal sealed class RecommendationModel
         IReadOnlyList<InteractionDocument> interactions,
         DateTime now,
         bool evaluate)
+    {
+        var evaluation = evaluate ? Evaluate(communityId, items, interactions, now, 5) : null;
+        return Fit(communityId, items, interactions, now, collaborative: evaluation?.Collaborative ?? true, evaluation);
+    }
+
+    private static RecommendationModel Fit(
+        string communityId,
+        IReadOnlyList<CatalogItem> items,
+        IReadOnlyList<InteractionDocument> interactions,
+        DateTime now,
+        bool collaborative,
+        RecommendationEvaluation? evaluation)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(interactions);
@@ -228,11 +244,10 @@ internal sealed class RecommendationModel
             .GroupBy(i => i.ProductId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Sum(i => InteractionKinds.Weight(i.Kind)), StringComparer.Ordinal);
 
-        var model = new RecommendationModel(communityId, items, ml, text, vectors, CollaborativeScorer.TryTrain(interactions), popularity, now)
+        return new RecommendationModel(communityId, items, ml, text, vectors, collaborative ? CollaborativeScorer.TryTrain(interactions) : null, popularity, now)
         {
-            Evaluation = evaluate ? Evaluate(communityId, items, interactions, now, 5) : null,
+            Evaluation = evaluation,
         };
-        return model;
     }
 
     /// <summary>"Para ti": publicaciones ordenadas para una persona segun su historial; vacio si no hay historial util.</summary>
@@ -341,7 +356,8 @@ internal sealed class RecommendationModel
 
     /// <summary>
     /// Leave-one-out: a cada persona con 2 o mas publicaciones se le quita la ultima, se entrena con lo demas y se mira si
-    /// esa publicacion queda entre las K recomendadas. Se compara con recomendar al azar.
+    /// esa publicacion queda entre las K recomendadas. Se compara con recomendar al azar. Se mide con y sin filtrado
+    /// colaborativo y se regresa el mejor (en un empate, el de solo contenido, que es mas simple).
     /// </summary>
     /// <param name="communityId">Campus.</param>
     /// <param name="items">Publicaciones disponibles.</param>
@@ -370,7 +386,25 @@ internal sealed class RecommendationModel
         }
 
         var training = interactions.Where(i => !(heldOut.TryGetValue(i.UserId, out var held) && i.ProductId == held)).ToList();
-        var model = Train(communityId, items, training, now, evaluate: false);
+        var content = Score(Fit(communityId, items, training, now, collaborative: false, evaluation: null), items, training, heldOut, now, k);
+        var blended = Fit(communityId, items, training, now, collaborative: true, evaluation: null);
+        if (!blended.UsesCollaborative)
+        {
+            return content;
+        }
+
+        var mixed = Score(blended, items, training, heldOut, now, k) with { Collaborative = true };
+        return mixed.HitRate > content.HitRate ? mixed : content;
+    }
+
+    private static RecommendationEvaluation Score(
+        RecommendationModel model,
+        IReadOnlyList<CatalogItem> items,
+        List<InteractionDocument> training,
+        Dictionary<string, string> heldOut,
+        DateTime now,
+        int k)
+    {
         var hits = 0;
         double baseline = 0;
         foreach (var (user, held) in heldOut)
@@ -386,7 +420,7 @@ internal sealed class RecommendationModel
             }
         }
 
-        return new RecommendationEvaluation(heldOut.Count, k, (double)hits / heldOut.Count, baseline / heldOut.Count);
+        return new RecommendationEvaluation(heldOut.Count, k, (double)hits / heldOut.Count, baseline / heldOut.Count, Collaborative: false);
     }
 
     /// <summary>El vector de una publicacion (la calcula si se publico despues del entrenamiento).</summary>
