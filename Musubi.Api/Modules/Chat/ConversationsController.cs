@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
@@ -69,6 +70,14 @@ public sealed class ConversationsController : ControllerBase
         }
 
         var start = result.Value!;
+        // HU-35: escribirle al vendedor de una publicacion es una senal fuerte de interes.
+        if (User.FindFirst(MusubiClaims.Community)?.Value is { } community)
+        {
+            await HttpContext.RequestServices.GetRequiredService<IInteractionRecorder>()
+                .RecordAsync(new Interaction(userId, community, request.ProductId, InteractionKinds.Chat), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         return StatusCode(start.Created ? StatusCodes.Status201Created : StatusCodes.Status200OK, start.Conversation);
     }
 

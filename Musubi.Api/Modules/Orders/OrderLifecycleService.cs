@@ -8,6 +8,7 @@ using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Errors;
 
@@ -29,6 +30,7 @@ internal sealed class OrderLifecycleService(
     IMemberDirectory members,
     INotificationCenter center,
     IProfileTrades trades,
+    IInteractionRecorder recorder,
     TimeProvider time)
 {
     /// <summary>"Aceptar pedido" (RF-34): pasa a Confirmado y aparta las piezas.</summary>
@@ -210,6 +212,13 @@ internal sealed class OrderLifecycleService(
                 completed.CommunityId,
                 now,
                 cancellationToken).ConfigureAwait(false);
+            // HU-35: la compra es la senal mas fuerte de "Recomendado para ti" (una oferta directa no tiene publicacion).
+            if (completed.Item.ProductId is { } bought)
+            {
+                await recorder.RecordAsync(
+                    new Interaction(completed.BuyerId, completed.CommunityId, bought, InteractionKinds.Purchase),
+                    cancellationToken).ConfigureAwait(false);
+            }
             await NotifyAsync(
                 OtherParty(completed, role),
                 NotificationTypes.OrderCompleted,

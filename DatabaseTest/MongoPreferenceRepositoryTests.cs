@@ -28,4 +28,18 @@ public sealed class MongoPreferenceRepositoryTests(MongoContainerFixture mongo) 
 
         Assert.Null(await repository.FindAsync(userId, TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task Recommendations_UpsertWithTheDefaultTheme_AndTheThemeKeepsThem()
+    {
+        // HU-35: el validador de db/022 acepta el campo y los dos cambios son independientes.
+        var repository = new MongoPreferenceRepository(database!);
+        const string userId = "6716a0000000000000000002";
+
+        var off = await repository.SetRecommendationsAsync(userId, false, TestContext.Current.CancellationToken);
+        var dark = await repository.SetThemeAsync(userId, "dark", TestContext.Current.CancellationToken);
+
+        Assert.Equal(("system", false), (off.Theme, off.Recommendations));
+        Assert.Equal(("dark", false), (dark.Theme, dark.Recommendations));
+    }
 }

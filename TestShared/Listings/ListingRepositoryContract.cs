@@ -879,4 +879,36 @@ public abstract class ListingRepositoryContract
         Assert.Equal(3, anyCategory.Count);
         Assert.Empty(await Products.FindMatchCandidatesAsync(new ProductMatchQuery(uttt, null, [], 30_000, [], 10), Ct));
     }
+
+    [Fact]
+    public async Task Available_AreOnlyActive_OfTheCampus_NewestFirst_UpToTheLimit()
+    {
+        // HU-35: el catalogo de las recomendaciones.
+        var uttt = await UtttIdAsync();
+        var seller = AuthIds.New();
+        var older = NewProduct(uttt, seller, title: "Calculadora vieja");
+        var newer = NewProduct(uttt, seller, title: "Calculadora nueva");
+        var newest = NewProduct(uttt, seller, title: "Calculadora más nueva");
+        foreach (var product in new[]
+        {
+            older,
+            newer,
+            NewProduct(uttt, seller, status: ProductStatuses.SoldOut),
+            NewProduct(uttt, seller, status: ProductStatuses.Hidden),
+            NewProduct(uttt, seller, status: ProductStatuses.Sold),
+            NewProduct(AuthIds.New(), seller),
+            newest,
+        })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var available = await Products.FindAvailableAsync(uttt, 100, Ct);
+        var two = await Products.FindAvailableAsync(uttt, 2, Ct);
+
+        Assert.Equal([newest.Id, newer.Id], two.Select(p => p.Id));
+        Assert.Contains(older.Id, available.Select(p => p.Id));
+        Assert.All(available, p => Assert.Equal((ProductStatuses.Active, uttt), (p.Status, p.CommunityId)));
+        Assert.Empty(await Products.FindAvailableAsync("no-es-un-id", 10, Ct));
+    }
 }

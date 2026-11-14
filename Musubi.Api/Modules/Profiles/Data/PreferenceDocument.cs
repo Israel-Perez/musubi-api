@@ -12,5 +12,11 @@ internal sealed class PreferenceDocument
 
     public string Theme { get; init; } = "system";
 
+    /// <summary>
+    /// HU-35: "Recomendarte productos según tu actividad" (finalidad adicional del aviso de privacidad, HU-47). Sin el
+    /// campo (documentos anteriores) vale <c>true</c>.
+    /// </summary>
+    public bool Recommendations { get; init; } = true;
+
     public int SchemaVersion { get; init; } = 1;
 }

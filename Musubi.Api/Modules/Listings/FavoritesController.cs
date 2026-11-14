@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
@@ -47,7 +48,16 @@ public sealed class FavoritesController : ControllerBase
     public async Task<IActionResult> Save(string productId, CancellationToken cancellationToken)
     {
         var result = await favorites.AddAsync(me, productId, cancellationToken).ConfigureAwait(false);
-        return result.Error is { } error ? this.Problem(error) : NoContent();
+        if (result.Error is { } error)
+        {
+            return this.Problem(error);
+        }
+
+        // HU-35: guardar en favoritos es una senal de interes.
+        await HttpContext.RequestServices.GetRequiredService<IInteractionRecorder>()
+            .RecordAsync(new Interaction(me, communityId, productId, InteractionKinds.Favorite), cancellationToken)
+            .ConfigureAwait(false);
+        return NoContent();
     }
 
     /// <summary>Quita un producto. Idempotente: si no estaba guardado, tambien responde 204.</summary>
