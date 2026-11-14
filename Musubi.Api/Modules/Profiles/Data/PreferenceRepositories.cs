@@ -14,6 +14,8 @@ internal interface IPreferenceRepository
 
     Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken);
 
+    Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken);
+
     Task DeleteAsync(string userId, CancellationToken cancellationToken);
 }
 
@@ -44,6 +46,17 @@ internal sealed class MongoPreferenceRepository(IMongoDatabase database) : IPref
             new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
             cancellationToken).ConfigureAwait(false);
 
+    // Igual que los intereses: el tema por defecto solo entra al crear el documento.
+    public async Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken) =>
+        await preferences.FindOneAndUpdateAsync(
+            p => p.UserId == userId,
+            Builders<PreferenceDocument>.Update.SetOnInsert(p => p.UserId, userId)
+                .SetOnInsert(p => p.SchemaVersion, 1)
+                .SetOnInsert(p => p.Theme, "system")
+                .Set(p => p.Recommendations, enabled),
+            new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+
     public Task DeleteAsync(string userId, CancellationToken cancellationToken) =>
         preferences.DeleteOneAsync(p => p.UserId == userId, cancellationToken);
 }
@@ -65,8 +78,14 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
     {
         lock (gate)
         {
-            var interests = preferences.TryGetValue(userId, out var current) ? current.Interests : [];
-            var document = new PreferenceDocument { UserId = userId, Theme = theme, Interests = interests };
+            var current = preferences.TryGetValue(userId, out var found) ? found : null;
+            var document = new PreferenceDocument
+            {
+                UserId = userId,
+                Theme = theme,
+                Interests = current?.Interests ?? [],
+                Recommendations = current?.Recommendations ?? true,
+            };
             preferences[userId] = document;
             return Task.FromResult(document);
         }
@@ -76,8 +95,31 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
     {
         lock (gate)
         {
-            var theme = preferences.TryGetValue(userId, out var current) ? current.Theme : "system";
-            var document = new PreferenceDocument { UserId = userId, Theme = theme, Interests = [.. interests] };
+            var current = preferences.TryGetValue(userId, out var found) ? found : null;
+            var document = new PreferenceDocument
+            {
+                UserId = userId,
+                Theme = current?.Theme ?? "system",
+                Interests = [.. interests],
+                Recommendations = current?.Recommendations ?? true,
+            };
+            preferences[userId] = document;
+            return Task.FromResult(document);
+        }
+    }
+
+    public Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var current = preferences.TryGetValue(userId, out var found) ? found : null;
+            var document = new PreferenceDocument
+            {
+                UserId = userId,
+                Theme = current?.Theme ?? "system",
+                Interests = current?.Interests ?? [],
+                Recommendations = enabled,
+            };
             preferences[userId] = document;
             return Task.FromResult(document);
         }

@@ -57,4 +57,20 @@ public sealed class InterestsRepositoryTests
 
         Assert.Equal(["libros"], (await repository.FindAsync("user-a", Ct))?.Interests);
     }
+
+    [Fact]
+    public async Task InterestsAndRecommendations_KeepEachOther()
+    {
+        // HU-35 agrego "Recomendarte productos según tu actividad" al mismo documento.
+        var repository = new InMemoryPreferenceRepository();
+        await repository.SetInterestsAsync("user-a", ["libros"], Ct);
+        await repository.SetRecommendationsAsync("user-a", false, Ct);
+        await repository.SetInterestsAsync("user-a", ["dibujo"], Ct);
+        await repository.SetThemeAsync("user-a", "dark", Ct);
+
+        var preference = await repository.FindAsync("user-a", Ct);
+
+        Assert.Equal(("dark", false), (preference?.Theme, preference?.Recommendations));
+        Assert.Equal(["dibujo"], preference?.Interests);
+    }
 }

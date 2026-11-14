@@ -7,7 +7,7 @@
 - [x] `InterestsController`, `InterestsService`, DTOs y `profiles.invalid_interest`; registro en `ProfilesModuleServiceCollectionExtensions`.
 
 ## T3 — Catálogos
-- [x] `docs/endpoints.md` (88 filas), `docs/errores.md`, `docs/modelo-datos.md` (`preferences.interests`), `docs/trazabilidad.md` y `docs/versionado.md` (`0.5.0-alpha.28`, sección compartida).
+- [x] `docs/endpoints.md` (90 filas), `docs/errores.md`, `docs/modelo-datos.md` (`preferences.interests`), `docs/trazabilidad.md` y `docs/versionado.md` (`0.5.0-alpha.29`, sección compartida).
 
 ## T4 — Evidencia y cierre
 - [x] Unit 642 · Integration 177 · Security 227 · Contract 23 (14-Nov-2026). `DatabaseTest` en el CI.

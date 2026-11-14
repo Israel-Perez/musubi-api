@@ -4,12 +4,13 @@
 
 - **Qué:** `GET` y `PUT /api/v1/profiles/me/interests` ("¿Qué te interesa?" y "Mis intereses" de la app): slugs de categorías activas del campus, hasta 20 y sin repetidos; `[]` los borra. Error nuevo `profiles.invalid_interest`.
 - **Dónde se guardan:** `preferences.interests[]` (el documento del tema, HU-54), no en `profiles`: el perfil público nunca lee `preferences`, así que son privados (RNF-07) sin depender de un filtro. Se borran con la cuenta (HU-46).
-- **Sin script en `db/`:** el validador de `preferences` (db/018) no cierra los campos. El upsert pone `theme: "system"` con `$setOnInsert` porque ese validador lo exige. Esquema 21, API `0.5.0-alpha.28` (fila compartida replicada en `musubi-app`).
-- **Por qué sin script:** HU-49 (PR #96 de Alejandro) ya toma `db/022` y el esquema 22; un segundo `022` habría obligado a renumerar al fusionar.
+- **Sin script en `db/`:** el validador de `preferences` (db/018) no cierra los campos. El upsert pone `theme: "system"` con `$setOnInsert` porque ese validador lo exige. API `0.5.0-alpha.29` sobre el esquema 22 de HU-35 (fila compartida replicada en `musubi-app`).
+- **Por qué sin script:** el validador de `preferences` no cierra los campos; HU-35 ya tomó `db/022` y HU-49 (PR #96) va en `db/023`.
+- **Al actualizar con `main` (14-Nov-2026):** HU-35 agregó `preferences.recommendations`; los tres setters (`SetThemeAsync`, `SetInterestsAsync`, `SetRecommendationsAsync`) conservan los otros dos campos.
 - **Error a evitar:** `InMemoryPreferenceRepository.SetThemeAsync` reemplazaba el documento completo; con un campo nuevo en el mismo documento, cada escritura debe conservar los demás campos (`ThemeAndInterests_KeepEachOther`).
 - **Error a evitar:** CA1861 rompe el build de las pruebas con un `new[] { "x" }` constante dentro de un `new { ... }`: usa un campo `static readonly`.
 - **Pendiente con dueño:** `NOTE (HU-35)`: "Para ti" los lee en el arranque en frío (RN-46) por un contrato de M-02 e ignora los slugs de categorías desactivadas.
-- **Verificación (14-Nov-2026, sobre `main` `3a85610`):** build Release 0/0; Unit 642, Integration 177, Security 227 y Contract 23; `check_endpoints` OK (88); critic PASS; `check_shared_sections` OK. `DatabaseTest` (upsert contra el validador real) corre en el CI: Docker apagado en local. Semgrep no está instalado en local: lo corre el CI.
+- **Verificación (14-Nov-2026, sobre `main` `892856f`, con HU-35):** build Release 0/0; Unit 642, Integration 177, Security 227 y Contract 23; `check_endpoints` OK (88); critic PASS; `check_shared_sections` OK. `DatabaseTest` (upsert contra el validador real) corre en el CI: Docker apagado en local. Semgrep no está instalado en local: lo corre el CI.
 
 ## Trabajo en curso — HU-05 (SCRUM-34)
 
@@ -27,6 +28,18 @@
 - La app consume el contrato, aplica `ThemeMode`, ofrece selector en Ajustes y revierte ante fallo de guardado. Sin preferencias de notificaciones, cuyo MVP sigue sin definición.
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
+
+## Trabajo en curso — HU-35 (SCRUM-58)
+
+- **Qué:** módulo nuevo `Modules/Recommendations/` (M-11). `GET /recommendations` ("Recomendado para ti") y `GET /products/{id}/similar` ("Ver parecidos").
+- **Modelo (ML.NET 5.0.1):** `RecommendationModel` aprende TF-IDF (palabras y trigramas de letras, sin palabras vacías del español) del catálogo disponible del campus. "Ver parecidos" son los vecinos más cercanos (0.8 texto, 0.1 categoría, 0.1 precio). "Para ti" compara el perfil de la persona (suma de vectores con pesos compra 5, chat 3, favorito 2, ver 1 y olvido de 30 días) con cada publicación; con 20 pares o más y 3 personas se mezcla 60/40 con factorización de matrices de una clase (`CollaborativeScorer`). Sin historial: lo más activo de 14 días y lo más nuevo (RN-46).
+- **Evidencia de ML (L-16i):** `RecommendationModel.Evaluate` hace leave-one-out; la prueba exige hit@3 ≥ 0.8 y al menos el doble del azar. Cada entrenamiento escribe su hit@5 en los logs (CloudWatch).
+- **Señales:** `IInteractionRecorder` desde `ProductsController.Detail` (lo ajeno), `FavoritesController.Save`, `ConversationsController.Start` y `OrderLifecycleService` al completar (compra de quien compra). Nunca falla hacia quien llama.
+- **Decisiones de la usuaria (13-Nov-2026):** Inicio + Producto; ver, favorito, chat y compra (sin textos de búsqueda); 90 días.
+- **Errores a evitar:** ML.NET no puede ajustar TF-IDF sin filas (catálogo vacío): se salta el ajuste. Mezclar el coseno (0.1–0.3) con la factorización ya normalizada (0 a 1) hacía que la factorización dominara (hit@3 = 0.40): el coseno se normaliza entre los candidatos antes de mezclar. Microsoft.ML 6.0.0 salió el 11-Nov-2026: se usa 5.0.1 por el cooldown de 7 días.
+- **Versión:** `0.5.0-alpha.28`, esquema 22 (`db/022-interacciones.js`). `Newtonsoft.Json` entra al Package Source Mapping (transitiva de ML.NET; restauración con caché vacía OK).
+- **Se puede rechazar (aviso de privacidad, HU-47):** el aviso ya prometía "Recomendarte productos según tu actividad" como finalidad adicional rechazable en `Ajustes`. `preferences.recommendations` (sin el campo es `true`); `PUT /profiles/me/preferences` acepta `recommendations?` (la app anterior solo manda `theme` y no la cambia). Apagarla borra el historial (`IInteractionHistory`), deja de registrar (`IRecommendationConsent`) y "Para ti" queda general.
+- **Verificación (14-Nov-2026):** build Release 0/0; Unit 669, Integration 174, Security 226 y Contract 22.
 
 ## Trabajo en curso — HU-19 y HU-30 (SCRUM-41, SCRUM-48)
 

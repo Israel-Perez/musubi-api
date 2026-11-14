@@ -72,7 +72,7 @@
 | Tiempo real | SignalR (hub de chat y avisos dentro de la app) — `NOTE (HU-20)` |
 | Notificaciones | Firebase Cloud Messaging; el back envía con credenciales de Firebase Admin — `NOTE (HU-31)` |
 | IA generativa | API de un modelo de lenguaje detrás de una interfaz; proveedor intercambiable — `NOTE (HU-32)` |
-| Machine Learning | ML.NET (recomendaciones) — `NOTE (HU-35)` |
+| Machine Learning | ML.NET 5.0.1 (`Microsoft.ML` y `Microsoft.ML.Recommender`, MIT): TF-IDF y factorización de matrices de una clase para las recomendaciones (HU-35), entrenadas dentro de la API |
 | Pagos | Sin pasarela (decisión D-01): transferencia a la CLABE del vendedor, guardada cifrada, o efectivo con código de entrega — `NOTE (HU-55)` |
 | Documentación de API | OpenAPI + Scalar, solo en Development |
 | Contenedores y nube | Docker (multi-stage, usuario no root); AWS con Terraform: ALB + 2 EC2 (Auto Scaling Group) + CloudFront, imágenes en S3 + CloudFront — `NOTE (02-05)` |

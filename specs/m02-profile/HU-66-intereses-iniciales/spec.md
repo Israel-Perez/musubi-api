@@ -58,4 +58,4 @@ Jira (SCRUM-106): Como **estudiante nuevo**, quiero **elegir las categorías que
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 revisor distinto del autor)
 - **Fecha:** 14-Nov-2026
-- **Detalle:** alcance desde SCRUM-106. API `0.5.0-alpha.28`, sin script nuevo. Jira sigue en «Por hacer»; transicionarlo queda para el responsable.
+- **Detalle:** alcance desde SCRUM-106. API `0.5.0-alpha.29`, sin script nuevo. Jira sigue en «Por hacer»; transicionarlo queda para el responsable.

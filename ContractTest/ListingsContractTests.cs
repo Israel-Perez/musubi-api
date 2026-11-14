@@ -122,6 +122,11 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(searched.GetProperty("items")[0]));
         Assert.Equal(Shape(await FixtureAsync("category.json")), Shape(categories[0]));
         Assert.Equal(Shape(await FixtureAsync("product-detail.json")), Shape(detail));
+        // HU-35: "Recomendado para ti" y "Ver parecidos" usan la misma pagina; cada item tiene la forma de product.json.
+        var forYou = await BodyAsync(await client.GetAsync(new Uri("/api/v1/recommendations", UriKind.Relative), Ct));
+        var similar = await BodyAsync(await client.GetAsync(new Uri($"/api/v1/products/{productId}/similar", UriKind.Relative), Ct));
+        Assert.Equal(Shape(await FixtureAsync("recommendation-page.json")), Shape(forYou));
+        Assert.Equal(Shape(await FixtureAsync("recommendation-page.json")), Shape(similar));
 
         // HU-07: editar, pausar y reactivar responden con la misma forma de publicacion.
         var id = product.GetProperty("id").GetString();

@@ -16,7 +16,7 @@
 ## Guardarraíles
 - Sin `try/catch` en el controller; errores con `this.Respond` y el catálogo.
 - `userId` solo de `MusubiClaims.Subject`.
-- critic, `check_endpoints` y `check_shared_sections` (fila `0.5.0-alpha.28` replicada en `musubi-app`).
+- critic, `check_endpoints` y `check_shared_sections` (fila `0.5.0-alpha.29` replicada en `musubi-app`).
 
 ## Validación
 - Build Release 0/0 y las 4 suites con `--no-build`.

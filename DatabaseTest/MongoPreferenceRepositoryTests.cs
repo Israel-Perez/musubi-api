@@ -48,4 +48,22 @@ public sealed class MongoPreferenceRepositoryTests(MongoContainerFixture mongo) 
         Assert.Equal(["dibujo"], kept.Interests);
         Assert.Equal("light", kept.Theme);
     }
+
+    [Fact]
+    public async Task Recommendations_UpsertWithTheDefaultTheme_AndTheThemeKeepsThem()
+    {
+        // HU-35: el validador de db/022 acepta el campo y los dos cambios son independientes.
+        var repository = new MongoPreferenceRepository(database!);
+        const string userId = "6716a0000000000000000002";
+
+        var off = await repository.SetRecommendationsAsync(userId, false, TestContext.Current.CancellationToken);
+        var dark = await repository.SetThemeAsync(userId, "dark", TestContext.Current.CancellationToken);
+
+        Assert.Equal(("system", false), (off.Theme, off.Recommendations));
+        Assert.Equal(("dark", false), (dark.Theme, dark.Recommendations));
+
+        // HU-66: los intereses tampoco tocan la preferencia de recomendaciones.
+        var withInterests = await repository.SetInterestsAsync(userId, ["libros"], TestContext.Current.CancellationToken);
+        Assert.Equal((false, "dark"), (withInterests.Recommendations, withInterests.Theme));
+    }
 }
