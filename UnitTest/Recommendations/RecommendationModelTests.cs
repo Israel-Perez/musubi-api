@@ -181,6 +181,22 @@ public sealed class RecommendationModelTests
     }
 
     [Fact]
+    public void Training_KeepsTheCollaborativeFilter_OnlyIfTheEvaluationSaysItHelps()
+    {
+        // Con 10 personas la factorizacion no mejora al contenido (y en Linux lo empeora): el modelo se queda sin ella.
+        var (items, interactions) = TwoTastes(users: 10);
+
+        var model = RecommendationModel.Train(Campus, items, interactions, Now, evaluate: true);
+        var untested = RecommendationModel.Train(Campus, items, interactions, Now, evaluate: false);
+
+        Assert.NotNull(model.Evaluation);
+        Assert.Equal(model.Evaluation.Collaborative, model.UsesCollaborative);
+        Assert.False(model.UsesCollaborative);
+        Assert.True(model.Evaluation.HitRate >= 0.8, $"hit@5 = {model.Evaluation.HitRate:0.00}");
+        Assert.True(untested.UsesCollaborative);
+    }
+
+    [Fact]
     public void Evaluation_WithoutAnyoneToEvaluate_IsNull() =>
         Assert.Null(RecommendationModel.Evaluate(Campus, Catalog(), [], Now, k: 5));
 

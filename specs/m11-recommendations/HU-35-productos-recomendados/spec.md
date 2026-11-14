@@ -22,7 +22,7 @@ Jira (SCRUM-58): Como **comprador**, quiero **ver productos recomendados según 
 4. **R4 · Exclusiones (RN-45):** nunca lo propio, lo que ya vio, lo que no está disponible ni lo de personas bloqueadas (HU-57).
 5. **R5 · "Ver parecidos":** vecinos más cercanos por texto, con categoría y precio; misma visibilidad que el detalle; sin sesión, sin el vendedor (RNF-05).
 6. **R6 · Privacidad (RNF-07):** el historial nunca se expone, vence a los 90 días (TTL) y se borra con la cuenta (HU-46).
-7. **R7 · Evidencia:** evaluación leave-one-out (hit@K contra el azar) en las pruebas y en los logs de cada entrenamiento.
+7. **R7 · Evidencia:** evaluación leave-one-out (hit@K contra el azar) en las pruebas y en los logs de cada entrenamiento. La misma evaluación decide si el filtrado colaborativo entra: solo si mejora al contenido (fix del 14-Nov-2026).
 8. **R8 · Se puede rechazar:** el aviso de privacidad (HU-47) la declara finalidad adicional que se rechaza desde `Ajustes`. Con `recommendations: false` en las preferencias no se registra nada, el historial se borra al momento y "Para ti" es solo general.
 
 ## Diseño
