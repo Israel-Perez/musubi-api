@@ -1,5 +1,17 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-66 (SCRUM-106, Kazumi)
+
+- **Qué:** `GET` y `PUT /api/v1/profiles/me/interests` ("¿Qué te interesa?" y "Mis intereses" de la app): slugs de categorías activas del campus, hasta 20 y sin repetidos; `[]` los borra. Error nuevo `profiles.invalid_interest`.
+- **Dónde se guardan:** `preferences.interests[]` (el documento del tema, HU-54), no en `profiles`: el perfil público nunca lee `preferences`, así que son privados (RNF-07) sin depender de un filtro. Se borran con la cuenta (HU-46).
+- **Sin script en `db/`:** el validador de `preferences` (db/018) no cierra los campos. El upsert pone `theme: "system"` con `$setOnInsert` porque ese validador lo exige. API `0.5.0-alpha.29` sobre el esquema 22 de HU-35 (fila compartida replicada en `musubi-app`).
+- **Por qué sin script:** el validador de `preferences` no cierra los campos; HU-35 ya tomó `db/022` y HU-49 (PR #96) va en `db/023`.
+- **Al actualizar con `main` (14-Nov-2026):** HU-35 agregó `preferences.recommendations`; los tres setters (`SetThemeAsync`, `SetInterestsAsync`, `SetRecommendationsAsync`) conservan los otros dos campos.
+- **Error a evitar:** `InMemoryPreferenceRepository.SetThemeAsync` reemplazaba el documento completo; con un campo nuevo en el mismo documento, cada escritura debe conservar los demás campos (`ThemeAndInterests_KeepEachOther`).
+- **Error a evitar:** CA1861 rompe el build de las pruebas con un `new[] { "x" }` constante dentro de un `new { ... }`: usa un campo `static readonly`.
+- **Pendiente con dueño:** `NOTE (HU-35)`: "Para ti" los lee en el arranque en frío (RN-46) por un contrato de M-02 e ignora los slugs de categorías desactivadas.
+- **Verificación (14-Nov-2026, sobre `main` `892856f`, con HU-35):** build Release 0/0; Unit 642, Integration 177, Security 227 y Contract 23; `check_endpoints` OK (88); critic PASS; `check_shared_sections` OK. `DatabaseTest` (upsert contra el validador real) corre en el CI: Docker apagado en local. Semgrep no está instalado en local: lo corre el CI.
+
 ## Trabajo en curso — HU-05 (SCRUM-34)
 
 - **Qué:** API de “Consultar perfil y reputación de otro usuario”. `GET /profiles/{id}` ya existía (HU-04) con nombre, foto, campus, `memberSince`, carrera/periodo y `stats { ratingAvg, ratingCount, sales }`, sin correo y con 404 para otro campus/bloqueo. Faltaba la pestaña “Publicaciones (N)” de `Perfil-vendedor`.

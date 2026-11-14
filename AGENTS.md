@@ -64,7 +64,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 5. Convenciones técnicas
 
-> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (88 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
+> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (90 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
@@ -81,6 +81,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Coincidencias (HU-19): `Modules/Matching/`. Al publicar una solicitud, `WantedService` la encola con `IWantedMatching` y `WantedMatchWorker` la revisa en segundo plano: `IProductMatches` (M-03) da las candidatas y `MatchRules` decide (misma categoría o cualquiera con "otro", la mitad de las palabras del nombre, hasta 20 % sobre el presupuesto; una vez por solicitud y persona y hasta 3 al día). Al cerrar o cancelar una solicitud, quien tenía una oferta pendiente recibe `offer_closed` (HU-30).
 - Recomendaciones (HU-35): `Modules/Recommendations/`. Las señales (ver el detalle, favorito, chat desde una publicación y compra) se registran con `IInteractionRecorder` (nunca falla hacia quien llama; `interactions`, 90 días). `RecommendationModelStore` entrena con ML.NET un `RecommendationModel` por campus cada 30 minutos (TF-IDF del catálogo de `IRecommendationCatalog`, perfil de la persona y factorización de matrices de una clase solo si la evaluación leave-one-out muestra que mejora) y registra su hit@5 en los logs.
 - Pedidos (HU-24): `OrderLifecycleService` acepta (quien vende, con el pago elegido), cancela (motivo de `CancelReasons`) y confirma la entrega de cada parte; aparta, regresa y vende las piezas con `IProductStock` (Listings) y avisa con `INotificationCenter`.
+- Intereses (HU-66): `GET`/`PUT /profiles/me/interests` guardan slugs de categorías en `preferences.interests` (privados: el perfil público no lee `preferences`); HU-35 podrá usarlos en el arranque en frío (`NOTE (HU-35)`).
 - Pendientes con dueño: pagos por transferencia y código de entrega → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
 
 ## 6. Seguridad y DevSecOps
@@ -143,7 +144,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (88 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (90 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

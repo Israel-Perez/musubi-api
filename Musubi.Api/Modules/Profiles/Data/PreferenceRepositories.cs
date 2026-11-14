@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Driver;
@@ -10,6 +11,8 @@ internal interface IPreferenceRepository
     Task<PreferenceDocument?> FindAsync(string userId, CancellationToken cancellationToken);
 
     Task<PreferenceDocument> SetThemeAsync(string userId, string theme, CancellationToken cancellationToken);
+
+    Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken);
 
     Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken);
 
@@ -32,6 +35,18 @@ internal sealed class MongoPreferenceRepository(IMongoDatabase database) : IPref
             new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
             cancellationToken).ConfigureAwait(false);
 
+    // El tema por defecto entra solo al crear el documento: el validador de db/018 lo exige y no pisa el elegido.
+    public async Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken) =>
+        await preferences.FindOneAndUpdateAsync(
+            p => p.UserId == userId,
+            Builders<PreferenceDocument>.Update.SetOnInsert(p => p.UserId, userId)
+                .SetOnInsert(p => p.SchemaVersion, 1)
+                .SetOnInsert(p => p.Theme, "system")
+                .Set(p => p.Interests, interests),
+            new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+
+    // Igual que los intereses: el tema por defecto solo entra al crear el documento.
     public async Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken) =>
         await preferences.FindOneAndUpdateAsync(
             p => p.UserId == userId,
@@ -64,7 +79,30 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
         lock (gate)
         {
             var current = preferences.TryGetValue(userId, out var found) ? found : null;
-            var document = new PreferenceDocument { UserId = userId, Theme = theme, Recommendations = current?.Recommendations ?? true };
+            var document = new PreferenceDocument
+            {
+                UserId = userId,
+                Theme = theme,
+                Interests = current?.Interests ?? [],
+                Recommendations = current?.Recommendations ?? true,
+            };
+            preferences[userId] = document;
+            return Task.FromResult(document);
+        }
+    }
+
+    public Task<PreferenceDocument> SetInterestsAsync(string userId, IReadOnlyList<string> interests, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var current = preferences.TryGetValue(userId, out var found) ? found : null;
+            var document = new PreferenceDocument
+            {
+                UserId = userId,
+                Theme = current?.Theme ?? "system",
+                Interests = [.. interests],
+                Recommendations = current?.Recommendations ?? true,
+            };
             preferences[userId] = document;
             return Task.FromResult(document);
         }
@@ -75,7 +113,13 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
         lock (gate)
         {
             var current = preferences.TryGetValue(userId, out var found) ? found : null;
-            var document = new PreferenceDocument { UserId = userId, Theme = current?.Theme ?? "system", Recommendations = enabled };
+            var document = new PreferenceDocument
+            {
+                UserId = userId,
+                Theme = current?.Theme ?? "system",
+                Interests = current?.Interests ?? [],
+                Recommendations = enabled,
+            };
             preferences[userId] = document;
             return Task.FromResult(document);
         }

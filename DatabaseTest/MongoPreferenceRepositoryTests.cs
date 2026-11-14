@@ -30,6 +30,26 @@ public sealed class MongoPreferenceRepositoryTests(MongoContainerFixture mongo) 
     }
 
     [Fact]
+    public async Task Interests_UpsertWithTheSystemTheme_AndKeepTheChosenTheme()
+    {
+        var repository = new MongoPreferenceRepository(database!);
+        var ct = TestContext.Current.CancellationToken;
+        const string fresh = "6716a0000000000000000002";
+        const string themed = "6716a0000000000000000003";
+
+        // HU-66: el validador de db/018 exige theme; el upsert de los intereses lo pone en system.
+        var created = await repository.SetInterestsAsync(fresh, ["libros", "laptops"], ct);
+        await repository.SetThemeAsync(themed, "dark", ct);
+        await repository.SetInterestsAsync(themed, ["dibujo"], ct);
+        var kept = await repository.SetThemeAsync(themed, "light", ct);
+
+        Assert.Equal("system", created.Theme);
+        Assert.Equal(["libros", "laptops"], (await repository.FindAsync(fresh, ct))?.Interests);
+        Assert.Equal(["dibujo"], kept.Interests);
+        Assert.Equal("light", kept.Theme);
+    }
+
+    [Fact]
     public async Task Recommendations_UpsertWithTheDefaultTheme_AndTheThemeKeepsThem()
     {
         // HU-35: el validador de db/022 acepta el campo y los dos cambios son independientes.
@@ -42,5 +62,9 @@ public sealed class MongoPreferenceRepositoryTests(MongoContainerFixture mongo) 
 
         Assert.Equal(("system", false), (off.Theme, off.Recommendations));
         Assert.Equal(("dark", false), (dark.Theme, dark.Recommendations));
+
+        // HU-66: los intereses tampoco tocan la preferencia de recomendaciones.
+        var withInterests = await repository.SetInterestsAsync(userId, ["libros"], TestContext.Current.CancellationToken);
+        Assert.Equal((false, "dark"), (withInterests.Recommendations, withInterests.Theme));
     }
 }
