@@ -374,6 +374,13 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las candidatas (hasta <see cref="ProductMatchQuery.Limit"/>).</returns>
     Task<IReadOnlyList<ProductDocument>> FindMatchCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken);
+
+    /// <summary>Las disponibles de un campus, de la mas nueva a la mas vieja (catalogo de las recomendaciones, HU-35).</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las publicaciones.</returns>
+    Task<IReadOnlyList<ProductDocument>> FindAvailableAsync(string communityId, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>Lo que busca una solicitud, para encontrar publicaciones compatibles (HU-19).</summary>

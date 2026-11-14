@@ -17,6 +17,17 @@
 - Verificación final tras rebase (10-Nov-2026): API con .NET SDK 10.0.400: build Release 0 errores/0 advertencias; Unit 450, Integration 152, Security 166, Contract 17 y Database 109 pasaron. `critic` PASS (28 archivos, 0 avisos) y `check_endpoints` OK (67 rutas). Se ajustó el script de preferencias a 015 para no colisionar con el esquema 014 de HU-23.
 - **Renumerado el 11-Nov-2026** a `db/018` y `alpha.19`, porque mientras el PR esperaba entraron a `main` el acuerdo con IA (`db/015`), HU-08 (`db/016`) y HU-31 (`db/017`). App con Flutter 3.47.7/Dart 3.13.5 sobre `main` actualizado: `pub get`, análisis sin issues, formato sin cambios y 492 pruebas pasaron; critic PASS (15 archivos, 0 avisos).
 
+## Trabajo en curso — HU-35 (SCRUM-58)
+
+- **Qué:** módulo nuevo `Modules/Recommendations/` (M-11). `GET /recommendations` ("Recomendado para ti") y `GET /products/{id}/similar` ("Ver parecidos").
+- **Modelo (ML.NET 5.0.1):** `RecommendationModel` aprende TF-IDF (palabras y trigramas de letras, sin palabras vacías del español) del catálogo disponible del campus. "Ver parecidos" son los vecinos más cercanos (0.8 texto, 0.1 categoría, 0.1 precio). "Para ti" compara el perfil de la persona (suma de vectores con pesos compra 5, chat 3, favorito 2, ver 1 y olvido de 30 días) con cada publicación; con 20 pares o más y 3 personas se mezcla 60/40 con factorización de matrices de una clase (`CollaborativeScorer`). Sin historial: lo más activo de 14 días y lo más nuevo (RN-46).
+- **Evidencia de ML (L-16i):** `RecommendationModel.Evaluate` hace leave-one-out; la prueba exige hit@3 ≥ 0.8 y al menos el doble del azar. Cada entrenamiento escribe su hit@5 en los logs (CloudWatch).
+- **Señales:** `IInteractionRecorder` desde `ProductsController.Detail` (lo ajeno), `FavoritesController.Save`, `ConversationsController.Start` y `OrderLifecycleService` al completar (compra de quien compra). Nunca falla hacia quien llama.
+- **Decisiones de la usuaria (13-Nov-2026):** Inicio + Producto; ver, favorito, chat y compra (sin textos de búsqueda); 90 días.
+- **Errores a evitar:** ML.NET no puede ajustar TF-IDF sin filas (catálogo vacío): se salta el ajuste. Mezclar el coseno (0.1–0.3) con la factorización ya normalizada (0 a 1) hacía que la factorización dominara (hit@3 = 0.40): el coseno se normaliza entre los candidatos antes de mezclar. Microsoft.ML 6.0.0 salió el 11-Nov-2026: se usa 5.0.1 por el cooldown de 7 días.
+- **Versión:** `0.5.0-alpha.28`, esquema 22 (`db/022-interacciones.js`). `Newtonsoft.Json` entra al Package Source Mapping (transitiva de ML.NET; restauración con caché vacía OK).
+- **Verificación (14-Nov-2026):** build Release 0/0; Unit 666, Integration 173, Security 226 y Contract 22.
+
 ## Trabajo en curso — HU-19 y HU-30 (SCRUM-41, SCRUM-48)
 
 - **HU-19:** módulo nuevo `Modules/Matching/` (M-06). `WantedService.CreateAsync` encola `WantedPublished` en `IWantedMatching` (cola en memoria, como la de push) y `WantedMatchWorker` llama a `WantedMatchNotifier`: pide candidatas a M-03 (`IProductMatches`, filtro por campus, disponibles, categoría, precio, personas excluidas y prefijo de palabras) y decide con `MatchRules`. Avisa con `wanted_match` en "Coincidencias", destino `wanted_board`.
