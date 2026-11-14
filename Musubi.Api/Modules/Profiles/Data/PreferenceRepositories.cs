@@ -11,6 +11,8 @@ internal interface IPreferenceRepository
 
     Task<PreferenceDocument> SetThemeAsync(string userId, string theme, CancellationToken cancellationToken);
 
+    Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken);
+
     Task DeleteAsync(string userId, CancellationToken cancellationToken);
 }
 
@@ -27,6 +29,16 @@ internal sealed class MongoPreferenceRepository(IMongoDatabase database) : IPref
             Builders<PreferenceDocument>.Update.SetOnInsert(p => p.UserId, userId)
                 .SetOnInsert(p => p.SchemaVersion, 1)
                 .Set(p => p.Theme, theme),
+            new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken) =>
+        await preferences.FindOneAndUpdateAsync(
+            p => p.UserId == userId,
+            Builders<PreferenceDocument>.Update.SetOnInsert(p => p.UserId, userId)
+                .SetOnInsert(p => p.SchemaVersion, 1)
+                .SetOnInsert(p => p.Theme, "system")
+                .Set(p => p.Recommendations, enabled),
             new FindOneAndUpdateOptions<PreferenceDocument> { IsUpsert = true, ReturnDocument = ReturnDocument.After },
             cancellationToken).ConfigureAwait(false);
 
@@ -51,7 +63,19 @@ internal sealed class InMemoryPreferenceRepository : IPreferenceRepository
     {
         lock (gate)
         {
-            var document = new PreferenceDocument { UserId = userId, Theme = theme };
+            var current = preferences.TryGetValue(userId, out var found) ? found : null;
+            var document = new PreferenceDocument { UserId = userId, Theme = theme, Recommendations = current?.Recommendations ?? true };
+            preferences[userId] = document;
+            return Task.FromResult(document);
+        }
+    }
+
+    public Task<PreferenceDocument> SetRecommendationsAsync(string userId, bool enabled, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var current = preferences.TryGetValue(userId, out var found) ? found : null;
+            var document = new PreferenceDocument { UserId = userId, Theme = current?.Theme ?? "system", Recommendations = enabled };
             preferences[userId] = document;
             return Task.FromResult(document);
         }

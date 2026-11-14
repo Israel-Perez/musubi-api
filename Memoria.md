@@ -26,7 +26,8 @@
 - **Decisiones de la usuaria (13-Nov-2026):** Inicio + Producto; ver, favorito, chat y compra (sin textos de búsqueda); 90 días.
 - **Errores a evitar:** ML.NET no puede ajustar TF-IDF sin filas (catálogo vacío): se salta el ajuste. Mezclar el coseno (0.1–0.3) con la factorización ya normalizada (0 a 1) hacía que la factorización dominara (hit@3 = 0.40): el coseno se normaliza entre los candidatos antes de mezclar. Microsoft.ML 6.0.0 salió el 11-Nov-2026: se usa 5.0.1 por el cooldown de 7 días.
 - **Versión:** `0.5.0-alpha.28`, esquema 22 (`db/022-interacciones.js`). `Newtonsoft.Json` entra al Package Source Mapping (transitiva de ML.NET; restauración con caché vacía OK).
-- **Verificación (14-Nov-2026):** build Release 0/0; Unit 666, Integration 173, Security 226 y Contract 22.
+- **Se puede rechazar (aviso de privacidad, HU-47):** el aviso ya prometía "Recomendarte productos según tu actividad" como finalidad adicional rechazable en `Ajustes`. `preferences.recommendations` (sin el campo es `true`); `PUT /profiles/me/preferences` acepta `recommendations?` (la app anterior solo manda `theme` y no la cambia). Apagarla borra el historial (`IInteractionHistory`), deja de registrar (`IRecommendationConsent`) y "Para ti" queda general.
+- **Verificación (14-Nov-2026):** build Release 0/0; Unit 669, Integration 174, Security 226 y Contract 22.
 
 ## Trabajo en curso — HU-19 y HU-30 (SCRUM-41, SCRUM-48)
 

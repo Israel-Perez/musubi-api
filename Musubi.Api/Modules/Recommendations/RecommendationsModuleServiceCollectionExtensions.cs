@@ -22,6 +22,7 @@ internal static class RecommendationsModuleServiceCollectionExtensions
             : new MongoInteractionRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<InteractionRecorder>();
         services.AddSingleton<IInteractionRecorder>(provider => provider.GetRequiredService<InteractionRecorder>());
+        services.AddSingleton<IInteractionHistory>(provider => provider.GetRequiredService<InteractionRecorder>());
         services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<InteractionRecorder>());
         services.AddSingleton<RecommendationModelStore>();
         services.AddSingleton<RecommendationService>();

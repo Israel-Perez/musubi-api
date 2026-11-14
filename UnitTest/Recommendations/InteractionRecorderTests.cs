@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Modules.Recommendations.Data;
 using Musubi.TestShared;
@@ -14,10 +16,15 @@ public sealed class InteractionRecorderTests
     private static readonly DateTimeOffset Now = new(2026, 11, 14, 18, 0, 0, TimeSpan.Zero);
 
     private readonly InMemoryInteractionRepository interactions = new();
+    private readonly InMemoryPreferenceRepository preferences = new();
     private readonly InteractionRecorder recorder;
 
     public InteractionRecorderTests() =>
-        recorder = new InteractionRecorder(interactions, new ManualTimeProvider(Now), NullLogger<InteractionRecorder>.Instance);
+        recorder = new InteractionRecorder(
+            interactions,
+            new RecommendationConsent(preferences),
+            new ManualTimeProvider(Now),
+            NullLogger<InteractionRecorder>.Instance);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -60,4 +67,20 @@ public sealed class InteractionRecorderTests
     [InlineData(InteractionKinds.Favorite, 2)]
     [InlineData(InteractionKinds.View, 1)]
     public void Weights_PurchaseChatFavoriteView(string kind, double weight) => Assert.Equal(weight, InteractionKinds.Weight(kind));
+
+    [Fact]
+    public async Task WhoRejectsTheRecommendations_IsNotRecorded_AndForgetErasesTheHistory()
+    {
+        // Aviso de privacidad (HU-47): "Recomendarte productos según tu actividad" se puede rechazar.
+        var ana = AuthIds.New();
+        var luis = AuthIds.New();
+        await recorder.RecordAsync(new Interaction(luis, Campus, AuthIds.New(), InteractionKinds.View), Ct);
+        await preferences.SetRecommendationsAsync(ana, false, Ct);
+
+        await recorder.RecordAsync(new Interaction(ana, Campus, AuthIds.New(), InteractionKinds.View), Ct);
+        await recorder.ForgetAsync(luis, Ct);
+
+        Assert.Empty(await interactions.FindByUserAsync(ana, 10, Ct));
+        Assert.Empty(await interactions.FindByUserAsync(luis, 10, Ct));
+    }
 }

@@ -23,9 +23,11 @@ Jira (SCRUM-58): Como **comprador**, quiero **ver productos recomendados según 
 5. **R5 · "Ver parecidos":** vecinos más cercanos por texto, con categoría y precio; misma visibilidad que el detalle; sin sesión, sin el vendedor (RNF-05).
 6. **R6 · Privacidad (RNF-07):** el historial nunca se expone, vence a los 90 días (TTL) y se borra con la cuenta (HU-46).
 7. **R7 · Evidencia:** evaluación leave-one-out (hit@K contra el azar) en las pruebas y en los logs de cada entrenamiento.
+8. **R8 · Se puede rechazar:** el aviso de privacidad (HU-47) la declara finalidad adicional que se rechaza desde `Ajustes`. Con `recommendations: false` en las preferencias no se registra nada, el historial se borra al momento y "Para ti" es solo general.
 
 ## Diseño
 - `Modules/Recommendations/`: `InteractionRecorder` (`IInteractionRecorder`, `IAccountDataEraser`), `RecommendationModel` (+ `SparseVector`, `CollaborativeScorer`), `RecommendationModelStore` (un modelo por campus, 30 minutos), `RecommendationService`, `RecommendationsController`.
+- M-02: `IRecommendationConsent` (lee `preferences.recommendations`) y `PUT /profiles/me/preferences` con `recommendations?`; M-11 le da `IInteractionHistory.ForgetAsync`.
 - M-03: `IRecommendationCatalog` (`AvailableAsync`, `FindVisibleAsync` con las reglas del detalle, `CardsAsync`) e `IProductRepository.FindAvailableAsync`.
 - Datos: `interactions` (`db/022-interacciones.js`); esquema 22.
 - Paquetes: `Microsoft.ML` 5.0.1 y `Microsoft.ML.Recommender` 0.23.1 (MIT; constitución §6). `Newtonsoft.Json` entra al Package Source Mapping.
@@ -48,7 +50,8 @@ Jira (SCRUM-58): Como **comprador**, quiero **ver productos recomendados según 
 - [x] Si no hay datos suficientes, se muestran recomendaciones generales (RN-46) → `ForYou_WithoutHistory_IsGeneral_*`.
 - [x] No se recomiendan productos propios, vendidos o inactivos, ni de personas bloqueadas (RN-45) → `ForYou_NeverOwnItems_*` e integración.
 - [x] El historial de interacciones es privado (RNF-07) → no hay ruta que lo exponga; TTL de 90 días y borrado con la cuenta.
-- [x] Build Release 0/0 · Unit 666 · Integration 173 · Security 226 · Contract 22 · `check_endpoints` OK (88) · critic PASS.
+- [x] Se puede rechazar desde `Ajustes` (aviso de privacidad) → `WhoRejectsTheRecommendations_*`, `ForYou_IfTheyRejectedIt_IsOnlyGeneral` e integración.
+- [x] Build Release 0/0 · Unit 669 · Integration 174 · Security 226 · Contract 22 · `check_endpoints` OK (88) · critic PASS.
 
 ## Límites
 - Cada instancia entrena su propio modelo (en memoria); las dos pueden diferir unos minutos.

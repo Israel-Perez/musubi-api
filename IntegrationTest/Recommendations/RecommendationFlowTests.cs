@@ -113,7 +113,10 @@ public sealed class RecommendationFlowTests(AuthApiFactory factory) : IClassFixt
         var similarForVisitor = await GetAsync(visitor, $"/api/v1/products/{casio}/similar");
 
         Assert.Equal("similar", similar.GetProperty("basis").GetString());
-        Assert.Equal(fx82, Ids(similar)[0]);
+        // Otra prueba de la clase puede publicar mas calculadoras: la fx-82 esta y va antes que la bata.
+        var similarIds = Ids(similar);
+        Assert.Contains(fx82, similarIds);
+        Assert.True(!similarIds.Contains(bata) || similarIds.IndexOf(fx82) < similarIds.IndexOf(bata));
         Assert.NotEqual(JsonValueKind.Null, similar.GetProperty("items")[0].GetProperty("seller").ValueKind);
         // Sin sesion, sin vendedor (RNF-05).
         Assert.Equal(JsonValueKind.Null, similarForVisitor.GetProperty("items")[0].GetProperty("seller").ValueKind);
@@ -127,5 +130,32 @@ public sealed class RecommendationFlowTests(AuthApiFactory factory) : IClassFixt
         var response = await ana.Client.GetAsync(new Uri("/api/v1/products/6716a0000000000000000fff/similar", UriKind.Relative), Ct);
 
         await AuthFlow.AssertCodeAsync(response, HttpStatusCode.NotFound, "listings.product_not_found");
+    }
+
+    [Fact]
+    public async Task RejectingTheRecommendations_ForgetsTheHistory_AndStopsUsingIt()
+    {
+        // Aviso de privacidad (HU-47): finalidad adicional que se rechaza desde Ajustes.
+        var diego = await MemberAsync();
+        var ana = await MemberAsync();
+        var casio = await PublishAsync(diego, "Química orgánica, Wade 7a ed.", "libros", "Subrayado a lápiz.");
+        await GetAsync(ana.Client, $"/api/v1/products/{casio}");
+
+        var off = await ana.Client.PutAsJsonAsync(
+            new Uri("/api/v1/profiles/me/preferences", UriKind.Relative), new { theme = "dark", recommendations = false }, Ct);
+        await GetAsync(ana.Client, $"/api/v1/products/{casio}");
+        Retrain();
+        var page = await GetAsync(ana.Client, "/api/v1/recommendations");
+        var preferences = await GetAsync(ana.Client, "/api/v1/profiles/me/preferences");
+        // La app anterior solo manda el tema: no cambia la preferencia.
+        await ana.Client.PutAsJsonAsync(new Uri("/api/v1/profiles/me/preferences", UriKind.Relative), new { theme = "light" }, Ct);
+        var again = await GetAsync(ana.Client, "/api/v1/profiles/me/preferences");
+
+        Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+        Assert.Equal("general", page.GetProperty("basis").GetString());
+        Assert.False(preferences.GetProperty("recommendations").GetBoolean());
+        Assert.False(again.GetProperty("recommendations").GetBoolean());
+        Assert.Empty(await factory.Services.GetRequiredService<Musubi.Api.Modules.Recommendations.Data.IInteractionRepository>()
+            .FindByUserAsync(ana.Id, 10, Ct));
     }
 }

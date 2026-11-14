@@ -44,6 +44,20 @@ db.interactions.createIndex({ communityId: 1, at: -1 }, { name: 'ix_community_at
 // Se borran solas a los 90 dias.
 db.interactions.createIndex({ expiresAt: 1 }, { name: 'ttl_expires_at', expireAfterSeconds: 0 });
 
+// preferences (HU-54): se agrega "Recomendarte productos según tu actividad" (opcional; sin el campo es si).
+ensureCollection('preferences', {
+  $jsonSchema: {
+    bsonType: 'object',
+    required: ['_id', 'theme', 'schemaVersion'],
+    properties: {
+      _id: id,
+      theme: { enum: ['system', 'light', 'dark'] },
+      recommendations: { bsonType: 'bool' },
+      schemaVersion: { bsonType: 'int', minimum: 1 },
+    },
+  },
+});
+
 const meta = db.getCollection('_meta');
 meta.updateOne(
   { _id: 'schema' },

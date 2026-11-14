@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Profiles;
+using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Modules.Recommendations.Data;
 using Musubi.Api.Modules.Reputation;
@@ -23,6 +25,7 @@ public sealed class RecommendationServiceTests
     private readonly FakeCatalog catalog = new();
     private readonly InMemoryInteractionRepository interactions = new();
     private readonly InMemoryBlockRepository blocks = new();
+    private readonly InMemoryPreferenceRepository preferences = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly RecommendationService service;
     private readonly string ana = AuthIds.New();
@@ -31,7 +34,7 @@ public sealed class RecommendationServiceTests
     public RecommendationServiceTests()
     {
         var store = new RecommendationModelStore(catalog, interactions, time, NullLogger<RecommendationModelStore>.Instance);
-        service = new RecommendationService(catalog, interactions, new BlockDirectory(blocks), store, time);
+        service = new RecommendationService(catalog, interactions, new BlockDirectory(blocks), new RecommendationConsent(preferences), store, time);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -153,5 +156,18 @@ public sealed class RecommendationServiceTests
                 .Select(i => new ProductResponse(
                     i.Id, i.Title, i.Description, i.CategorySlug, i.PriceCents, "used", "good", 1, "active", [],
                     includeSeller ? new SellerResponse("Diego H.") : null, i.PublishedAt, null))]);
+    }
+
+    [Fact]
+    public async Task ForYou_IfTheyRejectedIt_IsOnlyGeneral()
+    {
+        var bata = Add("Bata de laboratorio talla M", "laboratorio");
+        Add("Bata de laboratorio talla S", "laboratorio");
+        await SawAsync(ana, bata);
+        await preferences.SetRecommendationsAsync(ana, false, Ct);
+
+        var page = await service.ForYouAsync(ana, Campus, null, Ct);
+
+        Assert.Equal("general", page.Basis);
     }
 }

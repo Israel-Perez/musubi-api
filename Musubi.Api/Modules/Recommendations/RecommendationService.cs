@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Recommendations.Data;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Errors;
@@ -115,6 +116,7 @@ internal sealed class RecommendationService(
     IRecommendationCatalog catalog,
     IInteractionRepository interactions,
     IBlockDirectory blocks,
+    IRecommendationConsent consent,
     RecommendationModelStore store,
     TimeProvider time)
 {
@@ -138,7 +140,10 @@ internal sealed class RecommendationService(
         var size = Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit);
         var model = await store.GetAsync(communityId, cancellationToken).ConfigureAwait(false);
         var hidden = await blocks.HiddenForAsync(userId, cancellationToken).ConfigureAwait(false);
-        var history = await interactions.FindByUserAsync(userId, HistoryLimit, cancellationToken).ConfigureAwait(false);
+        // Si rechazo "Recomendarte productos según tu actividad" (HU-47), solo lo general.
+        IReadOnlyList<InteractionDocument> history = await consent.AllowsAsync(userId, cancellationToken).ConfigureAwait(false)
+            ? await interactions.FindByUserAsync(userId, HistoryLimit, cancellationToken).ConfigureAwait(false)
+            : [];
         var seen = history.Select(h => h.ProductId).ToHashSet(StringComparer.Ordinal);
         bool Allowed(CatalogItem item) => !string.Equals(item.SellerId, userId, StringComparison.Ordinal) && !hidden.Contains(item.SellerId);
 

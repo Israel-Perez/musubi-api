@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Musubi.Api.Modules.Auth;
+using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Recommendations.Data;
 
 namespace Musubi.Api.Modules.Recommendations;
@@ -59,9 +60,23 @@ internal interface IInteractionRecorder
     Task RecordAsync(Interaction interaction, CancellationToken cancellationToken);
 }
 
-/// <summary>Implementacion sobre el repositorio de interacciones.</summary>
-internal sealed partial class InteractionRecorder(IInteractionRepository interactions, TimeProvider time, ILogger<InteractionRecorder> logger)
-    : IInteractionRecorder, IAccountDataEraser
+/// <summary>Contrato de M-11 para M-02 (HU-35): olvidar el historial cuando la persona rechaza la finalidad.</summary>
+internal interface IInteractionHistory
+{
+    /// <summary>Borra el historial de una persona.</summary>
+    /// <param name="userId">La persona.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    Task ForgetAsync(string userId, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de interacciones; respeta la preferencia de la persona (HU-47).</summary>
+internal sealed partial class InteractionRecorder(
+    IInteractionRepository interactions,
+    IRecommendationConsent consent,
+    TimeProvider time,
+    ILogger<InteractionRecorder> logger)
+    : IInteractionRecorder, IInteractionHistory, IAccountDataEraser
 {
     /// <summary>Lo que vive el historial (decision de la usuaria, 13-Nov-2026).</summary>
     public static readonly TimeSpan Retention = TimeSpan.FromDays(90);
@@ -80,6 +95,12 @@ internal sealed partial class InteractionRecorder(IInteractionRepository interac
         var now = time.GetUtcNow().UtcDateTime;
         try
         {
+            // Si rechazo "Recomendarte productos según tu actividad", no se guarda nada.
+            if (!await consent.AllowsAsync(interaction.UserId, cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+
             await interactions.RecordAsync(
                 interaction.UserId,
                 interaction.CommunityId,
@@ -100,6 +121,9 @@ internal sealed partial class InteractionRecorder(IInteractionRepository interac
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
     public Task EraseAsync(string userId, CancellationToken cancellationToken) => interactions.DeleteByUserAsync(userId, cancellationToken);
+
+    /// <inheritdoc />
+    public Task ForgetAsync(string userId, CancellationToken cancellationToken) => interactions.DeleteByUserAsync(userId, cancellationToken);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "No se registro una interaccion {Kind}: base no disponible")]
     private static partial void LogNotRecorded(ILogger logger, string kind);
