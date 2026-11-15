@@ -21,7 +21,8 @@ public abstract class OrderRepositoryContract
         string? sellerId = null,
         string? productId = null,
         string status = OrderStatuses.Pending,
-        bool paid = false) => new()
+        bool paid = false,
+        string? method = null) => new()
         {
             Id = AuthIds.New(),
             CommunityId = AuthIds.New(),
@@ -42,7 +43,7 @@ public abstract class OrderRepositoryContract
                 TotalCents = 50_000,
             },
             Delivery = new OrderDelivery { PointSlug = "biblioteca", PointName = "Biblioteca", Detail = "Planta baja", At = Now.AddDays(1) },
-            Payment = paid ? new OrderPayment { Method = PaymentMethods.Cash, ChosenAt = Now } : null,
+            Payment = paid || method is not null ? new OrderPayment { Method = method ?? PaymentMethods.Cash, ChosenAt = Now } : null,
             Status = status,
             History = [new OrderTransition { Status = status, At = Now }],
             CreatedAt = Now,
@@ -199,13 +200,19 @@ public abstract class OrderRepositoryContract
         await Orders.TryInsertAsync(order, Ct);
         await Orders.TryInsertAsync(unpaid, Ct);
 
-        Assert.Null(await Orders.AcceptAsync(order.Id, order.BuyerId, Now, Ct));
-        Assert.Null(await Orders.AcceptAsync(unpaid.Id, seller, Now, Ct));
-        Assert.Null(await Orders.AcceptAsync("no-es-un-id", seller, Now, Ct));
-        var accepted = await Orders.AcceptAsync(order.Id, seller, Now.AddMinutes(5), Ct);
-        var twice = await Orders.AcceptAsync(order.Id, seller, Now.AddMinutes(6), Ct);
+        var transfer = Order(sellerId: seller, method: PaymentMethods.Transfer);
+        await Orders.TryInsertAsync(transfer, Ct);
+
+        Assert.Null(await Orders.AcceptAsync(order.Id, order.BuyerId, Now, "1234", Ct));
+        Assert.Null(await Orders.AcceptAsync(unpaid.Id, seller, Now, "1234", Ct));
+        Assert.Null(await Orders.AcceptAsync("no-es-un-id", seller, Now, "1234", Ct));
+        // HU-55: la transferencia se acepta al validarla (ConfirmTransferAsync), no aqui.
+        Assert.Null(await Orders.AcceptAsync(transfer.Id, seller, Now, "1234", Ct));
+        var accepted = await Orders.AcceptAsync(order.Id, seller, Now.AddMinutes(5), "0731", Ct);
+        var twice = await Orders.AcceptAsync(order.Id, seller, Now.AddMinutes(6), "9999", Ct);
 
         Assert.Equal(OrderStatuses.Confirmed, accepted?.Status);
+        Assert.Equal("0731", accepted?.Payment?.DeliveryCode);
         Assert.Equal([OrderStatuses.Pending, OrderStatuses.Confirmed], accepted!.History.Select(h => h.Status));
         Assert.Equal(Now.AddMinutes(5), accepted.UpdatedAt);
         Assert.Null(twice);
@@ -359,5 +366,105 @@ public abstract class OrderRepositoryContract
         Assert.Equal((2L, 100_000L), summary);
         Assert.Equal([product], await Orders.SoldProductIdsAsync(seller, Ct));
         Assert.Equal((0L, 0L), await Orders.SalesSummaryAsync(AuthIds.New(), Ct));
+    }
+
+    [Fact]
+    public async Task Transfer_TheBuyerReports_TheSellerSaysNotYet_AndThenConfirms()
+    {
+        var buyer = AuthIds.New();
+        var seller = AuthIds.New();
+        var order = Order(buyerId: buyer, sellerId: seller, method: PaymentMethods.Transfer);
+        var cash = Order(buyerId: buyer, sellerId: seller, paid: true);
+        await Orders.TryInsertAsync(order, Ct);
+        await Orders.TryInsertAsync(cash, Ct);
+
+        // Antes de avisar, quien vende no puede decir "no me llega" ni confirmar.
+        Assert.Null(await Orders.MarkTransferNotReceivedAsync(order.Id, seller, Now, Ct));
+        Assert.Null(await Orders.ConfirmTransferAsync(order.Id, seller, Now, Ct));
+        Assert.Null(await Orders.ReportTransferAsync(order.Id, seller, "4829173", Now, Ct));
+        Assert.Null(await Orders.ReportTransferAsync(cash.Id, buyer, "4829173", Now, Ct));
+        var reported = await Orders.ReportTransferAsync(order.Id, buyer, "4829173", Now.AddMinutes(1), Ct);
+        Assert.Equal(("4829173", Now.AddMinutes(1)), (reported?.Payment?.Reference, reported?.Payment?.ReportedAt));
+        // Ya aviso: cambiar la forma de pago dejaria el dinero sin pedido.
+        Assert.Null(await Orders.SetPaymentAsync(order.Id, buyer, PaymentMethods.Cash, Now.AddMinutes(2), Ct));
+
+        Assert.Null(await Orders.MarkTransferNotReceivedAsync(order.Id, buyer, Now, Ct));
+        var notYet = await Orders.MarkTransferNotReceivedAsync(order.Id, seller, Now.AddMinutes(3), Ct);
+        Assert.Equal(Now.AddMinutes(3), notYet?.Payment?.NotReceivedAt);
+        var again = await Orders.ReportTransferAsync(order.Id, buyer, "4829174", Now.AddMinutes(4), Ct);
+        Assert.Equal(("4829174", null), (again?.Payment?.Reference, again?.Payment?.NotReceivedAt));
+
+        Assert.Null(await Orders.ConfirmTransferAsync(order.Id, buyer, Now, Ct));
+        var confirmed = await Orders.ConfirmTransferAsync(order.Id, seller, Now.AddMinutes(5), Ct);
+        Assert.Equal((OrderStatuses.Confirmed, Now.AddMinutes(5)), (confirmed?.Status, confirmed?.Payment?.ValidatedAt));
+        Assert.Equal([OrderStatuses.Pending, OrderStatuses.Confirmed], confirmed!.History.Select(h => h.Status));
+        Assert.Null(await Orders.ConfirmTransferAsync(order.Id, seller, Now.AddMinutes(6), Ct));
+        Assert.Null(await Orders.ReportTransferAsync(order.Id, buyer, "4829175", Now.AddMinutes(7), Ct));
+    }
+
+    [Fact]
+    public async Task DeliveryCode_CountsEachAttempt_UpToTheLimit()
+    {
+        var seller = AuthIds.New();
+        var order = Order(sellerId: seller, paid: true);
+        await Orders.TryInsertAsync(order, Ct);
+        await Orders.AcceptAsync(order.Id, seller, Now, "7319", Ct);
+
+        Assert.Null(await Orders.UseCodeAttemptAsync(order.Id, order.BuyerId, 3, Ct));
+        var counts = new List<int>();
+        for (var i = 0; i < 4; i++)
+        {
+            counts.Add((await Orders.UseCodeAttemptAsync(order.Id, seller, 3, Ct))?.Payment?.CodeAttempts ?? -1);
+        }
+
+        Assert.Equal([1, 2, 3, -1], counts);
+        Assert.Equal("7319", (await Orders.FindByIdAsync(order.Id, Ct))?.Payment?.DeliveryCode);
+    }
+
+    [Fact]
+    public async Task CompleteWithCode_CountsAsBothHandovers_AndKeepsAnEarlierOne()
+    {
+        var buyer = AuthIds.New();
+        var seller = AuthIds.New();
+        var order = Order(buyerId: buyer, sellerId: seller, paid: true);
+        var transfer = Order(buyerId: buyer, sellerId: seller, method: PaymentMethods.Transfer, status: OrderStatuses.Confirmed);
+        await Orders.TryInsertAsync(order, Ct);
+        await Orders.TryInsertAsync(transfer, Ct);
+        await Orders.AcceptAsync(order.Id, seller, Now, "7319", Ct);
+        await Orders.ConfirmHandoverAsync(order.Id, buyer, OrderRoles.Buyer, Now.AddMinutes(1), Ct);
+
+        Assert.Null(await Orders.CompleteWithCodeAsync(order.Id, buyer, Now.AddMinutes(2), Ct));
+        Assert.Null(await Orders.CompleteWithCodeAsync(transfer.Id, seller, Now.AddMinutes(2), Ct));
+        var completed = await Orders.CompleteWithCodeAsync(order.Id, seller, Now.AddMinutes(2), Ct);
+
+        Assert.Equal(OrderStatuses.Completed, completed?.Status);
+        Assert.Equal((Now.AddMinutes(1), Now.AddMinutes(2)), (completed?.Handover?.BuyerAt, completed?.Handover?.SellerAt));
+        Assert.Equal(OrderStatuses.Completed, completed!.History[^1].Status);
+        Assert.Null(await Orders.CompleteWithCodeAsync(order.Id, seller, Now.AddMinutes(3), Ct));
+    }
+
+    [Fact]
+    public async Task TransfersToRemind_ArePendingAndReportedBeforeTheCut()
+    {
+        var old = Order(method: PaymentMethods.Transfer);
+        var recent = Order(method: PaymentMethods.Transfer);
+        var silent = Order(method: PaymentMethods.Transfer);
+        var done = Order(method: PaymentMethods.Transfer);
+        foreach (var order in new[] { old, recent, silent, done })
+        {
+            await Orders.TryInsertAsync(order, Ct);
+        }
+
+        await Orders.ReportTransferAsync(old.Id, old.BuyerId, "1111", Now.AddHours(-30), Ct);
+        await Orders.ReportTransferAsync(recent.Id, recent.BuyerId, "2222", Now.AddHours(-2), Ct);
+        await Orders.ReportTransferAsync(done.Id, done.BuyerId, "3333", Now.AddHours(-40), Ct);
+        await Orders.ConfirmTransferAsync(done.Id, done.SellerId, Now.AddHours(-39), Ct);
+
+        var due = await Orders.FindTransfersToRemindAsync(Now.AddHours(-24), 10, Ct);
+
+        Assert.Contains(old.Id, due.Select(o => o.Id));
+        Assert.DoesNotContain(recent.Id, due.Select(o => o.Id));
+        Assert.DoesNotContain(silent.Id, due.Select(o => o.Id));
+        Assert.DoesNotContain(done.Id, due.Select(o => o.Id));
     }
 }

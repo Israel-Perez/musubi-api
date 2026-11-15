@@ -176,8 +176,27 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `orders.already_open` | 409 | Ya hay un pedido abierto en esta conversación. | HU-23 (uno pendiente o confirmado por conversación; un doble toque no duplica) |
 | `orders.not_pending` | 409 | Este pedido ya no está pendiente. | HU-23 (elegir el pago de un pedido confirmado, completado o cancelado) y HU-24 (aceptar uno que ya no está pendiente) |
 | `orders.invalid_payment` | 400 | Elige cómo quieres pagar. | HU-23 (forma que no es `cash` ni `transfer`) |
-| `orders.payment_unavailable` | 409 | Quien vende aún no registra su cuenta. Por ahora paga en efectivo al recibir. | HU-23 (transferencia antes de HU-55, D-01) |
+| `orders.payment_unavailable` | 409 | Quien vende aún no registra su cuenta. Por ahora paga en efectivo al recibir. | HU-23/55 (transferencia sin cuenta de quien vende o sin llave de cifrado, D-01) |
 | `orders.invalid_conversation` | 400 | No pudimos cargar el pedido. Vuelve a abrir el chat. | HU-23 (`GET /orders` sin `conversationId` o con uno que no es un id) |
+| `orders.not_transfer` | 409 | Este pedido no se paga por transferencia. | HU-55 |
+| `orders.transfer_unavailable` | 409 | Quien vende ya no tiene una cuenta para recibir pagos. Escríbele o paga en efectivo. | HU-55 (quitó su cuenta o la transferencia está apagada, RNF-15) |
+| `orders.invalid_reference` | 400 | Escribe la referencia de tu comprobante: de 4 a 30 letras o números. | HU-55 |
+| `orders.transfer_not_reported` | 409 | Todavía no te avisan que transfirieron. | HU-55 (aceptar o "todavía no me llega" antes de la referencia) |
+| `orders.transfer_reported` | 409 | Ya avisaste que transferiste. Espera a que lo confirmen o escríbele a quien vende. | HU-55 (cambiar la forma de pago después de avisar) |
+| `orders.not_cash` | 409 | Este pedido no se paga en efectivo. | HU-55 (el código de entrega es del efectivo) |
+| `orders.invalid_code_format` | 400 | Escribe los 4 dígitos del código. | HU-55 (no gasta un intento) |
+| `orders.invalid_code` | 422 | El código no coincide. Pídeselo de nuevo a quien compra. | HU-55 (gasta un intento; `codeAttemptsLeft` dice cuántos quedan) |
+| `orders.code_locked` | 409 | Se acabaron los intentos del código. Confirmen la entrega los dos desde el pedido. | HU-55 (5 intentos; también un pedido aceptado antes de HU-55, sin código) |
+
+## M-08 · Cuenta para recibir pagos (`Modules/Orders/OrdersErrors.cs` → `PayoutsErrors`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `payouts.unavailable` | 503 | Por ahora no podemos guardar cuentas. Tus compradores pueden pagarte en efectivo. | HU-55 (RNF-15: sin `Payments:EncryptionKey`) |
+| `payouts.invalid_holder` | 400 | Escribe el nombre del titular como aparece en tu banco. | HU-55 (vacío o de más de 80) |
+| `payouts.holder_mismatch` | 422 | El titular debe coincidir con tu nombre verificado. Usa una cuenta a tu nombre. | HU-55 (`Cuenta-pagos`: "Debe coincidir con tu nombre verificado") |
+| `payouts.invalid_clabe` | 400 | Revisa tu CLABE: son 18 dígitos y la encuentras en la app de tu banco. | HU-55 (largo o dígito verificador) |
+| `payouts.unknown_bank` | 422 | No reconocemos el banco de esta CLABE. Revisa los primeros 3 dígitos. | HU-55 (clave que no es de un participante de SPEI) |
 | `orders.agreement_not_found` | 404 | Este acuerdo ya no existe. Pide otro resumen en el chat. | HU-34 (crear el pedido con un acuerdo inexistente, vencido, ya usado o ajeno) |
 | `orders.agreement_not_confirmed` | 409 | Los dos tienen que confirmar el acuerdo antes de crear el pedido. | HU-34 (RN-41) |
 | `orders.only_seller` | 403 | Solo quien vende puede aceptar el pedido. | HU-24 (quien compra intenta aceptar) |

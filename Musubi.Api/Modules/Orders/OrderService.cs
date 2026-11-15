@@ -43,6 +43,7 @@ internal sealed class OrderService(
     IAgreementDirectory agreements,
     INotificationCenter center,
     IMatchLedger matches,
+    IPayoutDirectory payouts,
     TimeProvider time)
 {
     /// <summary>Piezas por pedido.</summary>
@@ -242,9 +243,14 @@ internal sealed class OrderService(
     public async Task<Result<OrderResponse>> GetAsync(string userId, string orderId, CancellationToken cancellationToken)
     {
         var order = await orders.FindByIdAsync(orderId, cancellationToken).ConfigureAwait(false);
-        return order is not null && IsParty(order.BuyerId, order.SellerId, userId)
-            ? Result<OrderResponse>.Ok(ToResponse(order, userId))
-            : OrdersErrors.NotFound;
+        if (order is null || !IsParty(order.BuyerId, order.SellerId, userId))
+        {
+            return OrdersErrors.NotFound;
+        }
+
+        // HU-55: "Diego tiene su cuenta registrada" solo importa mientras se elige como pagar.
+        var transfer = order.Status == OrderStatuses.Pending && await payouts.CanReceiveAsync(order.SellerId, cancellationToken).ConfigureAwait(false);
+        return Result<OrderResponse>.Ok(ToResponse(order, userId, transfer));
     }
 
     /// <summary>
@@ -364,32 +370,72 @@ internal sealed class OrderService(
             return OrdersErrors.OnlyBuyer;
         }
 
-        switch (body.Method)
+        if (body.Method is not (PaymentMethods.Cash or PaymentMethods.Transfer) || body.Method is not { } method)
         {
-            case PaymentMethods.Cash:
-                break;
-            case PaymentMethods.Transfer:
-                // NOTE (HU-55): transferencia a la cuenta CLABE verificada de quien vende.
-                return OrdersErrors.PaymentUnavailable;
-            default:
-                return OrdersErrors.InvalidPayment;
+            return OrdersErrors.InvalidPayment;
         }
 
-        var changed = await orders.SetPaymentAsync(order.Id, userId, PaymentMethods.Cash, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
-        return changed is null ? OrdersErrors.NotPending : Result<OrderResponse>.Ok(ToResponse(changed, userId));
+        if (order.Status != OrderStatuses.Pending)
+        {
+            return OrdersErrors.NotPending;
+        }
+
+        // HU-55: ya aviso "Ya transferi": cambiar de forma de pago dejaria el dinero sin pedido.
+        if (order.Payment?.ReportedAt is not null)
+        {
+            return OrdersErrors.TransferReported;
+        }
+
+        // HU-55 (D-01): por transferencia solo si quien vende registro su cuenta y hay llave de cifrado (RNF-15).
+        var canReceive = await payouts.CanReceiveAsync(order.SellerId, cancellationToken).ConfigureAwait(false);
+        if (method == PaymentMethods.Transfer && !canReceive)
+        {
+            return OrdersErrors.PaymentUnavailable;
+        }
+
+        var changed = await orders.SetPaymentAsync(order.Id, userId, method, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
+        return changed is null ? OrdersErrors.NotPending : Result<OrderResponse>.Ok(ToResponse(changed, userId, canReceive));
     }
 
     /// <summary>La respuesta de un pedido para una de sus partes.</summary>
     /// <param name="order">El pedido.</param>
     /// <param name="userId">Quien consulta.</param>
+    /// <param name="transferAvailable">HU-55: si quien vende puede recibir por transferencia (se calcula solo al elegir).</param>
     /// <returns>La respuesta.</returns>
-    internal static OrderResponse ToResponse(OrderDocument order, string userId)
+    internal static OrderResponse ToResponse(OrderDocument order, string userId, bool transferAvailable = false)
     {
         var role = string.Equals(order.BuyerId, userId, StringComparison.Ordinal) ? OrderRoles.Buyer : OrderRoles.Seller;
-        return Build(order, role);
+        return Build(order, role, transferAvailable);
     }
 
-    private static OrderResponse Build(OrderDocument order, string role) => new(
+    /// <summary>
+    /// El pago como lo ve cada parte (HU-55): el codigo de entrega solo a quien compra (y ya aceptado, para que no se
+    /// dicte antes de tiempo); los intentos que quedan, solo a quien vende.
+    /// </summary>
+    /// <param name="order">El pedido.</param>
+    /// <param name="role">Quien consulta.</param>
+    /// <returns>El pago o <c>null</c>.</returns>
+    internal static OrderPaymentResponse? PaymentFor(OrderDocument order, string role)
+    {
+        if (order.Payment is not { } p)
+        {
+            return null;
+        }
+
+        var cashCode = p.Method == PaymentMethods.Cash && p.DeliveryCode is not null && order.Status == OrderStatuses.Confirmed;
+        var buyer = role == OrderRoles.Buyer;
+        return new OrderPaymentResponse(
+            p.Method,
+            p.ChosenAt,
+            p.Reference,
+            p.ReportedAt,
+            p.NotReceivedAt,
+            p.ValidatedAt,
+            cashCode && buyer ? p.DeliveryCode : null,
+            cashCode && !buyer ? Math.Max(0, DeliveryCodes.MaxAttempts - p.CodeAttempts) : null);
+    }
+
+    private static OrderResponse Build(OrderDocument order, string role, bool transferAvailable) => new(
         order.Id,
         OrderNumbers.Display(order.Number),
         order.Status,
@@ -407,8 +453,8 @@ internal sealed class OrderService(
         new OrderPartyResponse(order.BuyerId, order.BuyerName),
         new OrderPartyResponse(order.SellerId, order.SellerName),
         new OrderDeliveryResponse(order.Delivery.PointSlug, order.Delivery.PointName, order.Delivery.Detail, order.Delivery.At),
-        order.Payment is null ? null : new OrderPaymentResponse(order.Payment.Method, order.Payment.ChosenAt),
-        TransferAvailable: false,
+        PaymentFor(order, role),
+        transferAvailable,
         order.CreatedAt,
         new OrderHandoverResponse(order.Handover?.BuyerAt, order.Handover?.SellerAt),
         order.Cancellation is null ? null : new OrderCancellationResponse(order.Cancellation.By, order.Cancellation.Reason, order.Cancellation.At),

@@ -30,7 +30,13 @@
   },
   "payment": {
     "method": "cash",
-    "chosenAt": "2026-11-10T18:05:00Z"
+    "chosenAt": "2026-11-10T18:05:00Z",
+    "reference": null,
+    "reportedAt": null,
+    "notReceivedAt": null,
+    "validatedAt": null,
+    "deliveryCode": null,
+    "codeAttemptsLeft": null
   },
   "transferAvailable": false,
   "createdAt": "2026-11-10T18:00:00Z",

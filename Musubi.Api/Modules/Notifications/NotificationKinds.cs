@@ -71,6 +71,15 @@ internal static class NotificationTypes
 
     /// <summary>Mi publicacion lleva 3 semanas sin venderse (HU-36).</summary>
     public const string SlowListing = "slow_listing";
+
+    /// <summary>HU-55: "Ana dice que ya te transfirió" (a quien vende).</summary>
+    public const string TransferReported = "transfer_reported";
+
+    /// <summary>HU-55: quien vende todavia no ve la transferencia (a quien compra).</summary>
+    public const string TransferNotReceived = "transfer_not_received";
+
+    /// <summary>HU-55: a las 24 h quien vende aun no confirma la transferencia (decision de la usuaria del 15-Nov-2026).</summary>
+    public const string TransferReminder = "transfer_reminder";
 }
 
 /// <summary>Lo que abre un aviso.</summary>

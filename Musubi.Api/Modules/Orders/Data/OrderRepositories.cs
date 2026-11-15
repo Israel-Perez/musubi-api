@@ -50,15 +50,80 @@ internal interface IOrderRepository
     Task<OrderDocument?> SetPaymentAsync(string id, string buyerId, string method, DateTime now, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Quien vende acepta un pedido pendiente con el pago ya elegido (HU-24, RF-34). El vendedor, el estado y el pago
-    /// van en el filtro (OWASP API1; dos toques a la vez no lo aceptan dos veces).
+    /// Quien vende acepta un pedido pendiente que se paga en efectivo (HU-24, RF-34) y se guarda su codigo de entrega
+    /// (HU-55). El vendedor, el estado y el pago van en el filtro (OWASP API1; dos toques a la vez no lo aceptan dos
+    /// veces). La transferencia se acepta con <see cref="ConfirmTransferAsync"/>.
     /// </summary>
     /// <param name="id">El pedido.</param>
     /// <param name="sellerId">Quien vende (del token).</param>
     /// <param name="now">Ahora (UTC).</param>
+    /// <param name="deliveryCode">El codigo de entrega (4 digitos) que vera quien compra.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El pedido confirmado, o <c>null</c> si no cambio.</returns>
-    Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
+    Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, string deliveryCode, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// HU-55 "Ya transferi": quien compra captura la referencia de un pedido pendiente que paga por transferencia.
+    /// Repetirlo la reemplaza y borra el "Todavia no me llega" anterior.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="buyerId">Quien compra (va en el filtro, OWASP API1).</param>
+    /// <param name="reference">La referencia o clave de rastreo, ya limpia.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido, o <c>null</c> si no es suyo, ya no esta pendiente o no se paga por transferencia.</returns>
+    Task<OrderDocument?> ReportTransferAsync(string id, string buyerId, string reference, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>HU-55 "Todavia no me llega": quien vende aun no ve la transferencia que le avisaron.</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="sellerId">Quien vende (va en el filtro).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido, o <c>null</c> si no es suyo, ya no esta pendiente o aun no le avisan.</returns>
+    Task<OrderDocument?> MarkTransferNotReceivedAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// HU-55 "Si, me llego el pago": quien vende valida la transferencia y el pedido pasa a Confirmado (acepta el
+    /// pedido, HU-24). Solo con la referencia ya capturada.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="sellerId">Quien vende (va en el filtro).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido confirmado, o <c>null</c> si no cambio.</returns>
+    Task<OrderDocument?> ConfirmTransferAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// HU-55: gasta un intento de quien vende al escribir el codigo de entrega (pedido confirmado en efectivo). Atomico:
+    /// con los intentos agotados no cambia nada, aunque lleguen varios a la vez.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="sellerId">Quien vende (va en el filtro).</param>
+    /// <param name="maxAttempts">Intentos permitidos.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido con el intento contado, o <c>null</c> si no es suyo, no aplica o ya no le quedan.</returns>
+    Task<OrderDocument?> UseCodeAttemptAsync(string id, string sellerId, int maxAttempts, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// HU-55: el codigo correcto completa el pedido en efectivo: cuenta como la entrega de los dos (RN-19) y conserva la
+    /// hora de quien ya la hubiera confirmado.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="sellerId">Quien vende (va en el filtro).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido completado, o <c>null</c> si no cambio.</returns>
+    Task<OrderDocument?> CompleteWithCodeAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// HU-55: los pedidos pendientes por transferencia cuyo aviso "Ya transferi" es anterior a un momento (el
+    /// recordatorio de las 24 h a quien vende), del mas viejo al mas nuevo.
+    /// </summary>
+    /// <param name="reportedBefore">Avisados antes de (UTC).</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los pedidos.</returns>
+    Task<IReadOnlyList<OrderDocument>> FindTransfersToRemindAsync(DateTime reportedBefore, int limit, CancellationToken cancellationToken);
 
     /// <summary>Una de las partes cancela (o rechaza) un pedido pendiente o confirmado, con su motivo (HU-24, RN-20).</summary>
     /// <param name="id">El pedido.</param>
@@ -228,7 +293,8 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
     public async Task<OrderDocument?> SetPaymentAsync(string id, string buyerId, string method, DateTime now, CancellationToken cancellationToken) =>
         ObjectId.TryParse(id, out _) && ObjectId.TryParse(buyerId, out _)
             ? await orders.FindOneAndUpdateAsync(
-                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.BuyerId, buyerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending),
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.BuyerId, buyerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending)
+                    & Filter.Exists("payment.reportedAt", exists: false),
                 Builders<OrderDocument>.Update
                     .Set(o => o.Payment, new OrderPayment { Method = method, ChosenAt = now })
                     .Set(o => o.UpdatedAt, now),
@@ -237,18 +303,99 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             : null;
 
     /// <inheritdoc />
-    public async Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+    public async Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, string deliveryCode, CancellationToken cancellationToken) =>
         ObjectId.TryParse(id, out _) && ObjectId.TryParse(sellerId, out _)
             ? await orders.FindOneAndUpdateAsync(
                 Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending)
-                    & Filter.Exists(o => o.Payment),
+                    & Filter.Eq("payment.method", PaymentMethods.Cash),
                 Builders<OrderDocument>.Update
                     .Set(o => o.Status, OrderStatuses.Confirmed)
+                    .Set("payment.deliveryCode", deliveryCode)
                     .Set(o => o.UpdatedAt, now)
                     .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Confirmed, At = now }),
                 After,
                 cancellationToken).ConfigureAwait(false)
             : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> ReportTransferAsync(string id, string buyerId, string reference, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(buyerId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.BuyerId, buyerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending)
+                    & Filter.Eq("payment.method", PaymentMethods.Transfer),
+                Builders<OrderDocument>.Update
+                    .Set("payment.reference", reference)
+                    .Set("payment.reportedAt", now)
+                    .Unset("payment.notReceivedAt")
+                    .Set(o => o.UpdatedAt, now),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> MarkTransferNotReceivedAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(sellerId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending)
+                    & Filter.Eq("payment.method", PaymentMethods.Transfer) & Filter.Exists("payment.reportedAt"),
+                Builders<OrderDocument>.Update.Set("payment.notReceivedAt", now).Set(o => o.UpdatedAt, now),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> ConfirmTransferAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(sellerId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Pending)
+                    & Filter.Eq("payment.method", PaymentMethods.Transfer) & Filter.Exists("payment.reportedAt"),
+                Builders<OrderDocument>.Update
+                    .Set(o => o.Status, OrderStatuses.Confirmed)
+                    .Set("payment.validatedAt", now)
+                    .Unset("payment.notReceivedAt")
+                    .Set(o => o.UpdatedAt, now)
+                    .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Confirmed, At = now }),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> UseCodeAttemptAsync(string id, string sellerId, int maxAttempts, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(sellerId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed)
+                    & Filter.Eq("payment.method", PaymentMethods.Cash) & Filter.Exists("payment.deliveryCode")
+                    & (Filter.Exists("payment.codeAttempts", exists: false) | Filter.Lt("payment.codeAttempts", maxAttempts)),
+                Builders<OrderDocument>.Update.Inc("payment.codeAttempts", 1),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> CompleteWithCodeAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _) && ObjectId.TryParse(sellerId, out _)
+            ? await orders.FindOneAndUpdateAsync(
+                Filter.Eq(o => o.Id, id) & Filter.Eq(o => o.SellerId, sellerId) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed)
+                    & Filter.Eq("payment.method", PaymentMethods.Cash),
+                // $min deja la hora de quien ya hubiera confirmado (es anterior) y pone la de ahora a quien falte.
+                Builders<OrderDocument>.Update
+                    .Min("handover.buyerAt", now)
+                    .Min("handover.sellerAt", now)
+                    .Set(o => o.Status, OrderStatuses.Completed)
+                    .Set(o => o.UpdatedAt, now)
+                    .Push(o => o.History, new OrderTransition { Status = OrderStatuses.Completed, At = now }),
+                After,
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrderDocument>> FindTransfersToRemindAsync(DateTime reportedBefore, int limit, CancellationToken cancellationToken) =>
+        await orders.Find(
+                Filter.Eq(o => o.Status, OrderStatuses.Pending) & Filter.Eq("payment.method", PaymentMethods.Transfer)
+                    & Filter.Lte("payment.reportedAt", reportedBefore))
+            .Sort(Builders<OrderDocument>.Sort.Ascending("payment.reportedAt"))
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
     public async Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken) =>
@@ -516,7 +663,8 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
         {
             var i = orders.FindIndex(o => string.Equals(o.Id, id, StringComparison.Ordinal)
                 && string.Equals(o.BuyerId, buyerId, StringComparison.Ordinal)
-                && o.Status == OrderStatuses.Pending);
+                && o.Status == OrderStatuses.Pending
+                && o.Payment?.ReportedAt is null);
             if (i < 0)
             {
                 return Task.FromResult<OrderDocument?>(null);
@@ -528,10 +676,71 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
     }
 
     /// <inheritdoc />
-    public Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+    public Task<OrderDocument?> AcceptAsync(string id, string sellerId, DateTime now, string deliveryCode, CancellationToken cancellationToken) =>
         Task.FromResult(Change(
-            o => Is(o, id) && string.Equals(o.SellerId, sellerId, StringComparison.Ordinal) && o.Status == OrderStatuses.Pending && o.Payment is not null,
-            o => Copy(o, status: OrderStatuses.Confirmed, transition: new OrderTransition { Status = OrderStatuses.Confirmed, At = now }, updatedAt: now)));
+            o => IsSellers(o, id, sellerId, OrderStatuses.Pending) && o.Payment?.Method == PaymentMethods.Cash,
+            o => Copy(
+                o,
+                payment: Pay(o.Payment!, deliveryCode: deliveryCode),
+                status: OrderStatuses.Confirmed,
+                transition: new OrderTransition { Status = OrderStatuses.Confirmed, At = now },
+                updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> ReportTransferAsync(string id, string buyerId, string reference, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => Is(o, id) && string.Equals(o.BuyerId, buyerId, StringComparison.Ordinal) && o.Status == OrderStatuses.Pending
+                && o.Payment?.Method == PaymentMethods.Transfer,
+            o => Copy(o, payment: Pay(o.Payment!, reference: reference, reportedAt: now, clearNotReceived: true), updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> MarkTransferNotReceivedAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => IsSellers(o, id, sellerId, OrderStatuses.Pending) && o.Payment is { Method: PaymentMethods.Transfer, ReportedAt: not null },
+            o => Copy(o, payment: Pay(o.Payment!, notReceivedAt: now), updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> ConfirmTransferAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => IsSellers(o, id, sellerId, OrderStatuses.Pending) && o.Payment is { Method: PaymentMethods.Transfer, ReportedAt: not null },
+            o => Copy(
+                o,
+                payment: Pay(o.Payment!, validatedAt: now, clearNotReceived: true),
+                status: OrderStatuses.Confirmed,
+                transition: new OrderTransition { Status = OrderStatuses.Confirmed, At = now },
+                updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> UseCodeAttemptAsync(string id, string sellerId, int maxAttempts, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => IsSellers(o, id, sellerId, OrderStatuses.Confirmed)
+                && o.Payment is { Method: PaymentMethods.Cash, DeliveryCode: not null } payment && payment.CodeAttempts < maxAttempts,
+            o => Copy(o, payment: Pay(o.Payment!, codeAttempts: o.Payment!.CodeAttempts + 1))));
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> CompleteWithCodeAsync(string id, string sellerId, DateTime now, CancellationToken cancellationToken) =>
+        Task.FromResult(Change(
+            o => IsSellers(o, id, sellerId, OrderStatuses.Confirmed) && o.Payment?.Method == PaymentMethods.Cash,
+            o => Copy(
+                o,
+                status: OrderStatuses.Completed,
+                transition: new OrderTransition { Status = OrderStatuses.Completed, At = now },
+                updatedAt: now,
+                handover: new OrderHandover { BuyerAt = o.Handover?.BuyerAt ?? now, SellerAt = o.Handover?.SellerAt ?? now })));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OrderDocument>> FindTransfersToRemindAsync(DateTime reportedBefore, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<OrderDocument> found = orders
+                .Where(o => o.Status == OrderStatuses.Pending && o.Payment is { Method: PaymentMethods.Transfer, ReportedAt: { } at } && at <= reportedBefore)
+                .OrderBy(o => o.Payment!.ReportedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult(found);
+        }
+    }
 
     /// <inheritdoc />
     public Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken) =>
@@ -706,6 +915,30 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
     private static bool IsOpen(OrderDocument order) => OrderStatuses.Open.Contains(order.Status);
 
     private static bool Is(OrderDocument order, string id) => string.Equals(order.Id, id, StringComparison.Ordinal);
+
+    private static bool IsSellers(OrderDocument order, string id, string sellerId, string status) =>
+        Is(order, id) && string.Equals(order.SellerId, sellerId, StringComparison.Ordinal) && order.Status == status;
+
+    // Copia del pago con los cambios de HU-55 (los campos que no se pasan se conservan).
+    private static OrderPayment Pay(
+        OrderPayment p,
+        string? reference = null,
+        DateTime? reportedAt = null,
+        DateTime? notReceivedAt = null,
+        DateTime? validatedAt = null,
+        string? deliveryCode = null,
+        int? codeAttempts = null,
+        bool clearNotReceived = false) => new()
+        {
+            Method = p.Method,
+            ChosenAt = p.ChosenAt,
+            Reference = reference ?? p.Reference,
+            ReportedAt = reportedAt ?? p.ReportedAt,
+            NotReceivedAt = clearNotReceived ? null : notReceivedAt ?? p.NotReceivedAt,
+            ValidatedAt = validatedAt ?? p.ValidatedAt,
+            DeliveryCode = deliveryCode ?? p.DeliveryCode,
+            CodeAttempts = codeAttempts ?? p.CodeAttempts,
+        };
 
     private static bool IsParty(OrderDocument order, string userId, string role) =>
         string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal)

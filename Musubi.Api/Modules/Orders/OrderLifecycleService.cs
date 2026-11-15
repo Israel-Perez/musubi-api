@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth;
@@ -19,8 +21,9 @@ namespace Musubi.Api.Modules.Orders;
 /// elegido y se apartan sus piezas; cualquiera de las partes lo rechaza o cancela con un motivo de la lista y las
 /// piezas regresan (RN-20); y se completa cuando los dos confirman la entrega (RN-19). Si la publicacion se queda sin
 /// piezas, pasa a vendida (RN-05). Cada cambio avisa a la otra parte (HU-31).
-/// NOTE (HU-52): el codigo de entrega cuenta como la confirmacion de quien vende.
-/// NOTE (HU-55): quien vende valida la transferencia antes de aceptar.
+/// HU-55: por transferencia, aceptar es "Si, me llego el pago" y solo despues de que quien compra captura la referencia;
+/// en efectivo, aceptar genera el codigo de entrega de 4 digitos y, cuando quien vende lo escribe, el pedido se completa.
+/// NOTE (HU-52): el codigo del apartado (QR o 6 digitos) tambien contara como la entrega.
 /// </summary>
 internal sealed class OrderLifecycleService(
     IOrderRepository orders,
@@ -61,9 +64,15 @@ internal sealed class OrderLifecycleService(
             return OrdersErrors.NotPending;
         }
 
-        if (order.Payment is null)
+        if (order.Payment is not { } payment)
         {
             return OrdersErrors.PaymentMissing;
+        }
+
+        var transfer = payment.Method == PaymentMethods.Transfer;
+        if (transfer && payment.ReportedAt is null)
+        {
+            return OrdersErrors.TransferNotReported;
         }
 
         if (await blocks.BetweenAsync(order.BuyerId, order.SellerId, cancellationToken).ConfigureAwait(false))
@@ -78,7 +87,10 @@ internal sealed class OrderLifecycleService(
             return product is { Available: true } ? OrdersErrors.NotEnoughStock : OrdersErrors.ProductUnavailable;
         }
 
-        var accepted = await orders.AcceptAsync(order.Id, userId, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
+        var now = time.GetUtcNow().UtcDateTime;
+        var accepted = transfer
+            ? await orders.ConfirmTransferAsync(order.Id, userId, now, cancellationToken).ConfigureAwait(false)
+            : await orders.AcceptAsync(order.Id, userId, now, DeliveryCodes.New(), cancellationToken).ConfigureAwait(false);
         if (accepted is null)
         {
             // R12: el pedido cambio entre la lectura y la escritura (lo cancelaron): las piezas regresan.
@@ -90,13 +102,11 @@ internal sealed class OrderLifecycleService(
             return await CurrentErrorAsync(order.Id, OrdersErrors.NotPending, cancellationToken).ConfigureAwait(false);
         }
 
-        await NotifyAsync(
-            accepted.BuyerId,
-            NotificationTypes.OrderConfirmed,
-            "Tu pedido fue aceptado",
-            $"{ChatService.FirstName(accepted.SellerName)} aceptó tu pedido #{OrderNumbers.Display(accepted.Number)}. Se ven en {accepted.Delivery.PointName}.",
-            accepted,
-            cancellationToken).ConfigureAwait(false);
+        var seller = ChatService.FirstName(accepted.SellerName);
+        var (title, body) = transfer
+            ? ($"¡{seller} confirmó tu pago!", $"Tu pedido #{OrderNumbers.Display(accepted.Number)} ya está confirmado. Se ven en {accepted.Delivery.PointName}.")
+            : ("Tu pedido fue aceptado", $"{seller} aceptó tu pedido #{OrderNumbers.Display(accepted.Number)}. Se ven en {accepted.Delivery.PointName}.");
+        await NotifyAsync(accepted.BuyerId, NotificationTypes.OrderConfirmed, title, body, accepted, cancellationToken).ConfigureAwait(false);
         return Result<OrderResponse>.Ok(OrderService.ToResponse(accepted, userId));
     }
 
@@ -202,29 +212,12 @@ internal sealed class OrderLifecycleService(
                 return Result<OrderResponse>.Ok(OrderService.ToResponse(current, userId));
             }
 
-            await MarkSoldIfEmptyAsync(completed, cancellationToken).ConfigureAwait(false);
-            // HU-26: "Ventas" y "Compras" del Perfil. CompleteAsync es atomico: se cuenta una sola vez.
-            await trades.AddCompletedAsync(
-                completed.SellerId,
-                completed.SellerName,
-                completed.BuyerId,
-                completed.BuyerName,
-                completed.CommunityId,
+            await AfterCompletedAsync(
+                completed,
                 now,
-                cancellationToken).ConfigureAwait(false);
-            // HU-35: la compra es la senal mas fuerte de "Recomendado para ti" (una oferta directa no tiene publicacion).
-            if (completed.Item.ProductId is { } bought)
-            {
-                await recorder.RecordAsync(
-                    new Interaction(completed.BuyerId, completed.CommunityId, bought, InteractionKinds.Purchase),
-                    cancellationToken).ConfigureAwait(false);
-            }
-            await NotifyAsync(
                 OtherParty(completed, role),
-                NotificationTypes.OrderCompleted,
                 "Pedido completado",
                 $"El pedido #{OrderNumbers.Display(completed.Number)} quedó completado. ¡Gracias por usar Musubi!",
-                completed,
                 cancellationToken).ConfigureAwait(false);
             return Result<OrderResponse>.Ok(OrderService.ToResponse(completed, userId));
         }
@@ -240,6 +233,104 @@ internal sealed class OrderLifecycleService(
         }
 
         return Result<OrderResponse>.Ok(OrderService.ToResponse(confirmed, userId));
+    }
+
+    /// <summary>
+    /// HU-55 (efectivo, maqueta <c>Pedido-efectivo</c>): quien vende escribe el codigo que le dicta quien compra y el
+    /// pedido se completa (cuenta como la entrega de los dos, RN-19). Cada intento cuenta, hasta 5; despues la entrega
+    /// se confirma como en HU-24.
+    /// </summary>
+    /// <param name="userId">Quien vende (del token).</param>
+    /// <param name="orderId">El pedido.</param>
+    /// <param name="body">El codigo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido completado o el error.</returns>
+    public async Task<Result<OrderResponse>> CompleteWithCodeAsync(string userId, string orderId, DeliveryCodeRequest body, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        if (await members.FindMemberAsync(userId, cancellationToken).ConfigureAwait(false) is not { Active: true })
+        {
+            return ApiErrors.Forbidden;
+        }
+
+        var order = await orders.FindByIdAsync(orderId, cancellationToken).ConfigureAwait(false);
+        if (order is null || RoleOf(order, userId) is not { } role)
+        {
+            return OrdersErrors.NotFound;
+        }
+
+        if (role != OrderRoles.Seller)
+        {
+            return OrdersErrors.OnlySeller;
+        }
+
+        if (order.Status != OrderStatuses.Confirmed)
+        {
+            return order.Status == OrderStatuses.Pending ? OrdersErrors.NotConfirmed : OrdersErrors.Closed;
+        }
+
+        if (order.Payment?.Method != PaymentMethods.Cash)
+        {
+            return OrdersErrors.NotCash;
+        }
+
+        var code = (body.Code ?? string.Empty).Trim();
+        if (code.Length != DeliveryCodes.Length || !code.All(char.IsAsciiDigit))
+        {
+            return OrdersErrors.InvalidCodeFormat;
+        }
+
+        // El intento se cuenta antes de comparar: varios a la vez no pasan de 5 (fuerza bruta).
+        var attempt = await orders.UseCodeAttemptAsync(order.Id, userId, DeliveryCodes.MaxAttempts, cancellationToken).ConfigureAwait(false);
+        if (attempt?.Payment?.DeliveryCode is not { } expected)
+        {
+            return OrdersErrors.CodeLocked;
+        }
+
+        if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(code), Encoding.ASCII.GetBytes(expected)))
+        {
+            return OrdersErrors.InvalidCode;
+        }
+
+        var now = time.GetUtcNow().UtcDateTime;
+        var completed = await orders.CompleteWithCodeAsync(order.Id, userId, now, cancellationToken).ConfigureAwait(false);
+        if (completed is null)
+        {
+            return await CurrentErrorAsync(order.Id, OrdersErrors.Closed, cancellationToken).ConfigureAwait(false);
+        }
+
+        await AfterCompletedAsync(
+            completed,
+            now,
+            completed.BuyerId,
+            "¡Pedido completado!",
+            $"{ChatService.FirstName(completed.SellerName)} ingresó tu código y confirmó el pago. Toca para calificar.",
+            cancellationToken).ConfigureAwait(false);
+        return Result<OrderResponse>.Ok(OrderService.ToResponse(completed, userId));
+    }
+
+    // Lo que pasa una sola vez al completarse un pedido (las escrituras que lo completan son atomicas).
+    private async Task AfterCompletedAsync(OrderDocument completed, DateTime now, string notifyUserId, string title, string body, CancellationToken cancellationToken)
+    {
+        await MarkSoldIfEmptyAsync(completed, cancellationToken).ConfigureAwait(false);
+        // HU-26: "Ventas" y "Compras" del Perfil.
+        await trades.AddCompletedAsync(
+            completed.SellerId,
+            completed.SellerName,
+            completed.BuyerId,
+            completed.BuyerName,
+            completed.CommunityId,
+            now,
+            cancellationToken).ConfigureAwait(false);
+        // HU-35: la compra es la senal mas fuerte de "Recomendado para ti" (una oferta directa no tiene publicacion).
+        if (completed.Item.ProductId is { } bought)
+        {
+            await recorder.RecordAsync(
+                new Interaction(completed.BuyerId, completed.CommunityId, bought, InteractionKinds.Purchase),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        await NotifyAsync(notifyUserId, NotificationTypes.OrderCompleted, title, body, completed, cancellationToken).ConfigureAwait(false);
     }
 
     private static string? RoleOf(OrderDocument order, string userId)

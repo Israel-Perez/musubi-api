@@ -53,6 +53,8 @@ public sealed class OrderServiceTests
     private readonly OrderService service;
 
     private readonly RecordingNotificationCenter center = new();
+    private readonly FakePayoutDirectory payouts = new();
+
     public OrderServiceTests()
     {
         service = new OrderService(
@@ -71,6 +73,7 @@ public sealed class OrderServiceTests
                 time),
             center,
             new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance),
+            payouts,
             time);
     }
 
@@ -586,6 +589,28 @@ public sealed class OrderServiceTests
 
         Assert.Equal(code, result.Error?.Code);
         Assert.Null((await orders.FindByIdAsync(id, Ct))!.Payment);
+    }
+
+    [Fact]
+    public async Task SetPayment_Transfer_WhenTheSellerHasAnAccount_AndItCanChangeUntilReported()
+    {
+        var (ana, diego, _, conversation) = await ChatAsync();
+        var id = (await service.CreateAsync(ana, Body(conversation), Ct)).Value!.Id;
+        Assert.False((await service.GetAsync(ana, id, Ct)).Value!.TransferAvailable);
+        payouts.Accounts[diego] = new TransferAccount("Diego Hernández", "BBVA México", PayoutTestKit.BbvaClabe, "4829");
+
+        // "Diego tiene su cuenta registrada" (maqueta Pedido-pago).
+        Assert.True((await service.GetAsync(ana, id, Ct)).Value!.TransferAvailable);
+        var transfer = await service.SetPaymentAsync(ana, id, new SetPaymentRequest(PaymentMethods.Transfer), Ct);
+        var cash = await service.SetPaymentAsync(ana, id, new SetPaymentRequest(PaymentMethods.Cash), Ct);
+        await service.SetPaymentAsync(ana, id, new SetPaymentRequest(PaymentMethods.Transfer), Ct);
+        await orders.ReportTransferAsync(id, ana, "4829173", Now.UtcDateTime, Ct);
+        var afterReporting = await service.SetPaymentAsync(ana, id, new SetPaymentRequest(PaymentMethods.Cash), Ct);
+
+        Assert.Equal((PaymentMethods.Transfer, true), (transfer.Value!.Payment!.Method, transfer.Value.TransferAvailable));
+        Assert.Equal(PaymentMethods.Cash, cash.Value!.Payment!.Method);
+        Assert.Equal(OrdersErrors.TransferReported, afterReporting.Error);
+        Assert.Equal(PaymentMethods.Transfer, (await orders.FindByIdAsync(id, Ct))!.Payment!.Method);
     }
 
     [Fact]
