@@ -1,52 +1,43 @@
 # HU-37 — Recibir sugerencias para vender
 
-**HU / Jira / Sprint / Módulo / Contraparte:** HU-37 / SCRUM-60 / Sprint 5 (23 nov – 4 dic 2026) / M-12 / [musubi-app:HU-37](https://github.com/Israel-Perez/musubi-app/tree/main/specs/m12-seller-support/HU-37-sugerencias-venta)
+**HU / Jira / Sprint / Módulo / Contraparte:** HU-37 / SCRUM-60 / Sprint 5 (14 nov – 1 dic 2026) / M-12 / [musubi-app:HU-37](https://github.com/Israel-Perez/musubi-app/tree/main/specs/m12-seller-support/HU-37-sugerencias-venta)
 
 ## Contexto
 Jira (SCRUM-60): Como **vendedor**, quiero **recibir sugerencias como revisar el precio, mejorar la descripción o actualizar las fotografías**, para **aumentar la probabilidad de venta**.
 
-- Maqueta: sin pantalla propia. Se diseña con la guía de estilo de la maqueta; el lineamiento 4 permite agregar, nunca quitar.
+- Maqueta: no tiene pantalla; el aviso de `Notificaciones` dice "Te damos ideas para venderla". Se agrega (lineamiento 4) la hoja "Ideas para venderla" al tocar una tarjeta de "Llevan tiempo sin venderse".
 - Trazabilidad: RF-52 · CU-23 · RN-38.
-- Origen: Propuesta inicial §11.
+- Decisiones de la usuaria (15-Nov-2026): **una tarjeta por producto** en el panel; las ideas en una **hoja al tocar la tarjeta** ("Ideas para venderla"); el aviso **una sola vez, a las 3 semanas**. El umbral de **21 días** sale de la maqueta ("2 productos con más de 3 semanas").
 
-**Depende de:** `02-01`, `02-03`, `HU-36`.
+**Depende de:** [HU-36](../HU-36-baja-rotacion/spec.md), [HU-38](../HU-38-demanda-productos/spec.md), `HU-06` (rango de precios), `HU-07` (editar).
 
 ## Requisitos
-1. Se muestran sugerencias predefinidas: revisar el precio, mejorar la descripción o actualizar las fotografías.
-2. Si el precio está por encima de los presupuestos de solicitudes similares, se sugiere revisarlo.
-3. Las sugerencias son orientativas: el sistema nunca cambia precios ni publicaciones por su cuenta (RN-38).
-4. Si el vendedor edita la publicación, el sistema vuelve a buscar coincidencias.
-
-RNF que aplican: se confirman al detallar.
+1. **R1 · Las tres ideas:** cada publicación de "Llevan tiempo sin venderse" trae siempre las tres sugerencias predefinidas ("Revisa el precio", "Mejora la descripción" y "Actualiza las fotos"), primero las que piden los datos (`applies`).
+2. **R2 · Precio:** si el precio pasa el mayor presupuesto de las solicitudes que coinciden, "Quienes buscan algo así ofrecen hasta $220 y tú pides $250."; si no, y pasa el percentil 75 de su categoría, "Productos parecidos se venden entre $180 y $300.".
+3. **R3 · Descripción y fotos:** menos de 80 letras o menos de 3 fotos piden mejorarlas.
+4. **R4 · Orientativas (RN-38):** el sistema nunca cambia precios ni publicaciones por su cuenta.
+5. **R5 · Volver a buscar:** al editar una publicación disponible y cambiar el nombre, la descripción, la categoría, el estado o el precio, se vuelven a buscar coincidencias en segundo plano (la cola de HU-29); quien ya recibió el aviso de esa publicación no lo recibe otra vez (`dedupeKey`). Cierra la `NOTE (HU-18)` de `MyListingsService`.
 
 ## Diseño
-- Módulo `Musubi.Api/Modules/SellerSupport/` (M-12). Si es la primera HU del módulo, aquí se crea su carpeta (`Modules/README.md`).
-- Colecciones: `recommendations` (diseño 📐 en [`docs/modelo-datos.md`](../../../docs/modelo-datos.md); el script `db/NNN-*.js` se escribe al implementar).
-- Endpoints: se definen al detallar. Cada ruta tiene su fila en `docs/endpoints.md` (`check_endpoints`) y su auth explícita.
-- Modelo de ML detrás de una interfaz; sin datos suficientes se responde vacío, nunca inventado (RNF-15).
+- `SalesTips.For(product, demand, range)` en `Modules/SellerSupport/`; `ListingService.PriceRangeAsync(IProductRepository, …)` (el rango de `Vender-3`).
+- `MyListingsService.UpdateAsync` encola `ListingService.Publication(updated)` en `IProductPublications`.
 
 ## Contratos
-Por definir al detallar: filas nuevas en [`docs/endpoints.md`](../../../docs/endpoints.md), errores en [`docs/errores.md`](../../../docs/errores.md) y fixtures en `ContractTest/Fixtures/`.
+`tips` dentro de la fila `GET /api/v1/products/mine/slow` de [`docs/endpoints.md`](../../../docs/endpoints.md).
 
 ## Tests
-- `UnitTest/SellerSupport/`: reglas de negocio de cada criterio.
-- `IntegrationTest/SellerSupport/`: un flujo por criterio de aceptación, con su código de error.
-- `SecurityTest/Auth/`: 401 sin sesión y, cuando aplique, solo el dueño actúa (RNF-03, OWASP API1).
-- `ContractTest/`: forma JSON de las respuestas nuevas.
-- `TestShared/` + `DatabaseTest/`: la batería del repositorio en memoria y en MongoDB real; índices del script.
+- `UnitTest/SellerSupport/SalesTipsTests.cs`: las tres siempre, el precio contra los presupuestos y contra la categoría, descripción corta y pocas fotos.
+- `UnitTest/Listings/MyListingsServiceTests.cs` → `Update_WithNewMatchingDetails_LooksForMatchesAgain` y `Update_WithoutChangesThatMatter_OrWhilePaused_DoesNotLookAgain`.
+- `IntegrationTest/SellerSupport/SellerSupportFlowTests.cs` (las tres aplican, con el presupuesto de la solicitud).
 
 ## Criterios
-- [ ] Se muestran sugerencias predefinidas: revisar el precio, mejorar la descripción o actualizar las fotografías.
-- [ ] Si el precio está por encima de los presupuestos de solicitudes similares, se sugiere revisarlo.
-- [ ] Las sugerencias son orientativas: el sistema nunca cambia precios ni publicaciones por su cuenta (RN-38).
-- [ ] Si el vendedor edita la publicación, el sistema vuelve a buscar coincidencias.
-- [ ] Build Release 0/0 · Unit, Integration, Security y Contract al 100 % · `check_endpoints` OK · critic PASS.
-
-## Límites
-- Spec ligera: el diseño, los contratos y las pruebas exactas se fijan al iniciar la HU (`plan.md`).
+- [x] Se muestran las sugerencias predefinidas → `AlwaysTheThreeIdeas_InTheirOrder_WhenNoneApplies`.
+- [x] Precio arriba de los presupuestos de solicitudes similares → `APriceAboveTheirBudgets_SaysHowMuchTheyOffer` e integración.
+- [x] Solo orientan (RN-38): ningún endpoint de M-12 escribe.
+- [x] Al editar se vuelven a buscar coincidencias → `MyListingsServiceTests`.
+- [x] Build Release 0/0 · Unit 748, Integration 188, Security 244 y Contract 26 · `check_endpoints` OK (97) · critic PASS.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador (spec ligera)
+- **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 29-Oct-2026
-- **Detalle:** generada desde Jira, la maqueta y el modelo de datos para tener todo el backlog especificado (SCRUM-86, pedido del docente). Al iniciar la HU se completan `plan.md` y `task.md` y se resuelven las decisiones pendientes.
+- **Fecha:** 29-Oct-2026 (borrador ligero) · 15-Nov-2026 (detallado e implementado, junto con HU-36, HU-37 y HU-38)

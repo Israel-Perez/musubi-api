@@ -1,5 +1,15 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-36, HU-37 y HU-38 (SCRUM-59, SCRUM-60 y SCRUM-61)
+
+- **Qué:** módulo nuevo `Modules/SellerSupport/` (M-12). `GET /api/v1/products/mine/slow` ("Llevan tiempo sin venderse" de `Mis-productos`: disponibles con más de 21 días, sin pedidos completados ni abiertos, con vistas de 30 días, mensajes, `demand` y `tips`) y `GET /api/v1/products/{id}/demand` ("Quienes la buscan"). Aviso `slow_listing` (`my_products`) una vez a las 3 semanas. Al editar una publicación se vuelven a buscar coincidencias (cierra la `NOTE (HU-18)` de `MyListingsService`).
+- **Decisiones de la usuaria (15-Nov-2026):** una tarjeta por producto; las ideas en una hoja al tocar la tarjeta; el aviso una sola vez. Los 21 días salen de la maqueta ("2 productos con más de 3 semanas").
+- **Hallazgo:** la spec ligera decía que la maqueta no tenía pantalla. Sí la tiene: el panel de `Mis-productos`, el aviso de `Notificaciones` y la tarjeta "2 estudiantes buscan algo similar" de `Vender-listo`.
+- **Diseño:** la demanda vive en M-06 (`IProductDemand`, `DemandRules`), y `ProductMatchNotifier` usa las mismas reglas, así que lo que ve quien vende es lo que se avisa. Las búsquedas guardadas solo se cuentan (RN-37).
+- **Error a evitar:** `productStatsDaily` tiene TTL de 30 días: la prueba de `ViewsSinceAsync` en `DatabaseTest` usa `DateTime.UtcNow`, nunca una fecha fija.
+- **Error a evitar:** S3218 rompe el build si una clase anidada de prueba tiene un miembro con el nombre de uno de la clase de afuera (`Published`): implementa la interfaz de forma explícita.
+- **Versión:** `0.5.0-alpha.33`, esquema 26 (`db/026-apoyo-vendedores.js`: `ix_status_created` y el validador de avisos). **Verificación (15-Nov-2026):** build 0/0; Unit 748, Integration 188, Security 244 y Contract 26; `check_endpoints` OK (97); critic PASS. `DatabaseTest` corre en el CI (Docker apagado en local).
+
 ## Trabajo en curso — HU-12 (SCRUM-51)
 
 - **Qué:** "Avísame cuando aparezca" (`POST/GET/DELETE /api/v1/saved-searches`, `savedSearches`, `db/025`) y "¡Ya apareció lo que buscabas!" (`saved_search_match`) desde la misma cola de HU-29.

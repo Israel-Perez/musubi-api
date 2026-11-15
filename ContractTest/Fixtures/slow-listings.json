@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "product": {
+        "id": "6716a0000000000000000099",
+        "title": "Bata de laboratorio blanca, talla M",
+        "description": "Bata corta.",
+        "category": "laboratorio",
+        "priceCents": 25000,
+        "condition": "used",
+        "conditionDetail": "good",
+        "stock": 1,
+        "status": "active",
+        "photos": ["/media/products/6716a0000000000000000001/0123456789abcdef0123456789abcdef.webp"],
+        "seller": { "name": "Ana R." },
+        "publishedAt": "2026-10-12T18:00:00Z",
+        "soldAt": null
+      },
+      "daysListed": 34,
+      "views": 96,
+      "messages": 0,
+      "demand": { "people": 3, "requests": 2 },
+      "tips": [
+        {
+          "kind": "price",
+          "title": "Revisa el precio",
+          "body": "Quienes buscan algo así ofrecen hasta $220 y tú pides $250.",
+          "applies": true
+        }
+      ]
+    }
+  ],
+  "thresholdDays": 21
+}

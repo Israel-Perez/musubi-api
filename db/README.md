@@ -29,6 +29,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `023-popularidad.js` | `productStatsDaily` (HU-49): vistas agregadas por producto/día UTC, TTL de 30 días | 23 |
 | `024-coincidencias.js` | `matches` (RF-25: cada coincidencia entre una solicitud y una publicación, a quién se avisó y si terminó en pedido, TTL de 90 días) y el validador de `notifications` con `wanted_match`, `offer_closed` y `product_match` | 24 |
 | `025-busquedas-guardadas.js` | `savedSearches` (HU-12: "Avísame cuando aparezca", privadas, TTL de 30 días) y `saved_search_match` en el validador de `notifications` | 25 |
+| `026-apoyo-vendedores.js` | `ix_status_created` en `products` (HU-36: el aviso de las 3 semanas) y `slow_listing` / `my_products` en el validador de `notifications` | 26 |
 
 ## Aplicar
 

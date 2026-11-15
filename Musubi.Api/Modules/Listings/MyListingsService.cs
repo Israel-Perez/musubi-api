@@ -27,6 +27,7 @@ internal sealed class MyListingsService(
     IOutputCacheStore outputCache,
     IEnumerable<IListingPhotoReferences> photoReferences,
     IOpenOrders openOrders,
+    IProductPublications publications,
     TimeProvider time)
 {
     /// <summary>Cambia los datos de una publicacion (maqueta <c>Vender-2…4</c>, "Editar publicacion").</summary>
@@ -78,8 +79,13 @@ internal sealed class MyListingsService(
         }
 
         await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
-        // NOTE (HU-18): si cambiaron el nombre, la categoria, el precio o la descripcion, volver a buscar
-        // coincidencias con las solicitudes "Se busca" en segundo plano (RF-08, RNF-11).
+        // HU-37 (RF-08): con el nombre, la categoria, el precio o la descripcion nuevos se vuelven a buscar coincidencias
+        // en segundo plano (RNF-11). Quien ya recibio el aviso de esta publicacion no lo recibe otra vez (dedupeKey).
+        if (updated.Status == ProductStatuses.Active && ChangesMatching(current, updated))
+        {
+            publications.Published(ListingService.Publication(updated));
+        }
+
         return Result<ProductResponse>.Ok(ListingService.ToResponse(updated, includeSeller: true));
     }
 
@@ -219,6 +225,13 @@ internal sealed class MyListingsService(
             ? ListingsErrors.ProductSold
             : ListingsErrors.ProductNotFound;
     }
+
+    private static bool ChangesMatching(ProductDocument before, ProductDocument after) =>
+        !string.Equals(before.Title, after.Title, StringComparison.Ordinal)
+        || !string.Equals(before.Description, after.Description, StringComparison.Ordinal)
+        || !string.Equals(before.CategorySlug, after.CategorySlug, StringComparison.Ordinal)
+        || !string.Equals(before.Condition, after.Condition, StringComparison.Ordinal)
+        || before.PriceCents != after.PriceCents;
 
     private static bool IsOwnedBy(ProductDocument product, string userId) =>
         string.Equals(product.SellerId, userId, StringComparison.Ordinal) && product.Status != ProductStatuses.Removed;

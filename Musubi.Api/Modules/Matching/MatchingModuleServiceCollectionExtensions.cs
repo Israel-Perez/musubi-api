@@ -30,6 +30,8 @@ internal static class MatchingModuleServiceCollectionExtensions
         services.AddSingleton<ProductMatchQueue>();
         services.AddSingleton<IProductPublications>(provider => provider.GetRequiredService<ProductMatchQueue>());
         services.AddSingleton<ProductMatchNotifier>();
+        // HU-38: la demanda de una publicacion para M-12, con las mismas reglas de los avisos.
+        services.AddSingleton<IProductDemand, ProductDemandService>();
         services.AddHostedService<ProductMatchWorker>();
         services.AddSingleton<WantedMatchQueue>();
         services.AddSingleton<IWantedMatching>(provider => provider.GetRequiredService<WantedMatchQueue>());

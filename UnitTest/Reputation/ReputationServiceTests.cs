@@ -254,5 +254,8 @@ public sealed class ReputationServiceTests
 
         public Task<ConversationSummary?> FindAsync(string conversationId, CancellationToken cancellationToken) =>
             Task.FromResult<ConversationSummary?>(null);
+
+        public Task<IReadOnlyDictionary<string, int>> CountForProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>(StringComparer.Ordinal));
     }
 }

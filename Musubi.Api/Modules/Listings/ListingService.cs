@@ -166,7 +166,17 @@ internal sealed partial class ListingService(
         // La vitrina del visitante (cache de salida, 02-02) la muestra en la siguiente consulta.
         await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.ShowcaseTag, cancellationToken).ConfigureAwait(false);
         // HU-29: "Alguien publicó lo que buscas" a las solicitudes que coincidan, en segundo plano (RNF-11).
-        publications.Published(new ProductPublished(
+        publications.Published(Publication(product));
+        return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
+    }
+
+    /// <summary>Lo que M-06 compara con las solicitudes y las busquedas guardadas (HU-29, HU-12, HU-38).</summary>
+    /// <param name="product">La publicacion.</param>
+    /// <returns>Sus datos para buscar coincidencias.</returns>
+    public static ProductPublished Publication(ProductDocument product)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        return new ProductPublished(
             product.Id,
             product.CommunityId,
             product.SellerId,
@@ -175,8 +185,7 @@ internal sealed partial class ListingService(
             product.PriceCents,
             product.SearchWords,
             product.Condition,
-            product.Seller.Name));
-        return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
+            product.Seller.Name);
     }
 
     /// <summary>
@@ -494,8 +503,18 @@ internal sealed partial class ListingService(
     /// <param name="category">Slug de la categoria.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El rango, o <c>null</c> si no hay suficientes publicaciones para que sea honesto.</returns>
-    public async Task<PriceRangeResponse?> PriceRangeAsync(string communityId, string category, CancellationToken cancellationToken)
+    public Task<PriceRangeResponse?> PriceRangeAsync(string communityId, string category, CancellationToken cancellationToken) =>
+        PriceRangeAsync(products, communityId, category, cancellationToken);
+
+    /// <summary>El mismo rango, sobre un repositorio (HU-37: "Revisa el precio").</summary>
+    /// <param name="products">Las publicaciones.</param>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="category">Slug de la categoria.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El rango, o <c>null</c> si no hay suficientes publicaciones.</returns>
+    public static async Task<PriceRangeResponse?> PriceRangeAsync(IProductRepository products, string communityId, string category, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(products);
         var prices = (await products.FindActivePricesAsync(communityId, category, 200, cancellationToken).ConfigureAwait(false))
             .Order()
             .ToList();

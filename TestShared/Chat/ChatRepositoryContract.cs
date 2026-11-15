@@ -191,4 +191,37 @@ public abstract class ChatRepositoryContract
         Assert.Single(await Messages.FindPageAsync(unrelated.Id, null, 10, Ct));
         Assert.Equal(0, await Messages.DeleteByConversationsAsync([], Ct));
     }
+
+    [Fact]
+    public async Task CountByProducts_CountsTheConversationsOpenedFromEachListing()
+    {
+        // HU-36: "0 mensajes" en "Llevan tiempo sin venderse".
+        var seller = AuthIds.New();
+        var bata = AuthIds.New();
+        var calculadora = AuthIds.New();
+        await Conversations.InsertOrGetAsync(NewConversation(AuthIds.New(), seller, bata), Ct);
+        await Conversations.InsertOrGetAsync(NewConversation(AuthIds.New(), seller, bata), Ct);
+        await Conversations.InsertOrGetAsync(NewConversation(AuthIds.New(), seller, calculadora), Ct);
+        var offer = NewConversation(AuthIds.New(), seller, bata);
+        await Conversations.InsertOrGetAsync(
+            new ConversationDocument
+            {
+                Id = offer.Id,
+                CommunityId = offer.CommunityId,
+                BuyerId = offer.BuyerId,
+                SellerId = offer.SellerId,
+                Participants = offer.Participants,
+                Context = new ConversationContext { Type = ConversationContextTypes.Offer, Id = bata, Title = "Oferta" },
+                LastMessageAt = offer.LastMessageAt,
+                CreatedAt = offer.CreatedAt,
+            },
+            Ct);
+
+        var counts = await Conversations.CountByProductsAsync([bata, calculadora, AuthIds.New(), "no-es-un-id"], Ct);
+
+        Assert.Equal(2, counts[bata]);
+        Assert.Equal(1, counts[calculadora]);
+        Assert.Equal(2, counts.Count);
+        Assert.Empty(await Conversations.CountByProductsAsync([], Ct));
+    }
 }

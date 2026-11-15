@@ -15,6 +15,8 @@ namespace Musubi.Api.Modules.PurchaseRequests;
 /// <param name="CategorySlug">Categoria, o <c>null</c> si es "otro" (cualquiera).</param>
 /// <param name="BudgetCents">Presupuesto.</param>
 /// <param name="Active">Si sigue activa y sin vencer.</param>
+/// <param name="RequesterName">Nombre corto de quien busca ("Ana R.", HU-38: "Quienes la buscan").</param>
+/// <param name="ExpiresAt">Vencimiento (UTC).</param>
 internal sealed record WantedForMatch(
     string Id,
     string CommunityId,
@@ -22,7 +24,9 @@ internal sealed record WantedForMatch(
     string Title,
     string? CategorySlug,
     long BudgetCents,
-    bool Active);
+    bool Active,
+    string RequesterName = "",
+    DateTime ExpiresAt = default);
 
 /// <summary>Contrato publico de M-05 para M-06 (HU-18, HU-29).</summary>
 internal interface IWantedMatchDirectory
@@ -99,5 +103,7 @@ internal sealed class WantedMatchDirectory(IWantedRepository requests, TimeProvi
         request.Title,
         request.CategorySlug == WantedService.OtherCategory ? null : request.CategorySlug,
         request.BudgetCents,
-        request.Status == WantedStatuses.Active && request.ExpiresAt > now);
+        request.Status == WantedStatuses.Active && request.ExpiresAt > now,
+        request.RequesterName,
+        request.ExpiresAt);
 }

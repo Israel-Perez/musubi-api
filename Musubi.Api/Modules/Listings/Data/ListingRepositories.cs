@@ -381,6 +381,19 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las publicaciones.</returns>
     Task<IReadOnlyList<ProductDocument>> FindAvailableAsync(string communityId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Las disponibles publicadas hasta <paramref name="to"/> (y desde <paramref name="from"/>, si se da), de la mas vieja
+    /// a la mas nueva (HU-36): las de una persona o, sin <paramref name="sellerId"/>, las de todos los campus (el aviso
+    /// de las 3 semanas).
+    /// </summary>
+    /// <param name="sellerId">Quien vende, o <c>null</c> para todas.</param>
+    /// <param name="from">Publicadas desde (UTC), o <c>null</c>.</param>
+    /// <param name="to">Publicadas hasta (UTC, incluida).</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las publicaciones.</returns>
+    Task<IReadOnlyList<ProductDocument>> FindAvailableListedAsync(string? sellerId, DateTime? from, DateTime to, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>Lo que busca una solicitud, para encontrar publicaciones compatibles (HU-19).</summary>
@@ -433,6 +446,14 @@ internal interface IProductStatsRepository
 {
     Task IncrementViewAsync(string communityId, string productId, DateTime utcDay, CancellationToken cancellationToken);
     Task<PopularProductPageData> PopularAsync(string communityId, DateTime fromUtcDay, DateTime toUtcDay, PopularProductCursor? cursor, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Las vistas de cada publicacion desde un dia (HU-36: "96 vistas"; los agregados viven 30 dias).</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="productIds">Las publicaciones.</param>
+    /// <param name="fromUtcDay">Primer dia que cuenta (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las vistas por publicacion (las que no tienen no aparecen).</returns>
+    Task<IReadOnlyDictionary<string, long>> ViewsSinceAsync(string communityId, IReadOnlyCollection<string> productIds, DateTime fromUtcDay, CancellationToken cancellationToken);
 }
 
 /// <summary>Página y total de productos populares elegibles (HU-49).</summary>

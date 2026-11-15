@@ -10,6 +10,7 @@ using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.PurchaseRequests;
 using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Modules.Reputation;
+using Musubi.Api.Modules.SellerSupport;
 using Musubi.Api.Platform.Hosting;
 using Musubi.Api.Platform.Observability;
 
@@ -26,6 +27,7 @@ builder.Services.AddReputationModule();
 builder.Services.AddPurchaseRequestsModule();
 builder.Services.AddMatchingModule();
 builder.Services.AddRecommendationsModule();
+builder.Services.AddSellerSupportModule();
 builder.Services.AddOrdersModule();
 builder.Services.AddGenAiModule();
 builder.Services.AddNotificationsModule();

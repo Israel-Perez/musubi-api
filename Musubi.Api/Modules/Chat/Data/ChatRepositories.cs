@@ -34,6 +34,12 @@ internal interface IConversationRepository
     /// <returns>La conversacion o <c>null</c> (tambien si el id no es un ObjectId).</returns>
     Task<ConversationDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
 
+    /// <summary>Cuantas conversaciones se abrieron desde cada publicacion (HU-36: "0 mensajes").</summary>
+    /// <param name="productIds">Las publicaciones.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las conversaciones por publicacion (las que no tienen no aparecen).</returns>
+    Task<IReadOnlyDictionary<string, int>> CountByProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken);
+
     /// <summary>
     /// Registra un mensaje en la conversacion: guarda la copia del ultimo mensaje, adelanta la hora de
     /// actividad (nunca la regresa) y suma uno a los no leidos de quien lo recibe (HU-22).

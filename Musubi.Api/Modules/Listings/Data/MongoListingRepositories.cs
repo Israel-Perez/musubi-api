@@ -208,6 +208,29 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProductDocument>> FindAvailableListedAsync(string? sellerId, DateTime? from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        // Con la persona, ix_seller_id; sin ella, ix_status_created (db/026).
+        var filter = Filter.Eq(p => p.Status, ProductStatuses.Active) & Filter.Lte(p => p.CreatedAt, to);
+        if (sellerId is not null)
+        {
+            if (!ObjectId.TryParse(sellerId, out _))
+            {
+                return [];
+            }
+
+            filter &= Filter.Eq(p => p.SellerId, sellerId);
+        }
+
+        if (from is { } since)
+        {
+            filter &= Filter.Gte(p => p.CreatedAt, since);
+        }
+
+        return await products.Find(filter).SortBy(p => p.CreatedAt).ThenBy(p => p.Id).Limit(limit).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
         string sellerId,
         IReadOnlyList<string>? statuses,
@@ -535,6 +558,24 @@ internal sealed class MongoProductStatsRepository(IMongoDatabase database) : IPr
             .SetOnInsert(x => x.Day, day)
             .SetOnInsert(x => x.ExpiresAt, day.AddDays(30));
         return stats.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<string, long>> ViewsSinceAsync(string communityId, IReadOnlyCollection<string> productIds, DateTime fromUtcDay, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(productIds);
+        var ids = productIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        if (ids.Count == 0 || !ObjectId.TryParse(communityId, out _))
+        {
+            return new Dictionary<string, long>(StringComparer.Ordinal);
+        }
+
+        // ux_product_day: campus, publicacion y dia. Son unas cuantas publicaciones por 30 dias: se suman aqui.
+        var filter = Builders<ProductStatsDailyDocument>.Filter.Eq(x => x.CommunityId, communityId)
+            & Builders<ProductStatsDailyDocument>.Filter.In(x => x.ProductId, ids)
+            & Builders<ProductStatsDailyDocument>.Filter.Gte(x => x.Day, DateTime.SpecifyKind(fromUtcDay.Date, DateTimeKind.Utc));
+        var rows = await stats.Find(filter).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.GroupBy(row => row.ProductId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Sum(row => row.Views), StringComparer.Ordinal);
     }
 
     public async Task<PopularProductPageData> PopularAsync(string communityId, DateTime fromUtcDay, DateTime toUtcDay, PopularProductCursor? cursor, int limit, CancellationToken cancellationToken)
