@@ -1,10 +1,12 @@
-# plan.md — HU-18 Ver coincidencias al publicar una solicitud (borrador)
+# HU-18 — Ver coincidencias al publicar una solicitud (plan)
 
-Se completa **al iniciar la HU**, con la skill `spec-first-writing`, siguiendo la estructura de los planes ya cerrados (por ejemplo, HU-06):
+1. **T1 — Spec** con las decisiones del 14-Nov-2026. ✅
+2. **T2 — Registro (RF-25):** `matches`, `IMatchRepository` (contrato compartido), `MatchLedger` y `db/024`. ✅
+3. **T3 — Coincidencias:** `WantedMatchesService`, `IWantedMatchDirectory` y `GET /wanted/{id}/matches`. ✅
+4. **T4 — Terminó en pedido:** `OrderService` marca la coincidencia. ✅
+5. **T5 — Pruebas y documentos.** ✅
 
-1. **Componentes:** archivos y carpetas que se crean o cambian.
-2. **Decisiones:** cada una con su porqué; incluye las decisiones pendientes de Jira listadas en `spec.md` → Límites.
-3. **Excepciones al stack** (regla de 00-01), si hacen falta.
-4. **Guardarraíles:** seguridad, límites y validaciones.
-5. **Validación:** pruebas, capturas y prueba en el celular.
-6. **Secuencia de implementación.**
+**Decisiones:**
+- **D1 · Las parecidas usan la misma consulta de candidatas** (una palabra basta) con un margen de 50 %: no hace falta otro índice.
+- **D2 · Las tarjetas salen de `IRecommendationCatalog.CardsAsync`** (HU-35): mismo orden, solo disponibles y con quien vende.
+- **D3 · El registro nunca rompe el flujo:** `MatchLedger` atrapa los errores de MongoDB (es una métrica).

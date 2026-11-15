@@ -56,6 +56,35 @@ internal interface IProductDirectory
 /// <param name="Words">Palabras normalizadas de su nombre y su descripcion.</param>
 internal sealed record ProductCandidate(string Id, string SellerId, string Title, long PriceCents, IReadOnlyList<string> Words);
 
+/// <summary>Una publicacion recien publicada (HU-29).</summary>
+/// <param name="Id">Publicacion.</param>
+/// <param name="CommunityId">Campus.</param>
+/// <param name="SellerId">Quien la vende.</param>
+/// <param name="Title">Nombre.</param>
+/// <param name="CategorySlug">Categoria.</param>
+/// <param name="PriceCents">Precio.</param>
+/// <param name="Words">Palabras normalizadas de su nombre y su descripcion.</param>
+internal sealed record ProductPublished(
+    string Id,
+    string CommunityId,
+    string SellerId,
+    string Title,
+    string CategorySlug,
+    long PriceCents,
+    IReadOnlyList<string> Words);
+
+/// <summary>
+/// Contrato de M-03 hacia M-06 (HU-29): al publicar, las solicitudes "Se busca" que coincidan se revisan en segundo
+/// plano (RNF-11). Nunca falla hacia quien publica.
+/// </summary>
+internal interface IProductPublications
+{
+    /// <summary>Encola la revision sin esperar.</summary>
+    /// <param name="product">La publicacion.</param>
+    /// <returns><c>true</c> si entro a la cola.</returns>
+    bool Published(ProductPublished product);
+}
+
 /// <summary>Contrato de M-03 para M-06 (HU-19): las publicaciones que podrian servirle a una solicitud.</summary>
 internal interface IProductMatches
 {

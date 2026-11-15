@@ -40,6 +40,7 @@ internal static class PurchaseRequestsModuleServiceCollectionExtensions
         // HU-23: el pedido sale de una oferta aceptada.
         services.AddSingleton<IOfferDirectory, OfferDirectory>();
         services.AddSingleton<IWantedReminders, WantedReminders>();
+        services.AddSingleton<IWantedMatchDirectory, WantedMatchDirectory>();
     }
 }
 

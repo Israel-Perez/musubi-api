@@ -62,6 +62,9 @@ internal static class NotificationTypes
 
     /// <summary>La solicitud a la que ofreci se cerro o se cancelo (HU-30).</summary>
     public const string OfferClosed = "offer_closed";
+
+    /// <summary>Se publico algo que coincide con mi solicitud (HU-29).</summary>
+    public const string ProductMatch = "product_match";
 }
 
 /// <summary>Lo que abre un aviso.</summary>
@@ -81,4 +84,7 @@ internal static class NotificationTargets
 
     /// <summary>Nada que abrir (la solicitud ya no esta activa, HU-30).</summary>
     public const string None = "none";
+
+    /// <summary>Una publicacion (HU-29: lo que coincide con mi solicitud).</summary>
+    public const string Product = "product";
 }

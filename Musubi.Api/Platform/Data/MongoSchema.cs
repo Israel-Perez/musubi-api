@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 23;
+    public const int ExpectedVersion = 24;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";
@@ -82,4 +82,7 @@ internal static class MongoSchema
 
     /// <summary>Interacciones con las publicaciones para las recomendaciones (HU-35, db/022): privadas, 90 dias.</summary>
     public const string Interactions = "interactions";
+
+    /// <summary>Coincidencias entre solicitudes y publicaciones (RF-25, db/024): a quien se aviso y si termino en pedido.</summary>
+    public const string Matches = "matches";
 }

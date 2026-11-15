@@ -10,6 +10,7 @@ using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Modules.GenAi;
 using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Listings;
+using Musubi.Api.Modules.Matching;
 using Musubi.Api.Modules.Orders.Data;
 using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.PurchaseRequests;
@@ -41,6 +42,7 @@ internal sealed class OrderService(
     IContentModerator moderator,
     IAgreementDirectory agreements,
     INotificationCenter center,
+    IMatchLedger matches,
     TimeProvider time)
 {
     /// <summary>Piezas por pedido.</summary>
@@ -210,6 +212,12 @@ internal sealed class OrderService(
         if (agreement is not null)
         {
             await agreements.ConsumeAsync(agreement, cancellationToken).ConfigureAwait(false);
+        }
+
+        // RF-25: si quien compra tenia una coincidencia con esta publicacion, termino en pedido.
+        if (order.Item.ProductId is { } productId)
+        {
+            await matches.OrderedAsync(order.BuyerId, productId, cancellationToken).ConfigureAwait(false);
         }
 
         await center.NotifyAsync(

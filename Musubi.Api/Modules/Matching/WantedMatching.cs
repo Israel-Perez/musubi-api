@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
+using Musubi.Api.Modules.Matching.Data;
 using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Modules.Reputation;
 
@@ -118,7 +119,7 @@ internal static class MatchRules
 /// "Hay una solicitud compatible con tu producto" (HU-19, RF-39, maqueta <c>Notificaciones</c> → "Coincidencias"):
 /// busca las publicaciones compatibles y avisa a cada persona una vez, con su publicacion mas parecida.
 /// </summary>
-internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirectory blocks, INotificationCenter center, TimeProvider time)
+internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirectory blocks, INotificationCenter center, IMatchLedger ledger, TimeProvider time)
 {
     /// <summary>Busca y avisa.</summary>
     /// <param name="request">La solicitud.</param>
@@ -158,8 +159,12 @@ internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirect
         var notified = 0;
         foreach (var (product, _) in best)
         {
-            // RN-30: hasta 3 al dia; las demas siguen en el tablero.
-            if (await center.CountSinceAsync(product.SellerId, NotificationTypes.WantedMatch, since, cancellationToken).ConfigureAwait(false) >= MatchRules.DailyLimit)
+            // RN-30: hasta 3 al dia; las demas siguen en el tablero. La coincidencia igual se registra (RF-25).
+            var allowed = await center.CountSinceAsync(product.SellerId, NotificationTypes.WantedMatch, since, cancellationToken).ConfigureAwait(false) < MatchRules.DailyLimit;
+            await ledger.RecordAsync(
+                new MatchRecord(request.CommunityId, request.RequestId, product.Id, request.RequesterId, product.SellerId, NotifiedRequester: false, NotifiedSeller: allowed),
+                cancellationToken).ConfigureAwait(false);
+            if (!allowed)
             {
                 continue;
             }

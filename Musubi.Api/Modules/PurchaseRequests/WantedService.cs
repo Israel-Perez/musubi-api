@@ -438,8 +438,10 @@ internal sealed class WantedService(
                     NotificationTypes.OfferClosed,
                     "Esta solicitud ya no está activa",
                     body,
+                    // "none" no abre nada, pero el id se guarda como ObjectId: va el de la solicitud (un id vacio no se
+                    // puede guardar en MongoDB).
                     NotificationTargets.None,
-                    string.Empty,
+                    request.Id,
                     NotificationCategories.Requests,
                     $"offer_closed:{offer.Id}"),
                 cancellationToken).ConfigureAwait(false);

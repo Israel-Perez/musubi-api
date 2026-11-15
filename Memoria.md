@@ -1,5 +1,15 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-18 y HU-29 (SCRUM-40 y SCRUM-47)
+
+- **Qué:** `GET /api/v1/wanted/{id}/matches` ("Ya coinciden con lo que buscas": exactas con las reglas de HU-19 y luego parecidas, RF-24) y, al publicar, "Alguien publicó lo que buscas" (`product_match`, abre la publicación) a quien tenga una solicitud activa compatible. `matches` (RF-25) guarda cada coincidencia, a quién se avisó y si terminó en pedido (Orders la marca al crear el pedido).
+- **Decisiones de la usuaria (14-Nov-2026):** exactas y parecidas; el aviso igual que HU-19 (solo exactas, uno por solicitud y publicación, 3 al día); registro con colección.
+- **Bug encontrado (en producción desde `alpha.27`):** el validador de `notifications` de `db/019` no admitía `wanted_match`, `offer_closed` ni los destinos `wanted_board` y `none`: MongoDB rechazaba los avisos de HU-19 y HU-30 y se perdían sin ruido (el centro de avisos nunca falla). Además `offer_closed` mandaba `target.id` vacío, que no se puede guardar como ObjectId (no es `MongoException`: podía tirar cerrar o cancelar una solicitud con ofertas pendientes). `db/024` corrige el validador y el aviso usa el id de la solicitud.
+- **Error a evitar:** un tipo o destino de aviso nuevo necesita su script. `EveryTypeAndTargetOfTheCode_CanBeStored` (contrato de avisos, corre en `DatabaseTest`) lee las constantes y falla si falta.
+- **Error a evitar:** `check_endpoints` solo lee los `*Controller.cs`: un controller dentro de otro archivo queda como "fila huérfana".
+- **Versión:** `0.5.0-alpha.31`, esquema 24.
+- **Verificación (14-Nov-2026, sobre `main` `b238375`):** build Release 0/0; Unit 697, Integration 186, Security 234 y Contract 24; `check_endpoints` OK (92); critic PASS.
+
 ## Trabajo en curso — HU-66 (SCRUM-106, Kazumi)
 
 - **Qué:** `GET` y `PUT /api/v1/profiles/me/interests` ("¿Qué te interesa?" y "Mis intereses" de la app): slugs de categorías activas del campus, hasta 20 y sin repetidos; `[]` los borra. Error nuevo `profiles.invalid_interest`.
