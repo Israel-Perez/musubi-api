@@ -147,6 +147,62 @@ internal static class OrdersErrors
         "orders.code_locked", StatusCodes.Status409Conflict, "Se acabaron los intentos del código. Confirmen la entrega los dos desde el pedido.");
 }
 
+/// <summary>Errores de los apartados (HU-52; catalogo canonico: docs/errores.md).</summary>
+internal static class ReservationsErrors
+{
+    /// <summary>Inexistente o ajeno (OWASP API1: no revela cual).</summary>
+    public static readonly ApiError NotFound = new(
+        "reservations.not_found", StatusCodes.Status404NotFound, "No encontramos este apartado.");
+
+    /// <summary>La publicacion ya no esta disponible (pausada, vendida, agotada o de otro campus).</summary>
+    public static readonly ApiError ProductUnavailable = new(
+        "reservations.product_unavailable", StatusCodes.Status409Conflict, "Esta publicación ya no está disponible para apartar.");
+
+    /// <summary>La publicacion es de quien quiere apartarla.</summary>
+    public static readonly ApiError OwnProduct = new(
+        "reservations.own_product", StatusCodes.Status409Conflict, "No puedes apartar tu propia publicación.");
+
+    /// <summary>HU-57: bloqueo en cualquier direccion (no revela quien bloqueo).</summary>
+    public static readonly ApiError Blocked = new(
+        "reservations.blocked", StatusCodes.Status403Forbidden, "No puedes apartar con esta persona.");
+
+    /// <summary>Uno activo a la vez (decision de la usuaria del 15-Nov-2026).</summary>
+    public static readonly ApiError LimitReached = new(
+        "reservations.limit_reached", StatusCodes.Status409Conflict, "Ya tienes un apartado activo. Recógelo o cancélalo para apartar otro.");
+
+    /// <summary>El punto no es de los activos del campus.</summary>
+    public static readonly ApiError InvalidMeetingPoint = new(
+        "reservations.invalid_meeting_point", StatusCodes.Status400BadRequest, "Elige un punto de entrega del campus.");
+
+    /// <summary>La hora no cae dentro de las 24 h del apartado, entre las 7:00 y las 21:00.</summary>
+    public static readonly ApiError InvalidPickupTime = new(
+        "reservations.invalid_pickup_time", StatusCodes.Status400BadRequest, "Elige una hora dentro de las próximas 24 horas, entre las 7:00 y las 21:00.");
+
+    /// <summary>El apartado ya se recogio, se cancelo o vencio.</summary>
+    public static readonly ApiError NotActive = new(
+        "reservations.not_active", StatusCodes.Status409Conflict, "Este apartado ya no está activo.");
+
+    /// <summary>Verificar y entregar es de quien vende.</summary>
+    public static readonly ApiError OnlySeller = new(
+        "reservations.only_seller", StatusCodes.Status403Forbidden, "Solo quien vende puede verificar el apartado.");
+
+    /// <summary>El codigo no son 6 digitos (no gasta un intento).</summary>
+    public static readonly ApiError InvalidCodeFormat = new(
+        "reservations.invalid_code_format", StatusCodes.Status400BadRequest, "Escribe los 6 dígitos del código.");
+
+    /// <summary>El codigo no coincide (gasta un intento).</summary>
+    public static readonly ApiError InvalidCode = new(
+        "reservations.invalid_code", StatusCodes.Status422UnprocessableEntity, "El código no coincide. Revisa que sea el apartado de esta persona.");
+
+    /// <summary>Sin intentos: el apartado se cancela o vence; la venta se hace con un pedido (HU-23).</summary>
+    public static readonly ApiError CodeLocked = new(
+        "reservations.code_locked", StatusCodes.Status409Conflict, "Se acabaron los intentos del código. Escríbele a quien apartó.");
+
+    /// <summary>"Confirmar entrega" antes de verificar el codigo.</summary>
+    public static readonly ApiError NotVerified = new(
+        "reservations.not_verified", StatusCodes.Status409Conflict, "Primero verifica el código de quien apartó.");
+}
+
 /// <summary>Errores de la cuenta para recibir pagos (HU-55; catalogo canonico: docs/errores.md).</summary>
 internal static class PayoutsErrors
 {

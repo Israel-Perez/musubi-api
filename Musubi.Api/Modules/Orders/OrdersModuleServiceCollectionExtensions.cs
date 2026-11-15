@@ -49,6 +49,16 @@ internal static class OrdersModuleServiceCollectionExtensions
         services.AddSingleton<TransferReminderJob>();
         services.AddHostedService<TransferReminderWorker>();
         services.AddSingleton<IAccountDataEraser, PayoutAccountEraser>();
+
+        // HU-52: apartados de 24 h (uno activo a la vez) y su vencimiento.
+        var reservations = new InMemoryReservationRepository();
+        services.AddSingleton<IReservationRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? reservations
+            : new MongoReservationRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<ReservationService>();
+        services.AddSingleton<ReservationExpiryJob>();
+        services.AddHostedService<ReservationExpiryWorker>();
+        services.AddSingleton<IAccountDataEraser, ReservationAccountEraser>();
     }
 }
 

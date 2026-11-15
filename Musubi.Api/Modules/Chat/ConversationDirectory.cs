@@ -87,6 +87,15 @@ internal sealed record ConversationSummary(
 /// <param name="Photo">Ruta de la foto (<c>/media/products/...</c>), o <c>null</c>.</param>
 internal sealed record OfferConversation(string CommunityId, string BuyerId, string SellerId, string OfferId, string Title, string? Photo);
 
+/// <summary>Una conversacion sobre una publicacion abierta desde otro modulo (HU-52: un apartado).</summary>
+/// <param name="CommunityId">Campus.</param>
+/// <param name="BuyerId">Quien aparta.</param>
+/// <param name="SellerId">Quien vende.</param>
+/// <param name="ProductId">La publicacion (contexto).</param>
+/// <param name="Title">Nombre (se recorta a 80).</param>
+/// <param name="Photo">Ruta de la portada, o <c>null</c>.</param>
+internal sealed record ProductConversation(string CommunityId, string BuyerId, string SellerId, string ProductId, string Title, string? Photo);
+
 /// <summary>
 /// Contrato publico de M-07 para abrir una conversacion desde otro modulo (HU-17: "Abrir chat" y "Aceptar" en
 /// una oferta). Una por oferta y comprador (<c>ux_context_buyer</c>): si ya existe, la devuelve.
@@ -98,6 +107,12 @@ internal interface IConversationOpener
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>El id de la conversacion.</returns>
     Task<string> OpenForOfferAsync(OfferConversation conversation, CancellationToken cancellationToken);
+
+    /// <summary>Abre (o reabre) la conversacion de quien compra con quien vende sobre una publicacion (HU-52).</summary>
+    /// <param name="conversation">Participantes y contexto.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El id de la conversacion.</returns>
+    Task<string> OpenForProductAsync(ProductConversation conversation, CancellationToken cancellationToken);
 }
 
 /// <summary>Implementacion sobre el repositorio de conversaciones.</summary>
@@ -107,28 +122,65 @@ internal sealed class ConversationOpener(IConversationRepository conversations, 
     public const int MaxTitle = 80;
 
     /// <inheritdoc />
-    public async Task<string> OpenForOfferAsync(OfferConversation conversation, CancellationToken cancellationToken)
+    public Task<string> OpenForOfferAsync(OfferConversation conversation, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(conversation);
-        var names = await members.FindMembersAsync([conversation.BuyerId, conversation.SellerId], cancellationToken).ConfigureAwait(false);
-        var title = conversation.Title.Length > MaxTitle ? conversation.Title[..(MaxTitle - 1)].TrimEnd() + "…" : conversation.Title;
+        return OpenAsync(
+            conversation.CommunityId,
+            conversation.BuyerId,
+            conversation.SellerId,
+            ConversationContextTypes.Offer,
+            conversation.OfferId,
+            conversation.Title,
+            conversation.Photo,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<string> OpenForProductAsync(ProductConversation conversation, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        return OpenAsync(
+            conversation.CommunityId,
+            conversation.BuyerId,
+            conversation.SellerId,
+            ConversationContextTypes.Product,
+            conversation.ProductId,
+            conversation.Title,
+            conversation.Photo,
+            cancellationToken);
+    }
+
+    // Una por contexto y comprador (ux_context_buyer): si ya existe, la devuelve.
+    private async Task<string> OpenAsync(
+        string communityId,
+        string buyerId,
+        string sellerId,
+        string contextType,
+        string contextId,
+        string fullTitle,
+        string? photo,
+        CancellationToken cancellationToken)
+    {
+        var names = await members.FindMembersAsync([buyerId, sellerId], cancellationToken).ConfigureAwait(false);
+        var title = fullTitle.Length > MaxTitle ? fullTitle[..(MaxTitle - 1)].TrimEnd() + "…" : fullTitle;
         var now = time.GetUtcNow().UtcDateTime;
         var (document, _) = await conversations.InsertOrGetAsync(
             new ConversationDocument
             {
                 Id = MongoConventions.NewId(),
-                CommunityId = conversation.CommunityId,
-                BuyerId = conversation.BuyerId,
-                SellerId = conversation.SellerId,
-                Participants = [conversation.BuyerId, conversation.SellerId],
-                BuyerName = names.GetValueOrDefault(conversation.BuyerId)?.FullName,
-                SellerName = names.GetValueOrDefault(conversation.SellerId)?.FullName,
+                CommunityId = communityId,
+                BuyerId = buyerId,
+                SellerId = sellerId,
+                Participants = [buyerId, sellerId],
+                BuyerName = names.GetValueOrDefault(buyerId)?.FullName,
+                SellerName = names.GetValueOrDefault(sellerId)?.FullName,
                 Context = new ConversationContext
                 {
-                    Type = ConversationContextTypes.Offer,
-                    Id = conversation.OfferId,
+                    Type = contextType,
+                    Id = contextId,
                     Title = title,
-                    Photo = conversation.Photo,
+                    Photo = photo,
                 },
                 LastMessageAt = now,
                 CreatedAt = now,

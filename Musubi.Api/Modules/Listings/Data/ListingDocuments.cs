@@ -172,7 +172,7 @@ internal static class ProductStatuses
     /// <summary>Vendida: el vendedor la marco con "Marcar como vendido" (HU-08). No vuelve a la vitrina.</summary>
     public const string Sold = "sold";
 
-    // NOTE (HU-52): "Reservada" (RF-10) llega con los apartados y los pedidos (HU-23).
+    // HU-52: un apartado guarda su pieza como un pedido aceptado (resta stock); sin piezas la publicacion queda agotada.
 }
 
 /// <summary>Pestanas de "Mis productos" (maqueta <c>Mis-productos</c>, HU-08).</summary>

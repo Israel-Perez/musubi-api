@@ -23,7 +23,7 @@ namespace Musubi.Api.Modules.Orders;
 /// piezas, pasa a vendida (RN-05). Cada cambio avisa a la otra parte (HU-31).
 /// HU-55: por transferencia, aceptar es "Si, me llego el pago" y solo despues de que quien compra captura la referencia;
 /// en efectivo, aceptar genera el codigo de entrega de 4 digitos y, cuando quien vende lo escribe, el pedido se completa.
-/// NOTE (HU-52): el codigo del apartado (QR o 6 digitos) tambien contara como la entrega.
+/// HU-52: el apartado recogido nace como pedido completado (ReservationService) con los mismos efectos.
 /// </summary>
 internal sealed class OrderLifecycleService(
     IOrderRepository orders,
@@ -309,8 +309,19 @@ internal sealed class OrderLifecycleService(
         return Result<OrderResponse>.Ok(OrderService.ToResponse(completed, userId));
     }
 
-    // Lo que pasa una sola vez al completarse un pedido (las escrituras que lo completan son atomicas).
-    private async Task AfterCompletedAsync(OrderDocument completed, DateTime now, string notifyUserId, string title, string body, CancellationToken cancellationToken)
+    /// <summary>
+    /// Lo que pasa una sola vez al completarse un pedido (las escrituras que lo completan son atomicas): la publicacion
+    /// vendida si se acabaron las piezas, las ventas y compras del perfil, la senal de compra y el aviso. Tambien lo
+    /// usa el apartado recogido (HU-52).
+    /// </summary>
+    /// <param name="completed">El pedido completado.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="notifyUserId">A quien se avisa.</param>
+    /// <param name="title">Titulo del aviso.</param>
+    /// <param name="body">Texto del aviso.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Tarea.</returns>
+    internal async Task AfterCompletedAsync(OrderDocument completed, DateTime now, string notifyUserId, string title, string body, CancellationToken cancellationToken)
     {
         await MarkSoldIfEmptyAsync(completed, cancellationToken).ConfigureAwait(false);
         // HU-26: "Ventas" y "Compras" del Perfil.

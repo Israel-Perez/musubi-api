@@ -135,7 +135,7 @@ internal sealed class MyListingsService(
             return ListingsErrors.InvalidStockChange;
         }
 
-        // NOTE (HU-52): un apartado vencido regresa la pieza solo; aqui solo la fija el vendedor.
+        // HU-52: un apartado vencido regresa su pieza solo (ReservationExpiryWorker); aqui la fija quien vende.
         var changed = await products.SetStockAsync(productId, userId, stock, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false);
         if (changed is null)
         {
