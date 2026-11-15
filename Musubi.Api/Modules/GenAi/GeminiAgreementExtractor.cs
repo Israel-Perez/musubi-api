@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -70,13 +67,8 @@ internal sealed partial class GeminiAgreementExtractor(
     IOptions<GeminiOptions> gemini,
     ILogger<GeminiAgreementExtractor> logger) : IAgreementExtractor
 {
-    /// <summary>Base de la API (fija: no se configura, asi no se puede apuntar a otro host).</summary>
-    public static readonly Uri BaseAddress = new("https://generativelanguage.googleapis.com/v1beta/");
-
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    /// <summary>Base de la API (la de <see cref="GeminiApi"/>).</summary>
+    public static readonly Uri BaseAddress = GeminiApi.BaseAddress;
 
     /// <inheritdoc />
     public bool Enabled => !string.IsNullOrWhiteSpace(gemini.Value.ApiKey);
@@ -90,62 +82,37 @@ internal sealed partial class GeminiAgreementExtractor(
             return null;
         }
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(options.Value.TimeoutSeconds));
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri($"models/{Uri.EscapeDataString(options.Value.Model)}:generateContent", UriKind.Relative))
+        var reply = await GeminiApi.GenerateAsync(http, options.Value, gemini.Value.ApiKey, Body(prompt), cancellationToken).ConfigureAwait(false);
+        if (reply.Status is { } status)
         {
-            Content = JsonContent.Create(Body(prompt), options: Json),
-        };
-        request.Headers.Add("x-goog-api-key", gemini.Value.ApiKey);
-        try
-        {
-            using var response = await http.SendAsync(request, timeout.Token).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                LogFailed(logger, (int)response.StatusCode);
-                return null;
-            }
-
-            var body = await response.Content.ReadFromJsonAsync<GenerateResponse>(Json, timeout.Token).ConfigureAwait(false);
-            if (body?.Candidates is not [var candidate, ..])
-            {
-                LogBlocked(logger, body?.PromptFeedback?.BlockReason ?? "sin respuesta");
-                return null;
-            }
-
-            if (candidate.FinishReason is not (null or "STOP"))
-            {
-                LogBlocked(logger, candidate.FinishReason);
-                return null;
-            }
-
-            var parsed = ExtractionJson.Parse(candidate.Content?.Parts is [var part, ..] ? part.Text : null);
-            if (parsed is null)
-            {
-                LogBlocked(logger, "forma distinta");
-            }
-
-            return parsed;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
-        {
-            LogUnavailable(logger, ex.GetType().Name);
+            LogFailed(logger, status);
             return null;
         }
+
+        if (reply.Error is { } error)
+        {
+            LogUnavailable(logger, error);
+            return null;
+        }
+
+        if (reply.Blocked is { } blocked)
+        {
+            LogBlocked(logger, blocked);
+            return null;
+        }
+
+        var parsed = ExtractionJson.Parse(reply.Text);
+        if (parsed is null)
+        {
+            LogBlocked(logger, "forma distinta");
+        }
+
+        return parsed;
     }
 
     private static object Body(AgreementPrompt prompt)
     {
-        static Dictionary<string, object> Nullable(string type, string? description = null)
-        {
-            var field = new Dictionary<string, object> { ["type"] = type, ["nullable"] = true };
-            if (description is not null)
-            {
-                field["description"] = description;
-            }
-
-            return field;
-        }
+        static Dictionary<string, object> Nullable(string type, string? description = null) => GeminiApi.Field(type, nullable: true, description);
 
         var point = Nullable("STRING", "id del punto de entrega");
         if (prompt.Points.Count > 0)
@@ -190,16 +157,6 @@ internal sealed partial class GeminiAgreementExtractor(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Gemini no disponible ({Error}): el resumen se llena a mano")]
     private static partial void LogUnavailable(ILogger logger, string error);
-
-    private sealed record GenerateResponse(IReadOnlyList<Candidate>? Candidates, PromptFeedback? PromptFeedback);
-
-    private sealed record Candidate(Content? Content, string? FinishReason);
-
-    private sealed record Content(IReadOnlyList<Part>? Parts);
-
-    private sealed record Part(string? Text);
-
-    private sealed record PromptFeedback(string? BlockReason);
 }
 
 /// <summary>Sin proveedor: nunca sale nada del servidor.</summary>

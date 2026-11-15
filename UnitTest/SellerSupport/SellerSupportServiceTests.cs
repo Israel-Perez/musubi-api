@@ -2,6 +2,7 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
+using Musubi.Api.Modules.GenAi;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
 using Musubi.Api.Modules.Matching;
@@ -41,6 +42,7 @@ public sealed class SellerSupportServiceTests
     private readonly InMemoryOrderRepository orders = new();
     private readonly RecordingNotificationCenter center = new();
     private readonly ManualTimeProvider time = new(Now);
+    private readonly RecordingCopywriter copywriter = new();
     private readonly SellerSupportService service;
     private readonly SlowListingJob job;
     private readonly string diego = AuthIds.New();
@@ -54,7 +56,7 @@ public sealed class SellerSupportServiceTests
             new SavedSearchService(savedSearches, new MemberDirectory(new InMemoryCommunityRepository(), new InMemoryUserRepository()), time),
             new BlockDirectory(blocks));
         var openOrders = new OpenOrders(orders);
-        service = new SellerSupportService(listings, demand, new ConversationDirectory(conversations), openOrders, time);
+        service = new SellerSupportService(listings, demand, new ConversationDirectory(conversations), openOrders, new Categories(), copywriter, time);
         job = new SlowListingJob(listings, openOrders, demand, center);
     }
 
@@ -261,6 +263,58 @@ public sealed class SellerSupportServiceTests
     }
 
     [Fact]
+    public async Task Ideas_SendTheListingAndItsDemand_WithoutNamesOrContactData()
+    {
+        var bata = await ProductAsync(
+            34,
+            title: "Bata de Diego talla M",
+            description: "Escríbeme al 771 123 4567 o a diego.h@uttt.edu.mx. La usé dos semestres.",
+            photos: 2);
+        await stats.IncrementViewAsync(Campus, bata.Id, Now.UtcDateTime.AddDays(-2), Ct);
+        await ConversationAsync(bata);
+        await WantedAsync(AuthIds.New(), title: "Bata talla M, Fernanda", budget: 22_000);
+        await SavedAsync(AuthIds.New(), "bata");
+
+        var ideas = await service.IdeasAsync(diego, bata.Id, Ct);
+
+        Assert.Equal(new ListingIdeasResponse("Bata de laboratorio talla M", "Bata blanca de manga larga."), ideas.Value);
+        var prompt = copywriter.Prompts.Single();
+        Assert.Equal(
+            ("Bata de Vendedor talla M", "Escríbeme al [numero] o a [correo]. La usé dos semestres.", "Laboratorio", 2, 34, 1L, 1, 2),
+            (prompt.Title, prompt.Description, prompt.Category, prompt.Photos, prompt.DaysListed, prompt.Views, prompt.Messages, prompt.People));
+        // Lo que busca y cuanto ofrece, nunca quien (RNF-06).
+        Assert.Equal(new CopyRequest("Bata talla M, Comprador", 22_000), Assert.Single(prompt.Requests));
+        var text = ListingCopyText.User(prompt);
+        Assert.DoesNotContain("Diego", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fernanda", text, StringComparison.Ordinal);
+        Assert.DoesNotContain(bata.Id, text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Ideas_WithoutAi_AreUnavailable_AndSendNothing()
+    {
+        var bata = await ProductAsync(34);
+        copywriter.Enabled = false;
+
+        Assert.Equal(SellerSupportErrors.IdeasUnavailable, (await service.IdeasAsync(diego, bata.Id, Ct)).Error);
+        Assert.Empty(copywriter.Prompts);
+
+        copywriter.Enabled = true;
+        copywriter.Answer = null; // cuota excedida, sin red o con otra forma
+
+        Assert.Equal(SellerSupportErrors.IdeasUnavailable, (await service.IdeasAsync(diego, bata.Id, Ct)).Error);
+    }
+
+    [Fact]
+    public async Task Ideas_OfSomeoneElsesListing_AreNotFound_AndSendNothing()
+    {
+        var other = await ProductAsync(34, seller: AuthIds.New());
+
+        Assert.Equal(ListingsErrors.ProductNotFound, (await service.IdeasAsync(diego, other.Id, Ct)).Error);
+        Assert.Empty(copywriter.Prompts);
+    }
+
+    [Fact]
     public async Task TheNotice_GoesOnceAtThreeWeeks_WithWhoLooksForIt_AndOpensMyProducts()
     {
         var bata = await ProductAsync(21);
@@ -315,5 +369,26 @@ public sealed class SellerSupportServiceTests
         Assert.Equal("1 estudiante busca algo similar. Te damos ideas para vender más rápido.", SlowListingJob.NoticeBody(1));
         Assert.All(PeopleCounts.Select(SlowListingJob.NoticeBody), body => Assert.True(body.Length <= NotificationCenter.MaxBody));
         Assert.True(SlowListingJob.NoticeTitle(new string('a', 80) + " " + new string('b', 40), 365).Length <= 120);
+    }
+
+    private sealed class Categories : ICategoryDirectory
+    {
+        public Task<CategorySummary?> FindAsync(string communityId, string slug, CancellationToken cancellationToken) =>
+            Task.FromResult<CategorySummary?>(slug == "laboratorio" ? new CategorySummary(slug, "Laboratorio") : null);
+    }
+
+    private sealed class RecordingCopywriter : IListingCopywriter
+    {
+        public bool Enabled { get; set; } = true;
+
+        public ListingCopy? Answer { get; set; } = new("Bata de laboratorio talla M", "Bata blanca de manga larga.");
+
+        public List<CopyPrompt> Prompts { get; } = [];
+
+        public Task<ListingCopy?> SuggestAsync(CopyPrompt prompt, CancellationToken cancellationToken)
+        {
+            Prompts.Add(prompt);
+            return Task.FromResult(Answer);
+        }
     }
 }

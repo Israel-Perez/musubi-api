@@ -8,7 +8,10 @@
 - **Diseño:** la demanda vive en M-06 (`IProductDemand`, `DemandRules`), y `ProductMatchNotifier` usa las mismas reglas, así que lo que ve quien vende es lo que se avisa. Las búsquedas guardadas solo se cuentan (RN-37).
 - **Error a evitar:** `productStatsDaily` tiene TTL de 30 días: la prueba de `ViewsSinceAsync` en `DatabaseTest` usa `DateTime.UtcNow`, nunca una fecha fija.
 - **Error a evitar:** S3218 rompe el build si una clase anidada de prueba tiene un miembro con el nombre de uno de la clase de afuera (`Published`): implementa la interfaz de forma explícita.
-- **Versión:** `0.5.0-alpha.33`, esquema 26 (`db/026-apoyo-vendedores.js`: `ix_status_created` y el validador de avisos). **Verificación (15-Nov-2026):** build 0/0; Unit 748, Integration 188, Security 244 y Contract 26; `check_endpoints` OK (97); critic PASS. `DatabaseTest` corre en el CI (Docker apagado en local).
+- **Ideas con IA (criterio de SCRUM-60 del 13-Nov-2026, agregado a la misma PR a petición de la usuaria):** `POST /api/v1/products/{id}/ideas` pide a `IListingCopywriter` (M-10) un nombre y una descripción con la demanda. Solo sale la publicación y números (`TranscriptRedactor` quita el nombre de quien vende y de quienes buscan, correos, teléfonos y enlaces). Nada se guarda: la app abre la edición con el texto propuesto. Sin IA, `503 seller_support.ideas_unavailable`. Comparte el límite `genai` con "Resumir acuerdo" (la misma cuota gratuita).
+- **Versión de las ideas con IA:** `0.5.0-alpha.34` (la PR #102 con `alpha.33` ya estaba fusionada cuando se agregaron; van en su propia PR desde `main`).
+- **Diseño:** la llamada REST a Gemini pasó a `GeminiApi` (la usan el acuerdo y las ideas); `GeminiAgreementExtractor` conserva su constructor y sus mensajes, así que sus pruebas no cambiaron. Temperatura 0.4 en las ideas (es redacción; el acuerdo usa 0). Pendiente medir latencia y calidad con Gemini real al desplegar.
+- **Versión:** `0.5.0-alpha.33`, esquema 26 (`db/026-apoyo-vendedores.js`: `ix_status_created` y el validador de avisos). **Verificación (15-Nov-2026, con las ideas con IA):** build 0/0; Unit 773, Integration 189, Security 246 y Contract 26; `check_endpoints` OK (98); critic PASS. `DatabaseTest` corre en el CI (Docker apagado en local).
 
 ## Trabajo en curso — HU-12 (SCRUM-51)
 

@@ -18,7 +18,7 @@ namespace Musubi.Api.Modules.GenAi;
 /// <summary>Registro DI del modulo M-10 (IA generativa).</summary>
 internal static class GenAiModuleServiceCollectionExtensions
 {
-    /// <summary>Politica de rate limit de "Resumir acuerdo" (por usuario).</summary>
+    /// <summary>Politica de rate limit de la IA (por usuario): "Resumir acuerdo" e "Ideas con IA" comparten la cuota.</summary>
     public const string SummaryRateLimit = "genai";
 
     /// <summary>Registra el repositorio, el proveedor de IA (lazy, segun <c>GenAi:Provider</c>), el servicio y el borrado.</summary>
@@ -43,6 +43,15 @@ internal static class GenAiModuleServiceCollectionExtensions
             GenAiOptions.InMemoryProvider => provider.GetRequiredService<InMemoryAgreementExtractor>(),
             GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiAgreementExtractor>(),
             _ => new OffAgreementExtractor(),
+        });
+        // HU-37: las ideas para vender usan el mismo proveedor y la misma llave.
+        services.AddHttpClient<GeminiListingCopywriter>(client => client.BaseAddress = GeminiApi.BaseAddress);
+        services.AddSingleton<InMemoryListingCopywriter>();
+        services.AddTransient<IListingCopywriter>(provider => provider.GetRequiredService<IOptions<GenAiOptions>>().Value.Provider switch
+        {
+            GenAiOptions.InMemoryProvider => provider.GetRequiredService<InMemoryListingCopywriter>(),
+            GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiListingCopywriter>(),
+            _ => new OffListingCopywriter(),
         });
         services.AddTransient<AgreementService>();
         services.AddSingleton<IAgreementDirectory, AgreementDirectory>();

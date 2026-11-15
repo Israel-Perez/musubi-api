@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Chat;
+using Musubi.Api.Modules.GenAi;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Matching;
 using Musubi.Api.Modules.Orders;
@@ -14,13 +15,15 @@ namespace Musubi.Api.Modules.SellerSupport;
 /// <summary>
 /// Apoyo a vendedores (M-12; decisiones de la usuaria del 15-Nov-2026). HU-36: las publicaciones disponibles que llevan
 /// mas de 3 semanas sin venderse (RN-35, RN-36: sin pedidos completados ni abiertos), con sus vistas y mensajes. HU-38:
-/// quien busca algo similar (RN-37). HU-37: "Ideas para venderla" (RN-38).
+/// quien busca algo similar (RN-37). HU-37: "Ideas para venderla" y las de la IA (RN-38: solo orientan).
 /// </summary>
 internal sealed class SellerSupportService(
     ISellerListings listings,
     IProductDemand demand,
     IConversationDirectory conversations,
     IOpenOrders orders,
+    ICategoryDirectory categories,
+    IListingCopywriter copywriter,
     TimeProvider time)
 {
     /// <summary>Dias sin venderse a partir de los que una publicacion "lleva tiempo" ("mas de 3 semanas", maqueta).</summary>
@@ -37,6 +40,9 @@ internal sealed class SellerSupportService(
 
     /// <summary>Disponibles que se leen antes de quitar las que tienen pedidos.</summary>
     public const int MaxCandidates = 50;
+
+    /// <summary>Solicitudes parecidas que lee la IA (las mas parecidas: bastan para ver como las nombran).</summary>
+    public const int MaxPromptRequests = 5;
 
     /// <summary>Lo que lleva tiempo sin venderse de quien consulta.</summary>
     /// <param name="userId">Quien vende (del token).</param>
@@ -96,6 +102,64 @@ internal sealed class SellerSupportService(
             found.People,
             found.AlertPeople,
             [.. found.Requests.Take(MaxRequests).Select(r => new DemandRequestResponse(r.Id, r.Title, r.BudgetCents, r.RequesterName, r.ExpiresAt))]));
+    }
+
+    /// <summary>
+    /// "Ideas con IA" de una publicacion propia (HU-37, criterio del 13-Nov-2026): un nombre mas claro y una mejor
+    /// descripcion con su demanda. Solo sale la publicacion y numeros, sin nombres ni datos de contacto (RNF-06); no se
+    /// guarda nada (RN-38).
+    /// </summary>
+    /// <param name="userId">Quien vende (del token).</param>
+    /// <param name="productId">La publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La propuesta, <c>listings.product_not_found</c> o <c>seller_support.ideas_unavailable</c> (RNF-15).</returns>
+    public async Task<Result<ListingIdeasResponse>> IdeasAsync(string userId, string productId, CancellationToken cancellationToken)
+    {
+        if (await listings.FindOwnAsync(userId, productId, cancellationToken).ConfigureAwait(false) is not { } listing)
+        {
+            return ListingsErrors.ProductNotFound;
+        }
+
+        // Sin proveedor no se calcula nada ni sale nada del servidor.
+        if (!copywriter.Enabled)
+        {
+            return SellerSupportErrors.IdeasUnavailable;
+        }
+
+        var prompt = await PromptAsync(listing, cancellationToken).ConfigureAwait(false);
+        return await copywriter.SuggestAsync(prompt, cancellationToken).ConfigureAwait(false) is { } copy
+            ? Result<ListingIdeasResponse>.Ok(new ListingIdeasResponse(copy.Title, copy.Description))
+            : SellerSupportErrors.IdeasUnavailable;
+    }
+
+    /// <summary>La publicacion y su demanda como las lee la IA, sin lo que identifica a nadie (RNF-06).</summary>
+    /// <param name="listing">La publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El texto filtrado y los numeros.</returns>
+    private async Task<CopyPrompt> PromptAsync(SellerListing listing, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow().UtcDateTime;
+        var product = listing.Product;
+        IReadOnlyCollection<string> ids = [product.Id];
+        var communityId = listing.Match.CommunityId;
+        var views = await listings.ViewsSinceAsync(communityId, ids, now.Date.AddDays(1 - ViewDays), cancellationToken).ConfigureAwait(false);
+        var messages = await conversations.CountForProductsAsync(ids, cancellationToken).ConfigureAwait(false);
+        var found = await demand.ForAsync(listing.Match, cancellationToken).ConfigureAwait(false);
+        var category = await categories.FindAsync(communityId, listing.Match.CategorySlug, cancellationToken).ConfigureAwait(false);
+        var seller = listing.Match.SellerName;
+        return new CopyPrompt(
+            TranscriptRedactor.Redact(product.Title, null, seller),
+            TranscriptRedactor.Redact(product.Description, null, seller),
+            category?.Name ?? listing.Match.CategorySlug,
+            product.Condition,
+            product.ConditionDetail,
+            product.PriceCents,
+            product.Photos.Count,
+            DaysListed(product.PublishedAt, now),
+            views.GetValueOrDefault(product.Id),
+            messages.GetValueOrDefault(product.Id),
+            found.People,
+            [.. found.Requests.Take(MaxPromptRequests).Select(r => new CopyRequest(TranscriptRedactor.Redact(r.Title, r.RequesterName, seller), r.BudgetCents))]);
     }
 
     /// <summary>Dias completos desde que se publico.</summary>
