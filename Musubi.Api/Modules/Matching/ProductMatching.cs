@@ -31,10 +31,10 @@ internal sealed class ProductMatchNotifier(
     TimeProvider time)
 {
     /// <summary>Solicitudes candidatas que se leen como maximo.</summary>
-    public const int MaxRequests = 200;
+    public const int MaxRequests = DemandRules.MaxRequests;
 
     /// <summary>Busquedas guardadas que se leen como maximo (10 por persona).</summary>
-    public const int MaxSavedSearches = 2000;
+    public const int MaxSavedSearches = DemandRules.MaxSavedSearches;
 
     /// <summary>Clave para no repetir el aviso de una publicacion a una busqueda guardada (HU-12).</summary>
     /// <param name="searchId">La busqueda.</param>
@@ -51,8 +51,7 @@ internal sealed class ProductMatchNotifier(
     /// <summary>Presupuesto minimo para que un precio quepa con el margen de 20 % (RN-28).</summary>
     /// <param name="priceCents">Precio.</param>
     /// <returns>El presupuesto minimo.</returns>
-    public static long MinBudget(long priceCents) =>
-        (long)Math.Ceiling(priceCents * 100m / (100 + MatchRules.BudgetMarginPercent));
+    public static long MinBudget(long priceCents) => DemandRules.MinBudget(priceCents);
 
     /// <summary>Busca y avisa.</summary>
     /// <param name="product">La publicacion nueva.</param>
@@ -71,12 +70,7 @@ internal sealed class ProductMatchNotifier(
             cancellationToken).ConfigureAwait(false);
 
         // RN-28: la mitad de las palabras buscadas; RN-29: de cada persona, solo su solicitud que mas se parece.
-        var best = requests
-            .Select(request => (Request: request, Share: MatchRules.Share(MatchRules.Terms(request.Title), product.Words)))
-            .Where(match => match.Share >= MatchRules.MinShare && product.PriceCents <= MatchRules.MaxPrice(match.Request.BudgetCents))
-            .GroupBy(match => match.Request.RequesterId, StringComparer.Ordinal)
-            .Select(group => group.OrderByDescending(match => match.Share).First().Request)
-            .ToList();
+        var best = DemandRules.BestRequests(requests, product);
 
         var since = MatchRules.CampusDayStart(time.GetUtcNow().UtcDateTime);
         var notified = 0;
@@ -120,10 +114,7 @@ internal sealed class ProductMatchNotifier(
         CancellationToken cancellationToken)
     {
         var searches = await savedSearches.ActiveAsync(product.CommunityId, excluded, MaxSavedSearches, cancellationToken).ConfigureAwait(false);
-        var matching = searches
-            .Where(search => !told.Contains(search.UserId) && search.Matches(product))
-            .GroupBy(search => search.UserId, StringComparer.Ordinal)
-            .Select(group => group.First());
+        var matching = DemandRules.MatchingSearches(searches, product).Where(search => !told.Contains(search.UserId));
         var seller = ChatService.FirstName(product.SellerName);
         var notified = 0;
         foreach (var search in matching)

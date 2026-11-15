@@ -911,4 +911,52 @@ public abstract class ListingRepositoryContract
         Assert.All(available, p => Assert.Equal((ProductStatuses.Active, uttt), (p.Status, p.CommunityId)));
         Assert.Empty(await Products.FindAvailableAsync("no-es-un-id", 10, Ct));
     }
+
+    [Fact]
+    public async Task AvailableListed_AreOnlyActive_ByDate_OldestFirst_OfOneSellerOrOfEveryCampus()
+    {
+        // HU-36: "Llevan tiempo sin venderse" (de una persona) y el aviso de las 3 semanas (de todos los campus).
+        var seller = AuthIds.New();
+        var start = new DateTime(2025, 3, 1, 18, 0, 0, DateTimeKind.Utc);
+        ProductDocument At(int day, string status = ProductStatuses.Active, string? community = null, string? owner = null)
+        {
+            var product = NewProduct(community ?? AuthIds.New(), owner ?? seller, status: status);
+            return new ProductDocument
+            {
+                Id = product.Id,
+                CommunityId = product.CommunityId,
+                SellerId = product.SellerId,
+                Seller = product.Seller,
+                Title = product.Title,
+                Description = product.Description,
+                CategorySlug = product.CategorySlug,
+                PriceCents = product.PriceCents,
+                Condition = product.Condition,
+                ConditionDetail = product.ConditionDetail,
+                Stock = product.Stock,
+                Status = product.Status,
+                Photos = product.Photos,
+                CreatedAt = start.AddDays(day),
+                UpdatedAt = start.AddDays(day),
+            };
+        }
+
+        var first = At(0);
+        var second = At(2);
+        var third = At(4, owner: AuthIds.New());
+        var later = At(9);
+        foreach (var product in new[] { later, third, At(1, ProductStatuses.Hidden), At(1, ProductStatuses.SoldOut), At(1, ProductStatuses.Sold), second, first })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var mine = await Products.FindAvailableListedAsync(seller, null, start.AddDays(4), 10, Ct);
+        var crossed = await Products.FindAvailableListedAsync(null, start.AddDays(2), start.AddDays(4), 10, Ct);
+        var one = await Products.FindAvailableListedAsync(seller, null, start.AddDays(9), 1, Ct);
+
+        Assert.Equal([first.Id, second.Id], mine.Select(p => p.Id));
+        Assert.Equal([second.Id, third.Id], crossed.Select(p => p.Id));
+        Assert.Equal(first.Id, Assert.Single(one).Id);
+        Assert.Empty(await Products.FindAvailableListedAsync("no-es-un-id", null, start.AddDays(9), 10, Ct));
+    }
 }

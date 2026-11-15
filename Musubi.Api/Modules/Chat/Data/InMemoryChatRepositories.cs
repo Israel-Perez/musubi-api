@@ -46,6 +46,20 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyDictionary<string, int>> CountByProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(productIds);
+        lock (gate)
+        {
+            IReadOnlyDictionary<string, int> found = conversations
+                .Where(c => c.Context.Type == ConversationContextTypes.Product && productIds.Contains(c.Context.Id))
+                .GroupBy(c => c.Context.Id, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
     public Task RecordMessageAsync(string id, LastMessage last, string recipientRole, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(last);

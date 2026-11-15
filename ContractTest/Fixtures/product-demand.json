@@ -1,0 +1,13 @@
+{
+  "people": 3,
+  "alerts": 1,
+  "requests": [
+    {
+      "id": "6716a0000000000000000077",
+      "title": "Bata de laboratorio talla M",
+      "budgetCents": 22000,
+      "requesterName": "Fernanda G.",
+      "expiresAt": "2026-11-22T18:00:00Z"
+    }
+  ]
+}

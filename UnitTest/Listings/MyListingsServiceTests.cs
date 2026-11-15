@@ -30,6 +30,7 @@ public sealed class MyListingsServiceTests
     private readonly FakePhotoReferences photoReferences = new();
     private readonly ManualTimeProvider clock = new(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
     private readonly InMemoryOrderRepository orders = new();
+    private readonly RecordingPublications publications = new();
     private readonly MyListingsService service;
 
     public MyListingsServiceTests()
@@ -43,6 +44,7 @@ public sealed class MyListingsServiceTests
             outputCache,
             [photoReferences],
             new OpenOrders(orders),
+            publications,
             clock);
     }
 
@@ -122,6 +124,35 @@ public sealed class MyListingsServiceTests
         Assert.Null(result.Value.ConditionDetail);
         Assert.Equal(clock.Now.UtcDateTime, (await products.FindByIdAsync(product.Id, Ct))!.UpdatedAt);
         Assert.Equal([CachingServiceCollectionExtensions.ShowcaseTag], outputCache.Evicted);
+    }
+
+    [Fact]
+    public async Task Update_WithNewMatchingDetails_LooksForMatchesAgain()
+    {
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+
+        await service.UpdateAsync(seller, product.Id, Request(title: "Calculadora graficadora TI-84", priceCents: 120_000), Ct);
+
+        // HU-37 (RF-08): con el nombre y el precio nuevos se vuelven a buscar coincidencias (M-06).
+        var again = Assert.Single(publications.Queued);
+        Assert.Equal((product.Id, "Calculadora graficadora TI-84", 120_000L), (again.Id, again.Title, again.PriceCents));
+        Assert.Contains("ti", again.Words);
+    }
+
+    [Fact]
+    public async Task Update_WithoutChangesThatMatter_OrWhilePaused_DoesNotLookAgain()
+    {
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller);
+        var paused = await ProductAsync(seller);
+        await service.SetPausedAsync(seller, paused.Id, paused: true, Ct);
+
+        await service.UpdateAsync(seller, product.Id, Request(), Ct);
+        await service.UpdateAsync(seller, product.Id, Request(detail: "good"), Ct);
+        await service.UpdateAsync(seller, paused.Id, Request(title: "Calculadora graficadora TI-84"), Ct);
+
+        Assert.Empty(publications.Queued);
     }
 
     [Fact]
@@ -440,5 +471,16 @@ public sealed class MyListingsServiceTests
 
         public ValueTask SetAsync(string key, byte[] value, string[]? tags, TimeSpan validFor, CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
+    }
+
+    private sealed class RecordingPublications : IProductPublications
+    {
+        public List<ProductPublished> Queued { get; } = [];
+
+        bool IProductPublications.Published(ProductPublished product)
+        {
+            Queued.Add(product);
+            return true;
+        }
     }
 }

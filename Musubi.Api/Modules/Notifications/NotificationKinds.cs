@@ -68,6 +68,9 @@ internal static class NotificationTypes
 
     /// <summary>Se publico lo que busque sin resultados ("Avísame cuando aparezca", HU-12).</summary>
     public const string SavedSearchMatch = "saved_search_match";
+
+    /// <summary>Mi publicacion lleva 3 semanas sin venderse (HU-36).</summary>
+    public const string SlowListing = "slow_listing";
 }
 
 /// <summary>Lo que abre un aviso.</summary>
@@ -90,4 +93,7 @@ internal static class NotificationTargets
 
     /// <summary>Una publicacion (HU-29: lo que coincide con mi solicitud).</summary>
     public const string Product = "product";
+
+    /// <summary>"Mis productos", con "Llevan tiempo sin venderse" (HU-36; el id es la publicacion).</summary>
+    public const string MyProducts = "my_products";
 }

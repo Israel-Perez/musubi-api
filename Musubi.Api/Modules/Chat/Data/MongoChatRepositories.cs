@@ -39,6 +39,24 @@ internal sealed class MongoConversationRepository(IMongoDatabase database) : ICo
             : null;
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<string, int>> CountByProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken)
+    {
+        System.ArgumentNullException.ThrowIfNull(productIds);
+        var ids = productIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<string, int>(System.StringComparer.Ordinal);
+        }
+
+        // ux_context_buyer empieza por context.type y context.id: una sola lectura del indice.
+        var filter = Builders<ConversationDocument>.Filter.Eq(c => c.Context.Type, ConversationContextTypes.Product)
+            & Builders<ConversationDocument>.Filter.In(c => c.Context.Id, ids);
+        var contexts = await conversations.Find(filter).Project(c => c.Context.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return contexts.GroupBy(id => id, System.StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), System.StringComparer.Ordinal);
+    }
+
+    /// <inheritdoc />
     public Task RecordMessageAsync(string id, LastMessage last, string recipientRole, CancellationToken cancellationToken)
     {
         System.ArgumentNullException.ThrowIfNull(last);

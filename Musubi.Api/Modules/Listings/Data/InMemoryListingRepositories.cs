@@ -188,6 +188,23 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProductDocument>> FindAvailableListedAsync(string? sellerId, DateTime? from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<ProductDocument> found = [.. products
+                .Where(p => p.Status == ProductStatuses.Active
+                    && p.CreatedAt <= to
+                    && (from is null || p.CreatedAt >= from)
+                    && (sellerId is null || string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)))
+                .OrderBy(p => p.CreatedAt)
+                .ThenBy(p => p.Id, StringComparer.Ordinal)
+                .Take(limit)];
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ProductDocument>> FindBySellerAsync(
         string sellerId,
         IReadOnlyList<string>? statuses,
@@ -532,6 +549,20 @@ internal sealed class InMemoryProductStatsRepository(InMemoryProductRepository p
             views[key] = views.GetValueOrDefault(key) + 1;
         }
         return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyDictionary<string, long>> ViewsSinceAsync(string communityId, IReadOnlyCollection<string> productIds, DateTime fromUtcDay, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(productIds);
+        var from = DateTime.SpecifyKind(fromUtcDay.Date, DateTimeKind.Utc);
+        lock (gate)
+        {
+            IReadOnlyDictionary<string, long> found = views
+                .Where(pair => pair.Key.CommunityId == communityId && pair.Key.Day >= from && productIds.Contains(pair.Key.ProductId))
+                .GroupBy(pair => pair.Key.ProductId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Sum(pair => pair.Value), StringComparer.Ordinal);
+            return Task.FromResult(found);
+        }
     }
 
     public async Task<PopularProductPageData> PopularAsync(string communityId, DateTime fromUtcDay, DateTime toUtcDay, PopularProductCursor? cursor, int limit, CancellationToken cancellationToken)

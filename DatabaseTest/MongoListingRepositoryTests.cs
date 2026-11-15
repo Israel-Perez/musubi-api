@@ -71,4 +71,30 @@ public sealed class MongoListingRepositoryTests(MongoContainerFixture mongo) : L
         Assert.Equal(candidates[1].Id, Assert.Single(second.Items).Product.Id);
         Assert.Equal(2, second.Items[0].Views);
     }
+
+    [Fact]
+    public async Task ViewsSince_AddsTheDaysOfEachListing_FromTheFirstDay()
+    {
+        // HU-36: "96 vistas" de los ultimos 30 dias.
+        var ct = TestContext.Current.CancellationToken;
+        var communityId = AuthIds.New();
+        var stats = new MongoProductStatsRepository(database!);
+        var bata = AuthIds.New();
+        var calculadora = AuthIds.New();
+        // productStatsDaily vence a los 30 dias (TTL): con una fecha fija, MongoDB borraria las filas a mitad de la prueba.
+        var today = DateTime.UtcNow.Date.AddDays(10);
+        await stats.IncrementViewAsync(communityId, bata, today, ct);
+        await stats.IncrementViewAsync(communityId, bata, today, ct);
+        await stats.IncrementViewAsync(communityId, bata, today.AddDays(-29), ct);
+        await stats.IncrementViewAsync(communityId, bata, today.AddDays(-30), ct);
+        await stats.IncrementViewAsync(communityId, calculadora, today.AddDays(-3), ct);
+        await stats.IncrementViewAsync(AuthIds.New(), calculadora, today, ct);
+
+        var views = await stats.ViewsSinceAsync(communityId, [bata, calculadora, AuthIds.New(), "no-es-un-id"], today.AddDays(-29), ct);
+
+        Assert.Equal(3, views[bata]);
+        Assert.Equal(1, views[calculadora]);
+        Assert.Equal(2, views.Count);
+        Assert.Empty(await stats.ViewsSinceAsync("no-es-un-id", [bata], today, ct));
+    }
 }

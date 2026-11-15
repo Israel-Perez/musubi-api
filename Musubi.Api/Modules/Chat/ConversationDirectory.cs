@@ -27,6 +27,12 @@ internal interface IConversationDirectory
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Los ids, o <c>null</c> si no existe.</returns>
     Task<IReadOnlyList<string>?> FindParticipantsAsync(string conversationId, CancellationToken cancellationToken);
+
+    /// <summary>Cuantas conversaciones se abrieron desde cada publicacion (HU-36: "0 mensajes" de M-12).</summary>
+    /// <param name="productIds">Las publicaciones.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las conversaciones por publicacion (las que no tienen no aparecen).</returns>
+    Task<IReadOnlyDictionary<string, int>> CountForProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken);
 }
 
 /// <summary>Implementacion sobre el repositorio de conversaciones.</summary>
@@ -47,6 +53,10 @@ internal sealed class ConversationDirectory(IConversationRepository conversation
         var conversation = await conversations.FindByIdAsync(conversationId, cancellationToken).ConfigureAwait(false);
         return conversation?.Participants;
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyDictionary<string, int>> CountForProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken) =>
+        conversations.CountByProductsAsync(productIds, cancellationToken);
 }
 
 /// <summary>Lo que otro modulo necesita saber de una conversacion (HU-23).</summary>
