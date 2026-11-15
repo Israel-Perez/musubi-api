@@ -49,7 +49,7 @@ Tabla canónica de las claves de configuración de musubi-api y dónde vive cada
 | `GenAi:Provider` / `GenAi:Model` | `Gemini` / `gemini-3.5-flash-lite` (base) · `InMemory` (Development) | [HU-32 / Implementado] | `Gemini`: la API de Gemini (capa gratuita, decisión de la usuaria del 10-Nov-2026); `InMemory`: IA determinista sin red (Development y pruebas); `Off`: sin IA ("Resumir acuerdo" responde `genai.unavailable`). Para probar Gemini en local: `GenAi:Provider=Gemini` en user-secrets o `appsettings.Local.json` |
 | `GenAi:TimeoutSeconds` / `GenAi:MaxMessages` / `GenAi:PermitLimit` / `GenAi:WindowMinutes` | `20` / `60` / `6` / `60` | [HU-32 / Implementado] | Espera de la respuesta, mensajes de texto que salen como máximo y resúmenes por persona por ventana (protege la cuota gratuita, OWASP API4) |
 | `Gemini:ApiKey` | — (secreto) | [HU-32 / Implementado] | Llave de Google AI Studio: user-secrets en local, `/musubi/prod/Gemini/ApiKey` (SecureString) en la nube. Sin ella no sale nada del servidor (RNF-06) |
-| `Payments:*` | — | [HU-55 / Pendiente] | Llave para cifrar la CLABE del vendedor (secreto). `MercadoPago:*` ya no aplica (HU-43 fuera de alcance, D-01) |
+| `Payments:EncryptionKey` | — (secreto) | [HU-55 / Implementado] | Llave AES-256 en base64 (32 bytes) para cifrar la CLABE: user-secrets en local, `/musubi/prod/Payments/EncryptionKey` (SecureString) en la nube. Sin ella, en Production no se guardan cuentas y solo se paga en efectivo (RNF-15); en Development se usa una temporal. `MercadoPago:*` ya no aplica (HU-43 fuera de alcance, D-01) |
 
 Archivos:
 

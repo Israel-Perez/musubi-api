@@ -35,6 +35,20 @@ internal static class OrdersModuleServiceCollectionExtensions
         services.AddSingleton<IOrderRatingGate, OrderRatingGate>();
         services.AddSingleton<IMeetingPointDirectory, MeetingPointDirectory>();
         services.AddSingleton<IAccountDataEraser, OrderAccountEraser>();
+
+        // HU-55: la cuenta para recibir pagos (CLABE cifrada) y el pago por transferencia o con codigo de entrega.
+        services.AddOptions<PaymentsOptions>().BindConfiguration(PaymentsOptions.Section);
+        var payoutAccounts = new InMemoryPayoutAccountRepository();
+        services.AddSingleton<IPayoutAccountRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? payoutAccounts
+            : new MongoPayoutAccountRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<ClabeProtector>();
+        services.AddSingleton<PayoutService>();
+        services.AddSingleton<IPayoutDirectory>(provider => provider.GetRequiredService<PayoutService>());
+        services.AddSingleton<OrderPaymentService>();
+        services.AddSingleton<TransferReminderJob>();
+        services.AddHostedService<TransferReminderWorker>();
+        services.AddSingleton<IAccountDataEraser, PayoutAccountEraser>();
     }
 }
 

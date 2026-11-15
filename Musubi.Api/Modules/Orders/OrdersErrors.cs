@@ -109,4 +109,64 @@ internal static class OrdersErrors
     /// <summary>Falta la conversacion en la consulta.</summary>
     public static readonly ApiError InvalidConversation = new(
         "orders.invalid_conversation", StatusCodes.Status400BadRequest, "No pudimos cargar el pedido. Vuelve a abrir el chat.");
+
+    /// <summary>HU-55: la accion es de una transferencia y el pedido se paga de otra forma (o aun no se elige).</summary>
+    public static readonly ApiError NotTransfer = new(
+        "orders.not_transfer", StatusCodes.Status409Conflict, "Este pedido no se paga por transferencia.");
+
+    /// <summary>HU-55: quien vende quito su cuenta para recibir pagos (o la transferencia esta apagada, RNF-15).</summary>
+    public static readonly ApiError TransferUnavailable = new(
+        "orders.transfer_unavailable", StatusCodes.Status409Conflict, "Quien vende ya no tiene una cuenta para recibir pagos. Escríbele o paga en efectivo.");
+
+    /// <summary>HU-55: la referencia o clave de rastreo vacia, o fuera de 4 a 30 letras y numeros.</summary>
+    public static readonly ApiError InvalidReference = new(
+        "orders.invalid_reference", StatusCodes.Status400BadRequest, "Escribe la referencia de tu comprobante: de 4 a 30 letras o números.");
+
+    /// <summary>HU-55: quien vende confirma o rechaza una transferencia que aun no le avisan.</summary>
+    public static readonly ApiError TransferNotReported = new(
+        "orders.transfer_not_reported", StatusCodes.Status409Conflict, "Todavía no te avisan que transfirieron.");
+
+    /// <summary>HU-55: cambiar la forma de pago despues de avisar "Ya transferi".</summary>
+    public static readonly ApiError TransferReported = new(
+        "orders.transfer_reported", StatusCodes.Status409Conflict, "Ya avisaste que transferiste. Espera a que lo confirmen o escríbele a quien vende.");
+
+    /// <summary>HU-55: el codigo de entrega es del pago en efectivo.</summary>
+    public static readonly ApiError NotCash = new(
+        "orders.not_cash", StatusCodes.Status409Conflict, "Este pedido no se paga en efectivo.");
+
+    /// <summary>HU-55: el codigo no son 4 digitos (no gasta un intento).</summary>
+    public static readonly ApiError InvalidCodeFormat = new(
+        "orders.invalid_code_format", StatusCodes.Status400BadRequest, "Escribe los 4 dígitos del código.");
+
+    /// <summary>HU-55: el codigo no coincide (gasta un intento; la app muestra cuantos quedan).</summary>
+    public static readonly ApiError InvalidCode = new(
+        "orders.invalid_code", StatusCodes.Status422UnprocessableEntity, "El código no coincide. Pídeselo de nuevo a quien compra.");
+
+    /// <summary>HU-55: sin intentos; la entrega se confirma como en HU-24 (los dos desde el pedido).</summary>
+    public static readonly ApiError CodeLocked = new(
+        "orders.code_locked", StatusCodes.Status409Conflict, "Se acabaron los intentos del código. Confirmen la entrega los dos desde el pedido.");
+}
+
+/// <summary>Errores de la cuenta para recibir pagos (HU-55; catalogo canonico: docs/errores.md).</summary>
+internal static class PayoutsErrors
+{
+    /// <summary>RNF-15: sin llave de cifrado no se guardan cuentas (el efectivo sigue igual).</summary>
+    public static readonly ApiError Unavailable = new(
+        "payouts.unavailable", StatusCodes.Status503ServiceUnavailable, "Por ahora no podemos guardar cuentas. Tus compradores pueden pagarte en efectivo.");
+
+    /// <summary>Titular vacio o de mas de 80 caracteres.</summary>
+    public static readonly ApiError InvalidHolder = new(
+        "payouts.invalid_holder", StatusCodes.Status400BadRequest, "Escribe el nombre del titular como aparece en tu banco.");
+
+    /// <summary>El titular no es la persona verificada (la cuenta debe estar a su nombre).</summary>
+    public static readonly ApiError HolderMismatch = new(
+        "payouts.holder_mismatch", StatusCodes.Status422UnprocessableEntity, "El titular debe coincidir con tu nombre verificado. Usa una cuenta a tu nombre.");
+
+    /// <summary>No son 18 digitos o el dígito verificador no coincide.</summary>
+    public static readonly ApiError InvalidClabe = new(
+        "payouts.invalid_clabe", StatusCodes.Status400BadRequest, "Revisa tu CLABE: son 18 dígitos y la encuentras en la app de tu banco.");
+
+    /// <summary>La clave de banco (3 primeros digitos) no es de un participante de SPEI.</summary>
+    public static readonly ApiError UnknownBank = new(
+        "payouts.unknown_bank", StatusCodes.Status422UnprocessableEntity, "No reconocemos el banco de esta CLABE. Revisa los primeros 3 dígitos.");
 }

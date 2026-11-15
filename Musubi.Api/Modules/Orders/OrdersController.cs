@@ -28,6 +28,8 @@ public sealed class OrdersController : ControllerBase
 
     private OrderLifecycleService lifecycle => HttpContext.RequestServices.GetRequiredService<OrderLifecycleService>();
 
+    private OrderPaymentService payments => HttpContext.RequestServices.GetRequiredService<OrderPaymentService>();
+
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
 
     /// <summary>Los puntos de entrega del campus, con el edificio de mi carrera marcado.</summary>
@@ -158,4 +160,65 @@ public sealed class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Handover(string id, CancellationToken cancellationToken) =>
         this.Respond(await lifecycle.ConfirmHandoverAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>
+    /// "Paga por transferencia" (HU-55): a quien compra, la cuenta de quien vende con la CLABE completa; a quien vende,
+    /// enmascarada. Solo las partes del pedido (RNF-03, RNF-05).
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los datos de la transferencia.</returns>
+    [HttpGet("{id}/transfer")]
+    [ProducesResponseType<TransferDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Transfer(string id, CancellationToken cancellationToken) =>
+        this.Respond(await payments.TransferAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Enviar referencia a Diego" (HU-55): quien compra avisa que ya transfirio.</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="body">La referencia.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido.</returns>
+    [HttpPost("{id}/transfer")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReportTransfer(string id, ReportTransferRequest body, CancellationToken cancellationToken) =>
+        this.Respond(await payments.ReportTransferAsync(userId, id, body, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Todavia no me llega" (HU-55): quien vende aun no ve la transferencia; se le avisa a quien compra.</summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido.</returns>
+    [HttpPost("{id}/transfer/not-received")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TransferNotReceived(string id, CancellationToken cancellationToken) =>
+        this.Respond(await payments.NotReceivedAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>
+    /// El codigo de entrega (HU-55, efectivo): quien vende escribe el que le dicta quien compra y el pedido se completa.
+    /// Hasta 5 intentos.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="body">El codigo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido completado.</returns>
+    [HttpPost("{id}/delivery-code")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> DeliveryCode(string id, DeliveryCodeRequest body, CancellationToken cancellationToken) =>
+        this.Respond(await lifecycle.CompleteWithCodeAsync(userId, id, body, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 }

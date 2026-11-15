@@ -67,6 +67,19 @@ public sealed partial class AppSettingsTests
     }
 
     [Fact]
+    public void ExampleSettings_DocumentThePaymentsKey_Empty()
+    {
+        // HU-55: la llave que cifra la CLABE vive en user-secrets o en Parameter Store (Payments__EncryptionKey).
+        using var doc = JsonDocument.Parse(File.ReadAllText(RepoPaths.ApiFile("appsettings.Example.json")));
+
+        Assert.Equal(string.Empty, doc.RootElement.GetProperty("Payments").GetProperty("EncryptionKey").GetString());
+        foreach (var file in new[] { "appsettings.json", "appsettings.Development.json", "appsettings.Production.json" })
+        {
+            Assert.DoesNotContain("EncryptionKey", File.ReadAllText(RepoPaths.ApiFile(file)), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void ExampleSettings_ContainNoFutureKeys()
     {
         var raw = File.ReadAllText(RepoPaths.ApiFile("appsettings.Example.json"));

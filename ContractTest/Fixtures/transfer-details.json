@@ -1,0 +1,12 @@
+{
+  "amountCents": 50000,
+  "bankName": "BBVA México",
+  "holderName": "Diego Hernández",
+  "clabe": "012 180 0154 8821 4829",
+  "clabeLast4": "4829",
+  "concept": "MS-2481",
+  "reference": "4829173",
+  "reportedAt": "2026-11-15T21:14:00Z",
+  "notReceivedAt": null,
+  "validatedAt": null
+}

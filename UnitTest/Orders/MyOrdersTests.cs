@@ -58,6 +58,7 @@ public sealed class MyOrdersTests
                 time),
             center,
             new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance),
+            new FakePayoutDirectory(),
             time);
     }
 

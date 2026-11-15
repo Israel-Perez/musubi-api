@@ -1,5 +1,24 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-55 (SCRUM-72): pagar por transferencia o en efectivo
+
+- **Qué:**
+  - Cuenta para recibir pagos (`/api/v1/payouts/*`): la CLABE se valida (dígito verificador y banco de SPEI) y se cifra con AES-256-GCM (`ClabeProtector`, `Payments:EncryptionKey`).
+  - Por transferencia: `GET`/`POST /orders/{id}/transfer` y `/transfer/not-received`; aceptar es "Sí, me llegó el pago".
+  - En efectivo: el código de 4 dígitos que se genera al aceptar y `POST /orders/{id}/delivery-code`.
+  - Recordatorio a las 24 h (`TransferReminderWorker`).
+  - `db/027-pagos.js`, esquema 27 y API `0.5.0-alpha.35`.
+- **Decisiones de la usuaria (15-Nov-2026):** el recordatorio a las 24 h sin cancelar (el dinero ya está con quien vende); solo la CLABE, sin la tarjeta; el comprobante después (`NOTE (HU-55)`: las fotos se sirven públicas por el CDN).
+- **Decisiones técnicas:**
+  - Aunque la maqueta pide el banco antes que la CLABE, el banco sale de la CLABE.
+  - El titular debe tener todas sus palabras en el nombre verificado.
+  - El id de la persona va como dato asociado del cifrado.
+  - Sin llave, en Production la transferencia se apaga (RNF-15) y en Development se usa una llave temporal.
+  - El intento del código se cuenta antes de comparar (5 intentos, atómico).
+- **Para desplegar:** crear `/musubi/prod/Payments/EncryptionKey` (base64 de 32 bytes, en `us-east-1` y en una línea; ver `infra/README.md`) **antes** de `infra-up`. Sin ella solo hay efectivo. La llave no se cambia nunca: con otra, las cuentas guardadas ya no se leen.
+- **Error a evitar:** los fixtures de `ContractTest` se copian al compilar; correr `--no-build` después de editarlos lee los viejos.
+- **Verificación (15-Nov-2026):** build 0/0; Unit 820, Integration 191, Security 257 y Contract 27; `check_endpoints` OK (106). `DatabaseTest` corre en el CI.
+
 ## Trabajo en curso — HU-36, HU-37 y HU-38 (SCRUM-59, SCRUM-60 y SCRUM-61)
 
 - **Qué:** módulo nuevo `Modules/SellerSupport/` (M-12). `GET /api/v1/products/mine/slow` ("Llevan tiempo sin venderse" de `Mis-productos`: disponibles con más de 21 días, sin pedidos completados ni abiertos, con vistas de 30 días, mensajes, `demand` y `tips`) y `GET /api/v1/products/{id}/demand` ("Quienes la buscan"). Aviso `slow_listing` (`my_products`) una vez a las 3 semanas. Al editar una publicación se vuelven a buscar coincidencias (cierra la `NOTE (HU-18)` de `MyListingsService`).

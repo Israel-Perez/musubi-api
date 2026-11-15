@@ -113,10 +113,86 @@ public sealed record OrderPartyResponse(string Id, string Name);
 /// <param name="At">Fecha y hora (UTC).</param>
 public sealed record OrderDeliveryResponse(string Point, string PointName, string? Detail, DateTime At);
 
-/// <summary>El pago elegido.</summary>
+/// <summary>El pago elegido (HU-23) y, desde HU-55, la transferencia o el codigo de entrega.</summary>
 /// <param name="Method"><c>cash</c> o <c>transfer</c>.</param>
 /// <param name="ChosenAt">Cuando se eligio (UTC).</param>
-public sealed record OrderPaymentResponse(string Method, DateTime ChosenAt);
+/// <param name="Reference">Transferencia: la referencia que capturo quien compra, o <c>null</c>.</param>
+/// <param name="ReportedAt">Transferencia: cuando quien compra aviso "Ya transferi" (UTC), o <c>null</c>.</param>
+/// <param name="NotReceivedAt">Transferencia: cuando quien vende dijo "Todavia no me llega" (UTC), o <c>null</c>.</param>
+/// <param name="ValidatedAt">Transferencia: cuando quien vende confirmo que le llego (UTC), o <c>null</c>.</param>
+/// <param name="DeliveryCode">Efectivo: el codigo de 4 digitos; solo a quien compra y con el pedido confirmado.</param>
+/// <param name="CodeAttemptsLeft">Efectivo: intentos que le quedan a quien vende; solo a quien vende, confirmado.</param>
+public sealed record OrderPaymentResponse(
+    string Method,
+    DateTime ChosenAt,
+    string? Reference = null,
+    DateTime? ReportedAt = null,
+    DateTime? NotReceivedAt = null,
+    DateTime? ValidatedAt = null,
+    string? DeliveryCode = null,
+    int? CodeAttemptsLeft = null);
+
+/// <summary>
+/// "Paga por transferencia" (maqueta <c>Pago-transferencia</c>) y "Búscalo en la app de tu banco" (<c>Pago-vendedor</c>).
+/// </summary>
+/// <param name="AmountCents">"Transfiere exactamente $500.00".</param>
+/// <param name="BankName">Banco receptor.</param>
+/// <param name="HolderName">Titular de la cuenta.</param>
+/// <param name="Clabe">
+/// Para quien compra, los 18 digitos ("012 180 0154 2378 9134"); para quien vende, enmascarada ("•••• 9134").
+/// </param>
+/// <param name="ClabeLast4">Ultimos 4 digitos.</param>
+/// <param name="Concept">"Concepto · escríbelo tal cual": el numero del pedido (<c>MS-2481</c>).</param>
+/// <param name="Reference">La referencia que capturo quien compra, o <c>null</c>.</param>
+/// <param name="ReportedAt">Cuando aviso "Ya transferi" (UTC), o <c>null</c>.</param>
+/// <param name="NotReceivedAt">Cuando quien vende dijo "Todavia no me llega" (UTC), o <c>null</c>.</param>
+/// <param name="ValidatedAt">Cuando quien vende confirmo que le llego (UTC), o <c>null</c>.</param>
+public sealed record TransferDetailsResponse(
+    long AmountCents,
+    string BankName,
+    string HolderName,
+    string Clabe,
+    string ClabeLast4,
+    string Concept,
+    string? Reference,
+    DateTime? ReportedAt,
+    DateTime? NotReceivedAt,
+    DateTime? ValidatedAt);
+
+/// <summary>"Captura la referencia" y "Enviar referencia a Diego" (HU-55).</summary>
+/// <param name="Reference">La referencia o clave de rastreo del comprobante (4 a 30 letras o numeros).</param>
+public sealed record ReportTransferRequest(string? Reference);
+
+/// <summary>El codigo de entrega que dicta quien compra (HU-55, pago en efectivo).</summary>
+/// <param name="Code">Cuatro digitos.</param>
+public sealed record DeliveryCodeRequest(string? Code);
+
+/// <summary>Un banco de la CLABE.</summary>
+/// <param name="Code">Clave de 3 digitos (<c>012</c>).</param>
+/// <param name="Name">Nombre ("BBVA México").</param>
+public sealed record BankResponse(string Code, string Name);
+
+/// <summary>Los bancos que se reconocen en una CLABE (participantes de SPEI).</summary>
+/// <param name="Items">En el orden en que se muestran.</param>
+public sealed record BankListResponse(IReadOnlyList<BankResponse> Items);
+
+/// <summary>"Cuenta para recibir pagos" (maqueta <c>Cuenta-pagos</c>): nunca la CLABE completa.</summary>
+/// <param name="HolderName">Titular.</param>
+/// <param name="BankCode">Clave del banco.</param>
+/// <param name="BankName">Banco.</param>
+/// <param name="ClabeLast4">Ultimos 4 digitos ("•••• 4821").</param>
+/// <param name="UpdatedAt">Ultimo cambio (UTC).</param>
+public sealed record PayoutAccountResponse(string HolderName, string BankCode, string BankName, string ClabeLast4, DateTime UpdatedAt);
+
+/// <summary>Mi cuenta para recibir pagos.</summary>
+/// <param name="Available">Si se pueden guardar cuentas (sin llave de cifrado, <c>false</c>: RNF-15).</param>
+/// <param name="Account">La cuenta, o <c>null</c> si no tengo una.</param>
+public sealed record PayoutAccountStatus(bool Available, PayoutAccountResponse? Account);
+
+/// <summary>"Guardar cuenta" (maqueta <c>Cuenta-pagos</c>).</summary>
+/// <param name="HolderName">Titular: debe coincidir con mi nombre verificado.</param>
+/// <param name="Clabe">La CLABE (18 digitos; se aceptan espacios y guiones).</param>
+public sealed record SavePayoutAccountRequest(string? HolderName, string? Clabe);
 
 /// <summary>Los pedidos de una conversacion, del mas nuevo al mas viejo.</summary>
 /// <param name="Items">Los pedidos.</param>

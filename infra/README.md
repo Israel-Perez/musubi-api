@@ -36,7 +36,8 @@ Al arrancar, la API deja en CloudWatch si el push está activo (`Push por FCM ac
 | `/musubi/prod/Jwt/SigningKey` | SecureString | Llave HS256 (base64, 64 bytes) |
 | `/musubi/prod/Email/From` | String | Remitente verificado en SES |
 | `/musubi/prod/Firebase/ServiceAccount` | SecureString | JSON de la cuenta de servicio de Firebase (HU-31), **compacto en una línea**. Sin él, o cortado, el push queda apagado y los avisos solo quedan en el historial |
-| `/musubi/prod/Gemini/ApiKey` | SecureString | Llave de la IA del acuerdo (HU-32/33/34) |
+| `/musubi/prod/Gemini/ApiKey` | SecureString | Llave de la IA del acuerdo (HU-32/33/34) y de las ideas para vender (HU-37) |
+| `/musubi/prod/Payments/EncryptionKey` | SecureString | Llave AES-256 (base64 de 32 bytes) que cifra la CLABE de la cuenta para recibir pagos (HU-55). Se genera una vez y **no se cambia**: con otra llave las cuentas guardadas ya no se leen y hay que registrarlas de nuevo. Sin ella, solo se paga en efectivo |
 | `/musubi/prod/Cache/ConnectionString` | SecureString | Redis Cloud gratuito (02-02 y HU-20): caché compartida y backplane del chat en tiempo real. Formato de StackExchange.Redis: `host:puerto,user=default,password=...,abortConnect=false` (+ `,ssl=true` con TLS). **No** el comando `redis-cli -u redis://...` que muestra Redis Cloud. El puerto debe coincidir con la variable `redis_port` de Terraform (salida del grupo de seguridad). Sin el parámetro, cada instancia usa su memoria y el chat solo entrega en tiempo real dentro de su instancia |
 
 Para guardar un secreto sin que quede en el historial de la terminal:

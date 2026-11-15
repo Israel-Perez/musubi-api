@@ -64,7 +64,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 5. Convenciones técnicas
 
-> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (98 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
+> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (106 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
@@ -83,7 +83,8 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Apoyo a vendedores (HU-36/37/38): `Modules/SellerSupport/`, sin colecciones propias. `GET /products/mine/slow` da lo disponible con más de 21 días y sin pedidos (vistas de `productStatsDaily`, conversaciones de M-07, `demand` y `tips` de `SalesTips`) y `GET /products/{id}/demand` las solicitudes que coinciden y cuántas búsquedas guardadas (solo el número, RN-37). La demanda sale de `IProductDemand` (M-06, `DemandRules`: las mismas reglas que los avisos de HU-29 y HU-12). `SlowListingWorker` avisa `slow_listing` una vez a las 3 semanas. `POST /products/{id}/ideas` pide a `IListingCopywriter` (M-10: Gemini, `InMemory`, `Off`; la llamada HTTP es `GeminiApi`, compartida con el acuerdo) un nombre y una descripción con la demanda, sin nombres ni datos de contacto; no guarda nada y sin IA responde `503 seller_support.ideas_unavailable`. Al editar una publicación, `MyListingsService` la vuelve a encolar en `IProductPublications`.
 - Pedidos (HU-24): `OrderLifecycleService` acepta (quien vende, con el pago elegido), cancela (motivo de `CancelReasons`) y confirma la entrega de cada parte; aparta, regresa y vende las piezas con `IProductStock` (Listings) y avisa con `INotificationCenter`.
 - Intereses (HU-66): `GET`/`PUT /profiles/me/interests` guardan slugs de categorías en `preferences.interests` (privados: el perfil público no lee `preferences`); HU-35 podrá usarlos en el arranque en frío (`NOTE (HU-35)`).
-- Pendientes con dueño: pagos por transferencia y código de entrega → HU-55 (HU-43 Mercado Pago fuera de alcance, D-01).
+- Pagos (HU-55, D-01): `Modules/Orders/`. La cuenta para recibir pagos (`/payouts/*`, `PayoutService`) valida la CLABE (`Clabe`, dígito verificador; `MexicanBanks`, claves de SPEI) y el titular (`HolderNames`), y la cifra con `ClabeProtector` (AES-256-GCM, `Payments:EncryptionKey`; sin llave, solo efectivo). Por transferencia, `OrderPaymentService` da la cuenta (completa a quien compra, enmascarada a quien vende), recibe la referencia y "todavía no me llega"; aceptar es "Sí, me llegó el pago". En efectivo, aceptar genera el código de 4 dígitos y `POST /orders/{id}/delivery-code` completa el pedido (5 intentos). `TransferReminderWorker` recuerda a las 24 h sin cancelar. NOTE (HU-55): el comprobante, con almacenamiento privado.
+- Pendientes con dueño: el apartado con QR → HU-52 (HU-43 Mercado Pago fuera de alcance, D-01).
 
 ## 6. Seguridad y DevSecOps
 
@@ -145,7 +146,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (98 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (106 filas), `trazabilidad.md` (57 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

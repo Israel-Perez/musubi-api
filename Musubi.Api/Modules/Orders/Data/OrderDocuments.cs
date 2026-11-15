@@ -132,7 +132,10 @@ internal sealed class OrderDelivery
     public DateTime At { get; init; }
 }
 
-/// <summary>El pago elegido (RN-18): en HU-23, solo efectivo al entregar.</summary>
+/// <summary>
+/// El pago elegido (RN-18). HU-55 (D-01): por transferencia, la referencia que captura quien compra y cuando quien vende
+/// la valida; en efectivo, el codigo de entrega de 4 digitos que solo ve quien compra.
+/// </summary>
 internal sealed class OrderPayment
 {
     /// <summary>Ver <see cref="PaymentMethods"/>.</summary>
@@ -140,6 +143,45 @@ internal sealed class OrderPayment
 
     /// <summary>Cuando se eligio (UTC).</summary>
     public DateTime ChosenAt { get; init; }
+
+    /// <summary>Transferencia: la referencia o clave de rastreo que capturo quien compra, o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public string? Reference { get; init; }
+
+    /// <summary>Transferencia: cuando quien compra aviso "Ya transferi" (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? ReportedAt { get; init; }
+
+    /// <summary>Transferencia: cuando quien vende dijo "Todavia no me llega" (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? NotReceivedAt { get; init; }
+
+    /// <summary>Transferencia: cuando quien vende confirmo que le llego (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? ValidatedAt { get; init; }
+
+    /// <summary>Efectivo: el codigo de entrega (4 digitos) que se genera al aceptar, o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public string? DeliveryCode { get; init; }
+
+    /// <summary>Efectivo: intentos de quien vende al escribir el codigo (hasta <see cref="DeliveryCodes.MaxAttempts"/>).</summary>
+    [BsonIgnoreIfDefault]
+    public int CodeAttempts { get; init; }
+}
+
+/// <summary>El codigo de entrega del pago en efectivo (HU-55).</summary>
+internal static class DeliveryCodes
+{
+    /// <summary>Digitos (maqueta <c>Pedido-efectivo</c>: "7 3 1 9").</summary>
+    public const int Length = 4;
+
+    /// <summary>Intentos de quien vende: con 10 000 codigos posibles, adivinarlo es de 1 en 2000.</summary>
+    public const int MaxAttempts = 5;
+
+    /// <summary>Un codigo nuevo con un generador criptografico.</summary>
+    /// <returns>Cuatro digitos, con ceros a la izquierda.</returns>
+    public static string New() =>
+        System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 10_000).ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>Un cambio de estado.</summary>
