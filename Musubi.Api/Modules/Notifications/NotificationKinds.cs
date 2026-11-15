@@ -65,6 +65,9 @@ internal static class NotificationTypes
 
     /// <summary>Se publico algo que coincide con mi solicitud (HU-29).</summary>
     public const string ProductMatch = "product_match";
+
+    /// <summary>Se publico lo que busque sin resultados ("Avísame cuando aparezca", HU-12).</summary>
+    public const string SavedSearchMatch = "saved_search_match";
 }
 
 /// <summary>Lo que abre un aviso.</summary>

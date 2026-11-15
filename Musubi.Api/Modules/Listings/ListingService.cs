@@ -173,7 +173,9 @@ internal sealed partial class ListingService(
             product.Title,
             product.CategorySlug,
             product.PriceCents,
-            product.SearchWords));
+            product.SearchWords,
+            product.Condition,
+            product.Seller.Name));
         return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
     }
 

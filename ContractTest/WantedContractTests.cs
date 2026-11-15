@@ -20,6 +20,8 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
 
     private static readonly string[] Size = ["Talla M"];
 
+    private static readonly string[] Calculators = ["calculadoras"];
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static async Task<JsonElement> FixtureAsync(string name)
@@ -201,5 +203,25 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
             Shape(fixture.GetProperty("items")[0]).Select(p => nulls.Any(n => p.StartsWith(n + ":", StringComparison.Ordinal)) ? p[..p.IndexOf(':', StringComparison.Ordinal)] + ":Null" : p),
             Shape(list.GetProperty("items")[0]));
         Assert.Equal(["conversationId:String"], Shape(accepted));
+    }
+
+    [Fact]
+    public async Task SavedSearches_MatchTheFixture()
+    {
+        // HU-12: "Avísame cuando aparezca" y "Mis alertas" (la forma vive con la de las solicitudes: las dos son "lo que busco").
+        var emails = new RecordingEmailSender();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        using var ana = await SignedInAsync(app, emails);
+        var fixture = await FixtureAsync("saved-search.json");
+
+        var saved = await ana.PostAsJsonAsync(
+            new Uri("/api/v1/saved-searches", UriKind.Relative),
+            new { q = "Calculadora graficadora TI-84", category = Calculators, maxPriceCents = 200_000, condition = "used" },
+            Ct);
+        var mine = await BodyAsync(await ana.GetAsync(new Uri("/api/v1/saved-searches", UriKind.Relative), Ct));
+
+        Assert.Equal(HttpStatusCode.Created, saved.StatusCode);
+        Assert.Equal(Shape(fixture), Shape(await BodyAsync(saved)));
+        Assert.Equal(Shape(fixture), Shape(mine.GetProperty("items")[0]));
     }
 }

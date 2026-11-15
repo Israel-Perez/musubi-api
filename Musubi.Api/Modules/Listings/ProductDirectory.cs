@@ -64,6 +64,8 @@ internal sealed record ProductCandidate(string Id, string SellerId, string Title
 /// <param name="CategorySlug">Categoria.</param>
 /// <param name="PriceCents">Precio.</param>
 /// <param name="Words">Palabras normalizadas de su nombre y su descripcion.</param>
+/// <param name="Condition"><c>new</c> o <c>used</c> (HU-12: filtro de la busqueda guardada).</param>
+/// <param name="SellerName">Nombre corto de quien vende ("Luis M.").</param>
 internal sealed record ProductPublished(
     string Id,
     string CommunityId,
@@ -71,7 +73,9 @@ internal sealed record ProductPublished(
     string Title,
     string CategorySlug,
     long PriceCents,
-    IReadOnlyList<string> Words);
+    IReadOnlyList<string> Words,
+    string Condition = ProductConditions.Used,
+    string SellerName = "");
 
 /// <summary>
 /// Contrato de M-03 hacia M-06 (HU-29): al publicar, las solicitudes "Se busca" que coincidan se revisan en segundo

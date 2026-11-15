@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Matching.Data;
 using Musubi.Api.Modules.Notifications;
@@ -18,10 +19,12 @@ namespace Musubi.Api.Modules.Matching;
 /// "Alguien publicó lo que buscas" (HU-29, RF-38, maqueta <c>Notificaciones</c> → "Coincidencias"; decision de la
 /// usuaria del 14-Nov-2026): al publicar, a quien tenga una solicitud activa compatible (las mismas reglas de HU-19) le
 /// llega un aviso que abre la publicacion. Uno por solicitud y publicacion (RN-29), hasta 3 al dia por persona (RN-30)
-/// y nunca entre personas bloqueadas ni a quien vende (RN-31, HU-57).
+/// y nunca entre personas bloqueadas ni a quien vende (RN-31, HU-57). HU-12: tambien "¡Ya apareció lo que buscabas!"
+/// a quien guardo esa busqueda ("Avísame cuando aparezca"), si no le llego ya el aviso de su solicitud.
 /// </summary>
 internal sealed class ProductMatchNotifier(
     IWantedMatchDirectory wanted,
+    ISavedSearchDirectory savedSearches,
     IBlockDirectory blocks,
     INotificationCenter center,
     IMatchLedger ledger,
@@ -29,6 +32,15 @@ internal sealed class ProductMatchNotifier(
 {
     /// <summary>Solicitudes candidatas que se leen como maximo.</summary>
     public const int MaxRequests = 200;
+
+    /// <summary>Busquedas guardadas que se leen como maximo (10 por persona).</summary>
+    public const int MaxSavedSearches = 2000;
+
+    /// <summary>Clave para no repetir el aviso de una publicacion a una busqueda guardada (HU-12).</summary>
+    /// <param name="searchId">La busqueda.</param>
+    /// <param name="productId">La publicacion.</param>
+    /// <returns>La clave.</returns>
+    public static string SavedSearchDedupeKey(string searchId, string productId) => $"saved_search:{searchId}:{productId}";
 
     /// <summary>Clave para no repetir el aviso de una publicacion a una solicitud (RN-29).</summary>
     /// <param name="requestId">La solicitud.</param>
@@ -68,6 +80,7 @@ internal sealed class ProductMatchNotifier(
 
         var since = MatchRules.CampusDayStart(time.GetUtcNow().UtcDateTime);
         var notified = 0;
+        var told = new HashSet<string>(StringComparer.Ordinal);
         foreach (var request in best)
         {
             // RN-30: hasta 3 al dia; la coincidencia igual se registra (RF-25).
@@ -86,11 +99,53 @@ internal sealed class ProductMatchNotifier(
                         DedupeKey(request.Id, product.Id)),
                     cancellationToken).ConfigureAwait(false);
                 notified++;
+                told.Add(request.RequesterId);
             }
 
             await ledger.RecordAsync(
                 new MatchRecord(product.CommunityId, request.Id, product.Id, request.RequesterId, product.SellerId, NotifiedRequester: allowed, NotifiedSeller: false),
                 cancellationToken).ConfigureAwait(false);
+        }
+
+        return notified + await NotifySavedSearchesAsync(product, excluded, told, since, cancellationToken).ConfigureAwait(false);
+    }
+
+    // HU-12: "Avísame cuando aparezca". De cada persona, su primera busqueda que coincide; a quien ya le llego el aviso de
+    // su solicitud por esta publicacion no se le repite.
+    private async Task<int> NotifySavedSearchesAsync(
+        ProductPublished product,
+        IReadOnlyCollection<string> excluded,
+        HashSet<string> told,
+        DateTime since,
+        CancellationToken cancellationToken)
+    {
+        var searches = await savedSearches.ActiveAsync(product.CommunityId, excluded, MaxSavedSearches, cancellationToken).ConfigureAwait(false);
+        var matching = searches
+            .Where(search => !told.Contains(search.UserId) && search.Matches(product))
+            .GroupBy(search => search.UserId, StringComparer.Ordinal)
+            .Select(group => group.First());
+        var seller = ChatService.FirstName(product.SellerName);
+        var notified = 0;
+        foreach (var search in matching)
+        {
+            // Hasta 3 al dia por persona, como los demas avisos de coincidencias (RN-30).
+            if (await center.CountSinceAsync(search.UserId, NotificationTypes.SavedSearchMatch, since, cancellationToken).ConfigureAwait(false) >= MatchRules.DailyLimit)
+            {
+                continue;
+            }
+
+            await center.NotifyAsync(
+                new Notice(
+                    search.UserId,
+                    NotificationTypes.SavedSearchMatch,
+                    "¡Ya apareció lo que buscabas!",
+                    $"{(seller.Length == 0 ? "Alguien" : seller)} publicó «{product.Title}» por {OfferService.Pesos(product.PriceCents)}. Activaste “Avísame cuando aparezca”.",
+                    NotificationTargets.Product,
+                    product.Id,
+                    NotificationCategories.Matches,
+                    SavedSearchDedupeKey(search.Id, product.Id)),
+                cancellationToken).ConfigureAwait(false);
+            notified++;
         }
 
         return notified;

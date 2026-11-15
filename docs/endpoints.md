@@ -27,7 +27,7 @@ Fuente única de verdad del contrato HTTP de MUSUBI: método, ruta, auth, DTOs, 
 | GET | /api/v1/ping | `[AllowAnonymous]` | 01-03 | — | `PingResponse { status: "pong", version: "v1" }` | 200 | `musubi-app` 01-03 (`StatusRepository`) |
 | GET | /media/{**path} | `[AllowAnonymous]` | HU-06 | — | La imagen (`image/webp`) guardada en memoria | 200 / 404 `resource.not_found` | Solo Development (`Media:Provider=InMemory`). En la nube CloudFront sirve `/media/*` desde S3 y la API responde 404 |
 
-Total: 92 filas (4 de plataforma, 88 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
+Total: 95 filas (4 de plataforma, 91 de módulos). Las filas de los módulos M-01…M-14 se agregan con la spec de cada HU.
 
 ## M-01 · Autenticación y usuarios
 
@@ -90,6 +90,9 @@ Con sesión salvo la vitrina y las categorías, que son públicas (HU-48). Las f
 | GET | /api/v1/favorites | `[Authorize]` | HU-53 | — | `FavoritesResponse { items: FavoriteItemResponse[] { productId, savedAt, status, product } }`; `status`: `available`, `soldOut` o `unavailable`; `product` es `ProductResponse` o `null`; del más reciente al más viejo, máximo 200; solo los del token | 200 / 401 | `musubi-app` HU-53 (`Favoritos`) |
 | PUT | /api/v1/favorites/{productId} | `[Authorize]` | HU-53 | — | — (idempotente: dos toques no duplican) | 204 / 401 / 403 `auth.forbidden` / 404 `listings.product_not_found` (inexistente, pausada, quitada, de otro campus o con bloqueo, HU-57: no revela cuál) | `musubi-app` HU-53 (corazón en `Producto` y tarjetas) |
 | DELETE | /api/v1/favorites/{productId} | `[Authorize]` | HU-53 | — | — (idempotente: si no estaba guardado, también 204) | 204 / 401 | `musubi-app` HU-53 (corazón en `Producto` y tarjetas) |
+| POST | /api/v1/saved-searches | `[Authorize]` | HU-12 | `SaveSearchRequest { q, category[]?, minPriceCents?, maxPriceCents?, condition? }` (las mismas reglas de `GET /products`: `q` de 1 a 80 caracteres con al menos una letra o dígito, rango y estado válidos; hasta 10 categorías) | `SavedSearchResponse { id, query, categories[], minPriceCents, maxPriceCents, condition, createdAt, expiresAt }`. "Avísame cuando aparezca": vence a los 30 días (RN-34); la misma búsqueda (mismas palabras normalizadas y filtros) solo renueva su vencimiento. Privada (RNF-07). Al publicar algo con **todas** sus palabras y que cumple sus filtros, llega `saved_search_match` (hasta 3 al día, HU-29) | 201 (nueva) / 200 (ya la tenía) / 400 `listings.invalid_query` · `listings.invalid_price_range` · `listings.invalid_condition` · `validation.failed` / 401 / 403 `auth.forbidden` / 409 `listings.too_many_saved_searches` (10 vigentes) | `musubi-app` HU-12 (`Busqueda-vacia` → "Avísame cuando aparezca") |
+| GET | /api/v1/saved-searches | `[Authorize]` | HU-12 | — | `SavedSearchList { items: SavedSearchResponse[] }`: mis búsquedas vigentes, de la más nueva a la más vieja | 200 / 401 | `musubi-app` HU-12 (`Ajustes` → "Mis alertas") |
+| DELETE | /api/v1/saved-searches/{id} | `[Authorize]` | HU-12 | — | — Quita una búsqueda mía; idempotente (si no existe o es de otra persona no pasa nada y no se revela cuál) | 204 / 401 | `musubi-app` HU-12 (`Ajustes` → "Mis alertas" → "Quitar") |
 
 ## M-07 · Chat
 

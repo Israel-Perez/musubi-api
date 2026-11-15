@@ -1,17 +1,23 @@
 # HU-12 — Guardar una búsqueda sin resultados (tareas)
 
-## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+## T1 — Spec
+- **Estado:** ✅ Hecho (14-Nov-2026).
 
 ## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+- **Prueba:** `TestShared/Listings/SavedSearchRepositoryContract.cs` (`UnitTest/Data/InMemorySavedSearchRepositoryTests.cs`, `DatabaseTest/MongoSavedSearchRepositoryTests.cs`).
+- **Estado:** ✅ Hecho.
 
-## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+## T3 — Rutas
+- **Prueba:** `UnitTest/Listings/SavedSearchServiceTests.cs`, `SecurityTest/Auth/SavedSearchesAuthTests.cs`, `ContractTest/WantedContractTests.cs`.
+- **Estado:** ✅ Hecho.
 
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
+## T4 — Aviso
+- **Prueba:** `UnitTest/Matching/ProductMatchTests.cs`, `IntegrationTest/Matching/WantedMatchFlowTests.cs`.
+- **Estado:** ✅ Hecho.
+
+## T5 — Pruebas y documentos
+- **Estado:** ✅ Hecho: Unit 723 · Integration 187 · Security 240 · Contract 25 · `check_endpoints` OK (95) · critic PASS.
+
+## T6 — Prueba en el celular
+- **Qué:** con la API `0.5.0-alpha.32` desplegada, buscar algo que no existe, tocar "Avísame cuando aparezca" y publicarlo desde otra cuenta.
 - **Estado:** ⏳ Por hacer.

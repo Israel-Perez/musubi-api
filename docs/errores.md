@@ -90,6 +90,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.invalid_stock` | 400 | Las piezas disponibles van de 1 a 10. (Al cambiarlas: "… van de 0 a 10.") | HU-06 (al publicar, 1 a 10) / HU-50 (`PUT /products/{id}/stock`, 0 a 10) |
 | `listings.invalid_cursor` | 400 | No pudimos cargar más publicaciones. Actualiza la lista. | HU-48 / HU-10 (cursor que no emitió la API o de otro orden) |
 | `listings.invalid_query` | 400 | Escribe lo que quieres buscar. | HU-09 (búsqueda sin letras ni dígitos, o de más de 80 caracteres) |
+| `listings.too_many_saved_searches` | 409 | Ya tienes 10 alertas. Quita una en Ajustes → Mis alertas para agregar otra. | HU-12 (10 búsquedas guardadas vigentes por persona) |
 | `listings.invalid_price_range` | 400 | Revisa el rango de precio: debe ir de 0 a $999,999 y el mínimo no puede superar al máximo. | HU-10 (mínimo negativo, máximo fuera de rango o mínimo mayor que el máximo) |
 | `listings.invalid_sort` | 400 | Elige un orden para los resultados. | HU-10 (orden fuera de la lista permitida) |
 | `listings.invalid_page` | 400 | Elige una página del 1 al 50. | HU-10 (`page` menor que 1 o mayor que 50; acota el `skip` de Mongo, OWASP API4) |
