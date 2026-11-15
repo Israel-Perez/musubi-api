@@ -15,6 +15,8 @@ namespace IntegrationTest.Matching;
 /// </summary>
 public sealed class WantedMatchFlowTests(AuthApiFactory factory) : IClassFixture<AuthApiFactory>
 {
+    private static readonly string[] Calculators = ["calculadoras"];
+
     private readonly AuthFlow flow = new(factory);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -189,5 +191,31 @@ public sealed class WantedMatchFlowTests(AuthApiFactory factory) : IClassFixture
         Assert.Equal(("product", productId), (notice.GetProperty("target").GetProperty("type").GetString(), notice.GetProperty("target").GetProperty("id").GetString()));
         // RN-31: quien vende no recibe aviso de su propia publicacion.
         Assert.DoesNotContain(await NoticesAsync(diego, "matches"), n => n.GetProperty("type").GetString() == "product_match");
+    }
+
+    [Fact]
+    public async Task ASavedSearch_TellsWhoSavedIt_AndCanBeListedAndRemoved()
+    {
+        // HU-12: "Avísame cuando aparezca" en Busqueda-vacia y "Mis alertas" en Ajustes.
+        var ana = await MemberAsync();
+        var diego = await MemberAsync();
+        var saved = await ana.Client.PostAsJsonAsync(
+            new Uri("/api/v1/saved-searches", UriKind.Relative), new { q = "graficadora TI-84 Silver", category = Calculators }, Ct);
+        var again = await ana.Client.PostAsJsonAsync(
+            new Uri("/api/v1/saved-searches", UriKind.Relative), new { q = "Graficadora TI 84 silver", category = Calculators }, Ct);
+
+        var productId = await PublishAsync(diego, "Calculadora graficadora TI-84 Silver Edition", 160_000);
+        var notice = await NoticeAsync(ana, "matches", "saved_search_match");
+        var mine = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri("/api/v1/saved-searches", UriKind.Relative), Ct));
+        var id = mine.GetProperty("items")[0].GetProperty("id").GetString();
+        var removed = await ana.Client.DeleteAsync(new Uri($"/api/v1/saved-searches/{id}", UriKind.Relative), Ct);
+        var after = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri("/api/v1/saved-searches", UriKind.Relative), Ct));
+
+        Assert.Equal((HttpStatusCode.Created, HttpStatusCode.OK), (saved.StatusCode, again.StatusCode));
+        Assert.Equal("¡Ya apareció lo que buscabas!", notice.GetProperty("title").GetString());
+        Assert.Equal(("product", productId), (notice.GetProperty("target").GetProperty("type").GetString(), notice.GetProperty("target").GetProperty("id").GetString()));
+        Assert.Equal(1, mine.GetProperty("items").GetArrayLength());
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        Assert.Equal(0, after.GetProperty("items").GetArrayLength());
     }
 }

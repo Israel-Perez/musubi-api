@@ -28,6 +28,7 @@ internal static class ListingsModuleServiceCollectionExtensions
         var products = new InMemoryProductRepository();
         var favorites = new InMemoryFavoriteRepository();
         var stats = new InMemoryProductStatsRepository(products);
+        var savedSearches = new InMemorySavedSearchRepository();
         services.AddSingleton<ICategoryRepository>(provider => new CachedCategoryRepository(
             MongoServiceCollectionExtensions.UseInMemory(provider)
                 ? categories
@@ -43,6 +44,10 @@ internal static class ListingsModuleServiceCollectionExtensions
             ? stats
             : new MongoProductStatsRepository(provider.GetRequiredService<IMongoDatabase>()));
 
+        services.AddSingleton<ISavedSearchRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? savedSearches
+            : new MongoSavedSearchRepository(provider.GetRequiredService<IMongoDatabase>()));
+
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
         services.AddSingleton<ListingService>();
@@ -55,6 +60,10 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<IRecommendationCatalog, RecommendationCatalog>();
         services.AddSingleton<IProductStock, ProductStock>();
         services.AddSingleton<IListingPhotos, ListingPhotos>();
+        // HU-12: "Avísame cuando aparezca"; M-06 las lee al publicar y se borran con la cuenta.
+        services.AddSingleton<SavedSearchService>();
+        services.AddSingleton<ISavedSearchDirectory>(provider => provider.GetRequiredService<SavedSearchService>());
+        services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<SavedSearchService>());
 
         // Subir fotos cuesta CPU (SkiaSharp) y espacio en S3: un tope por usuario evita el abuso (OWASP API4).
         services.AddOptions<RateLimiterOptions>().Configure<IConfiguration>((options, config) =>

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Auth.Data;
 using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Listings.Data;
@@ -31,6 +32,7 @@ public sealed class ProductMatchTests
     private readonly InMemoryWantedRepository requests = new();
     private readonly InMemoryBlockRepository blocks = new();
     private readonly InMemoryMatchRepository matches = new();
+    private readonly InMemorySavedSearchRepository savedSearches = new();
     private readonly RecordingNotificationCenter center = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly ProductMatchNotifier notifier;
@@ -42,6 +44,7 @@ public sealed class ProductMatchTests
 
     private ProductMatchNotifier Notifier(INotificationCenter notifications, TimeProvider clock) => new(
         new WantedMatchDirectory(requests, clock),
+        new SavedSearchService(savedSearches, new MemberDirectory(new InMemoryCommunityRepository(), new InMemoryUserRepository()), clock),
         new BlockDirectory(blocks),
         notifications,
         new MatchLedger(matches, clock, NullLogger<MatchLedger>.Instance),
@@ -52,7 +55,7 @@ public sealed class ProductMatchTests
         string category = "laboratorio",
         long price = 28_000,
         string? id = null) =>
-        new(id ?? AuthIds.New(), Campus, diego, title, category, price, SearchWord.Words(title));
+        new(id ?? AuthIds.New(), Campus, diego, title, category, price, SearchWord.Words(title), ProductConditions.Used, "Diego Hernández");
 
     private async Task<string> WantedAsync(
         string requester,
@@ -202,5 +205,83 @@ public sealed class ProductMatchTests
     {
         Assert.Equal(budget, ProductMatchNotifier.MinBudget(price));
         Assert.True(price <= MatchRules.MaxPrice(budget));
+    }
+
+    // HU-12: "Avísame cuando aparezca".
+    private async Task<string> SavedAsync(string user, string query, string community = Campus)
+    {
+        var id = AuthIds.New();
+        await savedSearches.SaveAsync(
+            new SavedSearchDocument
+            {
+                Id = id,
+                UserId = user,
+                CommunityId = community,
+                Query = query,
+                Terms = SavedSearchService.Terms(query),
+                Key = $"{user}:{query}",
+                CreatedAt = Now.UtcDateTime,
+                ExpiresAt = Now.UtcDateTime.AddDays(30),
+            },
+            Now.UtcDateTime,
+            Ct).ConfigureAwait(false);
+        return id;
+    }
+
+    [Fact]
+    public async Task ASavedSearch_TellsWhoSavedIt_WithTheMockupText()
+    {
+        var luis = AuthIds.New();
+        var search = await SavedAsync(luis, "bata talla M");
+        var product = Product();
+
+        var notified = await notifier.NotifyAsync(product, Ct);
+
+        Assert.Equal(1, notified);
+        Assert.Equal(
+            new Notice(
+                luis,
+                NotificationTypes.SavedSearchMatch,
+                "¡Ya apareció lo que buscabas!",
+                "Diego publicó «Bata blanca de laboratorio, talla M» por $280. Activaste “Avísame cuando aparezca”.",
+                NotificationTargets.Product,
+                product.Id,
+                NotificationCategories.Matches,
+                $"saved_search:{search}:{product.Id}"),
+            Assert.Single(center.Sent));
+    }
+
+    [Fact]
+    public async Task ASavedSearch_NeedsAllItsWords_AndNeverTheSellerOrAnotherCampus()
+    {
+        await SavedAsync(AuthIds.New(), "bata talla chica");
+        await SavedAsync(diego, "bata");
+        await SavedAsync(AuthIds.New(), "bata", community: "6716a0000000000000000c02");
+
+        Assert.Equal(0, await notifier.NotifyAsync(Product(), Ct));
+    }
+
+    [Fact]
+    public async Task WhoAlreadyGotTheRequestNotice_DoesNotGetItTwice()
+    {
+        var ana = AuthIds.New();
+        await WantedAsync(ana);
+        await SavedAsync(ana, "bata");
+        await SavedAsync(ana, "bata laboratorio");
+
+        var notified = await notifier.NotifyAsync(Product(), Ct);
+
+        Assert.Equal(1, notified);
+        Assert.Equal(NotificationTypes.ProductMatch, Assert.Single(center.Sent).Type);
+    }
+
+    [Fact]
+    public async Task TwoSavedSearchesOfTheSamePerson_GiveOneNotice()
+    {
+        var luis = AuthIds.New();
+        await SavedAsync(luis, "bata");
+        await SavedAsync(luis, "bata laboratorio");
+
+        Assert.Equal(1, await notifier.NotifyAsync(Product(), Ct));
     }
 }

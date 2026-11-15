@@ -1,5 +1,14 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-12 (SCRUM-51)
+
+- **Qué:** "Avísame cuando aparezca" (`POST/GET/DELETE /api/v1/saved-searches`, `savedSearches`, `db/025`) y "¡Ya apareció lo que buscabas!" (`saved_search_match`) desde la misma cola de HU-29.
+- **Decisiones de la usuaria (14-Nov-2026):** 30 días; "Mis alertas" en Ajustes; coincide como la búsqueda (todas las palabras y los filtros).
+- **Error a evitar:** las palabras de una publicación se parten también por guiones (`SearchWord.Words`: "TI-84" = "ti" + "84"); quitar el guion ("ti84") hacía que nunca coincidiera. `SavedSearchService.Terms` usa la misma partición.
+- **Error a evitar:** en un record, `[Required]` va en el parámetro, no con `[property: ...]`: ASP.NET lanza `InvalidOperationException` (500) al validar.
+- **Nota:** la búsqueda de HU-09 usa OR de palabras (con orden por relevancia); la alerta usa AND para no avisar de más.
+- **Versión:** `0.5.0-alpha.32`, esquema 25. **Verificación (14-Nov-2026):** build 0/0; Unit 723, Integration 187, Security 240 y Contract 25; `check_endpoints` OK (95); critic PASS.
+
 ## Trabajo en curso — HU-18 y HU-29 (SCRUM-40 y SCRUM-47)
 
 - **Qué:** `GET /api/v1/wanted/{id}/matches` ("Ya coinciden con lo que buscas": exactas con las reglas de HU-19 y luego parecidas, RF-24) y, al publicar, "Alguien publicó lo que buscas" (`product_match`, abre la publicación) a quien tenga una solicitud activa compatible. `matches` (RF-25) guarda cada coincidencia, a quién se avisó y si terminó en pedido (Orders la marca al crear el pedido).

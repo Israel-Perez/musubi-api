@@ -54,6 +54,10 @@ internal static class ListingsErrors
     public static readonly ApiError InvalidCursor = new(
         "listings.invalid_cursor", StatusCodes.Status400BadRequest, "No pudimos cargar más publicaciones. Actualiza la lista.");
 
+    /// <summary>Ya tiene el maximo de busquedas guardadas (HU-12).</summary>
+    public static readonly ApiError TooManySavedSearches = new(
+        "listings.too_many_saved_searches", StatusCodes.Status409Conflict, "Ya tienes 10 alertas. Quita una en Ajustes → Mis alertas para agregar otra.");
+
     /// <summary>Periodo inválido para el ranking popular (HU-49).</summary>
     public static readonly ApiError InvalidPopularPeriod = new(
         "listings.invalid_popular_period", StatusCodes.Status400BadRequest, "Elige Hoy o Semana.");
