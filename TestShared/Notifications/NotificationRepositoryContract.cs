@@ -10,7 +10,9 @@ namespace Musubi.TestShared.Notifications;
 /// </summary>
 public abstract class NotificationRepositoryContract
 {
-    private static readonly DateTime Now = new(2026, 11, 11, 18, 0, 0, DateTimeKind.Utc);
+    // Relativa a hoy: la coleccion tiene TTL y MongoDB borra lo que ya vencio en la fecha real (una fecha fija hace que
+    // la prueba falle sola con el tiempo).
+    private static readonly DateTime Now = DateTime.UtcNow.Date.AddHours(18);
 
     internal abstract INotificationRepository Notifications { get; }
 

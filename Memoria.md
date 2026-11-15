@@ -7,6 +7,7 @@
 - **Bug encontrado (en producción desde `alpha.27`):** el validador de `notifications` de `db/019` no admitía `wanted_match`, `offer_closed` ni los destinos `wanted_board` y `none`: MongoDB rechazaba los avisos de HU-19 y HU-30 y se perdían sin ruido (el centro de avisos nunca falla). Además `offer_closed` mandaba `target.id` vacío, que no se puede guardar como ObjectId (no es `MongoException`: podía tirar cerrar o cancelar una solicitud con ofertas pendientes). `db/024` corrige el validador y el aviso usa el id de la solicitud.
 - **Error a evitar:** un tipo o destino de aviso nuevo necesita su script. `EveryTypeAndTargetOfTheCode_CanBeStored` (contrato de avisos, corre en `DatabaseTest`) lee las constantes y falla si falta.
 - **Error a evitar:** `check_endpoints` solo lee los `*Controller.cs`: un controller dentro de otro archivo queda como "fila huérfana".
+- **Error a evitar (CI, 14-Nov-2026):** los contratos de colecciones con TTL usaban una fecha fija; cuando la fecha real la pasa, MongoDB borra los documentos "vencidos" a mitad de la prueba (el token de `Tokens_MoveToTheLastAccount_Expire_AndAreRemoved` vencía el 12-Nov). Avisos, acuerdos y coincidencias usan ahora `DateTime.UtcNow.Date.AddHours(18)`.
 - **Versión:** `0.5.0-alpha.31`, esquema 24.
 - **Verificación (14-Nov-2026, sobre `main` `b238375`):** build Release 0/0; Unit 697, Integration 186, Security 234 y Contract 24; `check_endpoints` OK (92); critic PASS.
 
