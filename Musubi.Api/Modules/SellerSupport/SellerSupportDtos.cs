@@ -50,6 +50,14 @@ public sealed record ProductDemandResponse(int People, int Alerts, IReadOnlyList
 /// <param name="ExpiresAt">Vencimiento (UTC).</param>
 public sealed record DemandRequestResponse(string Id, string Title, long BudgetCents, string RequesterName, DateTime ExpiresAt);
 
+/// <summary>
+/// "Ideas con IA" (HU-37, criterio del 13-Nov-2026): un nombre mas claro y una mejor descripcion. Solo una propuesta:
+/// quien vende decide si la usa al editar (RN-38).
+/// </summary>
+/// <param name="Title">Nombre propuesto (3 a 80 caracteres).</param>
+/// <param name="Description">Descripcion propuesta (hasta 500).</param>
+public sealed record ListingIdeasResponse(string Title, string Description);
+
 /// <summary>Tipos de sugerencia (HU-37).</summary>
 public static class SalesTipKinds
 {

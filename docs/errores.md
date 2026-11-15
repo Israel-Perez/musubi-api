@@ -36,7 +36,7 @@ Cada error es `application/problem+json` (RFC 9457):
 | `resource.conflict` | 409 | La información cambió o ya existe. Actualiza e inténtalo de nuevo. | Concurrencia optimista o duplicado genérico |
 | `request.too_large` | 413 | El archivo o los datos son demasiado grandes. | Cuerpo de más de 10 MB (Kestrel) |
 | `request.unprocessable` | 422 | No se pudo completar la operación. | Regla de negocio genérica |
-| `rate_limit.exceeded` | 429 | Demasiados intentos. Espera un momento e inténtalo de nuevo. | Rate limit (`/auth/*`, mensajes del chat y "Resumir acuerdo") |
+| `rate_limit.exceeded` | 429 | Demasiados intentos. Espera un momento e inténtalo de nuevo. | Rate limit (`/auth/*`, mensajes del chat, "Resumir acuerdo" e "Ideas con IA") |
 | `server.error` | 500 | Ocurrió un error inesperado. Inténtalo más tarde. | Excepción no controlada |
 | `server.unavailable` | 503 | El servicio no está disponible por ahora. Inténtalo en unos minutos. | Dependencia caída |
 
@@ -194,6 +194,12 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `notifications.invalid_category` | 400 | Elige una pestaña de avisos. | HU-31 |
 | `notifications.invalid_cursor` | 400 | No pudimos cargar más avisos. Vuelve a abrir la pantalla. | HU-31 |
 | `notifications.not_found` | 404 | No encontramos este aviso. | HU-31 (id que no es un id) |
+
+## M-12 · Apoyo a vendedores (`Modules/SellerSupport/SellerSupportErrors.cs`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `seller_support.ideas_unavailable` | 503 | La IA no está disponible ahora. Usa estas ideas o inténtalo más tarde. | HU-37 (RNF-15: sin proveedor, sin red, cuota excedida o respuesta fuera de las reglas; la app deja las ideas predefinidas) |
 
 ## M-10 · IA generativa (`Modules/GenAi/AgreementsErrors.cs`)
 

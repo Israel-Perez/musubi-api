@@ -100,4 +100,26 @@ public sealed class SellerSupportFlowTests(AuthApiFactory factory) : IClassFixtu
         Assert.Equal("listings.product_not_found", (await AuthFlow.JsonAsync(hers)).GetProperty("code").GetString());
         Assert.Empty(hersSlow.GetProperty("items").EnumerateArray());
     }
+
+    [Fact]
+    public async Task IdeasWithAi_ProposeANameAndDescription_ButChangeNothing()
+    {
+        var diego = await MemberAsync();
+        var luis = await MemberAsync();
+        var bata = await ListedAsync(diego.Id, 34, "bata de laboratorio, talla M");
+
+        var ideas = await diego.Client.PostAsync(new Uri($"/api/v1/products/{bata}/ideas", UriKind.Relative), null, Ct);
+        var his = await luis.Client.PostAsync(new Uri($"/api/v1/products/{bata}/ideas", UriKind.Relative), null, Ct);
+        var after = await AuthFlow.JsonAsync(await diego.Client.GetAsync(new Uri($"/api/v1/products/{bata}", UriKind.Relative), Ct));
+
+        Assert.Equal(HttpStatusCode.OK, ideas.StatusCode);
+        var body = await AuthFlow.JsonAsync(ideas);
+        // La IA de Development: mayuscula inicial y una descripcion con el estado.
+        Assert.Equal("Bata de laboratorio, talla M", body.GetProperty("title").GetString());
+        Assert.StartsWith("Bata de laboratorio, talla M, buen estado. Bata corta.", body.GetProperty("description").GetString(), StringComparison.Ordinal);
+        // RN-38: solo propone; la publicacion sigue igual hasta que quien vende la edite.
+        Assert.Equal(("bata de laboratorio, talla M", "Bata corta."), (after.GetProperty("title").GetString(), after.GetProperty("description").GetString()));
+        Assert.Equal(HttpStatusCode.NotFound, his.StatusCode);
+        Assert.Equal("listings.product_not_found", (await AuthFlow.JsonAsync(his)).GetProperty("code").GetString());
+    }
 }

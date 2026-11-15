@@ -4,7 +4,9 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.GenAi;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
@@ -43,4 +45,18 @@ public sealed class SellerSupportController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Demand(string id, CancellationToken cancellationToken) =>
         this.Respond(await support.DemandAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>"Ideas con IA": un nombre mas claro y una mejor descripcion para mi publicacion (HU-37). No guarda nada.</summary>
+    /// <param name="id">Mi publicacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La propuesta; sin IA, <c>seller_support.ideas_unavailable</c> (quedan las ideas predefinidas).</returns>
+    [HttpPost("{id}/ideas")]
+    [EnableRateLimiting(GenAiModuleServiceCollectionExtensions.SummaryRateLimit)]
+    [ProducesResponseType<ListingIdeasResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Ideas(string id, CancellationToken cancellationToken) =>
+        this.Respond(await support.IdeasAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 }

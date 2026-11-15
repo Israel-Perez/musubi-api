@@ -11,7 +11,8 @@ namespace SecurityTest.Auth;
 
 /// <summary>
 /// HU-36/37/38: "Llevan tiempo sin venderse" y "Quienes la buscan" exigen sesion y son solo de lo propio (RNF-03, OWASP
-/// API1): la demanda de una publicacion ajena responde como si no existiera, y lo ajeno nunca sale en mi lista.
+/// API1): la demanda y las ideas con IA de una publicacion ajena responden como si no existiera, y lo ajeno nunca sale
+/// en mi lista.
 /// </summary>
 public sealed class SellerSupportAuthTests(ProductionApiFactory production) : IClassFixture<ProductionApiFactory>
 {
@@ -79,6 +80,34 @@ public sealed class SellerSupportAuthTests(ProductionApiFactory production) : IC
         var response = await client.GetAsync(new Uri(path, UriKind.Relative), Ct);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task IdeasWithAi_WithoutSession_Is401()
+    {
+        using var client = production.CreateClient();
+
+        var response = await client.PostAsync(new Uri("/api/v1/products/6716a0000000000000000001/ideas", UriKind.Relative), null, Ct);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task IdeasWithAi_OfSomeoneElse_Are404_AndWithoutAKey_503()
+    {
+        var diego = await MemberAsync();
+        var bata = await OldListingAsync(diego);
+        using var owner = ClientFor(diego);
+        using var luis = ClientFor(await MemberAsync());
+
+        var theirs = await luis.PostAsync(new Uri($"/api/v1/products/{bata}/ideas", UriKind.Relative), null, Ct);
+        // Production sin llave de Gemini: nada sale del servidor y quedan las ideas predefinidas (RNF-15).
+        var mine = await owner.PostAsync(new Uri($"/api/v1/products/{bata}/ideas", UriKind.Relative), null, Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, theirs.StatusCode);
+        Assert.Equal("listings.product_not_found", (await JsonAsync(theirs)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, mine.StatusCode);
+        Assert.Equal("seller_support.ideas_unavailable", (await JsonAsync(mine)).GetProperty("code").GetString());
     }
 
     [Fact]
