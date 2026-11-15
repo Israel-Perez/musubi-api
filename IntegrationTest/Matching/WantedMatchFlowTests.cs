@@ -144,4 +144,50 @@ public sealed class WantedMatchFlowTests(AuthApiFactory factory) : IClassFixture
         Assert.Equal(second, match.GetProperty("target").GetProperty("id").GetString());
         Assert.Single(await NoticesAsync(diego, "matches"));
     }
+
+    [Fact]
+    public async Task MyRequest_ShowsWhatAlreadyMatches_ExactFirst_ThenSimilar_AndOnlyToMe()
+    {
+        // HU-18: "Ya coinciden con lo que buscas" (Necesidad-publicada).
+        var diego = await MemberAsync();
+        var ana = await MemberAsync();
+        var luis = await MemberAsync();
+        var exact = await PublishAsync(diego, "Calculadora Casio fx-991ES Plus", 45_000);
+        var similar = await PublishAsync(diego, "Calculadora científica Sharp", 30_000);
+        var own = await PublishAsync(ana, "Calculadora Casio fx-991ES Plus de Ana", 40_000);
+        var requestId = await WantAsync(ana, "Calculadora Casio fx-991ES Plus", 60_000);
+
+        var page = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri($"/api/v1/wanted/{requestId}/matches", UriKind.Relative), Ct));
+        var others = await luis.Client.GetAsync(new Uri($"/api/v1/wanted/{requestId}/matches", UriKind.Relative), Ct);
+
+        var items = page.GetProperty("items").EnumerateArray()
+            .Select(i => (Id: i.GetProperty("product").GetProperty("id").GetString(), Kind: i.GetProperty("kind").GetString()))
+            .ToList();
+        // Otras pruebas de esta clase tambien publican Casio: se revisa el tipo y que las exactas vayan primero.
+        Assert.Contains((exact, "exact"), items);
+        Assert.Contains((similar, "similar"), items);
+        Assert.True(items.FindLastIndex(i => i.Kind == "exact") < items.FindIndex(i => i.Kind == "similar"));
+        // RN-31: nunca lo propio.
+        Assert.DoesNotContain(items, i => i.Id == own);
+        Assert.Equal(items.Count(i => i.Kind == "exact"), page.GetProperty("exact").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound, others.StatusCode);
+        Assert.Equal("wanted.not_found", (await AuthFlow.JsonAsync(others)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task ACompatibleListing_TellsWhoLooksForIt_AndOpensTheListing()
+    {
+        // HU-29: "Alguien publicó lo que buscas".
+        var ana = await MemberAsync();
+        var diego = await MemberAsync();
+        await WantAsync(ana, "Calculadora graficadora TI-84", 170_000);
+
+        var productId = await PublishAsync(diego, "Calculadora graficadora TI-84 Plus", 165_000);
+        var notice = await NoticeAsync(ana, "matches", "product_match");
+
+        Assert.Equal("Alguien publicó lo que buscas", notice.GetProperty("title").GetString());
+        Assert.Equal(("product", productId), (notice.GetProperty("target").GetProperty("type").GetString(), notice.GetProperty("target").GetProperty("id").GetString()));
+        // RN-31: quien vende no recibe aviso de su propia publicacion.
+        Assert.DoesNotContain(await NoticesAsync(diego, "matches"), n => n.GetProperty("type").GetString() == "product_match");
+    }
 }

@@ -18,6 +18,8 @@ using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
 using UnitTest.Common;
+using Musubi.Api.Modules.Matching;
+using Musubi.Api.Modules.Matching.Data;
 
 namespace UnitTest.Orders;
 
@@ -44,6 +46,7 @@ public sealed class OrderServiceTests
     private readonly InMemoryBlockRepository blocks = new();
     private readonly InMemoryProfileRepository profiles = new();
     private readonly InMemoryOrderRepository orders = new();
+    private readonly InMemoryMatchRepository matches = new();
     private readonly InMemoryAgreementRepository agreements = new();
     private readonly RecordingHub hub = new();
     private readonly ManualTimeProvider time = new(Now);
@@ -67,6 +70,7 @@ public sealed class OrderServiceTests
                 new ConversationNotices(conversations, new InMemoryMessageRepository(), new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance), center, time),
                 time),
             center,
+            new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance),
             time);
     }
 
@@ -217,6 +221,19 @@ public sealed class OrderServiceTests
         Assert.Equal([OrderStatuses.Pending], stored!.History.Select(h => h.Status));
         // RF-34: crear el pedido no aparta piezas; eso pasa al aceptarlo (HU-24).
         Assert.Equal(3, (await products.FindByIdAsync(product, Ct))!.Stock);
+    }
+
+    [Fact]
+    public async Task Create_FromAListingThatMatchedMyRequest_MarksTheMatchAsOrdered()
+    {
+        // RF-25: la coincidencia (HU-18/HU-19/HU-29) termino en pedido.
+        var (ana, diego, product, conversation) = await ChatAsync();
+        var request = AuthIds.New();
+        await matches.RecordAsync(new MatchRecord(Uttt, request, product, ana, diego, NotifiedRequester: true, NotifiedSeller: false), Now.UtcDateTime, Now.UtcDateTime.AddDays(90), Ct);
+
+        await service.CreateAsync(ana, Body(conversation), Ct);
+
+        Assert.Equal(Now.UtcDateTime, Assert.Single(await matches.FindByRequestAsync(request, Ct)).OrderedAt);
     }
 
     [Fact]

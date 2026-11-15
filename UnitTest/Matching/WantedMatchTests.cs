@@ -9,6 +9,7 @@ using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Modules.Reputation.Data;
 using Musubi.TestShared;
 using UnitTest.Common;
+using Musubi.Api.Modules.Matching.Data;
 
 namespace UnitTest.Matching;
 
@@ -28,13 +29,14 @@ public sealed class WantedMatchTests
     private readonly InMemoryProductRepository products = new();
     private readonly InMemoryBlockRepository blocks = new();
     private readonly RecordingNotificationCenter center = new();
+    private readonly InMemoryMatchRepository matches = new();
     private readonly ManualTimeProvider time = new(Now);
     private readonly WantedMatchNotifier notifier;
     private readonly string ana = AuthIds.New();
 
     public WantedMatchTests()
     {
-        notifier = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), center, time);
+        notifier = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), center, new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance), time);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -97,6 +99,20 @@ public sealed class WantedMatchTests
                 NotificationCategories.Matches,
                 $"wanted_match:{request.RequestId}"),
             Assert.Single(center.Sent));
+    }
+
+    [Fact]
+    public async Task EachMatch_IsRecorded_WithWhetherTheSellerWasTold()
+    {
+        // RF-25: la coincidencia queda registrada, con el aviso a quien vende.
+        var diego = AuthIds.New();
+        var product = await ProductAsync(diego);
+        var request = Request();
+
+        await notifier.NotifyAsync(request, Ct);
+
+        var match = Assert.Single(await matches.FindByRequestAsync(request.RequestId, Ct));
+        Assert.Equal((product, ana, diego, true, false), (match.ProductId, match.RequesterId, match.SellerId, match.NotifiedSeller, match.NotifiedRequester));
     }
 
     [Theory]
@@ -190,7 +206,7 @@ public sealed class WantedMatchTests
         // Jueves 12 a las 23:30 en el campus (05:30 UTC del viernes 13): cuentan para el jueves.
         var clock = new ManualTimeProvider(new DateTimeOffset(2026, 11, 13, 5, 30, 0, TimeSpan.Zero));
         var real = new NotificationCenter(new InMemoryNotificationRepository(), new PushQueue(), clock, NullLogger<NotificationCenter>.Instance);
-        var daily = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, clock);
+        var daily = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, new MatchLedger(matches, clock, NullLogger<MatchLedger>.Instance), clock);
         await ProductAsync(AuthIds.New());
         for (var i = 0; i < 3; i++)
         {
@@ -209,7 +225,7 @@ public sealed class WantedMatchTests
     {
         var notifications = new InMemoryNotificationRepository();
         var real = new NotificationCenter(notifications, new PushQueue(), time, NullLogger<NotificationCenter>.Instance);
-        var once = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, time);
+        var once = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance), time);
         var diego = AuthIds.New();
         await ProductAsync(diego);
         var request = Request();

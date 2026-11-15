@@ -638,8 +638,9 @@ public sealed class WantedServiceTests
                 NotificationTypes.OfferClosed,
                 "Esta solicitud ya no está activa",
                 "Ana ya consiguió Calculadora Casio fx-991ES Plus. Gracias por ofrecer.",
+                // "none" no abre nada; el id es el de la solicitud porque MongoDB lo guarda como ObjectId.
                 NotificationTargets.None,
-                string.Empty,
+                created.Id,
                 NotificationCategories.Requests,
                 $"offer_closed:{pending.Id}"),
             notice);

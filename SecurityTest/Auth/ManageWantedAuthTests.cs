@@ -154,4 +154,20 @@ public sealed class ManageWantedAuthTests(ProductionApiFactory production) : ICl
         Assert.Single(limit);
         Assert.Equal(16 * 1024, Musubi.Api.Modules.PurchaseRequests.WantedController.MaxEditBytes);
     }
+
+    // HU-18: "Ya coinciden con lo que buscas" es una lectura, solo para quien publico la solicitud.
+    [Fact]
+    public async Task Matches_WithoutSession_Is401_AndOfSomeoneElse_Is404()
+    {
+        var wanted = await RequestOfAsync(await MemberAsync());
+        using var anonymous = production.CreateClient();
+        using var outsider = ClientFor(await MemberAsync());
+        var path = new Uri($"/api/v1/wanted/{wanted.Id}/matches", UriKind.Relative);
+
+        var withoutSession = await anonymous.GetAsync(path, Ct);
+        var ofSomeoneElse = await outsider.GetAsync(path, Ct);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, withoutSession.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, ofSomeoneElse.StatusCode);
+    }
 }

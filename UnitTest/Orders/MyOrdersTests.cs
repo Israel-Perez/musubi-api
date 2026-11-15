@@ -18,6 +18,8 @@ using Musubi.Api.Modules.Reputation.Data;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
 using UnitTest.Common;
+using Musubi.Api.Modules.Matching;
+using Musubi.Api.Modules.Matching.Data;
 
 namespace UnitTest.Orders;
 
@@ -27,6 +29,7 @@ public sealed class MyOrdersTests
     private static readonly DateTime Now = new(2026, 11, 12, 18, 0, 0, DateTimeKind.Utc);
 
     private readonly InMemoryOrderRepository orders = new();
+    private readonly InMemoryMatchRepository matches = new();
     private readonly OrderService service;
 
     public MyOrdersTests()
@@ -54,6 +57,7 @@ public sealed class MyOrdersTests
                     time),
                 time),
             center,
+            new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance),
             time);
     }
 

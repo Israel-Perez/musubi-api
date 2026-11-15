@@ -51,6 +51,7 @@ internal sealed partial class ListingService(
     IOutputCacheStore outputCache,
     IOptions<CatalogOptions> catalog,
     IOpenOrders orders,
+    IProductPublications publications,
     TimeProvider time)
 {
     /// <summary>Fotos por publicacion (maqueta: "Puedes subir hasta 8").</summary>
@@ -164,7 +165,15 @@ internal sealed partial class ListingService(
         await products.InsertAsync(product, cancellationToken).ConfigureAwait(false);
         // La vitrina del visitante (cache de salida, 02-02) la muestra en la siguiente consulta.
         await outputCache.EvictByTagAsync(CachingServiceCollectionExtensions.ShowcaseTag, cancellationToken).ConfigureAwait(false);
-        // NOTE (HU-18): avisar en segundo plano a las solicitudes "Se busca" que coincidan (RF-23, RNF-11).
+        // HU-29: "Alguien publicó lo que buscas" a las solicitudes que coincidan, en segundo plano (RNF-11).
+        publications.Published(new ProductPublished(
+            product.Id,
+            product.CommunityId,
+            product.SellerId,
+            product.Title,
+            product.CategorySlug,
+            product.PriceCents,
+            product.SearchWords));
         return Result<ProductResponse>.Ok(ToResponse(product, includeSeller: true));
     }
 

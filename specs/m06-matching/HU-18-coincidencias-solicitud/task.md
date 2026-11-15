@@ -1,17 +1,23 @@
 # HU-18 — Ver coincidencias al publicar una solicitud (tareas)
 
-## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+## T1 — Spec
+- **Estado:** ✅ Hecho (14-Nov-2026).
 
-## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+## T2 — Registro (RF-25)
+- **Prueba:** `TestShared/Matching/MatchRepositoryContract.cs` (`UnitTest/Data/InMemoryMatchRepositoryTests.cs`, `DatabaseTest/MongoMatchRepositoryTests.cs`).
+- **Estado:** ✅ Hecho.
 
-## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+## T3 — Coincidencias
+- **Prueba:** `UnitTest/Matching/WantedMatchesTests.cs`, `IntegrationTest/Matching/WantedMatchFlowTests.cs`, `SecurityTest/Auth/ManageWantedAuthTests.cs`, `ContractTest/WantedContractTests.cs`.
+- **Estado:** ✅ Hecho.
 
-## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
+## T4 — Terminó en pedido
+- **Prueba:** `UnitTest/Orders/OrderServiceTests.cs` → `Create_FromAListingThatMatchedMyRequest_MarksTheMatchAsOrdered`.
+- **Estado:** ✅ Hecho.
+
+## T5 — Pruebas y documentos
+- **Estado:** ✅ Hecho: Unit 697 · Integration 186 · Security 234 · Contract 24 · `check_endpoints` OK (92) · critic PASS.
+
+## T6 — Prueba en el celular
+- **Qué:** con la API `0.5.0-alpha.31` desplegada, publicar una solicitud y ver "Ya coinciden con lo que buscas".
 - **Estado:** ⏳ Por hacer.

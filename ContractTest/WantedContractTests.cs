@@ -11,7 +11,7 @@ using Musubi.TestShared;
 namespace ContractTest;
 
 /// <summary>
-/// HU-13, HU-14 y HU-15: forma JSON de /api/v1/wanted (publicar, editar, cerrar, "Mis solicitudes" y el tablero) que consume musubi-app. Cambiar el fixture = cambio de contrato:
+/// HU-13, HU-14, HU-15 y HU-18: forma JSON de /api/v1/wanted (publicar, editar, cerrar, "Mis solicitudes", el tablero y las coincidencias) que consume musubi-app. Cambiar el fixture = cambio de contrato:
 /// actualizar docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
@@ -82,8 +82,13 @@ public sealed class WantedContractTests(ContractApiFactory factory) : IClassFixt
         var fixture = await FixtureAsync("wanted.json");
 
         Assert.Equal(HttpStatusCode.Created, published.StatusCode);
-        Assert.Equal(Shape(fixture), Shape(await BodyAsync(published)));
+        var created = await BodyAsync(published);
+        Assert.Equal(Shape(fixture), Shape(created));
         Assert.Equal(Shape(fixture), Shape(mine.GetProperty("items")[0]));
+
+        // HU-18: "Ya coinciden con lo que buscas".
+        var matches = await BodyAsync(await ana.GetAsync(new Uri($"/api/v1/wanted/{created.GetProperty("id").GetString()}/matches", UriKind.Relative), Ct));
+        Assert.Equal(Shape(await FixtureAsync("wanted-match-page.json")), Shape(matches));
     }
 
     [Fact]

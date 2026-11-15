@@ -10,7 +10,9 @@ namespace Musubi.TestShared.Notifications;
 /// </summary>
 public abstract class NotificationRepositoryContract
 {
-    private static readonly DateTime Now = new(2026, 11, 11, 18, 0, 0, DateTimeKind.Utc);
+    // Relativa a hoy: la coleccion tiene TTL y MongoDB borra lo que ya vencio en la fecha real (una fecha fija hace que
+    // la prueba falle sola con el tiempo).
+    private static readonly DateTime Now = DateTime.UtcNow.Date.AddHours(18);
 
     internal abstract INotificationRepository Notifications { get; }
 
@@ -18,15 +20,21 @@ public abstract class NotificationRepositoryContract
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static NotificationDocument Notice(string userId, string category = NotificationCategories.Orders, string? dedupe = null, int minutes = 0) => new()
+    private static NotificationDocument Notice(
+        string userId,
+        string category = NotificationCategories.Orders,
+        string? dedupe = null,
+        int minutes = 0,
+        string? type = null,
+        string target = NotificationTargets.Order) => new()
     {
         Id = AuthIds.New(),
         UserId = userId,
-        Type = category == NotificationCategories.Orders ? NotificationTypes.OrderCreated : NotificationTypes.OfferReceived,
+        Type = type ?? (category == NotificationCategories.Orders ? NotificationTypes.OrderCreated : NotificationTypes.OfferReceived),
         Category = category,
         Title = "Tienes un pedido nuevo",
         Body = "Ana pidió 1 × Calculadora.",
-        Target = new NotificationTarget { Type = NotificationTargets.Order, Id = AuthIds.New() },
+        Target = new NotificationTarget { Type = target, Id = AuthIds.New() },
         DedupeKey = dedupe,
         CreatedAt = Now.AddMinutes(minutes),
         ExpiresAt = Now.AddDays(60),
@@ -52,6 +60,37 @@ public abstract class NotificationRepositoryContract
         Assert.Equal([third.Id, first.Id], orders.Select(n => n.Id));
         Assert.Equal([second.Id, first.Id], older.Select(n => n.Id));
         Assert.Equal(NotificationTargets.Order, all[0].Target.Type);
+    }
+
+    // Los tipos que quedan en el historial (los de "message" solo van por push, sin categoria).
+    private static IEnumerable<string> StoredTypes() =>
+        typeof(NotificationTypes).GetFields()
+            .Select(field => (string)field.GetRawConstantValue()!)
+            .Where(type => type != NotificationTypes.Message);
+
+    private static IEnumerable<string> Targets() =>
+        typeof(NotificationTargets).GetFields().Select(field => (string)field.GetRawConstantValue()!);
+
+    [Fact]
+    public async Task EveryTypeAndTargetOfTheCode_CanBeStored()
+    {
+        // db/019 no conocia wanted_match, offer_closed ni sus destinos y MongoDB los rechazaba (db/024 lo corrige).
+        var ana = AuthIds.New();
+
+        var types = new List<(string Type, bool Saved)>();
+        foreach (var type in StoredTypes())
+        {
+            types.Add((type, await Notifications.TryInsertAsync(Notice(ana, NotificationCategories.Matches, type: type), Ct)));
+        }
+
+        var targets = new List<(string Target, bool Saved)>();
+        foreach (var target in Targets())
+        {
+            targets.Add((target, await Notifications.TryInsertAsync(Notice(ana, target: target), Ct)));
+        }
+
+        Assert.All(types, t => Assert.True(t.Saved, t.Type));
+        Assert.All(targets, t => Assert.True(t.Saved, t.Target));
     }
 
     [Fact]
