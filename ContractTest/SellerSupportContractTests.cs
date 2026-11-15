@@ -14,7 +14,7 @@ namespace ContractTest;
 
 /// <summary>
 /// HU-36/37/38: forma JSON de "Llevan tiempo sin venderse" (<c>GET /products/mine/slow</c>) y "Quienes la buscan"
-/// (<c>GET /products/{id}/demand</c>) que consume musubi-app. Cambiar el fixture = cambio de contrato: actualizar
+/// (<c>GET /products/{id}/demand</c>) y las ideas con IA (<c>POST /products/{id}/ideas</c>) que consume musubi-app. Cambiar el fixture = cambio de contrato: actualizar
 /// docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class SellerSupportContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
@@ -101,8 +101,11 @@ public sealed class SellerSupportContractTests(ContractApiFactory factory) : ICl
             Assert.Equal(Shape(slowFixture), Shape(slow));
             Assert.Equal(Shape(slowFixture.GetProperty("items")[0]), Shape(slow.GetProperty("items")[0]));
             Assert.Equal(Shape(slowFixture.GetProperty("items")[0].GetProperty("tips")[0]), Shape(slow.GetProperty("items")[0].GetProperty("tips")[0]));
+            var ideas = await BodyAsync(await diego.PostAsync(new Uri($"/api/v1/products/{bata.Id}/ideas", UriKind.Relative), null, Ct));
+
             Assert.Equal(Shape(demandFixture), Shape(demand));
             Assert.Equal(Shape(demandFixture.GetProperty("requests")[0]), Shape(demand.GetProperty("requests")[0]));
+            Assert.Equal(Shape(await FixtureAsync("listing-ideas.json")), Shape(ideas));
         }
     }
 }
