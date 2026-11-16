@@ -1,5 +1,10 @@
 # Memoria del proyecto — musubi-api
 
+## HU-44 (SCRUM-56): coordinar la entrega, conciliada (16-Nov-2026)
+
+- Se cumple con HU-23 (punto de la lista del campus, día y hora al crear el pedido), HU-24 y HU-52 (apartar con hora y punto); la spec cita sus pruebas. Sin código nuevo.
+- Decisión (propuesta de Jira): la lista de puntos la administrará HU-41; hoy la siembra db/014.
+
 ## Trabajo en curso — HU-51 (SCRUM-70): comparar opciones y "Avísame"
 
 - **Qué:**
