@@ -33,6 +33,11 @@ internal static class MatchingModuleServiceCollectionExtensions
         // HU-38: la demanda de una publicacion para M-12, con las mismas reglas de los avisos.
         services.AddSingleton<IProductDemand, ProductDemandService>();
         services.AddHostedService<ProductMatchWorker>();
+        // HU-51: "Avísame" de una agotada; Listings encola cada reposicion.
+        services.AddSingleton<BackInStockQueue>();
+        services.AddSingleton<IProductRestocks>(provider => provider.GetRequiredService<BackInStockQueue>());
+        services.AddSingleton<BackInStockNotifier>();
+        services.AddHostedService<BackInStockWorker>();
         services.AddSingleton<WantedMatchQueue>();
         services.AddSingleton<IWantedMatching>(provider => provider.GetRequiredService<WantedMatchQueue>());
         services.AddSingleton<WantedMatchNotifier>();

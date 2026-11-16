@@ -32,6 +32,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `026-apoyo-vendedores.js` | `ix_status_created` en `products` (HU-36: el aviso de las 3 semanas) y `slow_listing` / `my_products` en el validador de `notifications` | 26 |
 | `027-pagos.js` | `payoutAccounts` (HU-55: la cuenta para recibir pagos con la CLABE cifrada), `orders.payment` con la transferencia y el código de entrega, `ix_transfer_reported` y `transfer_reported` / `transfer_not_received` / `transfer_reminder` en el validador de `notifications` | 27 |
 | `028-apartados.js` | `reservations` (HU-52: apartar 24 h, uno activo por persona con `ux_buyer_active`, `ix_status_expires` para el vencimiento) y `reservation_created` / `reservation_cancelled` / `reservation_expired` / destino `reservation` en el validador de `notifications` | 28 |
+| `029-avisos-disponibilidad.js` | `stockAlerts` (HU-51: "Avísame" en una agotada, uno por persona y publicación con `ux_user_product`, TTL de 90 días) y `back_in_stock` en el validador de `notifications` | 29 |
 
 ## Aplicar
 

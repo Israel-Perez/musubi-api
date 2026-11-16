@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "product": {
+        "id": "6716a0000000000000000098",
+        "title": "Casio fx-991ES Plus con tapa",
+        "description": "Incluye pilas nuevas.",
+        "category": "calculadoras",
+        "priceCents": 42000,
+        "condition": "used",
+        "conditionDetail": "good",
+        "stock": 1,
+        "status": "active",
+        "photos": ["/media/products/6716a0000000000000000002/0123456789abcdef0123456789abcdef.webp"],
+        "seller": { "name": "Luis M." },
+        "publishedAt": "2026-11-14T12:00:00Z",
+        "soldAt": null
+      },
+      "seller": {
+        "id": "6716a0000000000000000002",
+        "name": "Luis M.",
+        "ratingAvg": 4.8,
+        "ratingCount": 12,
+        "sales": 9
+      },
+      "sameModel": true
+    }
+  ]
+}

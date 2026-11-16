@@ -28,6 +28,7 @@ internal sealed class MyListingsService(
     IEnumerable<IListingPhotoReferences> photoReferences,
     IOpenOrders openOrders,
     IProductPublications publications,
+    IProductRestocks restocks,
     TimeProvider time)
 {
     /// <summary>Cambia los datos de una publicacion (maqueta <c>Vender-2…4</c>, "Editar publicacion").</summary>
@@ -109,6 +110,12 @@ internal sealed class MyListingsService(
         }
 
         await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
+        // HU-51: reactivar una que tiene piezas avisa a quien pidio "Avísame".
+        if (changed.Status == ProductStatuses.Active)
+        {
+            restocks.Restocked(changed.Id);
+        }
+
         return Result<ProductResponse>.Ok(ListingService.ToResponse(changed, includeSeller: true));
     }
 
@@ -143,6 +150,12 @@ internal sealed class MyListingsService(
         }
 
         await EvictShowcaseAsync(cancellationToken).ConfigureAwait(false);
+        // HU-51: "Reponer" una agotada avisa a quien pidio "Avísame".
+        if (changed.Status == ProductStatuses.Active)
+        {
+            restocks.Restocked(changed.Id);
+        }
+
         return Result<ProductResponse>.Ok(ListingService.ToResponse(changed, includeSeller: true));
     }
 

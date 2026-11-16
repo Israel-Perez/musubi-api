@@ -58,6 +58,18 @@ internal static class ListingsErrors
     public static readonly ApiError TooManySavedSearches = new(
         "listings.too_many_saved_searches", StatusCodes.Status409Conflict, "Ya tienes 10 alertas. Quita una en Ajustes → Mis alertas para agregar otra.");
 
+    /// <summary>"Avísame" en una publicacion que todavia tiene piezas (HU-51).</summary>
+    public static readonly ApiError ProductAvailable = new(
+        "listings.product_available", StatusCodes.Status409Conflict, "Esta publicación ya está disponible.");
+
+    /// <summary>"Avísame" en una publicacion propia (HU-51).</summary>
+    public static readonly ApiError OwnProduct = new(
+        "listings.own_product", StatusCodes.Status409Conflict, "Es tu publicación: repón sus piezas en Mis productos.");
+
+    /// <summary>Ya tiene el maximo de avisos de disponibilidad (HU-51).</summary>
+    public static readonly ApiError TooManyStockAlerts = new(
+        "listings.too_many_stock_alerts", StatusCodes.Status409Conflict, "Ya tienes 20 avisos. Quita uno desde su publicación para pedir otro.");
+
     /// <summary>Periodo inválido para el ranking popular (HU-49).</summary>
     public static readonly ApiError InvalidPopularPeriod = new(
         "listings.invalid_popular_period", StatusCodes.Status400BadRequest, "Elige Hoy o Semana.");

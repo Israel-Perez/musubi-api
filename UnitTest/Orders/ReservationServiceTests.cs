@@ -38,6 +38,7 @@ public sealed class ReservationServiceTests
     private readonly InMemoryProfileRepository profiles = new();
     private readonly RecordingNotificationCenter center = new();
     private readonly ManualTimeProvider time = new(Now);
+    private readonly RecordingRestocks restocks = new();
     private readonly ProductStock stock;
     private readonly ReservationService service;
     private readonly ReservationExpiryJob expiry;
@@ -45,7 +46,7 @@ public sealed class ReservationServiceTests
     public ReservationServiceTests()
     {
         var members = new MemberDirectory(new InMemoryCommunityRepository(), users);
-        stock = new ProductStock(products, new RecordingOutputCacheStore(), time);
+        stock = new ProductStock(products, new RecordingOutputCacheStore(), restocks, time);
         var lifecycle = new OrderLifecycleService(
             orders,
             stock,
@@ -252,6 +253,8 @@ public sealed class ReservationServiceTests
         Assert.Equal(1, (await products.FindByIdAsync(product, Ct))!.Stock);
         Assert.Equal((valeria, NotificationTypes.ReservationCancelled), (center.Sent[^1].UserId, center.Sent[^1].Type));
         Assert.Equal(ReservationsErrors.NotActive, (await service.CancelAsync(valeria, reserved.Id, Ct)).Error);
+        // HU-51: la pieza que regresa revisa "Avísame".
+        Assert.Equal([product], restocks.Products);
     }
 
     [Fact]
@@ -268,6 +271,7 @@ public sealed class ReservationServiceTests
         Assert.Equal(
             [(luis, NotificationTypes.ReservationExpired), (valeria, NotificationTypes.ReservationExpired)],
             center.Sent.TakeLast(2).Select(n => (n.UserId, n.Type)));
+        Assert.Equal([product], restocks.Products);
     }
 
     [Fact]

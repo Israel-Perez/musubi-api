@@ -34,8 +34,11 @@ internal interface IProductStock
     Task<bool> MarkSoldIfEmptyAsync(string productId, CancellationToken cancellationToken);
 }
 
-/// <summary>Implementacion sobre el repositorio de M-03; cada cambio refresca la vitrina del visitante (02-02).</summary>
-internal sealed class ProductStock(IProductRepository products, IOutputCacheStore outputCache, TimeProvider time) : IProductStock
+/// <summary>
+/// Implementacion sobre el repositorio de M-03; cada cambio refresca la vitrina del visitante (02-02). Regresar piezas
+/// encola la revision de "Avísame" (HU-51).
+/// </summary>
+internal sealed class ProductStock(IProductRepository products, IOutputCacheStore outputCache, IProductRestocks restocks, TimeProvider time) : IProductStock
 {
     /// <inheritdoc />
     public async Task<bool> TryReserveAsync(string productId, int quantity, CancellationToken cancellationToken)
@@ -55,6 +58,7 @@ internal sealed class ProductStock(IProductRepository products, IOutputCacheStor
         if (await products.ReleaseStockAsync(productId, quantity, time.GetUtcNow().UtcDateTime, cancellationToken).ConfigureAwait(false))
         {
             await EvictAsync(cancellationToken).ConfigureAwait(false);
+            restocks.Restocked(productId);
         }
     }
 
