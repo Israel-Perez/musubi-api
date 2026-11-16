@@ -47,8 +47,8 @@ Jira (SCRUM-62): Como **administrador**, quiero **revisar los reportes**, para *
 - [x] Puede retirar el contenido reportado o descartar el reporte: el mismo y `Dismiss_ClosesTheReport_AndTheContentStays`.
 - [x] Solo el administrador modera (RNF-03): `AdminAuthTests` (401, 403 con estudiante, con el rol solo en el token y suspendido).
 - [x] Sus acciones quedan registradas (RNF-04): `report_upheld` y `product_removed` en el historial; `ModerationLogRepositoryContract`.
-- [x] Build Release 0/0; Unit 848, Integration 199, Security 288 y Contract 29 en verde; `check_endpoints` OK (122); critic PASS.
-- [x] `db/030` contra MongoDB 8.0 real: los 29 scripts dos veces sin error y `DatabaseTest` 184/184 (16-Nov-2026, con un MongoDB local en lugar del contenedor; en el CI corre con Testcontainers).
+- [x] Build Release 0/0; Unit 877, Integration 202, Security 295 y Contract 30 en verde; `check_endpoints` OK (122); critic PASS.
+- [x] `db/030` contra MongoDB 8.0 real: los 30 scripts dos veces sin error y `DatabaseTest` 190/190 (16-Nov-2026, con un MongoDB local en lugar del contenedor; en el CI corre con Testcontainers).
 
 ## Límites
 - La bandeja trae los 50 más recientes, sin paginar: suficiente para el piloto de un campus.

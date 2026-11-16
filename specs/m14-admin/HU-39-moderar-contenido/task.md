@@ -8,7 +8,7 @@
 - **Qué:**
   - `db/030-moderacion.js` (revisión en `reports`, `moderationLog`, avisos).
   - Repositorios `Mongo*`/`InMemory*` con sus baterías: `ReputationRepositoryContract`, `ListingRepositoryContract` y `ModerationLogRepositoryContract`.
-- **Estado:** ✅ Hecho. `DatabaseTest` 184/184 contra MongoDB 8.0 local; en el CI corre con Testcontainers.
+- **Estado:** ✅ Hecho. `DatabaseTest` 190/190 contra MongoDB 8.0 local; en el CI corre con Testcontainers.
 
 ## T3 — Servicio y endpoints
 - **Qué:** `ModerationService`, `AdminReportsController`, `AdminErrors`, los contratos `IReportInbox` e `IProductModeration`, `Admin:Emails` y `user.roles`.

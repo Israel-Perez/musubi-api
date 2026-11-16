@@ -32,8 +32,8 @@ Ninguna.
 - No se puede suspender la cuenta propia ni la de otro administrador.
 
 ## 5. Validación
-- Suites: Unit 848, Integration 199, Security 288 y Contract 29. `check_endpoints` 122. Critic PASS.
-- MongoDB 8.0 real: los 29 scripts dos veces, el validador acepta la revisión y la bitácora y rechaza los estados que no existen; `DatabaseTest` 184/184.
+- Suites: Unit 877, Integration 202, Security 295 y Contract 30. `check_endpoints` 122. Critic PASS.
+- MongoDB 8.0 real: los 30 scripts dos veces, el validador acepta la revisión y la bitácora y rechaza los estados que no existen; `DatabaseTest` 190/190.
 
 ## 6. Secuencia
 1. Contratos de M-13, M-03 y M-01, con sus repositorios y baterías de `TestShared/`.

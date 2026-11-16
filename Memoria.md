@@ -18,9 +18,9 @@
 - **Versión:** `0.5.0-alpha.38`, esquema 30 (`db/030-moderacion.js`: revisión en `reports`, `moderationLog` y dos tipos en el validador de `notifications`, a partir del de `029` de HU-51). Al traer `main` se renumeró de `alpha.37`/`db/029`, que tomó HU-51 (#106).
 - **Error a evitar:** un tipo de aviso nuevo, aunque sea solo push, tiene que entrar al validador de `notifications`. `MongoNotificationRepositoryTests.EveryTypeAndTargetOfTheCode_CanBeStored` recorre todas las constantes. Solo se vio con `DatabaseTest` contra MongoDB real.
 - **Error a evitar:** en Windows, `open(..., 'w')` de Python escribe CRLF. Git lo normaliza (`.gitattributes`), pero para editar docs usa `newline=''`.
-- **Verificación (16-Nov-2026, sobre `main` `45b7266`):**
-  - Build Release 0/0. Unit 848, Integration 199, Security 288 y Contract 29. `check_endpoints` OK (122), critic PASS y `check_shared_sections` OK.
-  - Sin Docker local: los 29 scripts se aplicaron dos veces en un MongoDB 8.0 local y `DatabaseTest` corrió 184/184 contra él, con un cambio temporal en la fixture que se revirtió. En el CI corre con Testcontainers.
+- **Verificación (16-Nov-2026, sobre `main` `49abf52`, ya con HU-51):**
+  - Build Release 0/0. Unit 877, Integration 202, Security 295 y Contract 30. `check_endpoints` OK (122), critic PASS y `check_shared_sections` OK.
+  - Sin Docker local: los 30 scripts se aplicaron dos veces en un MongoDB 8.0 local y `DatabaseTest` corrió 190/190 contra él, con un cambio temporal en la fixture que se revirtió. En el CI corre con Testcontainers.
   - Semgrep no está instalado en local: lo corre el CI.
 - **Pendiente:** crear `/musubi/prod/Admin/Emails/0` en Parameter Store y desplegar.
 

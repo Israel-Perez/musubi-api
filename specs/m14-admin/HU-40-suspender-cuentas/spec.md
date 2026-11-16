@@ -42,7 +42,7 @@ Jira (SCRUM-63): Como **administrador**, quiero **suspender cuentas que incumpla
 - [x] El administrador puede suspender y reactivar cuentas: `ModerationFlowTests.ThreeUpheldReports_SuggestSuspending_AndSuspensionClosesSessionsAndPausesListings`.
 - [x] Una cuenta con 3 reportes procedentes puede ser suspendida (RN-27, `suspensionSuggested`): el mismo.
 - [x] Las suspensiones quedan registradas (RNF-04): `account_suspended` y `account_reactivated` en el historial, con quién y el motivo.
-- [x] Build Release 0/0; Unit 848, Integration 199, Security 288 y Contract 29 en verde; `check_endpoints` OK (122); critic PASS.
+- [x] Build Release 0/0; Unit 877, Integration 202, Security 295 y Contract 30 en verde; `check_endpoints` OK (122); critic PASS.
 
 ## Límites
 - La suspensión no tiene fecha de fin: dura hasta que un administrador la reactiva.
