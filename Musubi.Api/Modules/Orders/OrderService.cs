@@ -475,7 +475,10 @@ internal sealed class OrderService(
     internal static bool IsValidDeliveryTime(DateTime at, DateTime now) =>
         at >= now + MinLead && at <= now + MaxLead && IsCampusHour(at);
 
-    private static bool IsCampusHour(DateTime utc)
+    /// <summary>Si una hora cae entre las 7:00 y las 21:00 del campus (tambien el apartado, HU-52).</summary>
+    /// <param name="utc">Fecha y hora (UTC).</param>
+    /// <returns><c>true</c> si cae.</returns>
+    internal static bool IsCampusHour(DateTime utc)
     {
         var local = TimeOnly.FromDateTime(utc + CampusOffset);
         return local >= FirstHour && local <= LastHour;

@@ -1,5 +1,17 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-52 (SCRUM-74): apartar un producto 24 h
+
+- **Qué:**
+  - `/api/v1/reservations`: apartar, mis apartados, ver, cancelar, verificar el QR o el código y confirmar la entrega.
+  - Apartar resta una pieza y abre la conversación de los dos. El código de 6 dígitos solo lo ve quien aparta; el QR es `musubi:apartado:{id}:{code}`.
+  - Verificar tiene 5 intentos atómicos. "Confirmar entrega" crea un **pedido completado**, con los efectos de HU-24/26/35 y la calificación.
+  - Vence a las 24 h (`ReservationExpiryWorker`) y la pieza regresa.
+  - `db/028-apartados.js`, esquema 28 y API `0.5.0-alpha.36`.
+- **Decisiones de la usuaria (15-Nov-2026):** un apartado activo a la vez (`ux_buyer_active`), QR y cámara completos en la app, y pedido completado al entregar.
+- **Decisión técnica:** al entregar, primero se marca el apartado como recogido (atómico) con el id del pedido y después se inserta el pedido, para no crear dos.
+- **Verificación (15-Nov-2026):** build 0/0; Unit 840, Integration 193, Security 266 y Contract 28; `check_endpoints` OK (112). `DatabaseTest` corre en el CI.
+
 ## Trabajo en curso — HU-55 (SCRUM-72): pagar por transferencia o en efectivo
 
 - **Qué:**

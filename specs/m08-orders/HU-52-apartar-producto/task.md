@@ -1,17 +1,21 @@
 # HU-52 — Apartar un producto y verificar la entrega con QR o código (tareas)
 
 ## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (15-Nov-2026), con las decisiones de la usuaria.
 
 ## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+- **Qué:** `db/028-apartados.js` y los repositorios `Mongo*`/`InMemory*` de `reservations`.
+- **Prueba:** `TestShared/Orders/ReservationRepositoryContract.cs` (UnitTest y DatabaseTest) y `DatabaseTest/SchemaScriptTests.cs`.
+- **Estado:** ✅ Hecho.
 
 ## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+- **Qué:** `ReservationService`, el vencimiento, el borrado de la cuenta y `ReservationsController`.
+- **Prueba:** `UnitTest/Orders/ReservationServiceTests.cs`, `IntegrationTest/Orders/ReservationFlowTests.cs`, `SecurityTest/Auth/ReservationsAuthTests.cs` y `ContractTest/ReservationsContractTests.cs`.
+- **Estado:** ✅ Hecho.
 
 ## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
+- **Estado:** ✅ Hecho: Build Release 0/0 · Unit 840, Integration 193, Security 266 y Contract 28 · `check_endpoints` OK (112) · critic PASS.
+
+## T5 — Prueba en el celular
+- **Qué:** con la API `0.5.0-alpha.36`: apartar, verificar con la cámara y con el código, y entregar.
 - **Estado:** ⏳ Por hacer.

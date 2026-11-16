@@ -80,6 +80,15 @@ internal static class NotificationTypes
 
     /// <summary>HU-55: a las 24 h quien vende aun no confirma la transferencia (decision de la usuaria del 15-Nov-2026).</summary>
     public const string TransferReminder = "transfer_reminder";
+
+    /// <summary>HU-52: "Luis apartó tu Juego de escuadras" (a quien vende).</summary>
+    public const string ReservationCreated = "reservation_created";
+
+    /// <summary>HU-52: la otra parte cancelo el apartado.</summary>
+    public const string ReservationCancelled = "reservation_cancelled";
+
+    /// <summary>HU-52: pasaron 24 h sin recogerlo (a los dos).</summary>
+    public const string ReservationExpired = "reservation_expired";
 }
 
 /// <summary>Lo que abre un aviso.</summary>
@@ -105,4 +114,7 @@ internal static class NotificationTargets
 
     /// <summary>"Mis productos", con "Llevan tiempo sin venderse" (HU-36; el id es la publicacion).</summary>
     public const string MyProducts = "my_products";
+
+    /// <summary>HU-52: un apartado ("Mis apartados").</summary>
+    public const string Reservation = "reservation";
 }

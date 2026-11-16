@@ -188,6 +188,24 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `orders.invalid_code` | 422 | El código no coincide. Pídeselo de nuevo a quien compra. | HU-55 (gasta un intento; `codeAttemptsLeft` dice cuántos quedan) |
 | `orders.code_locked` | 409 | Se acabaron los intentos del código. Confirmen la entrega los dos desde el pedido. | HU-55 (5 intentos; también un pedido aceptado antes de HU-55, sin código) |
 
+## M-08 · Apartados (`Modules/Orders/OrdersErrors.cs` → `ReservationsErrors`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `reservations.not_found` | 404 | No encontramos este apartado. | HU-52 (inexistente o ajeno: OWASP API1) |
+| `reservations.product_unavailable` | 409 | Esta publicación ya no está disponible para apartar. | HU-52 (pausada, agotada, vendida o de otro campus) |
+| `reservations.own_product` | 409 | No puedes apartar tu propia publicación. | HU-52 |
+| `reservations.blocked` | 403 | No puedes apartar con esta persona. | HU-52, HU-57 |
+| `reservations.limit_reached` | 409 | Ya tienes un apartado activo. Recógelo o cancélalo para apartar otro. | HU-52 (uno a la vez, decisión de la usuaria) |
+| `reservations.invalid_meeting_point` | 400 | Elige un punto de entrega del campus. | HU-52 |
+| `reservations.invalid_pickup_time` | 400 | Elige una hora dentro de las próximas 24 horas, entre las 7:00 y las 21:00. | HU-52 |
+| `reservations.not_active` | 409 | Este apartado ya no está activo. | HU-52 (recogido, cancelado o vencido) |
+| `reservations.only_seller` | 403 | Solo quien vende puede verificar el apartado. | HU-52 |
+| `reservations.invalid_code_format` | 400 | Escribe los 6 dígitos del código. | HU-52 (no gasta un intento) |
+| `reservations.invalid_code` | 422 | El código no coincide. Revisa que sea el apartado de esta persona. | HU-52 (gasta un intento) |
+| `reservations.code_locked` | 409 | Se acabaron los intentos del código. Escríbele a quien apartó. | HU-52 (5 intentos) |
+| `reservations.not_verified` | 409 | Primero verifica el código de quien apartó. | HU-52 |
+
 ## M-08 · Cuenta para recibir pagos (`Modules/Orders/OrdersErrors.cs` → `PayoutsErrors`)
 
 | code | HTTP | Mensaje | HU |

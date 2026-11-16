@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 27;
+    public const int ExpectedVersion = 28;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";
@@ -91,4 +91,7 @@ internal static class MongoSchema
 
     /// <summary>Cuentas para recibir pagos (HU-55, db/027): una por persona, con la CLABE cifrada (R10).</summary>
     public const string PayoutAccounts = "payoutAccounts";
+
+    /// <summary>Apartados de 24 h (HU-52, db/028): uno activo por persona (<c>ux_buyer_active</c>).</summary>
+    public const string Reservations = "reservations";
 }
