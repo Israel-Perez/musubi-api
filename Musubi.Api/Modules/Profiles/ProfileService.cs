@@ -174,7 +174,14 @@ internal sealed class ProfileService(
             account.EmailVerifiedAt ?? account.CreatedAt,
             career,
             term,
-            new PublicStatsResponse(stats.RatingAvg, stats.RatingCount, visibility.Sales ? stats.Sales : null, OnTimePercent(stats))));
+            new PublicStatsResponse(
+                stats.RatingAvg,
+                stats.RatingCount,
+                visibility.Sales ? stats.Sales : null,
+                OnTimePercent(stats),
+                // HU-64: las insignias de confianza, calculadas aqui (nunca en el telefono).
+                SellerBadges.ResponseMinutes(profile?.Responses ?? [], Now()),
+                SellerBadges.Trusted(stats))));
     }
 
     /// <summary>Carreras activas del campus del usuario y su periodo.</summary>

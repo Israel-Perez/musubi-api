@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -94,11 +95,30 @@ internal sealed class ProfileDocument
     /// <summary>Contadores (los actualizan HU-23 y HU-27).</summary>
     public ProfileStats Stats { get; init; } = new();
 
+    /// <summary>
+    /// HU-64: cuanto tardo en contestar como quien vende, las ultimas <see cref="ResponseSample.Kept"/> veces ("Responde
+    /// en ~1 h"). Privado: solo sale la mediana.
+    /// </summary>
+    public IReadOnlyList<ResponseSample> Responses { get; init; } = [];
+
     /// <summary>Version del documento (R4).</summary>
     public int SchemaVersion { get; init; } = 1;
 
     /// <summary>Ultimo cambio (UTC).</summary>
     public DateTime UpdatedAt { get; init; }
+}
+
+/// <summary>Una respuesta en el chat como quien vende (HU-64).</summary>
+internal sealed class ResponseSample
+{
+    /// <summary>Respuestas que se guardan por persona (las mas recientes).</summary>
+    public const int Kept = 20;
+
+    /// <summary>Cuando contesto (UTC).</summary>
+    public DateTime At { get; init; }
+
+    /// <summary>Minutos desde el ultimo mensaje de la otra persona.</summary>
+    public double Minutes { get; init; }
 }
 
 /// <summary>Que muestra el perfil publico. Como en la maqueta: carrera y ventas encendidas, "en linea" apagado (RNF-05).</summary>

@@ -75,7 +75,9 @@ public sealed record MyProfileResponse(
 /// <param name="RatingCount">Calificaciones.</param>
 /// <param name="Sales">Ventas, o <c>null</c> si las oculta.</param>
 /// <param name="OnTime">"A tiempo" de <c>Perfil-vendedor</c>: porcentaje (0 a 100) de calificaciones con "Puntual", o <c>null</c> sin calificaciones (HU-27).</param>
-public sealed record PublicStatsResponse(double? RatingAvg, int RatingCount, int? Sales, int? OnTime);
+/// <param name="ResponseMinutes">"Responde en ~N" (HU-64): mediana en minutos de sus respuestas como quien vende en los ultimos 30 dias, o <c>null</c> con menos de 3.</param>
+/// <param name="Trusted">"Vendedor confiable" (HU-64): 4.5 estrellas o mas con al menos 5 ventas completadas.</param>
+public sealed record PublicStatsResponse(double? RatingAvg, int RatingCount, int? Sales, int? OnTime, int? ResponseMinutes = null, bool Trusted = false);
 
 /// <summary>Perfil de otra persona del campus (NOTE (HU-27): reputacion y opiniones).</summary>
 /// <param name="Id">Id del usuario.</param>

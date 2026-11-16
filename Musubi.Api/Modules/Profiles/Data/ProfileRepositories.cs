@@ -75,6 +75,16 @@ internal interface IProfileRepository
     /// <returns>La tarea.</returns>
     Task AddTradeAsync(ProfileOwner owner, bool asSeller, DateTime now, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Guarda cuanto tardo en contestar como quien vende (HU-64) y conserva solo las ultimas
+    /// <see cref="ResponseSample.Kept"/>. Crea el perfil si no existe.
+    /// </summary>
+    /// <param name="owner">Quien contesto.</param>
+    /// <param name="sample">La respuesta.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La tarea.</returns>
+    Task AddResponseAsync(ProfileOwner owner, ResponseSample sample, CancellationToken cancellationToken);
+
     /// <summary>Cambia o quita la foto y devuelve la llave anterior, para borrarla de S3 (R11).</summary>
     /// <param name="owner">Dueno.</param>
     /// <param name="avatarKey">Llave nueva o <c>null</c>.</param>
