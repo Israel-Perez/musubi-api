@@ -160,6 +160,26 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             : null;
 
     /// <inheritdoc />
+    public async Task<ProductDocument?> RemoveAsync(string id, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await products.FindOneAndUpdateAsync(
+                Filter.Eq(p => p.Id, id) & Filter.Ne(p => p.Status, ProductStatuses.Removed),
+                Builders<ProductDocument>.Update.Set(p => p.Status, ProductStatuses.Removed).Set(p => p.UpdatedAt, now),
+                new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<long> HideBySellerAsync(string sellerId, DateTime now, CancellationToken cancellationToken)
+    {
+        var result = await products.UpdateManyAsync(
+            Filter.Eq(p => p.SellerId, sellerId) & Filter.In(p => p.Status, [ProductStatuses.Active, ProductStatuses.SoldOut]),
+            Builders<ProductDocument>.Update.Set(p => p.Status, ProductStatuses.Hidden).Set(p => p.UpdatedAt, now),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount;
+    }
+
+    /// <inheritdoc />
     public async Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)
     {
         var result = await products.DeleteManyAsync(p => p.SellerId == sellerId, cancellationToken).ConfigureAwait(false);

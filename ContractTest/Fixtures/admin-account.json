@@ -1,0 +1,17 @@
+{
+  "id": "6716a0000000000000000003",
+  "fullName": "Luis Martínez",
+  "status": "suspended",
+  "isAdmin": false,
+  "memberSince": "2026-10-21T18:00:00Z",
+  "upheldReports": 1,
+  "suspensionSuggested": false,
+  "history": [
+    {
+      "action": "account_suspended",
+      "at": "2026-11-16T16:05:00Z",
+      "actor": { "id": "6716a0000000000000000001", "fullName": "Equipo Musubi" },
+      "reason": "Pidió pagos fuera de Musubi."
+    }
+  ]
+}

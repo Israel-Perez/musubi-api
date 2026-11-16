@@ -147,6 +147,44 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<ProductDocument?> RemoveAsync(string id, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var index = products.FindIndex(p => string.Equals(p.Id, id, StringComparison.Ordinal) && p.Status != ProductStatuses.Removed);
+            if (index < 0)
+            {
+                return Task.FromResult<ProductDocument?>(null);
+            }
+
+            var p = products[index];
+            products[index] = Copy(p, Details(p), ProductStatuses.Removed, now, p.SoldAt);
+            return Task.FromResult<ProductDocument?>(products[index]);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> HideBySellerAsync(string sellerId, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            long hidden = 0;
+            for (var i = 0; i < products.Count; i++)
+            {
+                var p = products[i];
+                if (string.Equals(p.SellerId, sellerId, StringComparison.Ordinal)
+                    && p.Status is ProductStatuses.Active or ProductStatuses.SoldOut)
+                {
+                    products[i] = Copy(p, Details(p), ProductStatuses.Hidden, now, p.SoldAt);
+                    hidden++;
+                }
+            }
+
+            return Task.FromResult(hidden);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)
     {
         lock (gate)
@@ -335,6 +373,9 @@ internal sealed class InMemoryProductRepository : IProductRepository
 
         return stock > 0 ? ProductStatuses.Active : ProductStatuses.SoldOut;
     }
+
+    private static ProductDetails Details(ProductDocument p) =>
+        new(p.Title, p.Description, p.CategorySlug, p.PriceCents, p.Condition, p.ConditionDetail);
 
     private static string ResumedOrPaused(ProductDocument p, bool paused)
     {

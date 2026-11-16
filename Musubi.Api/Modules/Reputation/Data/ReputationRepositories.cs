@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +28,44 @@ internal interface IReportRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantos se borraron.</returns>
     Task<long> DeleteByReporterAsync(string reporterId, CancellationToken cancellationToken);
+
+    /// <summary>Un reporte por id.</summary>
+    /// <param name="id">Id del reporte.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El reporte o <c>null</c>.</returns>
+    Task<ReportDocument?> FindByIdAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>La bandeja de un campus (HU-39): los de esos estados, del mas nuevo al mas viejo.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="statuses">Estados.</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los reportes.</returns>
+    Task<IReadOnlyList<ReportDocument>> FindByStatusAsync(string communityId, IReadOnlyCollection<string> statuses, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Cierra un reporte abierto (HU-39). Atomico: con dos administradores a la vez, solo uno lo cierra.
+    /// </summary>
+    /// <param name="review">La revision.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El reporte cerrado, o <c>null</c> si no existe o ya estaba cerrado.</returns>
+    Task<ReportDocument?> CloseAsync(ReportReview review, CancellationToken cancellationToken);
+
+    /// <summary>Reportes procedentes contra una persona (RN-27, HU-40).</summary>
+    /// <param name="subjectId">La persona.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantos.</returns>
+    Task<long> CountUpheldAsync(string subjectId, CancellationToken cancellationToken);
 }
+
+/// <summary>La revision de un reporte (HU-39).</summary>
+/// <param name="ReportId">Reporte.</param>
+/// <param name="Status"><see cref="ReportStatuses.Dismissed"/> o <see cref="ReportStatuses.Upheld"/>.</param>
+/// <param name="ReviewerId">Administrador.</param>
+/// <param name="SubjectId">Persona responsable, o <c>null</c> en un problema general.</param>
+/// <param name="Note">Nota interna, o <c>null</c>.</param>
+/// <param name="At">Momento (UTC).</param>
+internal sealed record ReportReview(string ReportId, string Status, string ReviewerId, string? SubjectId, string? Note, DateTime At);
 
 /// <summary>Bloqueos (HU-57). Uno por pareja quien bloquea / bloqueado.</summary>
 internal interface IBlockRepository

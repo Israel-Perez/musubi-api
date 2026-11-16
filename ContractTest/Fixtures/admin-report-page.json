@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "id": "6716a0000000000000000031",
+      "reason": "not_as_described",
+      "details": "Las fotos son de otra tienda.",
+      "status": "upheld",
+      "createdAt": "2026-11-16T15:00:00Z",
+      "reporter": { "id": "6716a0000000000000000002", "fullName": "Ana Sofía Ramírez" },
+      "target": {
+        "type": "product",
+        "id": "6716a0000000000000000011",
+        "name": "Calculadora Casio fx-991",
+        "photo": "https://media.musubiapp.com.mx/products/6716a0000000000000000003/foto.webp",
+        "status": "removed"
+      },
+      "subject": {
+        "id": "6716a0000000000000000003",
+        "fullName": "Luis Martínez",
+        "status": "active",
+        "upheldReports": 1,
+        "suspensionSuggested": false
+      },
+      "conversationId": null,
+      "review": {
+        "at": "2026-11-16T16:00:00Z",
+        "reviewer": { "id": "6716a0000000000000000001", "fullName": "Equipo Musubi" },
+        "note": "Fotos de internet."
+      }
+    }
+  ]
+}

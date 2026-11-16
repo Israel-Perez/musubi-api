@@ -45,6 +45,7 @@ internal static class ReputationModuleServiceCollectionExtensions
         services.AddSingleton<IBlockDirectory, BlockDirectory>();
         services.AddSingleton<BlockService>();
         services.AddSingleton<ReportService>();
+        services.AddSingleton<IReportInbox, ReportInbox>();
         services.AddSingleton<IAccountDataEraser, ReputationAccountEraser>();
 
         // Cada reporte manda un correo al equipo: un tope por usuario evita el abuso (OWASP API4).

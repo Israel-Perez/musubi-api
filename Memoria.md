@@ -1,5 +1,29 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-39 y HU-40 (SCRUM-62, SCRUM-63, Kazumi): moderar reportes y suspender cuentas
+
+- **Qué:** módulo nuevo `Modules/Admin/` (M-14), solo para el rol `admin`.
+  - `GET /admin/reports?status=open|closed`: la bandeja del campus, con lo reportado y la persona responsable.
+  - `POST /admin/reports/{id}/resolution`: `dismiss` o `uphold`. Con una publicación, `uphold` la retira (`removed`).
+  - `GET /admin/accounts/suspended` y `GET /admin/accounts/{id}`: reportes procedentes e historial.
+  - `POST`/`DELETE /admin/accounts/{id}/suspension`: suspender con motivo y reactivar.
+- **Contratos nuevos entre módulos:** `IReportInbox` (M-13), `IProductModeration` (M-03) e `IAccountModeration` (M-01). Admin no lee sus colecciones.
+- **Rol:** `Admin:Emails` lo da al iniciar sesión (queda en `users.roles`) o en la base con `mongosh` (`db/README.md`). La sesión trae `user.roles`, para que la app muestre "Administración".
+- **Decisiones para revisar (16-Nov-2026):**
+  - RN-27 como sugerencia: con 3 procedentes, `suspensionSuggested` (Jira decía "[POR DEFINIR]" y "puede ser suspendida").
+  - Suspender pausa las publicaciones (`hidden`); al reactivar siguen pausadas.
+  - Avisos solo push a quien reportó ("Revisamos tu reporte") y a quien vende ("Retiramos tu publicación").
+  - La bitácora no se borra con la cuenta.
+- **Por qué la base manda:** el JWT dura 15 minutos. `ModerationService` vuelve a leer la cuenta del administrador, así que un rol quitado o una suspensión aplican de inmediato (`AdminAuthTests.AdminToken_WithoutTheRoleInTheDatabase_Is403`).
+- **Versión:** `0.5.0-alpha.38`, esquema 30 (`db/030-moderacion.js`: revisión en `reports`, `moderationLog` y dos tipos en el validador de `notifications`, a partir del de `029` de HU-51). Al traer `main` se renumeró de `alpha.37`/`db/029`, que tomó HU-51 (#106).
+- **Error a evitar:** un tipo de aviso nuevo, aunque sea solo push, tiene que entrar al validador de `notifications`. `MongoNotificationRepositoryTests.EveryTypeAndTargetOfTheCode_CanBeStored` recorre todas las constantes. Solo se vio con `DatabaseTest` contra MongoDB real.
+- **Error a evitar:** en Windows, `open(..., 'w')` de Python escribe CRLF. Git lo normaliza (`.gitattributes`), pero para editar docs usa `newline=''`.
+- **Verificación (16-Nov-2026, sobre `main` `45b7266`):**
+  - Build Release 0/0. Unit 848, Integration 199, Security 288 y Contract 29. `check_endpoints` OK (122), critic PASS y `check_shared_sections` OK.
+  - Sin Docker local: los 29 scripts se aplicaron dos veces en un MongoDB 8.0 local y `DatabaseTest` corrió 184/184 contra él, con un cambio temporal en la fixture que se revirtió. En el CI corre con Testcontainers.
+  - Semgrep no está instalado en local: lo corre el CI.
+- **Pendiente:** crear `/musubi/prod/Admin/Emails/0` en Parameter Store y desplegar.
+
 ## Trabajo en curso — HU-51 (SCRUM-70): comparar opciones y "Avísame"
 
 - **Qué:**

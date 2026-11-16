@@ -359,6 +359,23 @@ internal interface IProductRepository
     /// <returns>La publicacion borrada (para borrar sus fotos), o <c>null</c> si no es suya, no existe o esta quitada.</returns>
     Task<ProductDocument?> DeleteAsync(string id, string sellerId, CancellationToken cancellationToken);
 
+    /// <summary>Quita una publicacion por moderacion (HU-39): deja de verse en la vitrina, la busqueda y su perfil.</summary>
+    /// <param name="id">Id de la publicacion.</param>
+    /// <param name="now">Hora del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La publicacion quitada, o <c>null</c> si no existe o ya estaba quitada.</returns>
+    Task<ProductDocument?> RemoveAsync(string id, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Pausa las publicaciones disponibles o agotadas de un vendedor (HU-40, cuenta suspendida). Al reactivarse la
+    /// cuenta siguen pausadas: su dueno las reactiva desde "Mis productos" (HU-07).
+    /// </summary>
+    /// <param name="sellerId">Vendedor.</param>
+    /// <param name="now">Hora del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantas se pausaron.</returns>
+    Task<long> HideBySellerAsync(string sellerId, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Borra todas las publicaciones de un vendedor, en cualquier estado (HU-46, R11).</summary>
     /// <param name="sellerId">Vendedor.</param>
     /// <param name="cancellationToken">Cancelacion.</param>

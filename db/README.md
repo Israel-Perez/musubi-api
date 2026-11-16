@@ -33,6 +33,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `027-pagos.js` | `payoutAccounts` (HU-55: la cuenta para recibir pagos con la CLABE cifrada), `orders.payment` con la transferencia y el código de entrega, `ix_transfer_reported` y `transfer_reported` / `transfer_not_received` / `transfer_reminder` en el validador de `notifications` | 27 |
 | `028-apartados.js` | `reservations` (HU-52: apartar 24 h, uno activo por persona con `ux_buyer_active`, `ix_status_expires` para el vencimiento) y `reservation_created` / `reservation_cancelled` / `reservation_expired` / destino `reservation` en el validador de `notifications` | 28 |
 | `029-avisos-disponibilidad.js` | `stockAlerts` (HU-51: "Avísame" en una agotada, uno por persona y publicación con `ux_user_product`, TTL de 90 días) y `back_in_stock` en el validador de `notifications` | 29 |
+| `030-moderacion.js` | Revisión de reportes en `reports` (`dismissed`/`upheld`, `subjectId`, quién y cuándo lo revisó; `ix_subject_status`), `moderationLog` (HU-39/40: cada acción de un administrador, RNF-04) y `report_reviewed` / `product_removed` en el validador de `notifications` | 30 |
 
 ## Aplicar
 
@@ -54,3 +55,18 @@ Get-ChildItem db/*.js | Sort-Object Name | ForEach-Object {
 - Cada script sube `_meta.version` con `$max` y se registra en `_meta.applied`.
 - `MongoSchema.ExpectedVersion` (en `Musubi.Api/Platform/Data/`) debe ser igual al número del último script. Lo verifica `UnitTest/Data/SchemaVersionTests.cs`. Si la base tiene una versión menor, `/health/ready` responde Unhealthy y el balanceador no le manda tráfico a esa instancia.
 - `DatabaseTest` corre los scripts reales contra un MongoDB en contenedor (Testcontainers) antes de probar los repositorios.
+
+## Dar o quitar el rol de administrador (HU-39)
+
+El rol `admin` abre "Administración" en la app (reportes y cuentas). Se da de dos formas:
+
+- **Por configuración:** el correo en `Admin:Emails` (Parameter Store `/musubi/prod/Admin/Emails/0`) recibe el rol la próxima vez que inicia sesión.
+- **En la base**, con `mongosh` contra la cadena de Parameter Store:
+
+```js
+db.users.updateOne({ emailNormalized: 'correo@uttt.edu.mx' }, { $addToSet: { roles: 'admin' } });
+// Quitarlo (también hay que sacarlo de Admin:Emails, o lo recibe otra vez al entrar):
+db.users.updateOne({ emailNormalized: 'correo@uttt.edu.mx' }, { $pull: { roles: 'admin' } });
+```
+
+El cambio en la base aplica de inmediato en la API (cada acción vuelve a leer la cuenta). La app lo muestra cuando la persona vuelve a iniciar sesión.
