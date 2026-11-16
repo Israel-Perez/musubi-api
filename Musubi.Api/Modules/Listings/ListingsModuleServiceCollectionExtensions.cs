@@ -54,6 +54,7 @@ internal static class ListingsModuleServiceCollectionExtensions
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
+        services.AddSingleton<ICategoryCatalog, CategoryCatalog>();
         services.AddSingleton<ListingService>();
         services.AddSingleton<MyListingsService>();
         services.AddSingleton<FavoriteService>();

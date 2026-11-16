@@ -64,7 +64,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 5. Convenciones técnicas
 
-> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (122 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
+> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (125 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
@@ -91,6 +91,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
   - Suspender cierra las sesiones y pausa las publicaciones.
   - Cada acción va a `moderationLog` (RNF-04).
   - El rol se da con `Admin:Emails` al iniciar sesión o en la base (`db/README.md`), y la sesión lo trae en `user.roles`.
+- Categorías (HU-41): `CategoryAdminService` (`/admin/categories`, con `AdminGate`) usa `ICategoryCatalog` (M-03): el slug sale del nombre y no cambia, una desactivada sale de "Vender-3" y "Filtrar" pero sus publicaciones siguen visibles, y cada cambio borra la entrada de `CachedCategoryRepository` y las etiquetas `catalog` y `showcase` de la caché de salida.
 - Pendientes con dueño: HU-43 Mercado Pago fuera de alcance (D-01).
 
 ## 6. Seguridad y DevSecOps
@@ -153,7 +154,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (122 filas), `trazabilidad.md` (58 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (125 filas), `trazabilidad.md` (58 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

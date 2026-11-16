@@ -9,7 +9,7 @@ namespace Musubi.Api.Modules.Listings.Data;
 // Documentos de persistencia de M-03 (HU-06, HU-50). La validacion del servidor vive en
 // db/002-publicaciones.js; fila canonica en docs/modelo-datos.md.
 
-/// <summary>Categoria de una comunidad (la administra HU-41; por ahora la siembra el script).</summary>
+/// <summary>Categoria de una comunidad: la siembra el script y la administra HU-41 (el slug no cambia).</summary>
 [SuppressMessage("Performance", "CA1812", Justification = "Lo instancia el serializador BSON.")]
 internal sealed class CategoryDocument
 {

@@ -21,6 +21,7 @@ namespace Musubi.Api.Modules.Admin;
 /// Solo un administrador activo de su propio campus (RNF-03, R1) y cada accion queda en la bitacora (RNF-04).
 /// </summary>
 internal sealed partial class ModerationService(
+    AdminGate gate,
     IAccountModeration accounts,
     IReportInbox reports,
     IProductModeration products,
@@ -60,7 +61,7 @@ internal sealed partial class ModerationService(
     /// <returns>Los reportes o el error.</returns>
     public async Task<Result<AdminReportsResponse>> ListReportsAsync(string adminId, string? status, CancellationToken cancellationToken)
     {
-        var admin = await AdminAsync(adminId, cancellationToken).ConfigureAwait(false);
+        var admin = await gate.ActiveAdminAsync(adminId, cancellationToken).ConfigureAwait(false);
         if (admin is null)
         {
             return ApiErrors.Forbidden;
@@ -94,7 +95,7 @@ internal sealed partial class ModerationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var admin = await AdminAsync(adminId, cancellationToken).ConfigureAwait(false);
+        var admin = await gate.ActiveAdminAsync(adminId, cancellationToken).ConfigureAwait(false);
         if (admin is null)
         {
             return ApiErrors.Forbidden;
@@ -179,7 +180,7 @@ internal sealed partial class ModerationService(
     /// <returns>Las cuentas o el error.</returns>
     public async Task<Result<AdminAccountsResponse>> ListSuspendedAsync(string adminId, CancellationToken cancellationToken)
     {
-        var admin = await AdminAsync(adminId, cancellationToken).ConfigureAwait(false);
+        var admin = await gate.ActiveAdminAsync(adminId, cancellationToken).ConfigureAwait(false);
         if (admin is null)
         {
             return ApiErrors.Forbidden;
@@ -197,7 +198,7 @@ internal sealed partial class ModerationService(
     /// <returns>La cuenta o el error.</returns>
     public async Task<Result<AdminAccountResponse>> GetAccountAsync(string adminId, string userId, CancellationToken cancellationToken)
     {
-        var admin = await AdminAsync(adminId, cancellationToken).ConfigureAwait(false);
+        var admin = await gate.ActiveAdminAsync(adminId, cancellationToken).ConfigureAwait(false);
         if (admin is null)
         {
             return ApiErrors.Forbidden;
@@ -222,7 +223,7 @@ internal sealed partial class ModerationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var admin = await AdminAsync(adminId, cancellationToken).ConfigureAwait(false);
+        var admin = await gate.ActiveAdminAsync(adminId, cancellationToken).ConfigureAwait(false);
         if (admin is null)
         {
             return ApiErrors.Forbidden;
@@ -264,7 +265,7 @@ internal sealed partial class ModerationService(
     /// <returns>La cuenta reactivada o el error.</returns>
     public async Task<Result<AdminAccountResponse>> ReactivateAsync(string adminId, string userId, CancellationToken cancellationToken)
     {
-        var admin = await AdminAsync(adminId, cancellationToken).ConfigureAwait(false);
+        var admin = await gate.ActiveAdminAsync(adminId, cancellationToken).ConfigureAwait(false);
         if (admin is null)
         {
             return ApiErrors.Forbidden;
@@ -290,13 +291,6 @@ internal sealed partial class ModerationService(
 
     private static AdminPerson? Person(IReadOnlyDictionary<string, ModeratedAccount> people, string? id) =>
         id is not null && people.TryGetValue(id, out var account) ? new AdminPerson(account.Id, account.FullName) : null;
-
-    // El token dice admin, pero la base manda: una cuenta suspendida o sin el rol ya no modera (RNF-03).
-    private async Task<ModeratedAccount?> AdminAsync(string adminId, CancellationToken cancellationToken)
-    {
-        var admin = await accounts.FindAsync(adminId, cancellationToken).ConfigureAwait(false);
-        return admin is { IsAdmin: true, Status: UserStatuses.Active } ? admin : null;
-    }
 
     // Otro campus es como si no existiera (R1, OWASP API1).
     private async Task<ModeratedAccount?> InCampusAsync(ModeratedAccount admin, string userId, CancellationToken cancellationToken)

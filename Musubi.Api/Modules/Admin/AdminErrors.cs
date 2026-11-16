@@ -41,4 +41,28 @@ internal static class AdminErrors
     /// <summary>Reactivar una cuenta que no esta suspendida.</summary>
     public static readonly ApiError AccountNotSuspended = new(
         "admin.account_not_suspended", StatusCodes.Status409Conflict, "Esta cuenta no está suspendida.");
+
+    /// <summary>Nombre de categoria vacio, de menos de 2 o de mas de 40 caracteres (HU-41).</summary>
+    public static readonly ApiError InvalidCategoryName = new(
+        "admin.invalid_category_name", StatusCodes.Status400BadRequest, "Escribe un nombre de 2 a 40 caracteres.");
+
+    /// <summary>Cambio de categoria sin nombre ni estado.</summary>
+    public static readonly ApiError NoCategoryChanges = new(
+        "admin.no_category_changes", StatusCodes.Status400BadRequest, "Cambia el nombre o el estado de la categoría.");
+
+    /// <summary>Categoria inexistente o de otro campus.</summary>
+    public static readonly ApiError CategoryNotFound = new(
+        "admin.category_not_found", StatusCodes.Status404NotFound, "No encontramos esa categoría.");
+
+    /// <summary>Ya hay una categoria con ese nombre, tambien desactivada (sin acentos ni mayusculas).</summary>
+    public static readonly ApiError CategoryExists = new(
+        "admin.category_exists", StatusCodes.Status409Conflict, "Ya hay una categoría con ese nombre. Revisa también las desactivadas.");
+
+    /// <summary>Desactivar la ultima categoria activa.</summary>
+    public static readonly ApiError LastCategory = new(
+        "admin.last_category", StatusCodes.Status409Conflict, "Debe quedar al menos una categoría activa.");
+
+    /// <summary>El campus ya tiene el maximo de categorias.</summary>
+    public static readonly ApiError CategoryLimit = new(
+        "admin.category_limit", StatusCodes.Status409Conflict, "Ya hay 30 categorías. Renombra o reactiva una de las que ya existen.");
 }

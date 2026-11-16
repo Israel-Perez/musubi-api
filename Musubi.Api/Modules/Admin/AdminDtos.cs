@@ -110,3 +110,23 @@ public sealed record AdminAccountResponse(
 /// <param name="Actor">Administrador, o <c>null</c> si ya no existe.</param>
 /// <param name="Reason">Motivo o nota, o <c>null</c>.</param>
 public sealed record AdminLogEntry(string Action, DateTime At, AdminPerson? Actor, string? Reason);
+
+/// <summary>Las categorias del campus, tambien las desactivadas (HU-41).</summary>
+/// <param name="Items">Las categorias, en el orden de la app.</param>
+public sealed record AdminCategoriesResponse(IReadOnlyList<AdminCategoryResponse> Items);
+
+/// <summary>Una categoria.</summary>
+/// <param name="Slug">Identificador estable (no cambia al renombrarla).</param>
+/// <param name="Name">Nombre visible.</param>
+/// <param name="Active">Se puede elegir al publicar y en los filtros.</param>
+/// <param name="Order">Orden en la app.</param>
+public sealed record AdminCategoryResponse(string Slug, string Name, bool Active, int Order);
+
+/// <summary>"Agregar categoria".</summary>
+/// <param name="Name">Nombre (2 a 40 caracteres).</param>
+public sealed record CreateCategoryRequest([MaxLength(200)] string? Name);
+
+/// <summary>Renombrar, desactivar o volver a activar una categoria; lo que viene en <c>null</c> no cambia.</summary>
+/// <param name="Name">Nombre nuevo (2 a 40 caracteres).</param>
+/// <param name="Active">Estado nuevo.</param>
+public sealed record UpdateCategoryRequest([MaxLength(200)] string? Name, bool? Active);

@@ -186,6 +186,27 @@ internal interface ICategoryRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las categorias.</returns>
     Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken);
+
+    /// <summary>Todas las categorias de la comunidad, tambien las desactivadas, en su orden (HU-41).</summary>
+    /// <param name="communityId">Comunidad.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las categorias.</returns>
+    Task<IReadOnlyList<CategoryDocument>> ListAllAsync(string communityId, CancellationToken cancellationToken);
+
+    /// <summary>Agrega una categoria; <c>false</c> si su slug ya existe en la comunidad (<c>ux_community_slug</c>).</summary>
+    /// <param name="category">La categoria.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Si se agrego.</returns>
+    Task<bool> TryInsertAsync(CategoryDocument category, CancellationToken cancellationToken);
+
+    /// <summary>Cambia el nombre y el estado de una categoria (el slug no cambia: lo usan los productos).</summary>
+    /// <param name="communityId">Comunidad.</param>
+    /// <param name="slug">Categoria.</param>
+    /// <param name="name">Nombre visible.</param>
+    /// <param name="active">Se puede elegir al publicar y filtrar.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La categoria cambiada o <c>null</c> si no existe.</returns>
+    Task<CategoryDocument?> UpdateAsync(string communityId, string slug, string name, bool active, CancellationToken cancellationToken);
 }
 
 /// <summary>Publicaciones.</summary>
@@ -480,17 +501,42 @@ internal sealed record PopularProductPageData(IReadOnlyList<(ProductDocument Pro
 internal sealed record PopularProductCursor(long Views, DateTime CreatedAt, string ProductId);
 
 /// <summary>
-/// Categorias con cache-aside (02-02): cambian poco y se leen en cada "Filtrar" y "Vender-3". Se guardan por
-/// comunidad durante <see cref="Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl"/>.
-/// NOTE (HU-41): borrar la entrada al editar una categoria.
+/// Categorias con cache-aside (02-02): cambian poco y se leen en cada "Filtrar" y "Vender-3". Se guardan todas
+/// (tambien las desactivadas, para el nombre de un producto viejo) por comunidad durante
+/// <see cref="Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl"/>, y la entrada se borra al
+/// cambiar una (HU-41).
 /// </summary>
 internal sealed class CachedCategoryRepository(ICategoryRepository inner, Platform.Caching.AppCache cache) : ICategoryRepository
 {
     /// <inheritdoc />
-    public Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
+        (await ListAllAsync(communityId, cancellationToken).ConfigureAwait(false)).Where(c => c.Active).ToList();
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<CategoryDocument>> ListAllAsync(string communityId, CancellationToken cancellationToken) =>
         cache.GetOrCreateAsync(
-            "categories:" + communityId,
+            Key(communityId),
             Platform.Caching.CachingServiceCollectionExtensions.CatalogTtl,
-            ct => inner.ListActiveAsync(communityId, ct),
+            ct => inner.ListAllAsync(communityId, ct),
             cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> TryInsertAsync(CategoryDocument category, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        var inserted = await inner.TryInsertAsync(category, cancellationToken).ConfigureAwait(false);
+        await cache.RemoveAsync(Key(category.CommunityId), cancellationToken).ConfigureAwait(false);
+        return inserted;
+    }
+
+    /// <inheritdoc />
+    public async Task<CategoryDocument?> UpdateAsync(string communityId, string slug, string name, bool active, CancellationToken cancellationToken)
+    {
+        var updated = await inner.UpdateAsync(communityId, slug, name, active, cancellationToken).ConfigureAwait(false);
+        await cache.RemoveAsync(Key(communityId), cancellationToken).ConfigureAwait(false);
+        return updated;
+    }
+
+    // Antes de HU-41 la entrada solo tenia las activas, que entonces eran todas: la forma no cambio.
+    private static string Key(string communityId) => "categories:" + communityId;
 }

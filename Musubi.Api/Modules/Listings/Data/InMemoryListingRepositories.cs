@@ -24,7 +24,9 @@ internal sealed class InMemoryCategoryRepository : ICategoryRepository
         ("electronica", "Electrónica"),
     ];
 
-    private readonly CategoryDocument[] categories = Seed
+    private readonly Lock gate = new();
+
+    private readonly List<CategoryDocument> categories = Seed
         .Select((c, i) => new CategoryDocument
         {
             Id = (i + 1).ToString("x24", System.Globalization.CultureInfo.InvariantCulture),
@@ -33,12 +35,65 @@ internal sealed class InMemoryCategoryRepository : ICategoryRepository
             Name = c.Name,
             Order = i + 1,
         })
-        .ToArray();
+        .ToList();
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<CategoryDocument>>(
-            categories.Where(c => c.Active && string.Equals(c.CommunityId, communityId, StringComparison.Ordinal)).OrderBy(c => c.Order).ToList());
+    public async Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
+        (await ListAllAsync(communityId, cancellationToken).ConfigureAwait(false)).Where(c => c.Active).ToList();
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<CategoryDocument>> ListAllAsync(string communityId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<CategoryDocument>>(
+                categories.Where(c => string.Equals(c.CommunityId, communityId, StringComparison.Ordinal)).OrderBy(c => c.Order).ToList());
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> TryInsertAsync(CategoryDocument category, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        lock (gate)
+        {
+            if (categories.Exists(c => string.Equals(c.CommunityId, category.CommunityId, StringComparison.Ordinal)
+                && string.Equals(c.Slug, category.Slug, StringComparison.Ordinal)))
+            {
+                return Task.FromResult(false);
+            }
+
+            categories.Add(category);
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<CategoryDocument?> UpdateAsync(string communityId, string slug, string name, bool active, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var index = categories.FindIndex(c => string.Equals(c.CommunityId, communityId, StringComparison.Ordinal)
+                && string.Equals(c.Slug, slug, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return Task.FromResult<CategoryDocument?>(null);
+            }
+
+            var c = categories[index];
+            categories[index] = new CategoryDocument
+            {
+                Id = c.Id,
+                CommunityId = c.CommunityId,
+                Slug = c.Slug,
+                Name = name,
+                Order = c.Order,
+                Active = active,
+                SchemaVersion = c.SchemaVersion,
+            };
+            return Task.FromResult<CategoryDocument?>(categories[index]);
+        }
+    }
 }
 
 /// <summary>Publicaciones en memoria (el id es un ObjectId nuevo: ordena por tiempo como en Mongo).</summary>

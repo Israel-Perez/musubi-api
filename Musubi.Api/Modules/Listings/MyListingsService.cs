@@ -46,9 +46,9 @@ internal sealed class MyListingsService(
             return ApiErrors.Forbidden;
         }
 
-        var activeCategories = await categories.ListActiveAsync(member.CommunityId, cancellationToken).ConfigureAwait(false);
+        var allowedCategories = await AllowedCategoriesAsync(userId, productId, member.CommunityId, request.Category, cancellationToken).ConfigureAwait(false);
         var checkedDetails = ProductRules.Check(
-            request.Title, request.Description, request.PriceCents, request.Condition, request.ConditionDetail, request.Category, activeCategories);
+            request.Title, request.Description, request.PriceCents, request.Condition, request.ConditionDetail, request.Category, allowedCategories);
         if (checkedDetails.Error is { } invalid)
         {
             return invalid;
@@ -245,6 +245,29 @@ internal sealed class MyListingsService(
         || !string.Equals(before.CategorySlug, after.CategorySlug, StringComparison.Ordinal)
         || !string.Equals(before.Condition, after.Condition, StringComparison.Ordinal)
         || before.PriceCents != after.PriceCents;
+
+    // Las activas y, si la publicacion ya estaba en una categoria desactivada (HU-41), esa misma: editar el precio
+    // no obliga a cambiarla, pero nadie la puede elegir de nuevo.
+    private async Task<IReadOnlyList<CategoryDocument>> AllowedCategoriesAsync(
+        string userId, string productId, string communityId, string? requested, CancellationToken cancellationToken)
+    {
+        var all = await categories.ListAllAsync(communityId, cancellationToken).ConfigureAwait(false);
+        var allowed = all.Where(c => c.Active).ToList();
+        if (requested is null
+            || allowed.Exists(c => string.Equals(c.Slug, requested, StringComparison.Ordinal))
+            || all.FirstOrDefault(c => string.Equals(c.Slug, requested, StringComparison.Ordinal)) is not { } inactive)
+        {
+            return allowed;
+        }
+
+        var current = await products.FindByIdAsync(productId, cancellationToken).ConfigureAwait(false);
+        if (current is not null && IsOwnedBy(current, userId) && string.Equals(current.CategorySlug, requested, StringComparison.Ordinal))
+        {
+            allowed.Add(inactive);
+        }
+
+        return allowed;
+    }
 
     private static bool IsOwnedBy(ProductDocument product, string userId) =>
         string.Equals(product.SellerId, userId, StringComparison.Ordinal) && product.Status != ProductStatuses.Removed;
