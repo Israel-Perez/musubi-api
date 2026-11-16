@@ -29,6 +29,7 @@ internal static class ListingsModuleServiceCollectionExtensions
         var favorites = new InMemoryFavoriteRepository();
         var stats = new InMemoryProductStatsRepository(products);
         var savedSearches = new InMemorySavedSearchRepository();
+        var stockAlerts = new InMemoryStockAlertRepository();
         services.AddSingleton<ICategoryRepository>(provider => new CachedCategoryRepository(
             MongoServiceCollectionExtensions.UseInMemory(provider)
                 ? categories
@@ -47,6 +48,9 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<ISavedSearchRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? savedSearches
             : new MongoSavedSearchRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<IStockAlertRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? stockAlerts
+            : new MongoStockAlertRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
@@ -65,6 +69,11 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<SavedSearchService>();
         services.AddSingleton<ISavedSearchDirectory>(provider => provider.GetRequiredService<SavedSearchService>());
         services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<SavedSearchService>());
+        // HU-51: "Compara antes de comprar" y "Avísame"; M-06 toma los avisos cuando vuelve a haber piezas.
+        services.AddSingleton<ProductComparisonService>();
+        services.AddSingleton<StockAlertService>();
+        services.AddSingleton<IStockAlertDirectory>(provider => provider.GetRequiredService<StockAlertService>());
+        services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<StockAlertService>());
 
         // Subir fotos cuesta CPU (SkiaSharp) y espacio en S3: un tope por usuario evita el abuso (OWASP API4).
         services.AddOptions<RateLimiterOptions>().Configure<IConfiguration>((options, config) =>

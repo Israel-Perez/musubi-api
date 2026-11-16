@@ -44,7 +44,7 @@ public sealed class OrderPaymentTests
         var members = new MemberDirectory(new InMemoryCommunityRepository(), users);
         lifecycle = new OrderLifecycleService(
             orders,
-            new ProductStock(products, new RecordingOutputCacheStore(), time),
+            new ProductStock(products, new RecordingOutputCacheStore(), new RecordingRestocks(), time),
             new ProductDirectory(products),
             new BlockDirectory(new InMemoryBlockRepository()),
             members,

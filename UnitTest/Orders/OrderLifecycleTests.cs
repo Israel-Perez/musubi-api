@@ -41,7 +41,7 @@ public sealed class OrderLifecycleTests
 
     public OrderLifecycleTests()
     {
-        stock = new ProductStock(products, cache, time);
+        stock = new ProductStock(products, cache, new RecordingRestocks(), time);
         service = new OrderLifecycleService(
             orders,
             stock,

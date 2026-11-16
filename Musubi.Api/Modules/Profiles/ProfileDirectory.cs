@@ -45,8 +45,8 @@ internal interface IProfileDirectory
 /// <param name="Career">Nombre corto de la carrera ("Ing. Software"), o <c>null</c> si no la tiene o la oculta.</param>
 /// <param name="RatingAvg">Promedio de calificaciones (HU-27), o <c>null</c> sin calificaciones.</param>
 /// <param name="RatingCount">Numero de calificaciones.</param>
-// NOTE (HU-27): RatingAvg y RatingCount quedan en null/0 hasta que exista `ratings` (HU-27/HU-45).
-internal sealed record ProfileCard(string? Photo, string? Career, double? RatingAvg = null, int RatingCount = 0);
+/// <param name="Sales">Ventas (HU-51), o <c>null</c> si la persona tiene apagado "Mostrar mis ventas" (HU-04).</param>
+internal sealed record ProfileCard(string? Photo, string? Career, double? RatingAvg = null, int RatingCount = 0, int? Sales = null);
 
 /// <summary>Implementacion sobre el repositorio de perfiles (lectura directa: una foto nueva se ve al instante).</summary>
 internal sealed class ProfileDirectory(IProfileRepository profiles, ICareerRepository careers) : IProfileDirectory
@@ -78,7 +78,8 @@ internal sealed class ProfileDirectory(IProfileRepository profiles, ICareerRepos
                     ? list.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.Ordinal))?.ShortName
                     : null,
                 p.Stats.RatingAvg,
-                p.Stats.RatingCount),
+                p.Stats.RatingCount,
+                p.Visibility.Sales ? p.Stats.Sales : null),
             StringComparer.Ordinal);
     }
 

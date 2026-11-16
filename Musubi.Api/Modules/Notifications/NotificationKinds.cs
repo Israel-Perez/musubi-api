@@ -89,6 +89,9 @@ internal static class NotificationTypes
 
     /// <summary>HU-52: pasaron 24 h sin recogerlo (a los dos).</summary>
     public const string ReservationExpired = "reservation_expired";
+
+    /// <summary>HU-51: la agotada de la que pedi "Avísame" volvio a tener piezas.</summary>
+    public const string BackInStock = "back_in_stock";
 }
 
 /// <summary>Lo que abre un aviso.</summary>

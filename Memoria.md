@@ -1,5 +1,21 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-51 (SCRUM-70): comparar opciones y "Avísame"
+
+- **Qué:**
+  - `GET /api/v1/products/{id}/compare` ("Compara antes de comprar"): hasta 5 disponibles de la misma categoría y campus, el mismo modelo primero (`ModelCodes`) y luego el precio más cercano, con la calificación, las opiniones y las ventas de quien vende (`ProfileCard.Sales`, `null` si las oculta).
+  - `GET`/`PUT`/`DELETE /api/v1/products/{id}/stock-alert` ("Avísame" en una agotada que no es mía; 20 por persona, 90 días).
+  - Al regresar piezas (`ProductStock.ReleaseAsync`), "Reponer" o reactivar, `IProductRestocks` encola la revisión; `BackInStockWorker` (M-06) relee la publicación y avisa `back_in_stock` ("¡Volvió lo que esperabas!").
+  - `db/029-avisos-disponibilidad.js` (`stockAlerts`), esquema 29 y API `0.5.0-alpha.37`.
+- **Decisiones de la usuaria (16-Nov-2026):** la regla de la maqueta para "similar" (sin el ML de HU-35), las dos secciones en `Producto` y el aviso se usa una vez.
+- **Decisiones técnicas:**
+  - La API elige y la app ordena ("Para ti", Reputación, Ventas y Precio cambian sin otra llamada).
+  - Un aviso se toma con `FindOneAndDelete` uno por uno: con dos instancias sale una sola vez.
+  - El worker vuelve a leer la publicación: solo avisa si de verdad tiene piezas.
+  - "Mismo modelo": una palabra del nombre de 4 o más caracteres con letras y dígitos, que no sea una medida ("16gb"). `SearchWord` no sirve porque quita el plural ("991ES" → "991").
+- **Verificación (16-Nov-2026):** build 0/0; Unit 869, Integration 196, Security 273 y Contract 29; `check_endpoints` OK (116). `DatabaseTest` corre en el CI.
+- **Errores a evitar:** `ProductStock` y `MyListingsService` reciben `IProductRestocks`: las pruebas que los construyen a mano usan `RecordingRestocks`.
+
 ## Trabajo en curso — HU-52 (SCRUM-74): apartar un producto 24 h
 
 - **Qué:**

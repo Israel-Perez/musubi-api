@@ -10,6 +10,7 @@ using Musubi.Api.Platform.Errors;
 using Musubi.Api.Platform.Media;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
+using UnitTest.Common;
 
 namespace UnitTest.Listings;
 
@@ -31,6 +32,7 @@ public sealed class MyListingsServiceTests
     private readonly ManualTimeProvider clock = new(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
     private readonly InMemoryOrderRepository orders = new();
     private readonly RecordingPublications publications = new();
+    private readonly RecordingRestocks restocks = new();
     private readonly MyListingsService service;
 
     public MyListingsServiceTests()
@@ -45,6 +47,7 @@ public sealed class MyListingsServiceTests
             [photoReferences],
             new OpenOrders(orders),
             publications,
+            restocks,
             clock);
     }
 
@@ -420,6 +423,21 @@ public sealed class MyListingsServiceTests
         Assert.Equal(ApiErrors.Forbidden, (await service.MarkSoldAsync(seller, product.Id, Ct)).Error);
         Assert.Equal(ApiErrors.Forbidden, (await service.SetStockAsync(seller, product.Id, new SetStockRequest(3), Ct)).Error);
         Assert.NotNull(await products.FindByIdAsync(product.Id, Ct));
+    }
+
+    [Fact]
+    public async Task Restocking_OrReactivating_QueuesTheBackInStockCheck_ButSellingOutDoesNot()
+    {
+        // HU-51: "Reponer" y reactivar con piezas revisan "Avísame"; dejarla en 0 o pausarla no.
+        var seller = await MemberAsync();
+        var product = await ProductAsync(seller, stock: 0);
+
+        await service.SetStockAsync(seller, product.Id, new SetStockRequest(0), Ct);
+        await service.SetStockAsync(seller, product.Id, new SetStockRequest(2), Ct);
+        await service.SetPausedAsync(seller, product.Id, paused: true, Ct);
+        await service.SetPausedAsync(seller, product.Id, paused: false, Ct);
+
+        Assert.Equal([product.Id, product.Id], restocks.Products);
     }
 
     /// <summary>El moderador en memoria, guardando cada texto que se le pidio revisar.</summary>
