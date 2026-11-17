@@ -67,6 +67,57 @@ public abstract class ListingRepositoryContract
         Assert.Empty(await Categories.ListActiveAsync(AuthIds.New(), Ct));
     }
 
+    private static CategoryDocument NewCategory(string communityId, string slug, int order) => new()
+    {
+        Id = AuthIds.New(),
+        CommunityId = communityId,
+        Slug = slug,
+        Name = "Categoría " + slug,
+        Order = order,
+    };
+
+    [Fact]
+    public async Task Categories_Inserted_AreListedInOrder_AndTheSlugIsUniquePerCommunity()
+    {
+        // HU-41: cada prueba en su propia comunidad; la UTTT queda con las 6 de la maqueta.
+        var community = AuthIds.New();
+        Assert.True(await Categories.TryInsertAsync(NewCategory(community, "batas", 2), Ct));
+        Assert.True(await Categories.TryInsertAsync(NewCategory(community, "mochilas", 1), Ct));
+
+        Assert.False(await Categories.TryInsertAsync(NewCategory(community, "batas", 3), Ct));
+        Assert.True(await Categories.TryInsertAsync(NewCategory(AuthIds.New(), "batas", 1), Ct));
+        Assert.Equal(["mochilas", "batas"], (await Categories.ListAllAsync(community, Ct)).Select(c => c.Slug));
+    }
+
+    [Fact]
+    public async Task Category_Deactivated_LeavesTheActiveList_ButNotTheFullOne()
+    {
+        var community = AuthIds.New();
+        await Categories.TryInsertAsync(NewCategory(community, "batas", 1), Ct);
+        await Categories.TryInsertAsync(NewCategory(community, "mochilas", 2), Ct);
+
+        var updated = await Categories.UpdateAsync(community, "batas", "Batas de laboratorio", active: false, Ct);
+
+        Assert.NotNull(updated);
+        Assert.Equal(("batas", "Batas de laboratorio", false), (updated.Slug, updated.Name, updated.Active));
+        Assert.Equal(["mochilas"], (await Categories.ListActiveAsync(community, Ct)).Select(c => c.Slug));
+        var all = await Categories.ListAllAsync(community, Ct);
+        Assert.Equal([("batas", false), ("mochilas", true)], all.Select(c => (c.Slug, c.Active)));
+        Assert.Equal("Batas de laboratorio", all[0].Name);
+    }
+
+    [Fact]
+    public async Task Category_UnknownOrOfAnotherCommunity_IsNotUpdated()
+    {
+        var community = AuthIds.New();
+        await Categories.TryInsertAsync(NewCategory(community, "batas", 1), Ct);
+
+        Assert.Null(await Categories.UpdateAsync(community, "mochilas", "Mochilas", active: true, Ct));
+        Assert.Null(await Categories.UpdateAsync(AuthIds.New(), "batas", "Otra", active: false, Ct));
+        Assert.Null(await Categories.UpdateAsync("no-es-un-id", "batas", "Otra", active: false, Ct));
+        Assert.Equal("Categoría batas", Assert.Single(await Categories.ListAllAsync(community, Ct)).Name);
+    }
+
     [Fact]
     public async Task Page_IsNewestFirst_AndTheCursorContinues()
     {

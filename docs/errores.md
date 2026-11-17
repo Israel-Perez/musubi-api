@@ -279,3 +279,9 @@ Sin el rol `admin` (o con el token de una cuenta que ya no lo tiene o está susp
 | `admin.invalid_account` | 400 | No puedes suspender tu cuenta ni la de otra persona administradora. | HU-40 |
 | `admin.account_not_active` | 409 | Esta cuenta no está activa. | HU-40 (ya suspendida o sin verificar) |
 | `admin.account_not_suspended` | 409 | Esta cuenta no está suspendida. | HU-40 (reactivar una activa) |
+| `admin.invalid_category_name` | 400 | Escribe un nombre de 2 a 40 caracteres. | HU-41 (vacío, corto, largo o sin letras ni números) |
+| `admin.no_category_changes` | 400 | Cambia el nombre o el estado de la categoría. | HU-41 (`PATCH` sin `name` ni `active`) |
+| `admin.category_not_found` | 404 | No encontramos esa categoría. | HU-41 (inexistente o de otro campus) |
+| `admin.category_exists` | 409 | Ya hay una categoría con ese nombre. Revisa también las desactivadas. | HU-41 (sin acentos ni mayúsculas) |
+| `admin.last_category` | 409 | Debe quedar al menos una categoría activa. | HU-41 |
+| `admin.category_limit` | 409 | Ya hay 30 categorías. Renombra o reactiva una de las que ya existen. | HU-41 |

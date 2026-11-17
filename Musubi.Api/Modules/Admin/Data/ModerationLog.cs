@@ -11,11 +11,11 @@ using Musubi.Api.Platform.Data;
 
 namespace Musubi.Api.Modules.Admin.Data;
 
-// Persistencia de M-14 (HU-39/40). Validacion del servidor en db/030-moderacion.js; fila en docs/modelo-datos.md.
+// Persistencia de M-14 (HU-39/40/41). Validacion del servidor en db/030-moderacion.js y db/031-categorias.js; fila en docs/modelo-datos.md.
 
 /// <summary>
-/// Una accion de un administrador (RNF-04): descartar o confirmar un reporte, retirar una publicacion y suspender o
-/// reactivar una cuenta. No se edita ni se borra (tampoco al borrar una cuenta: es la evidencia de la moderacion).
+/// Una accion de un administrador (RNF-04): descartar o confirmar un reporte, retirar una publicacion, suspender o
+/// reactivar una cuenta y agregar o cambiar una categoria (HU-41). No se edita ni se borra (tampoco al borrar una cuenta: es la evidencia de la moderacion).
 /// </summary>
 [SuppressMessage("Performance", "CA1812", Justification = "Lo instancia el serializador BSON.")]
 internal sealed class ModerationLogDocument
@@ -35,10 +35,10 @@ internal sealed class ModerationLogDocument
     /// <summary>Que hizo (<see cref="ModerationActions"/>).</summary>
     public string Action { get; init; } = string.Empty;
 
-    /// <summary>Sobre que: <c>general</c>, <c>user</c> o <c>product</c>.</summary>
+    /// <summary>Sobre que: <c>general</c>, <c>user</c>, <c>product</c> o <c>category</c>.</summary>
     public string TargetType { get; init; } = string.Empty;
 
-    /// <summary>La persona o la publicacion; se omite en un problema general.</summary>
+    /// <summary>La persona, la publicacion o la categoria; se omite en un problema general.</summary>
     [BsonRepresentation(BsonType.ObjectId)]
     [BsonIgnoreIfNull]
     public string? TargetId { get; init; }
@@ -81,6 +81,25 @@ internal static class ModerationActions
 
     /// <summary>Cuenta reactivada (HU-40).</summary>
     public const string AccountReactivated = "account_reactivated";
+
+    /// <summary>Categoria agregada (HU-41); el motivo guarda su nombre.</summary>
+    public const string CategoryCreated = "category_created";
+
+    /// <summary>Categoria renombrada (HU-41); el motivo guarda el nombre anterior.</summary>
+    public const string CategoryRenamed = "category_renamed";
+
+    /// <summary>Categoria desactivada (HU-41).</summary>
+    public const string CategoryDeactivated = "category_deactivated";
+
+    /// <summary>Categoria activada de nuevo (HU-41).</summary>
+    public const string CategoryReactivated = "category_reactivated";
+}
+
+/// <summary>Sobre que actuo un administrador cuando no es un reporte (los de un reporte usan <c>ReportTargetTypes</c>).</summary>
+internal static class ModerationTargets
+{
+    /// <summary>Una categoria (HU-41).</summary>
+    public const string Category = "category";
 }
 
 /// <summary>Bitacora de moderacion. Mongo* e InMemory* pasan la misma bateria (TestShared/Admin).</summary>

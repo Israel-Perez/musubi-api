@@ -45,6 +45,21 @@
   - Semgrep no está instalado en local: lo corre el CI.
 - **Pendiente:** crear `/musubi/prod/Admin/Emails/0` en Parameter Store y desplegar.
 
+## Trabajo en curso — HU-41 (SCRUM-64, Kazumi): gestionar categorías
+
+- **Qué:** `/admin/categories` en M-14 (`GET`, `POST` y `PATCH /{slug}`): agregar, renombrar, desactivar y volver a activar las categorías del campus. Las reglas viven en M-03 (`ICategoryCatalog`); Admin pone la autorización (`AdminGate`, que salió de `ModerationService`) y la bitácora (`category_*` en `moderationLog`).
+- **Decisiones para revisar (16-Nov-2026):**
+  - Desactivar en vez de borrar: sus publicaciones siguen visibles con su nombre y su dueño las edita sin cambiarla.
+  - El slug sale del nombre y no cambia al renombrar (lo guardan productos, solicitudes, intereses y búsquedas).
+  - Sin repetidas por nombre sin acentos ni mayúsculas, también contra las desactivadas; al menos una activa; hasta 30 por campus.
+  - Sin cambiar el orden: una nueva va al final.
+  - Las carreras (`NOTE (HU-41)` en Profiles) quedan fuera: Jira solo pide categorías.
+- **Caché:** `CachedCategoryRepository` guarda todas y filtra las activas (la misma llave: antes todas eran activas) y borra su entrada al escribir. La política `catalog` ahora tiene etiqueta, y un cambio borra `catalog` y `showcase` de la caché de salida.
+- **PR apilado:** la rama sale de `feature/SCRUM-62-moderacion` (#108), porque usa el módulo Admin y el rol. Al fusionar #108 hay que rebasar con `git rebase --onto origin/main feature/SCRUM-62-moderacion`.
+- **Versión:** `0.5.0-alpha.39`, esquema 31 (`db/031-categorias.js`: solo el validador de `moderationLog`).
+- **Error a evitar:** `DatabaseTest` contra un MongoDB local reusa las bases si la carpeta de datos ya tiene una corrida anterior, y fallan 5 pruebas que esperan una base vacía. Usa una carpeta de datos nueva cada vez (con Testcontainers no pasa).
+- **Verificación (16-Nov-2026):** build Release 0/0. Unit 915, Integration 207, Security 305, Contract 31 y `DatabaseTest` 194 (MongoDB 8.0 local). `check_endpoints` OK (125), critic PASS y `check_shared_sections` OK.
+
 ## Trabajo en curso — HU-52 (SCRUM-74): apartar un producto 24 h
 
 - **Qué:**

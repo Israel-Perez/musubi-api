@@ -34,6 +34,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `028-apartados.js` | `reservations` (HU-52: apartar 24 h, uno activo por persona con `ux_buyer_active`, `ix_status_expires` para el vencimiento) y `reservation_created` / `reservation_cancelled` / `reservation_expired` / destino `reservation` en el validador de `notifications` | 28 |
 | `029-avisos-disponibilidad.js` | `stockAlerts` (HU-51: "Avísame" en una agotada, uno por persona y publicación con `ux_user_product`, TTL de 90 días) y `back_in_stock` en el validador de `notifications` | 29 |
 | `030-moderacion.js` | Revisión de reportes en `reports` (`dismissed`/`upheld`, `subjectId`, quién y cuándo lo revisó; `ix_subject_status`), `moderationLog` (HU-39/40: cada acción de un administrador, RNF-04) y `report_reviewed` / `product_removed` en el validador de `notifications` | 30 |
+| `031-categorias.js` | Las acciones de categorías en el validador de `moderationLog` (HU-41: agregar, renombrar, desactivar y volver a activar; `targetType: category`). `categories` no cambia | 31 |
 
 ## Aplicar
 

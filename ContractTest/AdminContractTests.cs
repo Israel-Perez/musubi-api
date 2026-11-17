@@ -12,7 +12,7 @@ using SkiaSharp;
 namespace ContractTest;
 
 /// <summary>
-/// HU-39 y HU-40: formas JSON de /api/v1/admin que consume musubi-app ("Administracion" en Ajustes). Cambiar un
+/// HU-39, HU-40 y HU-41: formas JSON de /api/v1/admin que consume musubi-app ("Administracion" en Ajustes). Cambiar un
 /// fixture = cambio de contrato: actualizar docs/endpoints.md y avisar al front.
 /// </summary>
 public sealed class AdminContractTests(ContractApiFactory factory) : IClassFixture<ContractApiFactory>
@@ -117,5 +117,33 @@ public sealed class AdminContractTests(ContractApiFactory factory) : IClassFixtu
         Assert.Equal(Shape(accountFixture.GetProperty("history")[0]), Shape(account.GetProperty("history")[0]));
         Assert.Equal(Shape(listFixture), Shape(list));
         Assert.Equal(Shape(listFixture.GetProperty("items")[0]), Shape(list.GetProperty("items")[0]));
+    }
+
+    [Fact]
+    public async Task Categories_MatchTheirFixtures()
+    {
+        var emails = new RecordingEmailSender();
+        var adminEmail = $"equipo.{Guid.NewGuid():N}@uttt.edu.mx";
+        using var app = factory.WithWebHostBuilder(b => b
+            .UseSetting("Admin:Emails:0", adminEmail)
+            .ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var admin = await SignedInAsync(app, emails, adminEmail, "Equipo Musubi");
+        using var adminClient = admin.Client;
+
+        var created = await adminClient.PostAsJsonAsync(new Uri("/api/v1/admin/categories", UriKind.Relative), new { name = "Ropa y batas" }, Ct);
+        var changed = await adminClient.PatchAsJsonAsync(new Uri("/api/v1/admin/categories/ropa-y-batas", UriKind.Relative), new { active = false }, Ct);
+        var list = await BodyAsync(await adminClient.GetAsync(new Uri("/api/v1/admin/categories", UriKind.Relative), Ct));
+
+        var categoryFixture = await FixtureAsync("admin-category.json");
+        var pageFixture = await FixtureAsync("admin-category-page.json");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(Shape(categoryFixture), Shape(await BodyAsync(created)));
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        // Shape distingue true de false: la desactivada se compara con la del fixture que tambien lo esta.
+        var inactiveFixture = pageFixture.GetProperty("items")[1];
+        Assert.Equal(Shape(inactiveFixture), Shape(await BodyAsync(changed)));
+        Assert.Equal(Shape(pageFixture), Shape(list));
+        Assert.Equal(Shape(pageFixture.GetProperty("items")[0]), Shape(list.GetProperty("items")[0]));
+        Assert.Equal(Shape(inactiveFixture), Shape(list.GetProperty("items").EnumerateArray().Last()));
     }
 }

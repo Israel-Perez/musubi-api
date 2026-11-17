@@ -21,6 +21,9 @@ internal static class CachingServiceCollectionExtensions
     /// <summary>Politica de salida de los catalogos (categorias): cambian poco.</summary>
     public const string CatalogPolicy = "catalog";
 
+    /// <summary>Etiqueta de las respuestas de los catalogos (se borran al cambiar una categoria, HU-41).</summary>
+    public const string CatalogTag = "catalog";
+
     /// <summary>Politica de salida de la vitrina del visitante: vida corta, se invalida al publicar.</summary>
     public const string ShowcasePolicy = "showcase";
     /// <summary>Política pública del ranking popular (HU-49).</summary>
@@ -71,7 +74,7 @@ internal static class CachingServiceCollectionExtensions
         // La politica base no guarda peticiones con sesion (Authorization) ni respuestas con cookies.
         services.AddOutputCache(options =>
         {
-            options.AddPolicy(CatalogPolicy, policy => policy.Expire(CatalogTtl).SetVaryByQuery("campus"));
+            options.AddPolicy(CatalogPolicy, policy => policy.Expire(CatalogTtl).SetVaryByQuery("campus").Tag(CatalogTag));
             options.AddPolicy(ShowcasePolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(ShowcaseTag));
             options.AddPolicy(PopularPolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(ShowcaseTag));
             options.AddPolicy(WantedBoardPolicy, policy => policy.Expire(ShowcaseTtl).SetVaryByQuery("*").Tag(WantedBoardTag));

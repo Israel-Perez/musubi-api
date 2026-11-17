@@ -10,7 +10,7 @@ using SecurityTest.Common;
 namespace SecurityTest.Auth;
 
 /// <summary>
-/// HU-39/40 / RNF-03, OWASP API5 (autorizacion por funcion): moderar exige sesion y el rol <c>admin</c>; un
+/// HU-39/40/41 / RNF-03, OWASP API5 (autorizacion por funcion): moderar exige sesion y el rol <c>admin</c>; un
 /// estudiante recibe 403 en cada ruta, y un token con el rol pero sin el en la base (o de una cuenta suspendida)
 /// tampoco modera: la base manda.
 /// </summary>
@@ -28,6 +28,9 @@ public sealed class AdminAuthTests(ProductionApiFactory production) : IClassFixt
         { "GET", $"/api/v1/admin/accounts/{AnyId}" },
         { "POST", $"/api/v1/admin/accounts/{AnyId}/suspension" },
         { "DELETE", $"/api/v1/admin/accounts/{AnyId}/suspension" },
+        { "GET", "/api/v1/admin/categories" },
+        { "POST", "/api/v1/admin/categories" },
+        { "PATCH", "/api/v1/admin/categories/libros" },
     };
 
     private static HttpRequestMessage Request(string method, string path, string? token)
