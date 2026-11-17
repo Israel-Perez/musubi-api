@@ -1,17 +1,13 @@
 # HU-44 — Coordinar la entrega en un punto del campus (tareas)
 
 ## T1 — Detallar la spec
-- **Qué:** Resolver las decisiones pendientes, definir endpoints, errores y datos, y completar `plan.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (16-Nov-2026): se cumple con HU-23, HU-24 y HU-52; la lista la administrará HU-41.
 
 ## T2 — Datos
-- **Qué:** Script `db/NNN-*.js` y repositorios `Mongo*`/`InMemory*` con la batería de `TestShared/` (si la HU tiene colección).
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Sin cambios: `meetingPoints` (`db/014`) y `delivery` de `orders` (HU-23); `reservations` (HU-52).
 
 ## T3 — Servicio y endpoints
-- **Qué:** Servicio, controller, errores y las pruebas Unit, Integration, Security y Contract.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Sin cambios: `GET /orders/meeting-points`, `POST /orders` y `POST /reservations`, con sus pruebas (ver `spec.md`).
 
 ## T4 — Documentación
-- **Qué:** `docs/endpoints.md`, `docs/errores.md`, `docs/modelo-datos.md`, `docs/trazabilidad.md` y `Memoria.md`.
-- **Estado:** ⏳ Por hacer.
+- **Estado:** ✅ Hecho (16-Nov-2026): `spec.md`, `plan.md`, `docs/trazabilidad.md` y `Memoria.md`.
