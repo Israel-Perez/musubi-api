@@ -141,6 +141,7 @@ internal sealed class InMemoryProfileRepository : IProfileRepository
                     Sales = p.Stats.Sales,
                     Purchases = p.Stats.Purchases,
                 },
+                Responses = p.Responses,
                 SchemaVersion = p.SchemaVersion,
                 UpdatedAt = now,
             };
@@ -169,8 +170,30 @@ internal sealed class InMemoryProfileRepository : IProfileRepository
                 Sales = p.Stats.Sales + (asSeller ? 1 : 0),
                 Purchases = p.Stats.Purchases + (asSeller ? 0 : 1),
             },
+            Responses = p.Responses,
             SchemaVersion = p.SchemaVersion,
             UpdatedAt = now,
+        });
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task AddResponseAsync(ProfileOwner owner, ResponseSample sample, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        Upsert(owner, sample.At, p => new ProfileDocument
+        {
+            Id = p.Id,
+            CommunityId = p.CommunityId,
+            FullName = p.FullName,
+            CareerSlug = p.CareerSlug,
+            Term = p.Term,
+            AvatarKey = p.AvatarKey,
+            Visibility = p.Visibility,
+            Stats = p.Stats,
+            Responses = [.. p.Responses.Append(sample).TakeLast(ResponseSample.Kept)],
+            SchemaVersion = p.SchemaVersion,
+            UpdatedAt = p.UpdatedAt,
         });
         return Task.CompletedTask;
     }
@@ -200,6 +223,7 @@ internal sealed class InMemoryProfileRepository : IProfileRepository
         AvatarKey = avatarKey,
         Visibility = visibility,
         Stats = p.Stats,
+        Responses = p.Responses,
         SchemaVersion = p.SchemaVersion,
         UpdatedAt = now,
     };

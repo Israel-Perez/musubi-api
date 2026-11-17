@@ -122,6 +122,77 @@ internal sealed class ProfileRatings(IProfileRepository profiles) : IProfileRati
         profiles.AddRatingAsync(new ProfileOwner(userId, communityId, fullName), stars, onTime, now, cancellationToken);
 }
 
+/// <summary>Contrato de M-02 para M-07 (HU-64): cuanto tarda quien vende en contestar.</summary>
+internal interface IProfileResponses
+{
+    /// <summary>Guarda una respuesta de quien vende en el chat.</summary>
+    /// <param name="sellerId">Quien contesto.</param>
+    /// <param name="communityId">Su campus.</param>
+    /// <param name="sellerName">Su nombre (si aun no tiene perfil, se crea con el).</param>
+    /// <param name="waited">Cuanto paso desde el ultimo mensaje de la otra persona.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La tarea.</returns>
+    Task RecordAsync(string sellerId, string communityId, string sellerName, TimeSpan waited, DateTime now, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de perfiles.</summary>
+internal sealed class ProfileResponses(IProfileRepository profiles) : IProfileResponses
+{
+    /// <inheritdoc />
+    public Task RecordAsync(string sellerId, string communityId, string sellerName, TimeSpan waited, DateTime now, CancellationToken cancellationToken) =>
+        profiles.AddResponseAsync(
+            new ProfileOwner(sellerId, communityId, sellerName),
+            new ResponseSample { At = now, Minutes = Math.Max(0, waited.TotalMinutes) },
+            cancellationToken);
+}
+
+/// <summary>
+/// Insignias de confianza de quien vende (HU-64; decisiones de la usuaria del 16-Nov-2026). Se calculan en la API con
+/// lo que ya guarda el perfil; sin datos suficientes no hay insignia (no se inventa).
+/// </summary>
+internal static class SellerBadges
+{
+    /// <summary>"Vendedor confiable": calificacion minima.</summary>
+    public const double TrustedRating = 4.5;
+
+    /// <summary>"Vendedor confiable": ventas completadas minimas.</summary>
+    public const int TrustedSales = 5;
+
+    /// <summary>"Responde en ~N": respuestas minimas en la ventana.</summary>
+    public const int MinResponses = 3;
+
+    /// <summary>"Responde en ~N": solo cuentan las respuestas de los ultimos 30 dias.</summary>
+    public static readonly TimeSpan ResponseWindow = TimeSpan.FromDays(30);
+
+    /// <summary>"Vendedor confiable": 4.5 estrellas o mas con al menos 5 ventas completadas.</summary>
+    /// <param name="stats">Las estadisticas del perfil.</param>
+    /// <returns><c>true</c> si la gana.</returns>
+    public static bool Trusted(ProfileStats stats)
+    {
+        ArgumentNullException.ThrowIfNull(stats);
+        return stats.RatingAvg is >= TrustedRating && stats.Sales >= TrustedSales;
+    }
+
+    /// <summary>"Responde en ~N": la mediana, en minutos, de las respuestas de los ultimos 30 dias.</summary>
+    /// <param name="samples">Las respuestas guardadas.</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <returns>Los minutos (al menos 1), o <c>null</c> con menos de 3 respuestas.</returns>
+    public static int? ResponseMinutes(IReadOnlyList<ResponseSample> samples, DateTime now)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        var recent = samples.Where(s => s.At > now - ResponseWindow).Select(s => s.Minutes).Order().ToList();
+        if (recent.Count < MinResponses)
+        {
+            return null;
+        }
+
+        var middle = recent.Count / 2;
+        var median = recent.Count % 2 == 1 ? recent[middle] : (recent[middle - 1] + recent[middle]) / 2;
+        return Math.Max(1, (int)Math.Round(median, MidpointRounding.AwayFromZero));
+    }
+}
+
 /// <summary>Contrato de M-02 para M-08: contar las ventas y compras completadas (HU-26).</summary>
 internal interface IProfileTrades
 {

@@ -118,6 +118,29 @@ internal sealed class MongoProfileRepository(IMongoDatabase database) : IProfile
     }
 
     /// <inheritdoc />
+    public Task AddResponseAsync(ProfileOwner owner, ResponseSample sample, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(sample);
+        // $push con $slice: una sola escritura deja las ultimas 20, aunque contesten dos veces a la vez.
+        var update = Update.Combine(
+            Update.PushEach(p => p.Responses, [sample], slice: -ResponseSample.Kept),
+            Update.SetOnInsert("stats.sales", 0),
+            Update.SetOnInsert("stats.purchases", 0),
+            Update.SetOnInsert("stats.ratingCount", 0),
+            Update.SetOnInsert(p => p.Visibility, new ProfileVisibility()),
+            Update.SetOnInsert(p => p.UpdatedAt, sample.At),
+            Update.SetOnInsert(p => p.CommunityId, owner.CommunityId),
+            Update.SetOnInsert(p => p.FullName, owner.FullName),
+            Update.SetOnInsert(p => p.SchemaVersion, 1));
+        return profiles.UpdateOneAsync(
+            Builders<ProfileDocument>.Filter.Eq(p => p.Id, owner.UserId),
+            update,
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<string?> SetAvatarAsync(ProfileOwner owner, string? avatarKey, DateTime now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(owner);

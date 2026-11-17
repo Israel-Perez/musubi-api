@@ -171,4 +171,23 @@ public abstract class ProfileRepositoryContract
         Assert.Equal((2, 1, 0), (profile!.Stats.Sales, profile.Stats.Purchases, profile.Stats.RatingCount));
         Assert.Equal(owner.FullName, profile.FullName);
     }
+
+    [Fact]
+    public async Task AddResponse_KeepsTheLast20_CreatesTheProfile_AndOtherChangesKeepThem()
+    {
+        // HU-64: "Responde en ~N".
+        var owner = NewOwner();
+
+        for (var i = 1; i <= ResponseSample.Kept + 2; i++)
+        {
+            await Profiles.AddResponseAsync(owner, new ResponseSample { At = Now, Minutes = i }, Ct);
+        }
+
+        await Profiles.AddTradeAsync(owner, asSeller: true, Now, Ct);
+        var profile = await Profiles.FindAsync(owner.UserId, Ct);
+
+        Assert.Equal(ResponseSample.Kept, profile!.Responses.Count);
+        Assert.Equal((3.0, 22.0), (profile.Responses[0].Minutes, profile.Responses[^1].Minutes));
+        Assert.Equal((owner.FullName, 1, 0), (profile.FullName, profile.Stats.Sales, profile.Stats.RatingCount));
+    }
 }

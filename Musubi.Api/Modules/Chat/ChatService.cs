@@ -39,6 +39,7 @@ internal sealed class ChatService(
     IContentModerator moderator,
     ChatNotifier notifier,
     INotificationCenter center,
+    IProfileResponses responses,
     TimeProvider time)
 {
     /// <summary>Largo maximo de un mensaje.</summary>
@@ -221,6 +222,20 @@ internal sealed class ChatService(
             CreatedAt = time.GetUtcNow().UtcDateTime,
         };
         await messages.InsertAsync(message, cancellationToken).ConfigureAwait(false);
+        // HU-64: si quien vende contesta un mensaje de la otra persona, cuenta para "Responde en ~N".
+        if (string.Equals(conversation.SellerId, userId, StringComparison.Ordinal)
+            && conversation.LastMessage is { } previous
+            && string.Equals(previous.SenderId, conversation.BuyerId, StringComparison.Ordinal))
+        {
+            await responses.RecordAsync(
+                userId,
+                conversation.CommunityId,
+                member.FullName,
+                message.CreatedAt - previous.At,
+                message.CreatedAt,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         var recipientRole = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal) ? SellerRole : BuyerRole;
         await conversations.RecordMessageAsync(
             conversation.Id,

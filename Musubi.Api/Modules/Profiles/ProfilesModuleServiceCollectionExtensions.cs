@@ -38,6 +38,8 @@ internal static class ProfilesModuleServiceCollectionExtensions
         services.AddSingleton<IProfileDirectory, ProfileDirectory>();
         services.AddSingleton<IProfileRatings, ProfileRatings>();
         services.AddSingleton<IProfileTrades, ProfileTrades>();
+        // HU-64: cuanto tarda quien vende en contestar ("Responde en ~1 h").
+        services.AddSingleton<IProfileResponses, ProfileResponses>();
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ProfilePhotoService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();

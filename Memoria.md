@@ -1,5 +1,12 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-64 (SCRUM-104): insignias de confianza
+
+- **Qué:** `GET /profiles/{id}` suma `stats.responseMinutes` ("Responde en ~N") y `stats.trusted` ("Vendedor confiable"). `ChatService` guarda cuánto tarda quien vende en contestar (`profiles.responses`, últimas 20). Sin script; API `0.5.0-alpha.40` (la alpha.38 y la alpha.39 son de HU-39/40 y HU-41).
+- **Decisiones de la usuaria (16-Nov-2026):** 4.5 ★ con 5 ventas; la mediana con al menos 3 respuestas en 30 días; se ven en `Producto` y `Perfil-vendedor`.
+- **Verificación (16-Nov-2026, ya con HU-39/40 y HU-41):** build 0/0; Unit 925, Integration 208, Security 305 y Contract 31.
+- **Errores a evitar:** en `IntegrationTest` el reloj de la prueba vence los access tokens (no adelantarlo mucho) y `/auth` tiene límite: pocas cuentas por prueba.
+
 ## HU-44 (SCRUM-56): coordinar la entrega, conciliada (16-Nov-2026)
 
 - Se cumple con HU-23 (punto de la lista del campus, día y hora al crear el pedido), HU-24 y HU-52 (apartar con hora y punto); la spec cita sus pruebas. Sin código nuevo.

@@ -92,6 +92,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
   - Cada acción va a `moderationLog` (RNF-04).
   - El rol se da con `Admin:Emails` al iniciar sesión o en la base (`db/README.md`), y la sesión lo trae en `user.roles`.
 - Categorías (HU-41): `CategoryAdminService` (`/admin/categories`, con `AdminGate`) usa `ICategoryCatalog` (M-03): el slug sale del nombre y no cambia, una desactivada sale de "Vender-3" y "Filtrar" pero sus publicaciones siguen visibles, y cada cambio borra la entrada de `CachedCategoryRepository` y las etiquetas `catalog` y `showcase` de la caché de salida.
+- Insignias de confianza (HU-64): `Modules/Profiles/`. `ChatService.SendAsync` registra con `IProfileResponses` cuánto tardó quien vende en contestar a quien compra (`profiles.responses`, las últimas 20 con `$push`/`$slice`). `SellerBadges` decide: `responseMinutes` es la mediana de los últimos 30 días con al menos 3 y `trusted` es 4.5 ★ con 5 ventas; salen en `stats` de `GET /profiles/{id}`.
 - Pendientes con dueño: HU-43 Mercado Pago fuera de alcance (D-01).
 
 ## 6. Seguridad y DevSecOps
@@ -154,7 +155,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (125 filas), `trazabilidad.md` (58 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (125 filas), `trazabilidad.md` (59 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

@@ -32,6 +32,7 @@ public sealed class ChatServiceTests
     private readonly FakeHub hub = new();
     private readonly InMemoryProfileRepository profiles = new();
     private readonly InMemoryBlockRepository blocks = new();
+    private readonly ManualTimeProvider time = new(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero));
     private readonly ChatService service;
 
     private readonly RecordingNotificationCenter center = new();
@@ -47,7 +48,8 @@ public sealed class ChatServiceTests
             new InMemoryContentModerator(),
             new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance),
             center,
-            new ManualTimeProvider(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero)));
+            new ProfileResponses(profiles),
+            time);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -170,6 +172,27 @@ public sealed class ChatServiceTests
         Assert.Equal([buyer, seller], hub.LastUsers);
         Assert.Equal(ChatHub.MessageCreated, hub.LastMethod);
         Assert.Equal(ChatService.PreviewLength, (await conversations.FindByIdAsync(started.Conversation.Id, Ct))!.LastMessage!.Text.Length);
+    }
+
+    [Fact]
+    public async Task Send_OnlyTheSellersReplyToTheBuyer_CountsForTheResponseTime()
+    {
+        // HU-64: "Responde en ~N" mide cuanto tarda quien vende en contestar a quien compra.
+        var buyer = await MemberAsync();
+        var seller = await MemberAsync(name: "Valeria Cruz");
+        var started = (await service.StartFromProductAsync(buyer, new StartConversationRequest(Product(seller).Id), Ct)).Value!;
+        var id = started.Conversation.Id;
+
+        await service.SendAsync(seller, id, new SendMessageRequest("¡Hola!"), Ct);
+        await service.SendAsync(buyer, id, new SendMessageRequest("¿Sigue disponible?"), Ct);
+        time.Advance(TimeSpan.FromMinutes(42));
+        await service.SendAsync(seller, id, new SendMessageRequest("Sí, aquí está"), Ct);
+        await service.SendAsync(seller, id, new SendMessageRequest("¿Cuándo pasas?"), Ct);
+        await service.SendAsync(buyer, id, new SendMessageRequest("Mañana"), Ct);
+
+        var sample = Assert.Single((await profiles.FindAsync(seller, Ct))!.Responses);
+        Assert.Equal(42, sample.Minutes);
+        Assert.Null(await profiles.FindAsync(buyer, Ct));
     }
 
     [Fact]
