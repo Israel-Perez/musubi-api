@@ -46,5 +46,7 @@ internal static class AuthModuleServiceCollectionExtensions
         services.AddSingleton<AccountDeletionService>();
         services.AddSingleton<PasswordChangeService>();
         services.AddSingleton<IMemberDirectory, MemberDirectory>();
+        services.AddOptions<AdminOptions>().BindConfiguration(AdminOptions.Section);
+        services.AddSingleton<IAccountModeration, AccountModeration>();
     }
 }

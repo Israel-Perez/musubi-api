@@ -8,6 +8,7 @@
     "fullName": "Ana Sofía Ramírez",
     "email": "ana.ramirez@uttt.edu.mx",
     "emailVerified": true,
-    "campus": { "shortName": "UTTT", "name": "Universidad Tecnológica de Tula-Tepeji" }
+    "campus": { "shortName": "UTTT", "name": "Universidad Tecnológica de Tula-Tepeji" },
+    "roles": ["student"]
   }
 }

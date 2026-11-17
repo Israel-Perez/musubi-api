@@ -263,3 +263,25 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `agreements.invalid_detail` | 400 | El detalle del lugar puede tener hasta 120 caracteres. | HU-34 |
 | `agreements.invalid_delivery_time` | 400 | Elige una fecha de hoy a 14 días, entre las 7:00 y las 21:00. | HU-34 (también al confirmar si la fecha ya pasó) |
 | `agreements.invalid_conditions` | 400 | Las condiciones pueden tener hasta 200 caracteres. | HU-34 |
+
+## M-14 · Administración (`Modules/Admin/AdminErrors.cs`)
+
+Sin el rol `admin` (o con el token de una cuenta que ya no lo tiene o está suspendida) responde `403 auth.forbidden`.
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `admin.invalid_status` | 400 | Elige reportes abiertos o revisados. | HU-39 (`status` que no es `open` ni `closed`) |
+| `admin.report_not_found` | 404 | No encontramos ese reporte. | HU-39 (inexistente o de otro campus: no revela cuál, OWASP API1) |
+| `admin.report_closed` | 409 | Este reporte ya se revisó. | HU-39 (también si otro administrador lo cerró al mismo tiempo) |
+| `admin.invalid_action` | 400 | Elige qué hacer con el reporte. | HU-39 (`action` que no es `dismiss` ni `uphold`) |
+| `admin.invalid_reason` | 400 | Escribe el motivo en hasta 500 caracteres. | HU-39 (nota de más de 500) y HU-40 (motivo vacío o de más de 500) |
+| `admin.account_not_found` | 404 | No encontramos esa cuenta. | HU-40 (inexistente o de otro campus) |
+| `admin.invalid_account` | 400 | No puedes suspender tu cuenta ni la de otra persona administradora. | HU-40 |
+| `admin.account_not_active` | 409 | Esta cuenta no está activa. | HU-40 (ya suspendida o sin verificar) |
+| `admin.account_not_suspended` | 409 | Esta cuenta no está suspendida. | HU-40 (reactivar una activa) |
+| `admin.invalid_category_name` | 400 | Escribe un nombre de 2 a 40 caracteres. | HU-41 (vacío, corto, largo o sin letras ni números) |
+| `admin.no_category_changes` | 400 | Cambia el nombre o el estado de la categoría. | HU-41 (`PATCH` sin `name` ni `active`) |
+| `admin.category_not_found` | 404 | No encontramos esa categoría. | HU-41 (inexistente o de otro campus) |
+| `admin.category_exists` | 409 | Ya hay una categoría con ese nombre. Revisa también las desactivadas. | HU-41 (sin acentos ni mayúsculas) |
+| `admin.last_category` | 409 | Debe quedar al menos una categoría activa. | HU-41 |
+| `admin.category_limit` | 409 | Ya hay 30 categorías. Renombra o reactiva una de las que ya existen. | HU-41 |

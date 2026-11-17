@@ -21,6 +21,38 @@ internal sealed class MongoCategoryRepository(IMongoDatabase database) : ICatego
         await categories.Find(c => c.CommunityId == communityId && c.Active)
             .SortBy(c => c.Order)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CategoryDocument>> ListAllAsync(string communityId, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(communityId, out _)
+            ? await categories.Find(c => c.CommunityId == communityId)
+                .SortBy(c => c.Order)
+                .ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+
+    /// <inheritdoc />
+    public async Task<bool> TryInsertAsync(CategoryDocument category, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await categories.InsertOneAsync(category, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<CategoryDocument?> UpdateAsync(string communityId, string slug, string name, bool active, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(communityId, out _)
+            ? await categories.FindOneAndUpdateAsync(
+                c => c.CommunityId == communityId && c.Slug == slug,
+                Builders<CategoryDocument>.Update.Set(c => c.Name, name).Set(c => c.Active, active),
+                new FindOneAndUpdateOptions<CategoryDocument> { ReturnDocument = ReturnDocument.After },
+                cancellationToken).ConfigureAwait(false)
+            : null;
 }
 
 /// <summary>Publicaciones en MongoDB (indices de vitrina, categoria, vendedor y precio; HU-06, HU-09, HU-10).</summary>
@@ -158,6 +190,26 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         ObjectId.TryParse(id, out _)
             ? await products.FindOneAndDeleteAsync(OwnedBy(id, sellerId), cancellationToken: cancellationToken).ConfigureAwait(false)
             : null;
+
+    /// <inheritdoc />
+    public async Task<ProductDocument?> RemoveAsync(string id, DateTime now, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await products.FindOneAndUpdateAsync(
+                Filter.Eq(p => p.Id, id) & Filter.Ne(p => p.Status, ProductStatuses.Removed),
+                Builders<ProductDocument>.Update.Set(p => p.Status, ProductStatuses.Removed).Set(p => p.UpdatedAt, now),
+                new FindOneAndUpdateOptions<ProductDocument> { ReturnDocument = ReturnDocument.After },
+                cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<long> HideBySellerAsync(string sellerId, DateTime now, CancellationToken cancellationToken)
+    {
+        var result = await products.UpdateManyAsync(
+            Filter.Eq(p => p.SellerId, sellerId) & Filter.In(p => p.Status, [ProductStatuses.Active, ProductStatuses.SoldOut]),
+            Builders<ProductDocument>.Update.Set(p => p.Status, ProductStatuses.Hidden).Set(p => p.UpdatedAt, now),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount;
+    }
 
     /// <inheritdoc />
     public async Task<long> DeleteBySellerAsync(string sellerId, CancellationToken cancellationToken)

@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "slug": "calculadoras",
+      "name": "Calculadoras",
+      "active": true,
+      "order": 1
+    },
+    {
+      "slug": "ropa-y-batas",
+      "name": "Ropa y batas",
+      "active": false,
+      "order": 7
+    }
+  ]
+}

@@ -54,6 +54,7 @@ internal static class ListingsModuleServiceCollectionExtensions
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
         services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
+        services.AddSingleton<ICategoryCatalog, CategoryCatalog>();
         services.AddSingleton<ListingService>();
         services.AddSingleton<MyListingsService>();
         services.AddSingleton<FavoriteService>();
@@ -62,6 +63,7 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<IProductDirectory, ProductDirectory>();
         services.AddSingleton<IProductMatches, ProductMatches>();
         services.AddSingleton<ISellerListings, SellerListings>();
+        services.AddSingleton<IProductModeration, ProductModeration>();
         services.AddSingleton<IRecommendationCatalog, RecommendationCatalog>();
         services.AddSingleton<IProductStock, ProductStock>();
         services.AddSingleton<IListingPhotos, ListingPhotos>();

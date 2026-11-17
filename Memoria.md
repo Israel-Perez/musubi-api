@@ -2,10 +2,15 @@
 
 ## Trabajo en curso — HU-64 (SCRUM-104): insignias de confianza
 
-- **Qué:** `GET /profiles/{id}` suma `stats.responseMinutes` ("Responde en ~N") y `stats.trusted` ("Vendedor confiable"). `ChatService` guarda cuánto tarda quien vende en contestar (`profiles.responses`, últimas 20). Sin script; API `0.5.0-alpha.38`.
+- **Qué:** `GET /profiles/{id}` suma `stats.responseMinutes` ("Responde en ~N") y `stats.trusted` ("Vendedor confiable"). `ChatService` guarda cuánto tarda quien vende en contestar (`profiles.responses`, últimas 20). Sin script; API `0.5.0-alpha.40` (la alpha.38 y la alpha.39 son de HU-39/40 y HU-41).
 - **Decisiones de la usuaria (16-Nov-2026):** 4.5 ★ con 5 ventas; la mediana con al menos 3 respuestas en 30 días; se ven en `Producto` y `Perfil-vendedor`.
-- **Verificación (16-Nov-2026):** build 0/0; Unit 879, Integration 197, Security 273 y Contract 29.
+- **Verificación (16-Nov-2026, ya con HU-39/40 y HU-41):** build 0/0; Unit 925, Integration 208, Security 305 y Contract 31.
 - **Errores a evitar:** en `IntegrationTest` el reloj de la prueba vence los access tokens (no adelantarlo mucho) y `/auth` tiene límite: pocas cuentas por prueba.
+
+## HU-44 (SCRUM-56): coordinar la entrega, conciliada (16-Nov-2026)
+
+- Se cumple con HU-23 (punto de la lista del campus, día y hora al crear el pedido), HU-24 y HU-52 (apartar con hora y punto); la spec cita sus pruebas. Sin código nuevo.
+- Decisión (propuesta de Jira): la lista de puntos la administrará HU-41; hoy la siembra db/014.
 
 ## Trabajo en curso — HU-51 (SCRUM-70): comparar opciones y "Avísame"
 
@@ -22,6 +27,45 @@
   - "Mismo modelo": una palabra del nombre de 4 o más caracteres con letras y dígitos, que no sea una medida ("16gb"). `SearchWord` no sirve porque quita el plural ("991ES" → "991").
 - **Verificación (16-Nov-2026):** build 0/0; Unit 869, Integration 196, Security 273 y Contract 29; `check_endpoints` OK (116). `DatabaseTest` corre en el CI.
 - **Errores a evitar:** `ProductStock` y `MyListingsService` reciben `IProductRestocks`: las pruebas que los construyen a mano usan `RecordingRestocks`.
+
+## Trabajo en curso — HU-39 y HU-40 (SCRUM-62, SCRUM-63, Kazumi): moderar reportes y suspender cuentas
+
+- **Qué:** módulo nuevo `Modules/Admin/` (M-14), solo para el rol `admin`.
+  - `GET /admin/reports?status=open|closed`: la bandeja del campus, con lo reportado y la persona responsable.
+  - `POST /admin/reports/{id}/resolution`: `dismiss` o `uphold`. Con una publicación, `uphold` la retira (`removed`).
+  - `GET /admin/accounts/suspended` y `GET /admin/accounts/{id}`: reportes procedentes e historial.
+  - `POST`/`DELETE /admin/accounts/{id}/suspension`: suspender con motivo y reactivar.
+- **Contratos nuevos entre módulos:** `IReportInbox` (M-13), `IProductModeration` (M-03) e `IAccountModeration` (M-01). Admin no lee sus colecciones.
+- **Rol:** `Admin:Emails` lo da al iniciar sesión (queda en `users.roles`) o en la base con `mongosh` (`db/README.md`). La sesión trae `user.roles`, para que la app muestre "Administración".
+- **Decisiones para revisar (16-Nov-2026):**
+  - RN-27 como sugerencia: con 3 procedentes, `suspensionSuggested` (Jira decía "[POR DEFINIR]" y "puede ser suspendida").
+  - Suspender pausa las publicaciones (`hidden`); al reactivar siguen pausadas.
+  - Avisos solo push a quien reportó ("Revisamos tu reporte") y a quien vende ("Retiramos tu publicación").
+  - La bitácora no se borra con la cuenta.
+- **Por qué la base manda:** el JWT dura 15 minutos. `ModerationService` vuelve a leer la cuenta del administrador, así que un rol quitado o una suspensión aplican de inmediato (`AdminAuthTests.AdminToken_WithoutTheRoleInTheDatabase_Is403`).
+- **Versión:** `0.5.0-alpha.38`, esquema 30 (`db/030-moderacion.js`: revisión en `reports`, `moderationLog` y dos tipos en el validador de `notifications`, a partir del de `029` de HU-51). Al traer `main` se renumeró de `alpha.37`/`db/029`, que tomó HU-51 (#106).
+- **Error a evitar:** un tipo de aviso nuevo, aunque sea solo push, tiene que entrar al validador de `notifications`. `MongoNotificationRepositoryTests.EveryTypeAndTargetOfTheCode_CanBeStored` recorre todas las constantes. Solo se vio con `DatabaseTest` contra MongoDB real.
+- **Error a evitar:** en Windows, `open(..., 'w')` de Python escribe CRLF. Git lo normaliza (`.gitattributes`), pero para editar docs usa `newline=''`.
+- **Verificación (16-Nov-2026, sobre `main` `49abf52`, ya con HU-51):**
+  - Build Release 0/0. Unit 877, Integration 202, Security 295 y Contract 30. `check_endpoints` OK (122), critic PASS y `check_shared_sections` OK.
+  - Sin Docker local: los 30 scripts se aplicaron dos veces en un MongoDB 8.0 local y `DatabaseTest` corrió 190/190 contra él, con un cambio temporal en la fixture que se revirtió. En el CI corre con Testcontainers.
+  - Semgrep no está instalado en local: lo corre el CI.
+- **Pendiente:** crear `/musubi/prod/Admin/Emails/0` en Parameter Store y desplegar.
+
+## Trabajo en curso — HU-41 (SCRUM-64, Kazumi): gestionar categorías
+
+- **Qué:** `/admin/categories` en M-14 (`GET`, `POST` y `PATCH /{slug}`): agregar, renombrar, desactivar y volver a activar las categorías del campus. Las reglas viven en M-03 (`ICategoryCatalog`); Admin pone la autorización (`AdminGate`, que salió de `ModerationService`) y la bitácora (`category_*` en `moderationLog`).
+- **Decisiones para revisar (16-Nov-2026):**
+  - Desactivar en vez de borrar: sus publicaciones siguen visibles con su nombre y su dueño las edita sin cambiarla.
+  - El slug sale del nombre y no cambia al renombrar (lo guardan productos, solicitudes, intereses y búsquedas).
+  - Sin repetidas por nombre sin acentos ni mayúsculas, también contra las desactivadas; al menos una activa; hasta 30 por campus.
+  - Sin cambiar el orden: una nueva va al final.
+  - Las carreras (`NOTE (HU-41)` en Profiles) quedan fuera: Jira solo pide categorías.
+- **Caché:** `CachedCategoryRepository` guarda todas y filtra las activas (la misma llave: antes todas eran activas) y borra su entrada al escribir. La política `catalog` ahora tiene etiqueta, y un cambio borra `catalog` y `showcase` de la caché de salida.
+- **PR apilado:** la rama sale de `feature/SCRUM-62-moderacion` (#108), porque usa el módulo Admin y el rol. Al fusionar #108 hay que rebasar con `git rebase --onto origin/main feature/SCRUM-62-moderacion`.
+- **Versión:** `0.5.0-alpha.39`, esquema 31 (`db/031-categorias.js`: solo el validador de `moderationLog`).
+- **Error a evitar:** `DatabaseTest` contra un MongoDB local reusa las bases si la carpeta de datos ya tiene una corrida anterior, y fallan 5 pruebas que esperan una base vacía. Usa una carpeta de datos nueva cada vez (con Testcontainers no pasa).
+- **Verificación (16-Nov-2026):** build Release 0/0. Unit 915, Integration 207, Security 305, Contract 31 y `DatabaseTest` 194 (MongoDB 8.0 local). `check_endpoints` OK (125), critic PASS y `check_shared_sections` OK.
 
 ## Trabajo en curso — HU-52 (SCRUM-74): apartar un producto 24 h
 

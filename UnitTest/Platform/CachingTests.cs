@@ -24,11 +24,20 @@ public sealed class CachingTests
 
         public int Reads { get; private set; }
 
-        public Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<CategoryDocument>> ListActiveAsync(string communityId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("La cache lee todas y filtra las activas.");
+
+        public Task<IReadOnlyList<CategoryDocument>> ListAllAsync(string communityId, CancellationToken cancellationToken)
         {
             Reads++;
-            return inner.ListActiveAsync(communityId, cancellationToken);
+            return inner.ListAllAsync(communityId, cancellationToken);
         }
+
+        public Task<bool> TryInsertAsync(CategoryDocument category, CancellationToken cancellationToken) =>
+            inner.TryInsertAsync(category, cancellationToken);
+
+        public Task<CategoryDocument?> UpdateAsync(string communityId, string slug, string name, bool active, CancellationToken cancellationToken) =>
+            inner.UpdateAsync(communityId, slug, name, active, cancellationToken);
     }
 
     /// <summary>Redis caido: cada operacion falla como lo hace StackExchange.Redis.</summary>
@@ -65,6 +74,24 @@ public sealed class CachingTests
         Assert.Equal(1, source.Reads);
         Assert.Equal(first.Select(c => c.Slug), second.Select(c => c.Slug));
         Assert.Equal("Electrónica", second[^1].Name);
+    }
+
+    [Fact]
+    public async Task ChangingACategory_ForcesTheNextReadToTheSource()
+    {
+        // HU-41: al renombrar o desactivar, "Vender-3" y "Filtrar" lo ven de inmediato.
+        var source = new CountingCategories();
+        var categories = new CachedCategoryRepository(source, Cache());
+        var uttt = InMemoryCommunityRepository.UtttId;
+
+        await categories.ListActiveAsync(uttt, Ct);
+        await categories.UpdateAsync(uttt, "dibujo", "Dibujo técnico", active: false, Ct);
+        var active = await categories.ListActiveAsync(uttt, Ct);
+        var all = await categories.ListAllAsync(uttt, Ct);
+
+        Assert.Equal(2, source.Reads);
+        Assert.DoesNotContain("dibujo", active.Select(c => c.Slug));
+        Assert.Equal("Dibujo técnico", Assert.Single(all, c => c.Slug == "dibujo").Name);
     }
 
     [Fact]

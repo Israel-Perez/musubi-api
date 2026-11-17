@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 29;
+    public const int ExpectedVersion = 31;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";
@@ -97,4 +97,7 @@ internal static class MongoSchema
 
     /// <summary>"Avísame" en una publicación agotada (HU-51, db/029): privados, se borran al avisar o a los 90 dias.</summary>
     public const string StockAlerts = "stockAlerts";
+
+    /// <summary>Bitacora de moderacion (HU-39/40, db/030, RNF-04): quien hizo que, a quien y por que.</summary>
+    public const string ModerationLog = "moderationLog";
 }

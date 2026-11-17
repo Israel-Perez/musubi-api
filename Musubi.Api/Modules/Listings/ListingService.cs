@@ -364,7 +364,8 @@ internal sealed partial class ListingService(
             return ListingsErrors.ProductNotFound;
         }
 
-        var category = (await categories.ListActiveAsync(product.CommunityId, cancellationToken).ConfigureAwait(false))
+        // HU-41: una publicacion de una categoria desactivada sigue mostrando su nombre.
+        var category = (await categories.ListAllAsync(product.CommunityId, cancellationToken).ConfigureAwait(false))
             .FirstOrDefault(c => string.Equals(c.Slug, product.CategorySlug, StringComparison.Ordinal));
         // HU-49: la vista de quien vende no cuenta para "Populares".
         if (!string.Equals(product.SellerId, userId, StringComparison.Ordinal))

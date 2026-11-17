@@ -67,7 +67,7 @@ Faltaban la caché de datos compartida entre las 2 instancias y la caché de las
 - **La caché de salida es por instancia:** la otra instancia ve una publicación nueva a más tardar en 30 s. Con Redis se podría compartir (`Microsoft.AspNetCore.OutputCaching.StackExchangeRedis`, otro paquete), pero no hace falta con esa vida tan corta.
 - **`NOTE (HU-18)`/`NOTE (HU-31)`:** el `outbox` (R14) nace con su primer consumidor (coincidencias y avisos push).
 - **`NOTE (HU-11)`:** cachear "Populares" cuando exista.
-- **`NOTE (HU-41)`:** borrar la entrada de categorías o carreras al editarlas.
+- **`NOTE (HU-41)`:** borrar la entrada de carreras al editarlas. Las categorías ya lo hacen (HU-41: `CachedCategoryRepository` y la etiqueta `catalog`).
 
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia

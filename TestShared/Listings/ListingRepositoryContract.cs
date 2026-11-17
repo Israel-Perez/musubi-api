@@ -67,6 +67,57 @@ public abstract class ListingRepositoryContract
         Assert.Empty(await Categories.ListActiveAsync(AuthIds.New(), Ct));
     }
 
+    private static CategoryDocument NewCategory(string communityId, string slug, int order) => new()
+    {
+        Id = AuthIds.New(),
+        CommunityId = communityId,
+        Slug = slug,
+        Name = "Categoría " + slug,
+        Order = order,
+    };
+
+    [Fact]
+    public async Task Categories_Inserted_AreListedInOrder_AndTheSlugIsUniquePerCommunity()
+    {
+        // HU-41: cada prueba en su propia comunidad; la UTTT queda con las 6 de la maqueta.
+        var community = AuthIds.New();
+        Assert.True(await Categories.TryInsertAsync(NewCategory(community, "batas", 2), Ct));
+        Assert.True(await Categories.TryInsertAsync(NewCategory(community, "mochilas", 1), Ct));
+
+        Assert.False(await Categories.TryInsertAsync(NewCategory(community, "batas", 3), Ct));
+        Assert.True(await Categories.TryInsertAsync(NewCategory(AuthIds.New(), "batas", 1), Ct));
+        Assert.Equal(["mochilas", "batas"], (await Categories.ListAllAsync(community, Ct)).Select(c => c.Slug));
+    }
+
+    [Fact]
+    public async Task Category_Deactivated_LeavesTheActiveList_ButNotTheFullOne()
+    {
+        var community = AuthIds.New();
+        await Categories.TryInsertAsync(NewCategory(community, "batas", 1), Ct);
+        await Categories.TryInsertAsync(NewCategory(community, "mochilas", 2), Ct);
+
+        var updated = await Categories.UpdateAsync(community, "batas", "Batas de laboratorio", active: false, Ct);
+
+        Assert.NotNull(updated);
+        Assert.Equal(("batas", "Batas de laboratorio", false), (updated.Slug, updated.Name, updated.Active));
+        Assert.Equal(["mochilas"], (await Categories.ListActiveAsync(community, Ct)).Select(c => c.Slug));
+        var all = await Categories.ListAllAsync(community, Ct);
+        Assert.Equal([("batas", false), ("mochilas", true)], all.Select(c => (c.Slug, c.Active)));
+        Assert.Equal("Batas de laboratorio", all[0].Name);
+    }
+
+    [Fact]
+    public async Task Category_UnknownOrOfAnotherCommunity_IsNotUpdated()
+    {
+        var community = AuthIds.New();
+        await Categories.TryInsertAsync(NewCategory(community, "batas", 1), Ct);
+
+        Assert.Null(await Categories.UpdateAsync(community, "mochilas", "Mochilas", active: true, Ct));
+        Assert.Null(await Categories.UpdateAsync(AuthIds.New(), "batas", "Otra", active: false, Ct));
+        Assert.Null(await Categories.UpdateAsync("no-es-un-id", "batas", "Otra", active: false, Ct));
+        Assert.Equal("Categoría batas", Assert.Single(await Categories.ListAllAsync(community, Ct)).Name);
+    }
+
     [Fact]
     public async Task Page_IsNewestFirst_AndTheCursorContinues()
     {
@@ -958,5 +1009,57 @@ public abstract class ListingRepositoryContract
         Assert.Equal([second.Id, third.Id], crossed.Select(p => p.Id));
         Assert.Equal(first.Id, Assert.Single(one).Id);
         Assert.Empty(await Products.FindAvailableListedAsync("no-es-un-id", null, start.AddDays(9), 10, Ct));
+    }
+
+    [Fact]
+    public async Task Remove_AnyStatusOnce_AndHidesItFromItsSeller()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller);
+        var paused = NewProduct(community, seller, status: ProductStatuses.Hidden);
+        await Products.InsertAsync(product, Ct);
+        await Products.InsertAsync(paused, Ct);
+        var later = Now.AddHours(1);
+
+        var removed = await Products.RemoveAsync(product.Id, later, Ct);
+        var removedPaused = await Products.RemoveAsync(paused.Id, later, Ct);
+        var again = await Products.RemoveAsync(product.Id, later, Ct);
+
+        Assert.NotNull(removed);
+        Assert.Equal(ProductStatuses.Removed, removed.Status);
+        Assert.Equal(later, removed.UpdatedAt);
+        Assert.Equal(product.Title, removed.Title);
+        Assert.Equal(ProductStatuses.Removed, removedPaused!.Status);
+        Assert.Null(again);
+        Assert.Null(await Products.RemoveAsync(AuthIds.New(), later, Ct));
+        Assert.Null(await Products.RemoveAsync("no-es-un-id", later, Ct));
+        Assert.Empty(await Products.FindBySellerAsync(seller, null, null, 10, Ct));
+    }
+
+    [Fact]
+    public async Task HideBySeller_PausesOnlyTheAvailableAndSoldOutOfThatSeller()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var active = NewProduct(community, seller);
+        var soldOut = NewProduct(community, seller, status: ProductStatuses.SoldOut);
+        var sold = NewProduct(community, seller, status: ProductStatuses.Sold);
+        var removed = NewProduct(community, seller, status: ProductStatuses.Removed);
+        var others = NewProduct(community, AuthIds.New());
+        foreach (var p in new[] { active, soldOut, sold, removed, others })
+        {
+            await Products.InsertAsync(p, Ct);
+        }
+
+        var hidden = await Products.HideBySellerAsync(seller, Now.AddHours(1), Ct);
+
+        Assert.Equal(2, hidden);
+        Assert.Equal(ProductStatuses.Hidden, (await Products.FindByIdAsync(active.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Hidden, (await Products.FindByIdAsync(soldOut.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Sold, (await Products.FindByIdAsync(sold.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Removed, (await Products.FindByIdAsync(removed.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Active, (await Products.FindByIdAsync(others.Id, Ct))!.Status);
+        Assert.Equal(0, await Products.HideBySellerAsync(seller, Now.AddHours(2), Ct));
     }
 }

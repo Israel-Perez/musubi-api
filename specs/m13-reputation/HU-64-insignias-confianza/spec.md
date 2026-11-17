@@ -43,7 +43,7 @@ Fila `GET /api/v1/profiles/{id}` en [`docs/endpoints.md`](../../../docs/endpoint
 - [x] "Estudiante UTTT verificado": correo institucional verificado → HU-02 (sin cambios).
 - [x] Las insignias se calculan en la API y se actualizan solas → `ChatServiceTests.Send_OnlyTheSellersReplyToTheBuyer_CountsForTheResponseTime`, `ProfileRepositoryContract.AddResponse_*`.
 - [x] Sin datos suficientes no se muestra la insignia → `ResponseMinutes_NeedsThreeRecentReplies_AndIsAtLeastOneMinute`, `Trusted_WithoutRatings_IsFalse`.
-- [x] Build Release 0/0 · Unit 879, Integration 197, Security 273 y Contract 29 al 100 % · `check_endpoints` OK · critic PASS.
+- [x] Build Release 0/0 · Unit 925, Integration 208, Security 305 y Contract 31 (con HU-39/40 y HU-41) al 100 % · `check_endpoints` OK · critic PASS.
 
 ## Límites
 - La respuesta se mide desde el último mensaje de quien compra (no desde el primero sin contestar).
@@ -53,4 +53,4 @@ Fila `GET /api/v1/profiles/{id}` en [`docs/endpoints.md`](../../../docs/endpoint
 ## Aprobación y Control de Cambios
 - **Estado:** 🚧 Borrador con evidencia
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
-- **Fecha:** 16-Nov-2026 (detallada e implementada, con las decisiones de la usuaria; API `0.5.0-alpha.38`)
+- **Fecha:** 16-Nov-2026 (detallada e implementada, con las decisiones de la usuaria; API `0.5.0-alpha.40`)

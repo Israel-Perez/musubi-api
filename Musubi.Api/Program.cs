@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Musubi.Api.Modules.Admin;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.GenAi;
@@ -31,6 +32,7 @@ builder.Services.AddSellerSupportModule();
 builder.Services.AddOrdersModule();
 builder.Services.AddGenAiModule();
 builder.Services.AddNotificationsModule();
+builder.Services.AddAdminModule();
 
 var app = builder.Build();
 

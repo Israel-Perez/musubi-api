@@ -64,7 +64,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 5. Convenciones técnicas
 
-> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (116 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
+> Fase 01 implementada (15-Oct-2026), en "Borrador con evidencia". Fuente viva de rutas: `docs/endpoints.md` (125 filas, incluido el hub `WS /hubs/chat`; la verifica `scripts/check_endpoints.ps1`).
 
 - Rutas `api/v{version:apiVersion}/<recurso>` con `[ApiVersion("1.0")]`; módulos en `Musubi.Api/Modules/<Modulo>/` (ver su README).
 - Health: `/health` (liveness) y `/health/ready` (readiness con la BD). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) solo en Development.
@@ -86,6 +86,12 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Pagos (HU-55, D-01): `Modules/Orders/`. La cuenta para recibir pagos (`/payouts/*`, `PayoutService`) valida la CLABE (`Clabe`, dígito verificador; `MexicanBanks`, claves de SPEI) y el titular (`HolderNames`), y la cifra con `ClabeProtector` (AES-256-GCM, `Payments:EncryptionKey`; sin llave, solo efectivo). Por transferencia, `OrderPaymentService` da la cuenta (completa a quien compra, enmascarada a quien vende), recibe la referencia y "todavía no me llega"; aceptar es "Sí, me llegó el pago". En efectivo, aceptar genera el código de 4 dígitos y `POST /orders/{id}/delivery-code` completa el pedido (5 intentos). `TransferReminderWorker` recuerda a las 24 h sin cancelar. NOTE (HU-55): el comprobante, con almacenamiento privado.
 - Apartados (HU-52): `ReservationService` en `Modules/Orders/` (`/reservations`). Apartar resta una pieza con `IProductStock`, abre la conversación (`IConversationOpener.OpenForProductAsync`) y guarda un código de 6 dígitos (solo lo ve quien aparta; su QR es `musubi:apartado:{id}:{code}`). Uno activo por persona (`ux_buyer_active`). Quien vende verifica (5 intentos) y "Confirmar entrega" crea un pedido completado con `OrderLifecycleService.AfterCompletedAsync`. `ReservationExpiryWorker` vence a las 24 h y regresa la pieza.
 - Comparar y "Avísame" (HU-51): `Modules/Listings/`. `ProductComparisonService` (`GET /products/{id}/compare`) elige hasta 5 disponibles de la misma categoría (de las 50 más nuevas, sin las mías ni bloqueos): el mismo modelo primero (`ModelCodes`: un código del nombre como "991ES") y luego el precio más cercano, con la reputación y las ventas de `IProfileDirectory` (`ProfileCard.Sales`, `null` si las oculta); el puntaje "Para ti" es de la app. `StockAlertService` (`/products/{id}/stock-alert`, `stockAlerts`) guarda "Avísame" en una agotada (20 por persona, 90 días). `IProductStock.ReleaseAsync`, "Reponer" y reactivar encolan `IProductRestocks`; en M-06 `BackInStockWorker` relee la publicación y, si tiene piezas, toma los avisos con `IStockAlertDirectory` (se borran: se usan una vez) y avisa `back_in_stock`.
+- Moderación (HU-39/40): `Modules/Admin/`, solo `[Authorize(Roles = "admin")]`. `ModerationService` vuelve a leer la cuenta del administrador (la base manda sobre el token) y usa los contratos `IReportInbox` (M-13), `IProductModeration` (M-03) e `IAccountModeration` (M-01). Todo es del campus del administrador.
+  - "Procedente" con una publicación la retira (`removed`).
+  - Suspender cierra las sesiones y pausa las publicaciones.
+  - Cada acción va a `moderationLog` (RNF-04).
+  - El rol se da con `Admin:Emails` al iniciar sesión o en la base (`db/README.md`), y la sesión lo trae en `user.roles`.
+- Categorías (HU-41): `CategoryAdminService` (`/admin/categories`, con `AdminGate`) usa `ICategoryCatalog` (M-03): el slug sale del nombre y no cambia, una desactivada sale de "Vender-3" y "Filtrar" pero sus publicaciones siguen visibles, y cada cambio borra la entrada de `CachedCategoryRepository` y las etiquetas `catalog` y `showcase` de la caché de salida.
 - Insignias de confianza (HU-64): `Modules/Profiles/`. `ChatService.SendAsync` registra con `IProfileResponses` cuánto tardó quien vende en contestar a quien compra (`profiles.responses`, las últimas 20 con `$push`/`$slice`). `SellerBadges` decide: `responseMinutes` es la mediana de los últimos 30 días con al menos 3 y `trusted` es 4.5 ★ con 5 ventas; salen en `stats` de `GET /profiles/{id}`.
 - Pendientes con dueño: HU-43 Mercado Pago fuera de alcance (D-01).
 
@@ -149,7 +155,7 @@ La fuente canónica es `specs/phase-00-constitution/00-04-lessons-learned/spec.m
 | `MutationTest` | `MutationTest/` | Stryker.NET con xUnit v2 (no está en `Musubi.slnx`; workflow `mutation.yml`) |
 | `TestShared` | `TestShared/` | Baterías de contrato enlazadas en UnitTest y DatabaseTest (no es un proyecto) |
 | `db/` | `db/` | Scripts `mongosh` numerados e idempotentes (el script de la base que se entrega) |
-| `docs/` | `docs/` | `endpoints.md` (116 filas), `trazabilidad.md` (59 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
+| `docs/` | `docs/` | `endpoints.md` (125 filas), `trazabilidad.md` (59 HU), `modulos.md` (14 módulos), `versionado.md`, `bitacora/` (lineamientos) |
 | `scripts/` | `scripts/` | critic, endpoints, secciones compartidas |
 | `deploy/` | `deploy/` | Compose de MongoDB local |
 | `.claude/` | `.claude/` | `agents/` (3), `skills/` (10), `hooks/` |

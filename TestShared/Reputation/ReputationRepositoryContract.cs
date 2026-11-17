@@ -142,4 +142,70 @@ public abstract class ReputationRepositoryContract
         Assert.Empty(await Reports.FindByReporterAsync(reporter, Ct));
         Assert.Single(await Reports.FindByReporterAsync(other, Ct));
     }
+
+    [Fact]
+    public async Task FindByStatus_IsTheCampusInbox_NewestFirst_AndLimited()
+    {
+        var community = AuthIds.New();
+        var reporter = AuthIds.New();
+        ReportDocument At(int minute, string status = ReportStatuses.Open) => new()
+        {
+            Id = AuthIds.New(),
+            CommunityId = community,
+            ReporterId = reporter,
+            Target = new ReportTarget { Type = ReportTargetTypes.General },
+            Reason = ReportReasons.Other,
+            Status = status,
+            CreatedAt = Now.AddMinutes(minute),
+        };
+        var old = At(0);
+        var newer = At(5);
+        var dismissed = At(9, ReportStatuses.Dismissed);
+        await Reports.InsertAsync(old, Ct);
+        await Reports.InsertAsync(newer, Ct);
+        await Reports.InsertAsync(dismissed, Ct);
+        await Reports.InsertAsync(Report(reporter, new ReportTarget { Type = ReportTargetTypes.General }), Ct);
+
+        var open = await Reports.FindByStatusAsync(community, [ReportStatuses.Open], 10, Ct);
+        var closed = await Reports.FindByStatusAsync(community, ReportStatuses.Closed, 10, Ct);
+        var first = await Reports.FindByStatusAsync(community, [ReportStatuses.Open], 1, Ct);
+
+        Assert.Equal([newer.Id, old.Id], open.Select(r => r.Id));
+        Assert.Equal(dismissed.Id, Assert.Single(closed).Id);
+        Assert.Equal(newer.Id, Assert.Single(first).Id);
+        Assert.Equal(old.Id, (await Reports.FindByIdAsync(old.Id, Ct))!.Id);
+        Assert.Null(await Reports.FindByIdAsync(AuthIds.New(), Ct));
+    }
+
+    [Fact]
+    public async Task Close_OnlyAnOpenReport_OnlyOnce_AndCountsTheUpheldOfThatPerson()
+    {
+        var reporter = AuthIds.New();
+        var seller = AuthIds.New();
+        var admin = AuthIds.New();
+        var report = Report(reporter, new ReportTarget { Type = ReportTargetTypes.Product, Id = AuthIds.New() });
+        var other = Report(reporter, new ReportTarget { Type = ReportTargetTypes.User, Id = seller });
+        await Reports.InsertAsync(report, Ct);
+        await Reports.InsertAsync(other, Ct);
+
+        var closed = await Reports.CloseAsync(new ReportReview(report.Id, ReportStatuses.Upheld, admin, seller, "Fotos de otra tienda.", Now.AddHours(1)), Ct);
+        var again = await Reports.CloseAsync(new ReportReview(report.Id, ReportStatuses.Dismissed, admin, seller, null, Now.AddHours(2)), Ct);
+        var dismissed = await Reports.CloseAsync(new ReportReview(other.Id, ReportStatuses.Dismissed, admin, seller, null, Now.AddHours(1)), Ct);
+
+        Assert.NotNull(closed);
+        Assert.Equal(ReportStatuses.Upheld, closed.Status);
+        Assert.Equal(seller, closed.SubjectId);
+        Assert.Equal(admin, closed.ReviewedBy);
+        Assert.Equal(Now.AddHours(1), closed.ReviewedAt);
+        Assert.Equal("Fotos de otra tienda.", closed.ReviewNote);
+        Assert.Equal(report.Details, closed.Details);
+        Assert.Null(again);
+        Assert.Equal(ReportStatuses.Upheld, (await Reports.FindByIdAsync(report.Id, Ct))!.Status);
+        Assert.NotNull(dismissed);
+        Assert.Null(dismissed.ReviewNote);
+        // Solo cuenta el procedente, no el descartado.
+        Assert.Equal(1, await Reports.CountUpheldAsync(seller, Ct));
+        Assert.Equal(0, await Reports.CountUpheldAsync(AuthIds.New(), Ct));
+        Assert.Null(await Reports.CloseAsync(new ReportReview(AuthIds.New(), ReportStatuses.Upheld, admin, null, null, Now), Ct));
+    }
 }

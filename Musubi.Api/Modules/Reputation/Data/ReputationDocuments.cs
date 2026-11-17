@@ -39,8 +39,29 @@ internal sealed class ReportDocument
     [BsonIgnoreIfNull]
     public string? Details { get; init; }
 
-    /// <summary><c>open</c> al crearse; HU-39 lo cierra.</summary>
+    /// <summary><c>open</c> al crearse; HU-39 lo cierra (<see cref="ReportStatuses"/>).</summary>
     public string Status { get; init; } = ReportStatuses.Open;
+
+    /// <summary>
+    /// La persona responsable de lo reportado: la reportada o quien vende la publicacion (HU-39). Cuenta los reportes
+    /// procedentes de cada cuenta (RN-27, HU-40); se omite en un problema general y en los reportes anteriores a HU-39.
+    /// </summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    [BsonIgnoreIfNull]
+    public string? SubjectId { get; init; }
+
+    /// <summary>Administrador que lo reviso (HU-39).</summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    [BsonIgnoreIfNull]
+    public string? ReviewedBy { get; init; }
+
+    /// <summary>Cuando se reviso (UTC).</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? ReviewedAt { get; init; }
+
+    /// <summary>Nota interna de la revision (hasta 500 caracteres; no la ve quien reporto).</summary>
+    [BsonIgnoreIfNull]
+    public string? ReviewNote { get; init; }
 
     /// <summary>Creacion (UTC).</summary>
     public DateTime CreatedAt { get; init; }
@@ -135,4 +156,13 @@ internal static class ReportStatuses
 {
     /// <summary>Recien enviado; lo revisa el equipo (HU-39).</summary>
     public const string Open = "open";
+
+    /// <summary>Descartado por un administrador: no habia nada que retirar (HU-39).</summary>
+    public const string Dismissed = "dismissed";
+
+    /// <summary>Procedente: se retiro la publicacion o se confirmo la falta de la persona (HU-39, RN-27).</summary>
+    public const string Upheld = "upheld";
+
+    /// <summary>Los revisados.</summary>
+    public static readonly string[] Closed = [Dismissed, Upheld];
 }
