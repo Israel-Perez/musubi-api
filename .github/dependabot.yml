@@ -16,6 +16,10 @@ updates:
       # Los SDK de AWS salen casi cada semana: un solo PR en lugar de cinco (12-Nov-2026).
       aws:
         patterns: ["AWSSDK.*"]
+      # SkiaSharp y su biblioteca nativa van en la misma version: con una sola, el tipo nativo no carga y fallan
+      # todas las fotos (#88 y #89, 16-Nov-2026).
+      skiasharp:
+        patterns: ["SkiaSharp*"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -30,6 +34,10 @@ updates:
       default-days: 7
     # La API es net10.0: una version mayor de .NET cambia el target, global.json y las dos imagenes juntas, y se
     # decide aparte. Con solo una imagen no compila (sdk) o no arranca (aspnet). Ver #73 y #74 (12-Nov-2026).
+    # Los parches del SDK y del runtime salen juntos: un solo PR (#85 y #86, 16-Nov-2026).
+    groups:
+      dotnet:
+        patterns: ["dotnet/*"]
     ignore:
       - dependency-name: "dotnet/sdk"
         update-types: ["version-update:semver-major"]
