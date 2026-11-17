@@ -83,7 +83,8 @@ internal sealed partial class ReportService(
             Id = MongoConventions.NewId(),
             CommunityId = me.CommunityId,
             ReporterId = me.Id,
-            Target = target.Value!,
+            Target = target.Value!.Target,
+            SubjectId = target.Value.SubjectId,
             ConversationId = string.IsNullOrEmpty(request.ConversationId) ? null : request.ConversationId,
             Reason = request.Reason,
             Details = details,
@@ -93,16 +94,15 @@ internal sealed partial class ReportService(
         // Sin el texto ni quien reporta (RNF-05): el detalle se lee en la base o en el correo del equipo.
         LogReceived(logger, report.Id, report.Target.Type, report.Reason);
         await NotifyAsync(report, cancellationToken).ConfigureAwait(false);
-        // NOTE (HU-39): bandeja de reportes del administrador, con estado y respuesta a quien reporto.
         return Result<ReportResponse>.Ok(new ReportResponse(report.Id, report.CreatedAt));
     }
 
-    private async Task<Result<ReportTarget>> ValidateTargetAsync(MemberSummary me, CreateReportRequest request, CancellationToken cancellationToken)
+    private async Task<Result<ValidTarget>> ValidateTargetAsync(MemberSummary me, CreateReportRequest request, CancellationToken cancellationToken)
     {
         switch (request.TargetType)
         {
             case ReportTargetTypes.General when string.IsNullOrEmpty(request.TargetId) && string.IsNullOrEmpty(request.ConversationId):
-                return Result<ReportTarget>.Ok(new ReportTarget { Type = ReportTargetTypes.General });
+                return Result<ValidTarget>.Ok(new ValidTarget(new ReportTarget { Type = ReportTargetTypes.General }, null));
 
             case ReportTargetTypes.User when !string.IsNullOrEmpty(request.TargetId):
                 if (string.Equals(request.TargetId, me.Id, StringComparison.Ordinal))
@@ -119,7 +119,7 @@ internal sealed partial class ReportService(
                     return ReputationErrors.TargetNotFound;
                 }
 
-                return Result<ReportTarget>.Ok(new ReportTarget { Type = ReportTargetTypes.User, Id = other.Id });
+                return Result<ValidTarget>.Ok(new ValidTarget(new ReportTarget { Type = ReportTargetTypes.User, Id = other.Id }, other.Id));
 
             case ReportTargetTypes.Product when !string.IsNullOrEmpty(request.TargetId) && string.IsNullOrEmpty(request.ConversationId):
                 var product = ObjectId.TryParse(request.TargetId, out _)
@@ -132,7 +132,7 @@ internal sealed partial class ReportService(
 
                 return string.Equals(product.SellerId, me.Id, StringComparison.Ordinal)
                     ? ReputationErrors.InvalidTarget
-                    : Result<ReportTarget>.Ok(new ReportTarget { Type = ReportTargetTypes.Product, Id = product.Id });
+                    : Result<ValidTarget>.Ok(new ValidTarget(new ReportTarget { Type = ReportTargetTypes.Product, Id = product.Id }, product.SellerId));
 
             default:
                 return ReputationErrors.InvalidTarget;
@@ -177,7 +177,7 @@ internal sealed partial class ReportService(
             "Qué pasó:",
             report.Details ?? "(sin detalle)",
             string.Empty,
-            "Revísalo en la colección reports (status: open). La app le dijo a la persona que le escribirán en menos de 24 horas.");
+            "Revísalo en Ajustes → Administración de la app. La app le dijo a la persona que le escribirán en menos de 24 horas.");
         try
         {
             await email.SendAsync(new EmailMessage(to, "Nuevo reporte en Musubi (" + report.Reason + ")", body), cancellationToken).ConfigureAwait(false);
@@ -188,6 +188,9 @@ internal sealed partial class ReportService(
             LogNotifyFailed(logger, ex, report.Id);
         }
     }
+
+    // Lo reportado y la persona responsable (la reportada o quien vende), para contar los procedentes (RN-27).
+    private sealed record ValidTarget(ReportTarget Target, string? SubjectId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reporte {ReportId} recibido ({TargetType}, {Reason})")]
     private static partial void LogReceived(ILogger logger, string reportId, string targetType, string reason);

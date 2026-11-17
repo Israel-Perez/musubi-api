@@ -78,6 +78,31 @@ internal interface IUserRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns><c>true</c> si existia.</returns>
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>Cambia el estado solo si sigue en el esperado (HU-40: suspender y reactivar, atomico).</summary>
+    /// <param name="id">Id del usuario.</param>
+    /// <param name="from">Estado esperado.</param>
+    /// <param name="to">Estado nuevo.</param>
+    /// <param name="updatedAt">Momento del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si cambio.</returns>
+    Task<bool> ChangeStatusAsync(string id, string from, string to, DateTime updatedAt, CancellationToken cancellationToken);
+
+    /// <summary>Los usuarios de un campus en un estado, del ultimo cambio al mas viejo (HU-40: las suspendidas).</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="status">Estado.</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los usuarios.</returns>
+    Task<IReadOnlyList<UserDocument>> FindByStatusAsync(string communityId, string status, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Agrega un rol si no lo tenia (HU-39: el administrador de <c>Admin:Emails</c>).</summary>
+    /// <param name="id">Id del usuario.</param>
+    /// <param name="role">Rol.</param>
+    /// <param name="updatedAt">Momento del cambio (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si el usuario existia.</returns>
+    Task<bool> AddRoleAsync(string id, string role, DateTime updatedAt, CancellationToken cancellationToken);
 }
 
 /// <summary>Codigos de verificacion (uno vigente por usuario y proposito).</summary>

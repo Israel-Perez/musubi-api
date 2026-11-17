@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Musubi.Api.Platform.Data;
 
@@ -29,6 +30,60 @@ internal sealed class MongoReportRepository(IMongoDatabase database) : IReportRe
         var result = await reports.DeleteManyAsync(r => r.ReporterId == reporterId, cancellationToken).ConfigureAwait(false);
         return result.DeletedCount;
     }
+
+    /// <inheritdoc />
+    public async Task<ReportDocument?> FindByIdAsync(string id, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(id, out _)
+            ? await reports.Find(r => r.Id == id).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ReportDocument>> FindByStatusAsync(
+        string communityId,
+        IReadOnlyCollection<string> statuses,
+        int limit,
+        CancellationToken cancellationToken) =>
+        await reports.Find(Builders<ReportDocument>.Filter.Eq(r => r.CommunityId, communityId)
+                & Builders<ReportDocument>.Filter.In(r => r.Status, statuses))
+            .SortByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.Id)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<ReportDocument?> CloseAsync(ReportReview review, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(review);
+        if (!ObjectId.TryParse(review.ReportId, out _))
+        {
+            return null;
+        }
+
+        var update = Builders<ReportDocument>.Update
+            .Set(r => r.Status, review.Status)
+            .Set(r => r.ReviewedBy, review.ReviewerId)
+            .Set(r => r.ReviewedAt, review.At);
+        if (review.SubjectId is not null)
+        {
+            update = update.Set(r => r.SubjectId, review.SubjectId);
+        }
+
+        if (review.Note is not null)
+        {
+            update = update.Set(r => r.ReviewNote, review.Note);
+        }
+
+        // Solo uno lo cierra: el filtro exige que siga abierto.
+        return await reports.FindOneAndUpdateAsync(
+            r => r.Id == review.ReportId && r.Status == ReportStatuses.Open,
+            update,
+            new FindOneAndUpdateOptions<ReportDocument> { ReturnDocument = ReturnDocument.After },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task<long> CountUpheldAsync(string subjectId, CancellationToken cancellationToken) =>
+        reports.CountDocumentsAsync(r => r.SubjectId == subjectId && r.Status == ReportStatuses.Upheld, cancellationToken: cancellationToken);
 }
 
 /// <summary>Bloqueos en MongoDB (indices <c>ux_blocker_blocked</c> e <c>ix_blocked</c>).</summary>

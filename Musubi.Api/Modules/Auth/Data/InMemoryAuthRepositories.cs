@@ -49,6 +49,24 @@ internal sealed class InMemoryCommunityRepository : ICommunityRepository
 /// <summary>Usuarios en memoria (correo normalizado unico).</summary>
 internal sealed class InMemoryUserRepository : IUserRepository
 {
+    // Los documentos son inmutables (init): un cambio reemplaza el documento, como lo devuelve Mongo.
+    private static UserDocument With(UserDocument user, string status, IReadOnlyList<string> roles, DateTime updatedAt) => new()
+    {
+        Id = user.Id,
+        CommunityId = user.CommunityId,
+        Email = user.Email,
+        EmailNormalized = user.EmailNormalized,
+        PasswordHash = user.PasswordHash,
+        FullName = user.FullName,
+        Status = status,
+        EmailVerifiedAt = user.EmailVerifiedAt,
+        Consents = user.Consents,
+        Roles = roles,
+        SchemaVersion = user.SchemaVersion,
+        CreatedAt = user.CreatedAt,
+        UpdatedAt = updatedAt,
+    };
+
     private readonly Lock gate = new();
     private readonly Dictionary<string, UserDocument> users = new(StringComparer.Ordinal);
 
@@ -156,6 +174,54 @@ internal sealed class InMemoryUserRepository : IUserRepository
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = updatedAt,
             };
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> ChangeStatusAsync(string id, string from, string to, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            if (!users.TryGetValue(id, out var user) || user.Status != from)
+            {
+                return Task.FromResult(false);
+            }
+
+            users[id] = With(user, to, user.Roles, updatedAt);
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<UserDocument>> FindByStatusAsync(string communityId, string status, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<UserDocument>>(users.Values
+                .Where(u => string.Equals(u.CommunityId, communityId, StringComparison.Ordinal) && u.Status == status)
+                .OrderByDescending(u => u.UpdatedAt)
+                .ThenByDescending(u => u.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList());
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> AddRoleAsync(string id, string role, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            if (!users.TryGetValue(id, out var user))
+            {
+                return Task.FromResult(false);
+            }
+
+            if (!user.Roles.Contains(role, StringComparer.Ordinal))
+            {
+                users[id] = With(user, user.Status, [.. user.Roles, role], updatedAt);
+            }
+
             return Task.FromResult(true);
         }
     }

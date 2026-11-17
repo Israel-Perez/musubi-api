@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Musubi.Api.Modules.Auth;
@@ -68,7 +69,8 @@ public sealed record SessionResponse(
 /// <param name="Email">Correo institucional.</param>
 /// <param name="EmailVerified">Pertenencia validada (HU-03).</param>
 /// <param name="Campus">Campus.</param>
-public sealed record UserSummary(string Id, string FullName, string Email, bool EmailVerified, CampusResponse Campus);
+/// <param name="Roles">Roles (<c>student</c>; <c>admin</c> abre "Administracion" en Ajustes, HU-39).</param>
+public sealed record UserSummary(string Id, string FullName, string Email, bool EmailVerified, CampusResponse Campus, IReadOnlyList<string> Roles);
 
 /// <summary>Iniciar sesion (HU-02, maqueta "Iniciar sesion").</summary>
 /// <param name="Email">Correo institucional.</param>

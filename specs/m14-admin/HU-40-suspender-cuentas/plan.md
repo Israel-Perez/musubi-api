@@ -1,10 +1,10 @@
-# plan.md — HU-40 Suspender y reactivar cuentas (borrador)
+# plan.md — HU-40 Suspender y reactivar cuentas
 
-Se completa **al iniciar la HU**, con la skill `spec-first-writing`, siguiendo la estructura de los planes ya cerrados (por ejemplo, HU-06):
+Se implementa con HU-39, en el mismo módulo y PR. Los componentes, las decisiones, los guardarraíles, la validación y la secuencia están en [`../HU-39-moderar-contenido/plan.md`](../HU-39-moderar-contenido/plan.md).
 
-1. **Componentes:** archivos y carpetas que se crean o cambian.
-2. **Decisiones:** cada una con su porqué; incluye las decisiones pendientes de Jira listadas en `spec.md` → Límites.
-3. **Excepciones al stack** (regla de 00-01), si hacen falta.
-4. **Guardarraíles:** seguridad, límites y validaciones.
-5. **Validación:** pruebas, capturas y prueba en el celular.
-6. **Secuencia de implementación.**
+Decisiones propias de HU-40:
+
+- **Suspender cierra todas las sesiones** (`RevokeAllForUserAsync`, como al cambiar la contraseña). El inicio de sesión y la renovación ya rechazaban `suspended` desde HU-02.
+- **Pausar y no retirar sus publicaciones.** `hidden` es reversible por su dueño desde "Mis productos". `removed` es solo para lo que un reporte procedente retira (HU-39).
+- **No se reactivan solas.** Al reactivar la cuenta, su dueño decide qué vuelve a la vitrina. Así no regresa algo que motivó la suspensión.
+- **RN-27 como sugerencia**, con 3 procedentes. Ver la decisión en el plan de HU-39.

@@ -47,6 +47,79 @@ internal sealed class InMemoryReportRepository : IReportRepository
             return Task.FromResult((long)reports.RemoveAll(r => string.Equals(r.ReporterId, reporterId, StringComparison.Ordinal)));
         }
     }
+
+    /// <inheritdoc />
+    public Task<ReportDocument?> FindByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult(reports.Find(r => string.Equals(r.Id, id, StringComparison.Ordinal)));
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ReportDocument>> FindByStatusAsync(
+        string communityId,
+        IReadOnlyCollection<string> statuses,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(statuses);
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<ReportDocument>>(reports
+                .Where(r => string.Equals(r.CommunityId, communityId, StringComparison.Ordinal) && statuses.Contains(r.Status))
+                .OrderByDescending(r => r.CreatedAt)
+                .ThenByDescending(r => r.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .ToList());
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<ReportDocument?> CloseAsync(ReportReview review, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(review);
+        lock (gate)
+        {
+            var index = reports.FindIndex(r => string.Equals(r.Id, review.ReportId, StringComparison.Ordinal));
+            if (index < 0 || reports[index].Status != ReportStatuses.Open)
+            {
+                return Task.FromResult<ReportDocument?>(null);
+            }
+
+            var report = reports[index];
+            var closed = new ReportDocument
+            {
+                Id = report.Id,
+                CommunityId = report.CommunityId,
+                ReporterId = report.ReporterId,
+                Target = report.Target,
+                ConversationId = report.ConversationId,
+                Reason = report.Reason,
+                Details = report.Details,
+                Status = review.Status,
+                SubjectId = review.SubjectId ?? report.SubjectId,
+                ReviewedBy = review.ReviewerId,
+                ReviewedAt = review.At,
+                ReviewNote = review.Note,
+                CreatedAt = report.CreatedAt,
+                SchemaVersion = report.SchemaVersion,
+            };
+            reports[index] = closed;
+            return Task.FromResult<ReportDocument?>(closed);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> CountUpheldAsync(string subjectId, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult((long)reports.Count(r =>
+                string.Equals(r.SubjectId, subjectId, StringComparison.Ordinal) && r.Status == ReportStatuses.Upheld));
+        }
+    }
 }
 
 /// <summary>Bloqueos en memoria.</summary>

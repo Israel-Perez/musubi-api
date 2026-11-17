@@ -959,4 +959,56 @@ public abstract class ListingRepositoryContract
         Assert.Equal(first.Id, Assert.Single(one).Id);
         Assert.Empty(await Products.FindAvailableListedAsync("no-es-un-id", null, start.AddDays(9), 10, Ct));
     }
+
+    [Fact]
+    public async Task Remove_AnyStatusOnce_AndHidesItFromItsSeller()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var product = NewProduct(community, seller);
+        var paused = NewProduct(community, seller, status: ProductStatuses.Hidden);
+        await Products.InsertAsync(product, Ct);
+        await Products.InsertAsync(paused, Ct);
+        var later = Now.AddHours(1);
+
+        var removed = await Products.RemoveAsync(product.Id, later, Ct);
+        var removedPaused = await Products.RemoveAsync(paused.Id, later, Ct);
+        var again = await Products.RemoveAsync(product.Id, later, Ct);
+
+        Assert.NotNull(removed);
+        Assert.Equal(ProductStatuses.Removed, removed.Status);
+        Assert.Equal(later, removed.UpdatedAt);
+        Assert.Equal(product.Title, removed.Title);
+        Assert.Equal(ProductStatuses.Removed, removedPaused!.Status);
+        Assert.Null(again);
+        Assert.Null(await Products.RemoveAsync(AuthIds.New(), later, Ct));
+        Assert.Null(await Products.RemoveAsync("no-es-un-id", later, Ct));
+        Assert.Empty(await Products.FindBySellerAsync(seller, null, null, 10, Ct));
+    }
+
+    [Fact]
+    public async Task HideBySeller_PausesOnlyTheAvailableAndSoldOutOfThatSeller()
+    {
+        var community = AuthIds.New();
+        var seller = AuthIds.New();
+        var active = NewProduct(community, seller);
+        var soldOut = NewProduct(community, seller, status: ProductStatuses.SoldOut);
+        var sold = NewProduct(community, seller, status: ProductStatuses.Sold);
+        var removed = NewProduct(community, seller, status: ProductStatuses.Removed);
+        var others = NewProduct(community, AuthIds.New());
+        foreach (var p in new[] { active, soldOut, sold, removed, others })
+        {
+            await Products.InsertAsync(p, Ct);
+        }
+
+        var hidden = await Products.HideBySellerAsync(seller, Now.AddHours(1), Ct);
+
+        Assert.Equal(2, hidden);
+        Assert.Equal(ProductStatuses.Hidden, (await Products.FindByIdAsync(active.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Hidden, (await Products.FindByIdAsync(soldOut.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Sold, (await Products.FindByIdAsync(sold.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Removed, (await Products.FindByIdAsync(removed.Id, Ct))!.Status);
+        Assert.Equal(ProductStatuses.Active, (await Products.FindByIdAsync(others.Id, Ct))!.Status);
+        Assert.Equal(0, await Products.HideBySellerAsync(seller, Now.AddHours(2), Ct));
+    }
 }

@@ -96,6 +96,46 @@ internal sealed class MongoUserRepository(IMongoDatabase database) : IUserReposi
         var result = await users.DeleteOneAsync(u => u.Id == id, cancellationToken).ConfigureAwait(false);
         return result.DeletedCount == 1;
     }
+
+    /// <inheritdoc />
+    public async Task<bool> ChangeStatusAsync(string id, string from, string to, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return false;
+        }
+
+        var result = await users.UpdateOneAsync(
+            u => u.Id == id && u.Status == from,
+            Builders<UserDocument>.Update.Set(u => u.Status, to).Set(u => u.UpdatedAt, updatedAt),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserDocument>> FindByStatusAsync(string communityId, string status, int limit, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(communityId, out _)
+            ? await users.Find(u => u.CommunityId == communityId && u.Status == status)
+                .SortByDescending(u => u.UpdatedAt)
+                .ThenByDescending(u => u.Id)
+                .Limit(limit)
+                .ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+
+    /// <inheritdoc />
+    public async Task<bool> AddRoleAsync(string id, string role, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _))
+        {
+            return false;
+        }
+
+        var result = await users.UpdateOneAsync(
+            u => u.Id == id,
+            Builders<UserDocument>.Update.AddToSet(u => u.Roles, role).Set(u => u.UpdatedAt, updatedAt),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.MatchedCount == 1;
+    }
 }
 
 /// <summary>Codigos de verificacion en MongoDB (indices <c>ux_user_purpose</c> y TTL).</summary>

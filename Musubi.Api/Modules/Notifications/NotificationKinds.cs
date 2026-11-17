@@ -92,6 +92,12 @@ internal static class NotificationTypes
 
     /// <summary>HU-51: la agotada de la que pedi "Avísame" volvio a tener piezas.</summary>
     public const string BackInStock = "back_in_stock";
+
+    /// <summary>"Revisamos tu reporte" a quien reporto (HU-39; solo push: no tiene pestana en el historial).</summary>
+    public const string ReportReviewed = "report_reviewed";
+
+    /// <summary>"Retiramos tu publicacion" a quien vende (HU-39; solo push).</summary>
+    public const string ProductRemoved = "product_removed";
 }
 
 /// <summary>Lo que abre un aviso.</summary>

@@ -322,4 +322,59 @@ public abstract class AuthRepositoryContract
         Assert.Null(await Tokens.FindByHashAsync(active.TokenHash, Ct));
         Assert.NotNull(await Tokens.FindByHashAsync(other.TokenHash, Ct));
     }
+
+    [Fact]
+    public async Task ChangeStatus_OnlyFromTheExpectedStatus()
+    {
+        var user = await NewUserAsync();
+        await Users.TryInsertAsync(user, Ct);
+        await Users.MarkEmailVerifiedAsync(user.Id, Now, Ct);
+        var later = Now.AddHours(1);
+
+        var suspended = await Users.ChangeStatusAsync(user.Id, UserStatuses.Active, UserStatuses.Suspended, later, Ct);
+        var twice = await Users.ChangeStatusAsync(user.Id, UserStatuses.Active, UserStatuses.Suspended, later, Ct);
+        var stored = await Users.FindByIdAsync(user.Id, Ct);
+
+        Assert.True(suspended);
+        Assert.False(twice);
+        Assert.Equal(UserStatuses.Suspended, stored!.Status);
+        Assert.Equal(later, stored.UpdatedAt);
+        Assert.Equal(user.PasswordHash, stored.PasswordHash);
+        Assert.False(await Users.ChangeStatusAsync(AuthIds.New(), UserStatuses.Active, UserStatuses.Suspended, later, Ct));
+        Assert.False(await Users.ChangeStatusAsync("no-es-un-id", UserStatuses.Active, UserStatuses.Suspended, later, Ct));
+        Assert.True(await Users.ChangeStatusAsync(user.Id, UserStatuses.Suspended, UserStatuses.Active, later, Ct));
+    }
+
+    [Fact]
+    public async Task FindByStatus_GivesTheSuspendedOfTheCampus_LatestChangeFirst()
+    {
+        var first = await NewUserAsync();
+        var second = await NewUserAsync();
+        foreach (var user in new[] { first, second })
+        {
+            await Users.TryInsertAsync(user, Ct);
+            await Users.MarkEmailVerifiedAsync(user.Id, Now, Ct);
+        }
+
+        await Users.ChangeStatusAsync(first.Id, UserStatuses.Active, UserStatuses.Suspended, Now.AddDays(300), Ct);
+        await Users.ChangeStatusAsync(second.Id, UserStatuses.Active, UserStatuses.Suspended, Now.AddDays(301), Ct);
+
+        // La base se comparte en la clase: otras pruebas pueden dejar suspendidas, pero estas son las mas recientes.
+        var found = await Users.FindByStatusAsync(first.CommunityId, UserStatuses.Suspended, 2, Ct);
+        Assert.Equal([second.Id, first.Id], found.Select(u => u.Id));
+        Assert.Empty(await Users.FindByStatusAsync(AuthIds.New(), UserStatuses.Suspended, 10, Ct));
+    }
+
+    [Fact]
+    public async Task AddRole_KeepsTheOthers_AndDoesNotRepeatIt()
+    {
+        var user = await NewUserAsync();
+        await Users.TryInsertAsync(user, Ct);
+
+        Assert.True(await Users.AddRoleAsync(user.Id, UserRoles.Admin, Now.AddHours(1), Ct));
+        Assert.True(await Users.AddRoleAsync(user.Id, UserRoles.Admin, Now.AddHours(2), Ct));
+        Assert.False(await Users.AddRoleAsync(AuthIds.New(), UserRoles.Admin, Now, Ct));
+
+        Assert.Equal([UserRoles.Student, UserRoles.Admin], (await Users.FindByIdAsync(user.Id, Ct))!.Roles);
+    }
 }
