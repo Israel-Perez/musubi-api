@@ -27,6 +27,8 @@ internal static class PlatformPipelineExtensions
         app.UseCloudFrontForwardedHeaders();
         // 02-06: una linea por peticion (despues de los forwarded headers: el esquema y la IP ya son los reales).
         app.UseMusubiRequestLogging();
+        // SCRUM-120: Brotli/Gzip para las respuestas siguientes (tambien los errores), menos /auth.
+        app.UseMusubiCompression();
 
         if (!app.Environment.IsDevelopment())
         {

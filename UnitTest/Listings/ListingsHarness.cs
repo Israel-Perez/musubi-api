@@ -28,9 +28,10 @@ internal sealed class ListingsHarness
 
     public ListingsHarness()
     {
+        Stats = new InMemoryProductStatsRepository(Products);
         Listings = new ListingService(
             Products,
-            new InMemoryProductStatsRepository(Products),
+            Stats,
             new InMemoryCategoryRepository(),
             new MemberDirectory(new InMemoryCommunityRepository(), new InMemoryUserRepository()),
             new InMemoryMediaStorage(),
@@ -44,6 +45,9 @@ internal sealed class ListingsHarness
     }
 
     public InMemoryProductRepository Products { get; } = new();
+
+    /// <summary>Vistas por dia (HU-49).</summary>
+    public InMemoryProductStatsRepository Stats { get; }
 
     public InMemoryBlockRepository Blocks { get; } = new();
 

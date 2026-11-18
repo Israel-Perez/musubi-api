@@ -1,7 +1,10 @@
 using System;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Auth;
@@ -16,6 +19,7 @@ internal sealed class LoginService(
     PasswordHashing passwords,
     RefreshTokenService refreshTokens,
     SessionIssuer sessions,
+    IAccessTokenRevocations revocations,
     TimeProvider time)
 {
     /// <summary>Inicia sesion. El error no revela si el correo existe (OWASP API2).</summary>
@@ -71,6 +75,13 @@ internal sealed class LoginService(
     {
         ArgumentNullException.ThrowIfNull(request);
         var rotation = await refreshTokens.RotateAsync(request.RefreshToken, userAgent, cancellationToken).ConfigureAwait(false);
+        if (rotation is { Status: RotationStatus.ReuseDetected, UserId: { } robbed })
+        {
+            // Un refresh token robado: ademas de su familia, se apagan los access tokens que ya circulan.
+            await revocations.RevokeUserAsync(robbed, cancellationToken).ConfigureAwait(false);
+            return AuthErrors.SessionExpired;
+        }
+
         if (rotation.Status != RotationStatus.Rotated || rotation.UserId is null || rotation.Next is null)
         {
             return AuthErrors.SessionExpired;
@@ -89,12 +100,21 @@ internal sealed class LoginService(
 
     /// <summary>Cierra la sesion de este dispositivo. Idempotente: un token desconocido no es error.</summary>
     /// <param name="request">Refresh token de la sesion.</param>
+    /// <param name="caller">Quien llama; si trae un access token vigente, tambien se revoca.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
-    public Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken)
+    public async Task LogoutAsync(LogoutRequest request, ClaimsPrincipal caller, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return refreshTokens.RevokeAsync(request.RefreshToken, cancellationToken);
+        ArgumentNullException.ThrowIfNull(caller);
+        await refreshTokens.RevokeAsync(request.RefreshToken, cancellationToken).ConfigureAwait(false);
+
+        // Con el access token vigente en la peticion, ese tambien deja de servir de inmediato (SCRUM-120).
+        if (caller.FindFirst(JwtRegisteredClaimNames.Jti)?.Value is { Length: > 0 } tokenId
+            && AccessTokenClaims.ExpiresAt(caller) is { } expiresAt)
+        {
+            await revocations.RevokeTokenAsync(tokenId, expiresAt, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private DateTime Now() => time.GetUtcNow().UtcDateTime;

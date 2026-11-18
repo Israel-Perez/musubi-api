@@ -30,9 +30,15 @@ Build Release 0/0 (`dotnet build Musubi.slnx -c Release`).
 6. **Grupo de control:** cuando una prueba asegura una ausencia (p. ej. sin detalle de error en Production), otra prueba confirma la presencia en el caso contrario (Development).
 7. **HSTS en el wire:** usar un host que no sea localhost (`https://api.musubi.test`); el middleware excluye localhost (00-04 #19).
 8. **RNF-25:** las HU de M-01 (auth), M-06 (coincidencias) y M-08 (pedidos) llevan Unit + Integration + Security obligatoriamente.
+9. **Cada endpoint, sus tres pruebas (02-10, SCRUM-120).** Vale para todas las HU, también las que vengan.
+   - Una prueba de IntegrationTest y una de SecurityTest deben **llamar** la ruta. El registro es en tiempo de ejecución (`EndpointCoverage`), así que da igual si la ruta se arma con un helper.
+   - La HU de la fila lista una ruta `UnitTest/` en `docs/trazabilidad.md`.
+   - Verificar con `pwsh scripts/check_endpoint_tests.ps1 -Suite <Suite>` después de correr esa suite; el CI lo corre en `unit`, `integration` y `security`.
+   - Una ruta pública de `/auth` también lleva su prueba de seguridad en la ruta real: rate limit, que no revele si la cuenta existe y asignación masiva (`SecurityTest/Auth/AuthRoutesSecurityTests.cs`).
+10. **Revocación con reloj manual:** la lista de revocación compara milisegundos. Con `ManualTimeProvider`, avanza el reloj (`Advance(5 ms)`) entre el inicio de sesión y la acción que revoca, o el token emitido "en el mismo instante" sigue válido.
 
 ## Checklist
-Matriz respetada · runner en serie en las suites WAF · CancellationToken · conteos reales en spec/PR.
+Matriz respetada · runner en serie en las suites WAF · CancellationToken · `check_endpoint_tests.ps1` OK en las 3 suites · conteos reales en spec/PR.
 
 ## Criterios de done
 Las 4 suites en verde con `--no-build`; conteos citados en la spec y en el título del PR.

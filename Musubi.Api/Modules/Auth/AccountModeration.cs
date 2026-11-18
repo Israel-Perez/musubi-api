@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Platform.Auth;
 
 namespace Musubi.Api.Modules.Auth;
 
@@ -84,7 +85,7 @@ internal interface IAccountModeration
 }
 
 /// <summary>Implementacion sobre los repositorios de M-01.</summary>
-internal sealed class AccountModeration(IUserRepository users, IRefreshTokenRepository tokens, TimeProvider time) : IAccountModeration
+internal sealed class AccountModeration(IUserRepository users, IRefreshTokenRepository tokens, IAccessTokenRevocations revocations, TimeProvider time) : IAccountModeration
 {
     /// <inheritdoc />
     public async Task<ModeratedAccount?> FindAsync(string userId, CancellationToken cancellationToken)
@@ -121,6 +122,8 @@ internal sealed class AccountModeration(IUserRepository users, IRefreshTokenRepo
 
         // Como al cambiar la contrasena: ningun dispositivo renueva la sesion.
         await tokens.RevokeAllForUserAsync(userId, now, cancellationToken).ConfigureAwait(false);
+        // Y sin esperar a que venza el access token: la siguiente peticion ya responde 401 (SCRUM-120).
+        await revocations.RevokeUserAsync(userId, cancellationToken).ConfigureAwait(false);
         return true;
     }
 

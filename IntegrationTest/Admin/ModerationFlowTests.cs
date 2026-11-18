@@ -256,6 +256,23 @@ public sealed class ModerationFlowTests(AuthApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Suspension_TheAccessTokenAlreadyIssuedStopsWorkingRightAway()
+    {
+        var admin = await AdminAsync();
+        var seller = await MemberAsync();
+        var me = new Uri("/api/v1/profiles/me", UriKind.Relative);
+        Assert.Equal(HttpStatusCode.OK, (await seller.Client.GetAsync(me, Ct)).StatusCode);
+        // SCRUM-120: la revocacion compara milisegundos; la suspension ocurre despues de su inicio de sesion.
+        factory.Clock.Advance(TimeSpan.FromMilliseconds(5));
+
+        Assert.Equal(HttpStatusCode.OK, (await SuspendAsync(admin, seller.Id)).StatusCode);
+
+        // Sin esperar los 15 minutos del access token: la lista de revocacion lo corta en la siguiente peticion.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await seller.Client.GetAsync(me, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.Client.GetAsync(me, Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Suspend_NeedsAReason_AndNeverTheAdminItselfOrAnotherAdmin()
     {
         var admin = await AdminAsync();

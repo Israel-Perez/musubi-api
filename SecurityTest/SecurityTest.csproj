@@ -21,6 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- SCRUM-120: cobertura de endpoints por suite (la verifica scripts/check_endpoint_tests.ps1). -->
+    <Compile Include="..\IntegrationTest\Common\EndpointCoverage.cs" Link="Common\EndpointCoverage.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Musubi.Api\Musubi.Api.csproj" />
   </ItemGroup>
 

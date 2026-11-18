@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Auth;
@@ -15,6 +16,7 @@ internal sealed class PasswordRecoveryService(
     IRefreshTokenRepository tokens,
     VerificationCodeService codes,
     PasswordHashing passwords,
+    IAccessTokenRevocations revocations,
     TimeProvider time)
 {
     /// <summary>Envia el codigo si la cuenta existe, esta activa y paso la espera; responde igual en todos los casos.</summary>
@@ -69,6 +71,7 @@ internal sealed class PasswordRecoveryService(
         await users.UpdatePasswordHashAsync(user.Id, passwords.Hash(request.NewPassword), now, cancellationToken).ConfigureAwait(false);
         // Quien tuviera la contrasena vieja (o una sesion robada) queda fuera.
         await tokens.RevokeAllForUserAsync(user.Id, now, cancellationToken).ConfigureAwait(false);
+        await revocations.RevokeUserAsync(user.Id, cancellationToken).ConfigureAwait(false);
         return Result<bool>.Ok(true);
     }
 }

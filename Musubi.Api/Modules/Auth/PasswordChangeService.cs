@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Auth;
@@ -16,6 +17,7 @@ internal sealed class PasswordChangeService(
     IRefreshTokenRepository tokens,
     PasswordHashing passwords,
     SessionIssuer sessions,
+    IAccessTokenRevocations revocations,
     TimeProvider time)
 {
     /// <summary>Cambia la contrasena del usuario del token.</summary>
@@ -50,6 +52,7 @@ internal sealed class PasswordChangeService(
         var now = time.GetUtcNow().UtcDateTime;
         await users.UpdatePasswordHashAsync(user.Id, passwords.Hash(request.NewPassword), now, cancellationToken).ConfigureAwait(false);
         await tokens.RevokeAllForUserAsync(user.Id, now, cancellationToken).ConfigureAwait(false);
+        await revocations.RevokeUserAsync(user.Id, cancellationToken).ConfigureAwait(false);
         return Result<SessionResponse>.Ok(await sessions.StartAsync(user, userAgent, cancellationToken).ConfigureAwait(false));
     }
 }

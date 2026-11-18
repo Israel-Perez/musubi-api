@@ -43,6 +43,10 @@ jobs:
       - run: dotnet restore Musubi.slnx
       - run: dotnet build Musubi.slnx -c Release --no-restore
       - run: dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build
+      # SCRUM-120: cada fila de docs/endpoints.md con su prueba unitaria (tambien las HU que vengan).
+      - name: Prueba unitaria por endpoint
+        shell: pwsh
+        run: ./scripts/check_endpoint_tests.ps1 -Suite UnitTest
 
   performance:
     # SCRUM-94: p95 de las rutas publicas bajo carga concurrente (en proceso, umbral en LatencyTests).
@@ -70,6 +74,10 @@ jobs:
       - run: dotnet restore Musubi.slnx
       - run: dotnet build Musubi.slnx -c Release --no-restore
       - run: dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build
+      # SCRUM-120: cada fila de docs/endpoints.md con su prueba de integracion (tambien las HU que vengan).
+      - name: Prueba de integracion por endpoint
+        shell: pwsh
+        run: ./scripts/check_endpoint_tests.ps1 -Suite IntegrationTest
 
   security:
     needs: build
@@ -83,6 +91,10 @@ jobs:
       - run: dotnet restore Musubi.slnx
       - run: dotnet build Musubi.slnx -c Release --no-restore
       - run: dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build
+      # SCRUM-120: cada fila de docs/endpoints.md con su prueba de seguridad (tambien las HU que vengan).
+      - name: Prueba de seguridad por endpoint
+        shell: pwsh
+        run: ./scripts/check_endpoint_tests.ps1 -Suite SecurityTest
 
   contract:
     needs: build

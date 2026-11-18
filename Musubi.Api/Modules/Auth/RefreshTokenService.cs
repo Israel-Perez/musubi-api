@@ -30,7 +30,7 @@ internal enum RotationStatus
 
 /// <summary>Resultado de <see cref="RefreshTokenService.RotateAsync"/>.</summary>
 /// <param name="Status">Estado.</param>
-/// <param name="UserId">Usuario (solo si se roto).</param>
+/// <param name="UserId">Usuario (si se roto o si se detecto la reutilizacion).</param>
 /// <param name="Next">Token nuevo (solo si se roto).</param>
 internal sealed record RefreshRotation(RotationStatus Status, string? UserId = null, IssuedRefreshToken? Next = null);
 
@@ -102,7 +102,7 @@ internal sealed class RefreshTokenService(IRefreshTokenRepository tokens, IOptio
         {
             // Un token usado que vuelve a aparecer: alguien mas lo tiene. Se corta la familia (todas sus copias).
             await tokens.RevokeFamilyAsync(existing.FamilyId, now, cancellationToken).ConfigureAwait(false);
-            return new RefreshRotation(RotationStatus.ReuseDetected);
+            return new RefreshRotation(RotationStatus.ReuseDetected, existing.UserId);
         }
 
         return new RefreshRotation(RotationStatus.Invalid);

@@ -17,6 +17,12 @@ internal static class MusubiClaims
 
     /// <summary>Rol (uno por claim).</summary>
     public const string Role = "role";
+
+    /// <summary>
+    /// Emision en milisegundos (SCRUM-120): <c>iat</c> solo tiene segundos y la lista de revocacion necesita
+    /// distinguir un token emitido justo antes de revocar de uno emitido justo despues.
+    /// </summary>
+    public const string IssuedAtMs = "iat_ms";
 }
 
 /// <summary>Access token emitido.</summary>
@@ -38,7 +44,8 @@ internal sealed class AccessTokenIssuer(IOptions<JwtOptions> options, TimeProvid
     {
         ArgumentNullException.ThrowIfNull(roles);
         var jwt = options.Value;
-        var now = time.GetUtcNow().UtcDateTime;
+        var issuedAt = time.GetUtcNow();
+        var now = issuedAt.UtcDateTime;
         var expires = now.AddMinutes(jwt.AccessTokenMinutes);
 
         var claims = new Dictionary<string, object>(StringComparer.Ordinal)
@@ -47,6 +54,7 @@ internal sealed class AccessTokenIssuer(IOptions<JwtOptions> options, TimeProvid
             [MusubiClaims.Community] = communityId,
             [MusubiClaims.Role] = new List<string>(roles),
             [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString("N"),
+            [MusubiClaims.IssuedAtMs] = issuedAt.ToUnixTimeMilliseconds(),
         };
 
         var token = handler.CreateToken(new SecurityTokenDescriptor

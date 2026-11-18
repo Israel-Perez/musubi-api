@@ -1,5 +1,25 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — SCRUM-120 (02-10): cierre de brechas de la evaluación
+
+- **Qué:** la revisión contra "Prompts para evaluar v1" (16-Nov-2026) pedía tres cosas que faltaban:
+  - JWT con Redis: lista de revocación del access token (`IAccessTokenRevocations`, `jti` y "revocado desde" por persona, consultada en `OnTokenValidated`). La alimentan logout, suspensión, cambio y recuperación de contraseña, cuenta eliminada (`SessionRevocationEraser`) y refresh token reutilizado.
+  - Compresión Brotli/Gzip (`Compression:Level`, `Optimal` medido), nunca en `/auth`.
+  - Cada endpoint con prueba unitaria, de integración y de seguridad, con un guard en el CI (`scripts/check_endpoint_tests.ps1`).
+- **Decisiones técnicas:**
+  - `iat_ms` en el token: `iat` solo tiene segundos, y la sesión nueva del cambio de contraseña (emitida en el mismo instante) debe seguir válida. La regla es "revocado si se emitió antes".
+  - Si Redis no responde, se acepta el token (RNF-15): dura 15 minutos y el refresh token ya se revocó en MongoDB.
+  - La exclusión de `/auth` va en un `ResponseCompressionProvider` propio, porque `IHttpsCompressionFeature` solo aplica a HTTPS.
+  - La cobertura por endpoint se registra en tiempo de ejecución (evento `EndpointMatched`). Buscar la ruta en el texto de las pruebas fallaba con los helpers que arman la ruta (las ofertas sí tenían prueba).
+  - Nivel de compresión medido: la vitrina de 20 baja de 9.5 KB a 1.3 KB con `Optimal` sin costo; `SmallestSize` agrega ~18 ms.
+- **Pruebas nuevas:** unitarias de HU-39/40 (`ModerationServiceTests`), HU-49 (`PopularProductsTests`) y HU-56 (`PasswordRecoveryTests`); seguridad de las 9 rutas anónimas de auth en su ruta real; integración de `GET /reservations/{id}`, bancos y quitar la cuenta de pagos. `docs/trazabilidad.md` ya lista las pruebas unitarias que existían (HU-02, 22, 25, 26, 27, 45).
+- **Verificación (17-Nov-2026):** build 0/0; Unit 974, Integration 216, Security 333 y Contract 31; `check_endpoint_tests` OK en las tres suites (125 filas, 1 excepción: `/media` solo en Development); `check_endpoints` OK (125); critic PASS. API `0.5.0-alpha.41`.
+- **Errores a evitar:**
+  - Con `ManualTimeProvider`, avanza el reloj entre el inicio de sesión y la acción que revoca: un token del mismo milisegundo sigue válido.
+  - En `SecurityTest`, Production usa SES: una prueba que registra cuentas necesita un `IEmailSender` simulado.
+  - El rate limit de `/auth` se reparte por IP: con la cabecera de CloudFront activada, una IP por llamada.
+- **Para las HU que vengan:** su endpoint nuevo rompe el CI si ninguna prueba de integración y de seguridad lo llama, o si su HU no lista una prueba unitaria en `docs/trazabilidad.md` (skill `testing-strategy`, paso 9).
+
 ## Trabajo en curso — HU-64 (SCRUM-104): insignias de confianza
 
 - **Qué:** `GET /profiles/{id}` suma `stats.responseMinutes` ("Responde en ~N") y `stats.trusted` ("Vendedor confiable"). `ChatService` guarda cuánto tarda quien vende en contestar (`profiles.responses`, últimas 20). Sin script; API `0.5.0-alpha.40` (la alpha.38 y la alpha.39 son de HU-39/40 y HU-41).

@@ -15,7 +15,7 @@ Esta spec cierra lo que falta.
 **Depende de:** `01-02` (pipeline), `02-03` (errores) y `02-05` (CloudFront).
 
 ## Requisitos
-1. **Compresión** Brotli y Gzip de las respuestas JSON (con el nivel medido). CloudFront comprime también: se evita comprimir dos veces.
+1. **Compresión** Brotli y Gzip de las respuestas JSON (con el nivel medido). CloudFront comprime también: se evita comprimir dos veces. ✅ Hecho en `02-10` (SCRUM-120): `Compression:Level` = `Optimal` medido, sin `/auth` (BREACH); CloudFront no recomprime lo que ya trae `Content-Encoding`.
 2. **Rate limit global por usuario o IP**, con respuesta 429 + `Retry-After` en `problem+json` (`rate_limit.exceeded`) y límites por grupo:
    - lectura;
    - escritura;

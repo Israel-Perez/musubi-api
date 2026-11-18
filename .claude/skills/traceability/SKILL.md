@@ -17,7 +17,7 @@ Spec existente; clave Jira de la HU (`docs/trazabilidad.md`).
 2. **Commits y título de PR:** `SCRUM-NN HU-NN <Título>: <resumen> (Unit N/Integration N/Security N, critic PASS)` con conteos **reales**.
 3. **Pruebas que citan su requisito:** el nombre o un comentario referencia la HU o la spec (`// HU-01 R3`).
 4. **Pendientes en 4 capas:** `NOTE (ID)` en el código + `Límites` de `spec.md` + `Pendiente → ID` en `task.md` + entrada en `Memoria.md` (y fila en la tabla de `01-04` si es configuración).
-5. **`docs/trazabilidad.md`:** llenar Spec, Contraparte (enlace a `musubi-app`) y Tests; actualizar el Estado técnico.
+5. **`docs/trazabilidad.md`:** llenar Spec, Contraparte (enlace a `musubi-app`) y Tests; actualizar el Estado técnico. Si la HU tiene endpoints, Tests incluye al menos una ruta `UnitTest/`: `scripts/check_endpoint_tests.ps1 -Suite UnitTest` lo exige en el CI (02-10).
 6. **Estado de la spec:** "🚧 Borrador con evidencia" al terminar con pruebas en verde; "✅ Aprobado" **solo** si el usuario indica el revisor (1 integrante distinto del autor) y el PR está en verde.
 7. **HU de dos repos:** un PR por repo con la misma clave; el PR del front enlaza al del back.
 8. **Secciones compartidas:** si cambias una, cámbiala en `musubi-app`, regístralo en las dos `Memoria.md` y corre `pwsh scripts/check_shared_sections.ps1`.

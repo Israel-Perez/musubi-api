@@ -150,4 +150,25 @@ public sealed class ReservationFlowTests(AuthApiFactory factory) : IClassFixture
             "reservation_cancelled",
             (await GetAsync(luis, "/api/v1/notifications?category=orders")).GetProperty("items").EnumerateArray().Select(n => n.GetProperty("type").GetString()));
     }
+
+    [Fact]
+    public async Task OnlyTheTwoParties_CanReadTheReservation_AndOnlyTheBuyerSeesTheCode()
+    {
+        var valeria = await MemberAsync();
+        var luis = await MemberAsync();
+        var outsider = await MemberAsync();
+        var product = await PublishAsync(valeria, "Bata de laboratorio talla M");
+        var id = (await AuthFlow.JsonAsync(await PostAsync(luis, "/api/v1/reservations", new { productId = product, meetingPoint = "biblioteca", pickupAt = PickupAt() })))
+            .GetProperty("id").GetString();
+
+        var asBuyer = await GetAsync(luis, $"/api/v1/reservations/{id}");
+        var asSeller = await GetAsync(valeria, $"/api/v1/reservations/{id}");
+        var asOutsider = await outsider.Client.GetAsync(new Uri($"/api/v1/reservations/{id}", UriKind.Relative), Ct);
+
+        Assert.Equal((id, "active"), (asBuyer.GetProperty("id").GetString(), asBuyer.GetProperty("status").GetString()));
+        Assert.Matches("^[0-9]{6}$", asBuyer.GetProperty("code").GetString()!);
+        Assert.Equal((id, JsonValueKind.Null), (asSeller.GetProperty("id").GetString(), asSeller.GetProperty("code").ValueKind));
+        // Ajeno es como inexistente (OWASP API1).
+        await AuthFlow.AssertCodeAsync(asOutsider, HttpStatusCode.NotFound, "reservations.not_found");
+    }
 }

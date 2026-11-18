@@ -12,6 +12,7 @@
   - `dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build` (igual para `IntegrationTest`, `SecurityTest`, `ContractTest` y `PerformanceTest`)
   - Mutación: `dotnet tool restore` → `cd MutationTest` → `dotnet stryker` (Stryker no soporta MTP: usa xUnit v2, ver `02-09`)
   - `pwsh scripts/critic-guardrails.ps1` · `pwsh scripts/check_endpoints.ps1`
+  - `pwsh scripts/check_endpoint_tests.ps1 -Suite UnitTest|IntegrationTest|SecurityTest` (después de correr esa suite: cada fila de `docs/endpoints.md` con su prueba, SCRUM-120)
 - **Orden del CI (`ci-pr.yml`):** `build` → `unit` / `integration` / `security` / `contract` / `database` (MongoDB real; requiere Docker); en paralelo `critic`, `endpoints`, `semgrep` y `docker-build`.
 - **Flujo SDD por HU:** spec (`specs/mNN-<modulo>/HU-NN-<slug>/`, skill `spec-first-writing`) → `slice-scaffolder` (Fase A) → implementación y pruebas (skill `vertical-slice`) → `security-reviewer` → `traceability-clerk` → PR.
 - **Ramas y PR:** `feature/SCRUM-NN-slug` / `fix/SCRUM-NN-slug`; un PR = una HU o un fix; título con la clave Jira; checklist de `.github/pull_request_template.md` obligatorio.
@@ -50,6 +51,7 @@
 - Unit, Integration, Security y Contract con `--no-build`: 100 % en verde en local.
 - `pwsh scripts/critic-guardrails.ps1` → `PASS` exit 0 (también con `powershell -File` en 5.1).
 - `pwsh scripts/check_endpoints.ps1` → `OK` exit 0 (cada ruta con fila y cada fila con ruta).
+- `pwsh scripts/check_endpoint_tests.ps1 -Suite <UnitTest|IntegrationTest|SecurityTest>` → `OK` exit 0. Un endpoint nuevo (cualquier HU que venga) necesita una prueba de integración y una de seguridad que lo llamen, y su HU una ruta `UnitTest/` en `docs/trazabilidad.md`; si una suite no puede tocarlo, la excepción va en `$Waivers` con su motivo.
 - YAML del CI validado en local: `python -c "import yaml; yaml.safe_load(open('.github/workflows/ci-pr.yml'))"` y `actionlint .github/workflows/ci-pr.yml`.
 - SAST en local antes del primer push de una rama: `semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error`.
 
@@ -72,7 +74,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Versión: `<Version>` de `Musubi.Api.csproj`, alineada con `docs/versionado.md` (lo verifica `UnitTest/Common/VersioningTests.cs`).
 - Caché (02-02): un catálogo que cambia poco se lee con un decorador `Cached*Repository` sobre `AppCache` (Redis o memoria, siempre con degradación); una lista pública lleva `[OutputCache(PolicyName = ...)]` y `[ConditionalGet]`; lo que cambia con una escritura se invalida (`EvictByTagAsync`). Nunca se cachea algo con sesión en la caché de salida.
 - Lineamientos de la materia (criterios de evaluación): `docs/bitacora/lineamientos-materia.md`.
-- Errores: `return this.Problem(<Modulo>Errors.X)` con un código del catálogo `docs/errores.md` (nunca `try/catch`). Sesión: JWT (`AccessTokenIssuer`) + `RefreshTokenService` (02-03); cada endpoint exige sesión salvo `[AllowAnonymous]`; los de `/auth/*` llevan `[EnableRateLimiting(AuthPlatformServiceCollectionExtensions.AuthRateLimit)]`.
+- Errores: `return this.Problem(<Modulo>Errors.X)` con un código del catálogo `docs/errores.md` (nunca `try/catch`). Sesión: JWT (`AccessTokenIssuer`) + `RefreshTokenService` (02-03) + lista de revocación en Redis (`IAccessTokenRevocations`, 02-10): todo lo que cierre sesiones llama `RevokeUserAsync` (o `RevokeTokenAsync` con el `jti`) además de revocar los refresh tokens; cada endpoint exige sesión salvo `[AllowAnonymous]`; los de `/auth/*` llevan `[EnableRateLimiting(AuthPlatformServiceCollectionExtensions.AuthRateLimit)]`.
 - Moderación (02-07): todo texto o foto que publica una persona pasa por `IContentModerator` antes de guardarse (`ModerationErrors.For(...)`); en Development el moderador en memoria rechaza `[[inapropiado]]` y las fotos magenta.
 - Tiempo real (HU-20): SignalR en `Platform/Realtime`, hub `/hubs/chat` solo con WebSockets y backplane de Redis (`Cache:ConnectionString`). Los mensajes se envían por REST y el hub solo entrega.
 - Pedidos (HU-23): `Modules/Orders/`. El pedido sale de una conversación (`IConversationDirectory.FindAsync`), con la publicación (`IProductDirectory`) o la oferta aceptada (`IOfferDirectory`); uno abierto por conversación (`ux_conversation_open`) y número `MS-NNNN` por campus (`counters`). Listings pregunta por pedidos abiertos con `IOpenOrders` (RN-07).
@@ -101,6 +103,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Errores: `problem+json` con `code`, título en español y `traceId`, sin detalle interno (`docs/errores.md`).
 - Sesión obligatoria por defecto (FallbackPolicy), JWT solo HS256, llave fuera del repo (fail-fast sin `Jwt:SigningKey` fuera de Development); contraseñas PBKDF2-SHA512 de 210 000 iteraciones.
 - Auth explícita por controller (critic B3 + `SecurityTest/Auth/ExplicitAuthTests.cs`). Referencia: OWASP API Security Top 10 – 2023 (checks del agente `security-reviewer`).
+- Access token revocable (02-10): `jti` y "revocado desde" por persona en Redis, consultados en `OnTokenValidated`; si Redis no responde se acepta hasta que venza (RNF-15). Compresión Brotli/Gzip, nunca en `/auth` (BREACH).
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
 - Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy, ZAP y SonarCloud en `02-06`.
 - Las llaves privadas (IA, Firebase Admin, cifrado de la CLABE) viven solo en el back, nunca en el front.
@@ -110,6 +113,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - xUnit v3 sobre Microsoft.Testing.Platform (`global.json` → `test.runner`): el comando es `dotnet test --project <csproj>`.
 - WebApplicationFactory con `UseInMemoryDatabase=true` (sin MongoDB) en Integration, Security y Contract; las suites WAF corren en serie (`xunit.runner.json`).
 - SecurityTest usa factories por ambiente (`ProductionApiFactory`, `DevelopmentApiFactory`) y un controller de prueba (`ThrowingProbeController`) que solo existe en ese ensamblado.
+- Cobertura por endpoint (02-10): IntegrationTest y SecurityTest registran los endpoints que tocan (`IntegrationTest/Common/EndpointCoverage.cs`, fixture de ensamblado) y `scripts/check_endpoint_tests.ps1` lo compara con `docs/endpoints.md` en el CI.
 - Matriz completa: skill `testing-strategy`.
 
 ## 8. Observabilidad

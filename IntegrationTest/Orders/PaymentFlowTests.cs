@@ -185,4 +185,25 @@ public sealed class PaymentFlowTests(AuthApiFactory factory) : IClassFixture<Aut
         Assert.Contains("order_completed", await NoticesAsync(ana));
         Assert.Equal("sold", (await GetAsync(diego, $"/api/v1/products/{product}")).GetProperty("status").GetString());
     }
+
+    [Fact]
+    public async Task PayoutAccount_BanksRegisterAndRemove_LeavesOnlyCash()
+    {
+        var diego = await MemberAsync();
+
+        var banks = await GetAsync(diego, "/api/v1/payouts/banks");
+        var saved = await diego.Client.PutAsJsonAsync(new Uri("/api/v1/payouts/account", UriKind.Relative), new { holderName = "Ana Sofía Prueba", clabe = Clabe }, Ct);
+        var before = await GetAsync(diego, "/api/v1/payouts/account");
+        var removed = await diego.Client.DeleteAsync(new Uri("/api/v1/payouts/account", UriKind.Relative), Ct);
+        var again = await diego.Client.DeleteAsync(new Uri("/api/v1/payouts/account", UriKind.Relative), Ct);
+        var after = await GetAsync(diego, "/api/v1/payouts/account");
+
+        Assert.Contains(banks.GetProperty("items").EnumerateArray(), b => b.GetProperty("code").GetString() == "012" && b.GetProperty("name").GetString() == "BBVA México");
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal("4829", before.GetProperty("account").GetProperty("clabeLast4").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        // Idempotente: quitarla otra vez no es error.
+        Assert.Equal(HttpStatusCode.NoContent, again.StatusCode);
+        Assert.Equal(JsonValueKind.Null, after.GetProperty("account").ValueKind);
+    }
 }
