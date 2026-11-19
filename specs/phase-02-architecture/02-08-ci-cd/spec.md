@@ -54,7 +54,7 @@ Esta spec las junta en un solo lugar y agrega la protección de `main`.
 - **Guía completa:** [`README.md`](../../../README.md) (CI y protección) e [`infra/README.md`](../../../infra/README.md) (secretos, costo y dominio).
 
 ## Contratos
-- **Checks obligatorios:** `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep` y `docker-build`.
+- **Checks obligatorios:** `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep`, `docker-build`, `performance`, `gitleaks` y `zap` (los dos últimos desde el 19-Nov-2026, SCRUM-123).
 - **Entorno `produccion`:** variable `AWS_DEPLOY_ROLE_ARN`, solo para la rama `main`.
 - **Etiquetas:** `api-vX.Y.Z[-pre]` e `infra-vX.Y.Z` (`docs/versionado.md`).
 
