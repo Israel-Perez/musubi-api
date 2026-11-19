@@ -8,14 +8,10 @@ name: dast
 on:
   push:
     branches: [main]
+  # En cada PR, sin filtro de rutas: `zap` es un check obligatorio del ruleset y un PR sin el se quedaria
+  # esperandolo. Tarda unos 3 minutos.
   pull_request:
     branches: [main]
-    paths:
-      # Tarda unos 3 minutos: corre en cada PR que toca la API.
-      - Musubi.Api/**
-      - .github/workflows/dast.yml
-      - .zap/**
-      - scripts/dast/**
   schedule:
     - cron: "0 9 * * 1" # lunes 03:00 en el campus
   workflow_dispatch:
