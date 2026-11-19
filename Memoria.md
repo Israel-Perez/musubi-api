@@ -7,7 +7,7 @@
   - Escanea la API levantada en el job, en modo Production y en memoria, sin AWS.
   - Usa el OpenAPI que publica Development y un token firmado con una llave aleatoria del job (`scripts/dast/mint_token.py`).
   - Tarda unos 3 minutos.
-  - Primera corrida: 0 alertas Altas o Medias y 2 Bajas: faltaban `X-Content-Type-Options` y `Cross-Origin-Resource-Policy`, que solo ponía CloudFront. Ahora los pone la API (`SecurityHeaders`, con pruebas en `SecurityTest/Hosting/SecurityHeadersTests.cs`).
+  - Primera corrida: 0 alertas Altas o Medias y 2 Bajas: faltaban `X-Content-Type-Options` y `Cross-Origin-Resource-Policy`, que solo ponía CloudFront. Ahora los pone la API (`SecurityHeaders`, con pruebas en `SecurityTest/Hosting/SecurityHeadersTests.cs`). CORP va en `same-origin`: ZAP 90004 marca `same-site` como inválido.
 - **Errores a evitar:**
   - Production rechaza los proveedores InMemory (correo, medios, moderación). Para levantarla sin AWS: `Email__From`, `Email__Region`, `Media__Bucket`, `Media__Region` y `AWS_EC2_METADATA_DISABLED=true`.
   - La carpeta montada en ZAP necesita permisos de escritura (`chmod a+rwX`).

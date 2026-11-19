@@ -14,8 +14,11 @@ internal static class SecurityHeaders
     /// <summary>Valor de <c>X-Content-Type-Options</c>: el navegador no adivina el tipo del contenido.</summary>
     public const string NoSniff = "nosniff";
 
-    /// <summary>Valor de <c>Cross-Origin-Resource-Policy</c>: otro sitio no puede incrustar las respuestas.</summary>
-    public const string SameSite = "same-site";
+    /// <summary>
+    /// Valor de <c>Cross-Origin-Resource-Policy</c>: ningun otro origen puede incrustar las respuestas (no aplica a
+    /// las peticiones con CORS ni a la app nativa). ZAP 90004 solo acepta <c>same-origin</c>.
+    /// </summary>
+    public const string SameOrigin = "same-origin";
 
     /// <summary>Valor de <c>Referrer-Policy</c>: la API nunca manda de donde viene una peticion.</summary>
     public const string NoReferrer = "no-referrer";
@@ -31,7 +34,7 @@ internal static class SecurityHeaders
             {
                 var headers = context.Response.Headers;
                 headers.XContentTypeOptions = NoSniff;
-                headers["Cross-Origin-Resource-Policy"] = SameSite;
+                headers["Cross-Origin-Resource-Policy"] = SameOrigin;
                 headers["Referrer-Policy"] = NoReferrer;
                 return Task.CompletedTask;
             });

@@ -23,7 +23,7 @@ public sealed class SecurityHeadersTests(ProductionApiFactory production) : ICla
 
         Assert.Equal(status, response.StatusCode);
         Assert.Equal(["nosniff"], response.Headers.GetValues("X-Content-Type-Options"));
-        Assert.Equal(["same-site"], response.Headers.GetValues("Cross-Origin-Resource-Policy"));
+        Assert.Equal(["same-origin"], response.Headers.GetValues("Cross-Origin-Resource-Policy"));
         Assert.Equal(["no-referrer"], response.Headers.GetValues("Referrer-Policy"));
     }
 }
