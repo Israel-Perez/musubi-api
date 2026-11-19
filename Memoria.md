@@ -5,6 +5,16 @@
 - El README es la portada del proyecto: qué hace, arquitectura, seguridad, pruebas con conteos, CI/CD y cómo correrlo. Se quitaron los "🚧 Pendiente" que ya estaban resueltos (observabilidad, dominio, Play) y lo que prometía controles que no existen (ZAP y SonarCloud).
 - **Regla:** la auditoría se responde leyendo los repos. Al cerrar algo que un documento marcaba como pendiente, actualiza el README y `AGENTS.md` en el mismo PR. Si cambian mucho los conteos de pruebas, actualiza también la tabla del README.
 
+## HU-61 — Compartir un producto con un enlace (19-Nov-2026, SCRUM-101)
+
+- Se creó la spec de API `specs/m04-marketplace/HU-61-compartir-producto-enlace/` desde la rama actualizada `origin/main`, en `feature/SCRUM-101-compartir-producto-enlace`.
+- Decisión: preview web genérico, sin metadatos del producto. El detalle anónimo de la API conserva las reglas públicas de HU-48; con sesión el campus se valida en el back.
+- No se agrega endpoint, DTO ni cambio de datos: se reutiliza `GET /api/v1/products/{id}`.
+- La landing, `assetlinks.json` y sus pruebas viven fuera de musubi-api y requieren coordinación con la contraparte.
+- No hubo cambio de endpoint/API: build Release 0 errores/0 advertencias; Unit 974, Integration 216, Security 333 y Contract 31 correctas; `check_endpoints` OK (125) y critic PASS.
+- La app implementó share sheet, `/p/{id}` y el intent filter; APK debug compilado usando el bypass de Flutter para el pin AGP del repo. `assetlinks.json` del dominio sigue dando 404.
+- Jira marca la HU posterior al MVP y sin sprint asignado. Pendientes antes de declarar HU completa: análisis estricto de Flutter 3.50 (infos deprecadas globales), APK/device, landing/OG y `assetlinks.json` externos, decisión del PO sobre literal de campus y revisor.
+
 ## Trabajo en curso — SCRUM-120 (02-10): cierre de brechas de la evaluación
 
 - **Qué:** la revisión contra "Prompts para evaluar v1" (16-Nov-2026) pedía tres cosas que faltaban:
