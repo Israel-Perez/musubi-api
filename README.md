@@ -121,7 +121,7 @@ Cada fila de `docs/endpoints.md` tiene prueba unitaria, de integración y de seg
 | `semgrep` | SAST (`--config=auto` + reglas propias) |
 | `docker-build` | Imagen y escaneo con **Trivy** |
 | `gitleaks` | Secretos en el historial completo de Git |
-| `dast` (`dast.yml`) | **DAST con OWASP ZAP**: escanea la API levantada en el job (modo Production, con y sin sesión) en cada PR que toca la API, al fusionar y cada semana. Falla con riesgo Alto |
+| `dast` (`dast.yml`) | **DAST con OWASP ZAP**: escanea la API levantada en el job (modo Production, con y sin sesión) en cada PR, al fusionar y cada semana. Falla con riesgo Alto |
 | `terraform` | `fmt` y `validate` |
 
 | CD | Qué hace |
