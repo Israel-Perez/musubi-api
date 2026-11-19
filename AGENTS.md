@@ -105,7 +105,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Auth explícita por controller (critic B3 + `SecurityTest/Auth/ExplicitAuthTests.cs`). Referencia: OWASP API Security Top 10 – 2023 (checks del agente `security-reviewer`).
 - Access token revocable (02-10): `jti` y "revocado desde" por persona en Redis, consultados en `OnTokenValidated`; si Redis no responde se acepta hasta que venza (RNF-15). Compresión Brotli/Gzip, nunca en `/auth` (BREACH).
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
-- Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy, ZAP y SonarCloud en `02-06`.
+- Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy escanea la imagen en el job `docker-build`. DAST (OWASP ZAP) y SonarCloud siguen pendientes (02-06).
 - Las llaves privadas (IA, Firebase Admin, cifrado de la CLABE) viven solo en el back, nunca en el front.
 
 ## 7. Testing
@@ -118,7 +118,14 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 
 ## 8. Observabilidad
 
-> 🚧 Pendiente (`02-06`): logs estructurados, correlación por request, métricas y monitoreo del piloto.
+- Logs: JSON fuera de Development y una línea por petición (`Platform/Observability`, sin los health checks), en CloudWatch `/musubi/prod/api`; los errores llevan `traceId` (`docs/errores.md`).
+- Métricas y alarmas (`infra/stack/observability.tf`), con aviso por correo (SNS):
+  - errores de la API (filtro de métrica `ApiErrors`);
+  - 5xx del balanceador;
+  - instancias sanas;
+  - latencia p95.
+- Dashboard `musubi-api` en CloudWatch.
+- Pendiente (02-06): trazas distribuidas.
 
 ## 9. Despliegue y operación
 
@@ -126,7 +133,8 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - CloudFront (HTTPS) → ALB → Auto Scaling Group de 2 EC2 con Docker; secretos en Parameter Store `/musubi/prod/*`; logs en CloudWatch `/musubi/prod/api`.
 - Para desplegar: subir `<Version>` y agregar su fila en `docs/versionado.md`, fusionar y correr `infra-up`. Si el tag `api-vX.Y.Z` ya existe en otro commit, falla.
 - No guardes secretos en Terraform: viven en Parameter Store y entran como variables de entorno.
-- 🚧 Pendiente: dominio propio (`NOTE (02-05)`) y respaldos (RNF-16).
+- Dominio: `api.musubiapp.com.mx` en CloudFront con certificado ACM (TLS 1.2).
+- Pendiente: respaldos (RNF-16; Atlas M0 no los incluye).
 
 ## 10. Reglas basadas en lecciones aprendidas
 

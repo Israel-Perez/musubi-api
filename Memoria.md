@@ -1,5 +1,10 @@
 # Memoria del proyecto — musubi-api
 
+## SCRUM-122: documentación al día para la auditoría v2 (19-Nov-2026)
+
+- El README es la portada del proyecto: qué hace, arquitectura, seguridad, pruebas con conteos, CI/CD y cómo correrlo. Se quitaron los "🚧 Pendiente" que ya estaban resueltos (observabilidad, dominio, Play) y lo que prometía controles que no existen (ZAP y SonarCloud).
+- **Regla:** la auditoría se responde leyendo los repos. Al cerrar algo que un documento marcaba como pendiente, actualiza el README y `AGENTS.md` en el mismo PR. Si cambian mucho los conteos de pruebas, actualiza también la tabla del README.
+
 ## Trabajo en curso — SCRUM-120 (02-10): cierre de brechas de la evaluación
 
 - **Qué:** la revisión contra "Prompts para evaluar v1" (16-Nov-2026) pedía tres cosas que faltaban:
