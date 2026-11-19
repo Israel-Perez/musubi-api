@@ -11,6 +11,8 @@ on:
   pull_request:
     branches: [main]
     paths:
+      # Tarda unos 3 minutos: corre en cada PR que toca la API.
+      - Musubi.Api/**
       - .github/workflows/dast.yml
       - .zap/**
       - scripts/dast/**
