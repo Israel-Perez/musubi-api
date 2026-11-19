@@ -187,7 +187,7 @@ scripts/           critic, endpoints, pruebas por endpoint, secciones compartida
 4. `security-reviewer`.
 5. PR con la clave Jira y el checklist.
 
-`main` está protegida (ruleset "Main Proteccion", spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md)): no acepta force push, exige PR con 1 aprobación y todos los checks del CI en verde con la rama al día.
+`main` está protegida (ruleset "Main Proteccion", spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md)): no acepta force push, exige PR con 1 aprobación y los checks del CI en verde con la rama al día (incluidos `gitleaks` y `zap`).
 
 ## Créditos
 
