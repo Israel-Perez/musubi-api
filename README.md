@@ -121,7 +121,7 @@ Cada fila de `docs/endpoints.md` tiene prueba unitaria, de integración y de seg
 | `semgrep` | SAST (`--config=auto` + reglas propias) |
 | `docker-build` | Imagen y escaneo con **Trivy** |
 | `gitleaks` | Secretos en el historial completo de Git |
-| `dast` (`dast.yml`) | **DAST con OWASP ZAP**: escanea la API levantada en el job (modo Production, con y sin sesión) en cada PR que toca la API, al fusionar y cada semana. Falla con riesgo Alto |
+| `dast` (`dast.yml`) | **DAST con OWASP ZAP**: escanea la API levantada en el job (modo Production, con y sin sesión) en cada PR, al fusionar y cada semana. Falla con riesgo Alto |
 | `terraform` | `fmt` y `validate` |
 
 | CD | Qué hace |
@@ -187,7 +187,7 @@ scripts/           critic, endpoints, pruebas por endpoint, secciones compartida
 4. `security-reviewer`.
 5. PR con la clave Jira y el checklist.
 
-`main` está protegida (ruleset "Main Proteccion", spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md)): no acepta force push, exige PR con 1 aprobación y todos los checks del CI en verde con la rama al día.
+`main` está protegida (ruleset "Main Proteccion", spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md)): no acepta force push, exige PR con 1 aprobación y los checks del CI en verde con la rama al día (incluidos `gitleaks` y `zap`).
 
 ## Créditos
 
