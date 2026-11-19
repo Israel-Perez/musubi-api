@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
 
 namespace Musubi.Api.Modules.Auth;
@@ -71,4 +72,12 @@ internal sealed partial class AccountDeletionService(
     // Solo el id interno: ni correo ni nombre en los logs (RNF-05).
     [LoggerMessage(Level = LogLevel.Information, Message = "Cuenta eliminada a peticion de su titular: {UserId}")]
     private static partial void LogDeleted(ILogger logger, string userId);
+}
+
+/// <summary>Al eliminar la cuenta, sus access tokens dejan de servir de inmediato (SCRUM-120).</summary>
+/// <param name="revocations">Lista de revocacion.</param>
+internal sealed class SessionRevocationEraser(IAccessTokenRevocations revocations) : IAccountDataEraser
+{
+    /// <inheritdoc />
+    public Task EraseAsync(string userId, CancellationToken cancellationToken) => revocations.RevokeUserAsync(userId, cancellationToken);
 }

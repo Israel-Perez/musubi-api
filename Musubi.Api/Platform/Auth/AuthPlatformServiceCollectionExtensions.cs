@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Musubi.Api.Platform.Auth;
@@ -36,6 +37,7 @@ internal static class AuthPlatformServiceCollectionExtensions
         services.AddSingleton<IPostConfigureOptions<JwtOptions>>(sp => sp.GetRequiredService<JwtOptionsSetup>());
         services.AddSingleton<IValidateOptions<JwtOptions>>(sp => sp.GetRequiredService<JwtOptionsSetup>());
         services.AddSingleton<AccessTokenIssuer>();
+        services.TryAddSingleton<IAccessTokenRevocations, DistributedAccessTokenRevocations>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         // Lectura lazy: respeta los overrides de WebApplicationFactory (00-04, regla 3).
@@ -57,6 +59,29 @@ internal static class AuthPlatformServiceCollectionExtensions
                     ClockSkew = ClockSkew,
                     NameClaimType = MusubiClaims.Subject,
                     RoleClaimType = MusubiClaims.Role,
+                };
+
+                // Lista de revocacion en Redis (SCRUM-120): un token valido por firma deja de servir tras un
+                // logout o si la persona perdio todas sus sesiones. Encadena al evento previo (el hub lo usa).
+                bearer.Events ??= new JwtBearerEvents();
+                var previous = bearer.Events.OnTokenValidated;
+                bearer.Events.OnTokenValidated = async context =>
+                {
+                    await previous(context).ConfigureAwait(false);
+                    if (context.Result is not null || context.Principal is not { } principal)
+                    {
+                        return;
+                    }
+
+                    var revocations = context.HttpContext.RequestServices.GetRequiredService<IAccessTokenRevocations>();
+                    if (await revocations.IsRevokedAsync(
+                        principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value,
+                        principal.FindFirst(MusubiClaims.Subject)?.Value,
+                        AccessTokenClaims.IssuedAtMs(principal),
+                        context.HttpContext.RequestAborted).ConfigureAwait(false))
+                    {
+                        context.Fail("El access token fue revocado.");
+                    }
                 };
             });
 

@@ -57,7 +57,7 @@ public sealed class SessionController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout(LogoutRequest request, CancellationToken cancellationToken)
     {
-        await login.LogoutAsync(request, cancellationToken).ConfigureAwait(false);
+        await login.LogoutAsync(request, User, cancellationToken).ConfigureAwait(false);
         return NoContent();
     }
 }

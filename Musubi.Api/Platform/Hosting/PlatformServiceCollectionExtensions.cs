@@ -96,6 +96,7 @@ internal static class PlatformServiceCollectionExtensions
         });
 
         services.AddMusubiAuth();
+        services.AddMusubiCompression();
         services.AddMusubiEmail();
         services.AddMusubiMedia();
         services.AddMusubiCaching();
