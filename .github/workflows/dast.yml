@@ -1,0 +1,113 @@
+name: dast
+
+# 02-10 / SCRUM-123: DAST con OWASP ZAP (API scan) contra la API levantada DENTRO del job, en modo Production
+# (encabezados, HSTS y errores genericos de produccion), en memoria y sin credenciales de AWS. Nunca toca la
+# API desplegada. ZAP recorre el OpenAPI de la propia API, con y sin sesion (token de prueba firmado con una
+# llave aleatoria que solo existe en el job). Falla con alertas de riesgo Alto (scripts/dast/zap_gate.py);
+# las excepciones revisadas van en .zap/rules.tsv con su motivo. Reporte HTML/JSON como artefacto.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      # Tarda unos 3 minutos: corre en cada PR que toca la API.
+      - Musubi.Api/**
+      - .github/workflows/dast.yml
+      - .zap/**
+      - scripts/dast/**
+  schedule:
+    - cron: "0 9 * * 1" # lunes 03:00 en el campus
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # zaproxy/zap-stable 2.17.0, fijada por digest (00-04).
+  ZAP_IMAGE: zaproxy/zap-stable:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af
+  API_URL: http://localhost:5080
+
+jobs:
+  zap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - run: dotnet build Musubi.Api/Musubi.Api.csproj -c Release
+
+      - name: OpenAPI de la API (solo Development lo publica)
+        working-directory: Musubi.Api
+        run: |
+          ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5081 \
+            nohup dotnet bin/Release/net10.0/Musubi.Api.dll > "$RUNNER_TEMP/dev.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/dev.pid"
+          for _ in $(seq 60); do curl -sf http://localhost:5081/health > /dev/null && break; sleep 1; done
+          mkdir -p "$GITHUB_WORKSPACE/zap"
+          curl -sf http://localhost:5081/openapi/v1.json -o "$GITHUB_WORKSPACE/zap/openapi.json"
+          kill "$(cat "$RUNNER_TEMP/dev.pid")"
+          echo "OpenAPI: $(grep -o '"/api/v1/[^"]*"' "$GITHUB_WORKSPACE/zap/openapi.json" | sort -u | wc -l) rutas"
+
+      - name: API en modo Production (en memoria, sin AWS)
+        working-directory: Musubi.Api
+        run: |
+          key=$(openssl rand -base64 32)
+          echo "::add-mask::$key"
+          echo "DAST_JWT_KEY=$key" >> "$GITHUB_ENV"
+          ASPNETCORE_ENVIRONMENT=Production \
+          ASPNETCORE_URLS="$API_URL" \
+          UseInMemoryDatabase=true \
+          Jwt__SigningKey="$key" \
+          Email__From="Musubi <no-reply@musubi.example>" \
+          Email__Region=us-east-1 \
+          Media__Bucket=musubi-dast \
+          Media__Region=us-east-1 \
+          AWS_REGION=us-east-1 \
+          AWS_EC2_METADATA_DISABLED=true \
+          RateLimiting__Auth__PermitLimit=100000 \
+          RateLimiting__Uploads__PermitLimit=100000 \
+          RateLimiting__Chat__PermitLimit=100000 \
+          RateLimiting__Reports__PermitLimit=100000 \
+            nohup dotnet bin/Release/net10.0/Musubi.Api.dll > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 60); do curl -sf "$API_URL/health/ready" > /dev/null && exit 0; sleep 1; done
+          tail -n 40 "$RUNNER_TEMP/api.log"
+          exit 1
+
+      - name: OWASP ZAP (API scan, con sesion)
+        run: |
+          token=$(python3 scripts/dast/mint_token.py)
+          echo "::add-mask::$token"
+          cp .zap/rules.tsv zap/rules.tsv
+          chmod -R a+rwX zap
+          set +e
+          # ZAP_AUTH_HEADER_VALUE: ZAP agrega el encabezado a cada peticion (Authorization por defecto).
+          docker run --rm --network host -v "$GITHUB_WORKSPACE/zap:/zap/wrk:rw" \
+            -e ZAP_AUTH_HEADER_VALUE="Bearer $token" "$ZAP_IMAGE" \
+            zap-api-scan.py -t /zap/wrk/openapi.json -f openapi -O "$API_URL" \
+              -c rules.tsv -I \
+              -r zap-report.html -J zap-report.json -w zap-report.md \
+              -z "-config scanner.maxScanDurationInMins=20"
+          code=$?
+          set -e
+          # 0 sin alertas que fallen; 1 y 2 alertas (las decide la compuerta); 3 o mas, ZAP no pudo correr.
+          if [ "$code" -ge 3 ]; then echo "::error::ZAP no termino (exit $code)"; exit "$code"; fi
+
+      - name: Compuerta (falla con riesgo Alto)
+        run: python3 scripts/dast/zap_gate.py zap/zap-report.json "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: zap-report
+          path: |
+            zap/zap-report.*
+            ${{ runner.temp }}/api.log
+          if-no-files-found: warn
+          retention-days: 30

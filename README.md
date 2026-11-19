@@ -65,6 +65,7 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 - **Rate limit:** en `/auth`, subidas, chat y reportes.
 - **Errores:** `problem+json` sin detalle interno.
 - **Transporte:** HSTS, CORS restringido, TLS 1.2 en CloudFront; el ALB solo acepta a CloudFront.
+- **Encabezados:** `nosniff`, `Cross-Origin-Resource-Policy` y `Referrer-Policy` en cada respuesta.
 - **Datos sensibles:** la CLABE se cifra con AES-256-GCM. Hay moderación de contenido y validación de entradas.
 - **Contenedor:** multi-stage, sin usuario root.
 - **CI y CD:** detalle en las tablas de abajo.
@@ -119,6 +120,8 @@ Cada fila de `docs/endpoints.md` tiene prueba unitaria, de integración y de seg
 | `endpoints` | El catálogo y el código coinciden |
 | `semgrep` | SAST (`--config=auto` + reglas propias) |
 | `docker-build` | Imagen y escaneo con **Trivy** |
+| `gitleaks` | Secretos en el historial completo de Git |
+| `dast` (`dast.yml`) | **DAST con OWASP ZAP**: escanea la API levantada en el job (modo Production, con y sin sesión) en cada PR que toca la API, al fusionar y cada semana. Falla con riesgo Alto |
 | `terraform` | `fmt` y `validate` |
 
 | CD | Qué hace |

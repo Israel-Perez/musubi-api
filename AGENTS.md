@@ -105,7 +105,12 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Auth explícita por controller (critic B3 + `SecurityTest/Auth/ExplicitAuthTests.cs`). Referencia: OWASP API Security Top 10 – 2023 (checks del agente `security-reviewer`).
 - Access token revocable (02-10): `jti` y "revocado desde" por persona en Redis, consultados en `OnTokenValidated`; si Redis no responde se acepta hasta que venza (RNF-15). Compresión Brotli/Gzip, nunca en `/auth` (BREACH).
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
-- Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy escanea la imagen en el job `docker-build`. DAST (OWASP ZAP) y SonarCloud siguen pendientes (02-06).
+- Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy escanea la imagen en el job `docker-build`.
+- DAST (SCRUM-123): OWASP ZAP 2.17.0 en `dast.yml`.
+  - Escanea la API levantada en el job, en modo Production y en memoria, con y sin sesión (token de `scripts/dast/mint_token.py`).
+  - Falla con riesgo Alto (`scripts/dast/zap_gate.py`); las excepciones van en `.zap/rules.tsv`.
+- gitleaks revisa el historial completo de Git (job `gitleaks`; las excepciones van en `.gitleaksignore`).
+- SonarCloud sigue pendiente (02-06).
 - Las llaves privadas (IA, Firebase Admin, cifrado de la CLABE) viven solo en el back, nunca en el front.
 
 ## 7. Testing

@@ -1,0 +1,6 @@
+# gitleaks (02-10): hallazgos revisados que NO son secretos. Cada linea es la huella exacta (commit:archivo:regla:linea),
+# asi una fuga nueva en el mismo archivo si se detecta. Agregar una aqui es una decision de revision.
+#
+# ContractTest/Fixtures/session.json: la forma JSON de la sesion para las pruebas de contrato (HU-02). El
+# "accessToken" es un JWT de ejemplo de 30 caracteres, con el payload vacio y sin firma; no abre nada.
+af64343af219b6d56a7e391f45ad5eb482cd0f80:ContractTest/Fixtures/session.json:generic-api-key:2
