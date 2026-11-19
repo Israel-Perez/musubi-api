@@ -1,130 +1,193 @@
 # musubi-api
 
-API de **MUSUBI**, la app de compra-venta entre estudiantes de la UTTT. Hecha con **ASP.NET Core / .NET 10** y **MongoDB** (Atlas M0 en la nube), versionada en `api/v1`.
+API de **MUSUBI**, la app de compra-venta entre estudiantes de la UTTT. Hecha con **ASP.NET Core / .NET 10**, **MongoDB Atlas** y **Redis**, desplegada en **AWS** y versionada en `api/v1`.
 
-Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps: cada cambio nace de una spec en `specs/` (plantilla `specs/_template.md`) y se verifica con comandos y pruebas. Las reglas no negociables están en `.specify/memory/constitution.md`.
+Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps:
 
-- Repo hermano (front Flutter): <https://github.com/Israel-Perez/musubi-app>
-- Contrato entre repos: [`docs/endpoints.md`](docs/endpoints.md) (canónico; el front lo enlaza y no lo copia)
-- Backlog: Jira, proyecto `SCRUM` · Documentación funcional: Confluence
-- Lineamientos de la materia (criterios de evaluación, 02-Dic-2026): [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) · Versiones: [`docs/versionado.md`](docs/versionado.md)
+- Cada cambio nace de una spec en `specs/` (plantilla `specs/_template.md`) y se verifica con pruebas y guardarraíles en el CI.
+- Las reglas no negociables están en `.specify/memory/constitution.md`.
 
-## Estado (21-Oct-2026)
+**Enlaces:**
 
-Plantilla inicial lista. Fases 00 (constitución) y 01 (fundación) implementadas en "🚧 Borrador con evidencia", en espera de designar revisores:
+| Qué | Dónde |
+|---|---|
+| API en producción | <https://api.musubiapp.com.mx> (`GET /api/v1/ping`) |
+| App Flutter (repo hermano) | <https://github.com/Israel-Perez/musubi-app> |
+| Contrato entre repos (125 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
+| Historias de usuario ↔ specs ↔ pruebas | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
+| Versiones de la API, la app y la infraestructura | [`docs/versionado.md`](docs/versionado.md) |
+| Lineamientos de la materia (evaluación 02-Dic-2026) | [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) |
+| Backlog y documentación funcional | Jira (proyecto `SCRUM`) y Confluence |
 
-- Build Release: 0 errores / 0 advertencias.
-- Pruebas: Unit 91/91 · Integration 46/46 · Security 39/39 · Contract 5/5 · Database (CI).
-- HU-01/03/47 (lado back): registro con correo institucional, código de verificación por correo y consentimientos versionados (`POST /api/v1/auth/{campus,register,verification/resend,verification/confirm}`).
-- HU-02 + HU-56 (lado back): login, refresh rotativo, logout y recuperar la contraseña con un código (`POST /api/v1/auth/{login,refresh,logout,password/forgot,password/reset}`).
-- Nube (02-05): Terraform en `infra/` (CloudFront → ALB → 2 EC2) y workflows `infra-up` / `infra-down`; guía en [`infra/README.md`](infra/README.md).
-- Seguridad (02-03): errores con `code` (`docs/errores.md`), JWT + refresh rotativo, sesión obligatoria por defecto, rate limit en `/auth/*`, correo por SES.
-- Datos: MongoDB (`MongoDB.Driver` 3.12.0); `/health/ready` hace `ping` a la base (SCRUM-66).
-- `critic-guardrails` PASS · `check_endpoints` OK (3 rutas) · Semgrep 0 hallazgos · actionlint sin hallazgos.
-- Endpoints: `GET /health`, `GET /health/ready`, `GET /api/v1/ping`.
+## Qué hace
 
-El modelo de datos (`02-01`) y las 47 HU del MVP siguen pendientes (ver [`docs/trazabilidad.md`](docs/trazabilidad.md)).
+Es un monolito modular, una sola API REST con **14 módulos** (`Musubi.Api/Modules/`, detalle en [`docs/modulos.md`](docs/modulos.md)):
 
-## Requisitos
+| Módulo | Qué cubre |
+|---|---|
+| Auth | Registro con correo institucional y código, sesión con JWT + refresh rotativo, logout, recuperar y cambiar la contraseña, eliminar la cuenta |
+| Profiles | Perfil, privacidad, intereses, insignias de confianza |
+| Listings | Publicar con fotos, editar, pausar, piezas, búsqueda con filtros, vitrina, populares, favoritos, búsquedas guardadas, comparar y "Avísame" |
+| PurchaseRequests y Matching | "Se busca", ofertas, coincidencias automáticas |
+| Chat | Chat en tiempo real (SignalR) |
+| Orders | Pedidos, pago en efectivo con código o por transferencia (CLABE cifrada), apartar 24 h con QR |
+| Reputation | Calificaciones, reportes y bloqueos |
+| Notifications | Centro de avisos y push con Firebase |
+| GenAi | Acuerdo de entrega e ideas de publicación con Gemini |
+| Recommendations | "Recomendado para ti" con ML.NET |
+| SellerSupport | Apoyo a vendedores |
+| Admin | Moderación de reportes y cuentas, categorías |
 
-- .NET SDK 10.0.4xx (`global.json`)
-- PowerShell 7 (`pwsh`) para los guardarraíles (también funcionan en Windows PowerShell 5.1)
-- Opcional: Docker (MongoDB local), Python 3 + PyYAML, actionlint y Semgrep para validar en local lo mismo que el CI
+Además, todo texto o foto que publica una persona pasa por moderación con AWS (Rekognition, Comprehend y Translate) antes de guardarse.
+
+## Arquitectura
+
+```
+App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
+                         ├─ /media/*  ──▶ S3 privado (CDN de imágenes, OAC)
+                         └─ /api, /hubs ──▶ ALB ──▶ Auto Scaling Group: 2 EC2 t3.micro en 2 zonas
+                                                     (Docker, imagen de ECR)
+                                                       ├─▶ MongoDB Atlas M0 (base NoSQL de documentos)
+                                                       ├─▶ Redis Cloud (caché, revocación de JWT, backplane de SignalR)
+                                                       └─▶ SES · Rekognition · Comprehend · Translate · FCM · Gemini
+```
+
+- **IaC:** Terraform en [`infra/`](infra/README.md). Los workflows `infra-up` e `infra-down` crean y destruyen todo.
+- **Secretos:** en Parameter Store (`/musubi/prod/*`), nunca en el repo.
+- **Base de datos:** 31 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 83 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
+
+## Seguridad (DevSecOps)
+
+- **Sesión:** JWT HS256 de 15 min y refresh token rotativo con detección de reutilización.
+  - El access token se revoca de inmediato con una lista en Redis: logout, suspensión, cambio de contraseña o cuenta eliminada.
+  - Contraseñas con PBKDF2-SHA512 de 210 000 iteraciones.
+- **Por defecto, todo pide sesión:** la autenticación es explícita en cada controller y se verifica con una prueba.
+- **Rate limit:** en `/auth`, subidas, chat y reportes.
+- **Errores:** `problem+json` sin detalle interno.
+- **Transporte:** HSTS, CORS restringido, TLS 1.2 en CloudFront; el ALB solo acepta a CloudFront.
+- **Encabezados:** `nosniff`, `Cross-Origin-Resource-Policy` y `Referrer-Policy` en cada respuesta.
+- **Datos sensibles:** la CLABE se cifra con AES-256-GCM. Hay moderación de contenido y validación de entradas.
+- **Contenedor:** multi-stage, sin usuario root.
+- **CI y CD:** detalle en las tablas de abajo.
+
+## Rendimiento
+
+| Técnica | Dónde |
+|---|---|
+| Caché | En 3 niveles: datos en Redis (cache-aside), caché de salida de las listas públicas, y ETag/304 junto con la caché de la app |
+| Rate limiting | `/auth`, subidas, chat y reportes |
+| Middleware | Encabezados de CloudFront, registro por petición, errores, compresión |
+| Paginación | Por cursor |
+| Índices | 83, en `db/` |
+| Serialización | JSON camelCase |
+| Compresión | Brotli y Gzip (nivel medido; nunca en `/auth`) |
+
+## Observabilidad
+
+- **Logs:** JSON fuera de Development, una línea por petición, en CloudWatch (`/musubi/prod/api`).
+- **Alarmas con aviso por correo (SNS):**
+  - errores de la API;
+  - 5xx del balanceador;
+  - instancias sanas;
+  - latencia p95.
+- **Dashboard:** `musubi-api`.
+- Todo definido en [`infra/stack/observability.tf`](infra/stack/observability.tf).
+
+## Pruebas
+
+Conteos al 19-Nov-2026, todos en verde en el CI:
+
+| Suite | Pruebas | Qué cubre |
+|---|---|---|
+| `UnitTest` | 974 | Reglas de los servicios, validadores, configuración |
+| `IntegrationTest` | 216 | Flujos HTTP completos (WebApplicationFactory) |
+| `SecurityTest` | 333 | 401/403, BOLA, JWT, rate limit, CORS, HSTS, errores, compresión |
+| `ContractTest` | 31 | La forma JSON que consume la app |
+| `DatabaseTest` | 195 | Índices, esquema y repositorios contra MongoDB real (Testcontainers) |
+| `PerformanceTest` | 4 | p95 bajo carga concurrente |
+| `MutationTest` | semanal | Stryker.NET (workflow `mutation.yml`) |
+
+Cada fila de `docs/endpoints.md` tiene prueba unitaria, de integración y de seguridad. Lo exige `scripts/check_endpoint_tests.ps1` en el CI, así que un endpoint nuevo sin sus pruebas no entra.
+
+## CI y CD
+
+| Job (`ci-pr.yml`, en cada PR y push a `main`) | Qué hace |
+|---|---|
+| `build` | Build Release sin errores ni advertencias (analizadores como error) |
+| `unit`, `integration`, `security` | Suites y el guard de pruebas por endpoint |
+| `contract`, `database`, `performance` | Suites |
+| `critic` | Guardarraíles: sin secretos, sin `TODO`, auth explícita, sin `catch` en controllers |
+| `endpoints` | El catálogo y el código coinciden |
+| `semgrep` | SAST (`--config=auto` + reglas propias) |
+| `docker-build` | Imagen y escaneo con **Trivy** |
+| `gitleaks` | Secretos en el historial completo de Git |
+| `dast` (`dast.yml`) | **DAST con OWASP ZAP**: escanea la API levantada en el job (modo Production, con y sin sesión) en cada PR, al fusionar y cada semana. Falla con riesgo Alto |
+| `terraform` | `fmt` y `validate` |
+
+| CD | Qué hace |
+|---|---|
+| `infra-up` | OIDC hacia AWS sin llaves, imagen a ECR (escaneo al subir, tags inmutables), scripts de la base, `terraform apply`, reemplazo de instancias, prueba de humo y tag `api-vX.Y.Z` |
+| `infra-down` | Destruye la infraestructura (costo cero fuera de uso) |
+
+Las actions están fijadas por SHA y Dependabot mantiene al día NuGet, actions y Docker.
 
 ## Puesta en marcha
 
 ```powershell
 dotnet restore Musubi.slnx
-dotnet run --project Musubi.Api          # Development: sin MongoDB (UseInMemoryDatabase=true), http://localhost:5080
-# http://localhost:5080/api/v1/ping  ·  /health  ·  /health/ready  ·  /scalar (solo Dev)
+dotnet run --project Musubi.Api          # Development: en memoria (sin MongoDB), http://localhost:5080
+# /api/v1/ping  ·  /health  ·  /health/ready  ·  /scalar (referencia interactiva, solo Development)
 ```
 
-Con MongoDB local (detalles y Atlas en [`deploy/README.md`](deploy/README.md)):
+- **MongoDB local o Atlas:** ver [`deploy/README.md`](deploy/README.md).
+- **Llave JWT fija:** `dotnet user-secrets --project Musubi.Api set "Jwt:SigningKey" "<base64 de 32+ bytes>"`. Fuera de Development la API no arranca sin ella.
+- **Secretos:** solo en user-secrets o en Parameter Store. La tabla de claves está en [`01-04`](specs/phase-01-foundation/01-04-config-reference/spec.md).
 
-```powershell
-Copy-Item deploy/.env.example deploy/.env      # cambia MONGO_PASSWORD
-docker compose -f deploy/docker-compose.local.yml --env-file deploy/.env up -d
-dotnet user-secrets --project Musubi.Api set "UseInMemoryDatabase" "false"
-dotnet user-secrets --project Musubi.Api set "ConnectionStrings:Mongo" "mongodb://musubi:<tu contraseña>@localhost:27017/?authSource=admin"
-```
-
-**Llave JWT:** en Development se genera una efímera (los tokens mueren al reiniciar). Para una fija: `dotnet user-secrets --project Musubi.Api set "Jwt:SigningKey" "<base64 de 32+ bytes>"` (por ejemplo, `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`). Fuera de Development la API no arranca sin ella.
-
-**Secretos:** nunca en appsettings versionados (las pruebas y el critic lo impiden). Van en user-secrets, en `appsettings.Local.json` (ignorado, solo en Development) o en las variables/secretos del despliegue. La tabla de claves está en `specs/phase-01-foundation/01-04-config-reference/spec.md`.
-
-## Comandos de calidad (los mismos del CI)
+**Comandos de calidad (los mismos del CI):**
 
 ```powershell
 dotnet build Musubi.slnx -c Release
-dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build
-dotnet test --project IntegrationTest/IntegrationTest.csproj -c Release --no-build
-dotnet test --project SecurityTest/SecurityTest.csproj -c Release --no-build
-dotnet test --project ContractTest/ContractTest.csproj -c Release --no-build
+dotnet test --project UnitTest/UnitTest.csproj -c Release --no-build   # igual: IntegrationTest, SecurityTest, ContractTest
+pwsh scripts/check_endpoint_tests.ps1 -Suite UnitTest                   # e IntegrationTest / SecurityTest después de su suite
 pwsh scripts/critic-guardrails.ps1
 pwsh scripts/check_endpoints.ps1
 semgrep scan --config=auto --config=.semgrep/semgrep.yaml --error
 ```
 
-> Las pruebas usan xUnit v3 sobre Microsoft.Testing.Platform (`global.json`), por eso el comando es `dotnet test --project <csproj>`.
-
 ## Estructura
 
 ```
-Musubi.Api/            API: Program.cs, Platform/ (hosting, datos, ping), Modules/ (M-01…M-14, uno por HU)
-UnitTest/ IntegrationTest/ SecurityTest/ ContractTest/ DatabaseTest/ (MongoDB real, Testcontainers)
-TestShared/            baterías de contrato compartidas (fakes ↔ MongoDB)
-db/                    scripts mongosh numerados e idempotentes (script de la base de la entrega)
-specs/                 SDD: _template.md, phase-00-constitution/, phase-01-foundation/, mNN-<modulo>/HU-NN-*/
-docs/                  endpoints.md (contrato), modelo-datos.md (colecciones y reglas), trazabilidad.md (55 HU), modulos.md (14 módulos), versionado.md, bitacora/ (lineamientos)
-scripts/               critic-guardrails.ps1, check_endpoints.ps1, check_shared_sections.ps1
-deploy/                docker-compose.local.yml (MongoDB 8.0.32)
-.claude/               sub-agentes, skills y hooks de Claude Code
-.github/               CI, Dependabot, plantilla de PR
-.semgrep/              reglas SAST propias
+Musubi.Api/        Program.cs, Platform/ (auth, caché, hosting, datos, medios, moderación, tiempo real), Modules/ (14)
+UnitTest/ IntegrationTest/ SecurityTest/ ContractTest/ DatabaseTest/ PerformanceTest/ MutationTest/ TestShared/
+db/                scripts mongosh numerados e idempotentes
+infra/             Terraform (bootstrap y stack)
+specs/             SDD: fases 00–02 y mNN-<modulo>/HU-NN-*/
+docs/              endpoints, modelo de datos, trazabilidad, módulos, errores, versionado, MCP, guía del equipo
+scripts/           critic, endpoints, pruebas por endpoint, secciones compartidas
+.claude/ .opencode/  agentes de IA (3) y skills (10)
 ```
 
-Arquitectura: monolito modular en un proyecto (constitución §7). Los 14 módulos y sus carpetas están en [`docs/modulos.md`](docs/modulos.md).
+## IA en el desarrollo
 
-## Flujo SDD
+- **Agentes:** 3 sub-agentes en `.claude/agents/`.
+  - `slice-scaffolder`: arma el esqueleto de una HU.
+  - `security-reviewer`: revisa contra OWASP antes de cada push. Es de solo lectura.
+  - `traceability-clerk`: cuida spec ↔ código ↔ prueba ↔ Jira. Es de solo lectura.
+- **Skills:** 10 en `.claude/skills/`.
+- **MCP:** Atlassian (Jira y Confluence) y AWS ([`docs/mcp.md`](docs/mcp.md)).
+- **Memoria:** el aprendizaje del desarrollo queda en [`Memoria.md`](Memoria.md); las reglas permanentes, en `AGENTS.md`.
 
-**¿Eres nuevo en el equipo?** Lee [`docs/guia-equipo.md`](docs/guia-equipo.md): accesos, herramientas, el flujo de una HU paso a paso con Claude Code u OpenCode, prompts listos para copiar y lo que choca al trabajar varias personas a la vez.
+## Flujo SDD y ramas
 
-1. Al iniciar el sprint de una HU: crear `specs/mNN-<modulo>/HU-NN-<slug>/{spec,plan,task}.md` (skill `spec-first-writing`).
+¿Eres nuevo en el equipo? Lee [`docs/guia-equipo.md`](docs/guia-equipo.md).
+
+1. Spec de la HU (`specs/mNN-<modulo>/HU-NN-<slug>/`).
 2. Rama `feature/SCRUM-NN-slug`.
-3. Esqueleto con el agente `slice-scaffolder` → implementación y pruebas (skill `vertical-slice`).
-4. Gate pre-push: `pwsh scripts/critic-guardrails.ps1` + agente `security-reviewer`; trazabilidad con `traceability-clerk`.
-5. PR con la clave Jira en el título (`SCRUM-19 HU-01 Crear cuenta: … (Unit N/Integration N/Security N, critic PASS)`) y el checklist completo. Si la HU toca el front, el PR de `musubi-app` enlaza este.
-6. Actualizar `docs/trazabilidad.md` y `Memoria.md`.
+3. Implementación y pruebas.
+4. `security-reviewer`.
+5. PR con la clave Jira y el checklist.
 
-Las specs quedan en "🚧 Borrador con evidencia" hasta que el usuario indique un revisor (1 integrante distinto del autor).
-
-## CI
-
-`.github/workflows/ci-pr.yml` corre en cada `pull_request` y `push` a `main`:
-
-| Job | Qué hace |
-|---|---|
-| `build` | restore + build Release (0/0) |
-| `unit`, `integration`, `security`, `contract` | Suites con `--no-build` |
-| `database` | `DatabaseTest` contra `mongo:8.0.32` (Testcontainers): aplica `db/*.js` y prueba los repositorios |
-| `critic` | `scripts/critic-guardrails.ps1` (4 bloqueantes) |
-| `endpoints` | `scripts/check_endpoints.ps1` (catálogo ↔ código) |
-| `semgrep` | SAST (`--config=auto` + reglas propias) |
-| `docker-build` | `docker build` del `Dockerfile`, sin push |
-
-Las actions están fijadas por SHA; Dependabot (nuget, github-actions y docker, con `cooldown` de 7 días) las mantiene al día.
-
-## Protección de rama (`main`)
-
-Ruleset **"Main Proteccion"** (GitHub → Settings → Rules → Rulesets), activo desde el 03-Nov-2026 en api, app y landing. Detalle en la spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md).
-
-- No se puede borrar `main` ni hacer force push.
-- Pull request obligatorio con **1 aprobación** (de un integrante distinto del autor).
-- Checks obligatorios con la rama al día: `build`, `unit`, `integration`, `security`, `contract`, `database`, `critic`, `endpoints`, `semgrep` y `docker-build`.
-- Revisión automática de Copilot en cada PR. La aprobación extra en PR de Copilot sin atribuir se activa en la interfaz.
-- El administrador puede saltar la aprobación solo desde un PR, mientras no haya un revisor fijo.
-
-> En GitHub gratuito, la protección de rama (y los rulesets) solo se aplica en **repos públicos**. Para un repo **privado** se necesita GitHub Pro (cuenta personal) o GitHub Team (organización).
+`main` está protegida (ruleset "Main Proteccion", spec [`02-08`](specs/phase-02-architecture/02-08-ci-cd/spec.md)): no acepta force push, exige PR con 1 aprobación y los checks del CI en verde con la rama al día (incluidos `gitleaks` y `zap`).
 
 ## Créditos
 

@@ -1,0 +1,3 @@
+# OWASP ZAP (02-10, SCRUM-123): niveles por regla para zap-api-scan.py (-c).
+# Formato: <id de la regla>	<IGNORE|INFO|WARN|FAIL>	<motivo>. La compuerta de scripts/dast/zap_gate.py falla con riesgo Alto;
+# una regla en IGNORE es un hallazgo revisado que no aplica, siempre con su motivo.

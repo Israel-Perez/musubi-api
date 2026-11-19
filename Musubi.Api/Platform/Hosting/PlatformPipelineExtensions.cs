@@ -29,6 +29,8 @@ internal static class PlatformPipelineExtensions
         app.UseMusubiRequestLogging();
         // SCRUM-120: Brotli/Gzip para las respuestas siguientes (tambien los errores), menos /auth.
         app.UseMusubiCompression();
+        // SCRUM-123: nosniff, CORP y Referrer-Policy en cada respuesta (CloudFront tambien los pone).
+        app.UseMusubiSecurityHeaders();
 
         if (!app.Environment.IsDevelopment())
         {

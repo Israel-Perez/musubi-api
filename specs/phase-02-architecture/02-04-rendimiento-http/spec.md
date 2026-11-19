@@ -25,7 +25,7 @@ Esta spec cierra lo que falta.
 4. **Límites de cuerpo por endpoint:**
    - JSON pequeño por defecto;
    - las fotos con su propio límite (HU-06).
-5. **Encabezados de seguridad también en la API**, como defensa si alguien llega sin CloudFront: `X-Content-Type-Options` y `Referrer-Policy`, y HSTS fuera de Development (ya existe).
+5. **Encabezados de seguridad también en la API**, como defensa si alguien llega sin CloudFront: `X-Content-Type-Options` y `Referrer-Policy`, y HSTS fuera de Development (ya existe). ✅ Hecho en SCRUM-123: `Platform/Hosting/SecurityHeaders.cs`, que además pone `Cross-Origin-Resource-Policy`; lo encontró el DAST.
 6. **Serialización:** `System.Text.Json` con source generators en los DTOs más usados, si la medición lo justifica.
 7. **Tiempo de respuesta medido:** p95 de la vitrina y del detalle dentro del umbral de 00-03 (NFR), con una prueba de carga reproducible.
 

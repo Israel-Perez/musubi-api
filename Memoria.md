@@ -1,5 +1,25 @@
 # Memoria del proyecto — musubi-api
 
+## SCRUM-123: DAST con OWASP ZAP y gitleaks (19-Nov-2026)
+
+- **gitleaks 8.30.1 (job `gitleaks`):** revisa el historial completo de Git. El único hallazgo en 173 commits fue el JWT de ejemplo de `ContractTest/Fixtures/session.json`; se ignora por su huella exacta en `.gitleaksignore`.
+- **OWASP ZAP 2.17.0 (`dast.yml`, API scan):**
+  - Escanea la API levantada en el job, en modo Production y en memoria, sin AWS.
+  - Usa el OpenAPI que publica Development y un token firmado con una llave aleatoria del job (`scripts/dast/mint_token.py`).
+  - Tarda unos 3 minutos.
+  - Primera corrida: 0 alertas Altas o Medias y 2 Bajas: faltaban `X-Content-Type-Options` y `Cross-Origin-Resource-Policy`, que solo ponía CloudFront. Ahora los pone la API (`SecurityHeaders`, con pruebas en `SecurityTest/Hosting/SecurityHeadersTests.cs`). CORP va en `same-origin`: ZAP 90004 marca `same-site` como inválido.
+- **Errores a evitar:**
+  - Production rechaza los proveedores InMemory (correo, medios, moderación). Para levantarla sin AWS: `Email__From`, `Email__Region`, `Media__Bucket`, `Media__Region` y `AWS_EC2_METADATA_DISABLED=true`.
+  - La carpeta montada en ZAP necesita permisos de escritura (`chmod a+rwX`).
+  - En Git Bash, `cd X && cmd &` corre en un subshell: matar el `$!` no detiene la API.
+  - La palabra TODO en mayúsculas rompe critic y Semgrep, también en comentarios del CI.
+- **API:** `0.5.0-alpha.42`.
+
+## SCRUM-122: documentación al día para la auditoría v2 (19-Nov-2026)
+
+- El README es la portada del proyecto: qué hace, arquitectura, seguridad, pruebas con conteos, CI/CD y cómo correrlo. Se quitaron los "🚧 Pendiente" que ya estaban resueltos (observabilidad, dominio, Play) y lo que prometía controles que no existen (ZAP y SonarCloud).
+- **Regla:** la auditoría se responde leyendo los repos. Al cerrar algo que un documento marcaba como pendiente, actualiza el README y `AGENTS.md` en el mismo PR. Si cambian mucho los conteos de pruebas, actualiza también la tabla del README.
+
 ## Trabajo en curso — SCRUM-120 (02-10): cierre de brechas de la evaluación
 
 - **Qué:** la revisión contra "Prompts para evaluar v1" (16-Nov-2026) pedía tres cosas que faltaban:
