@@ -101,7 +101,7 @@ Conteos al 19-Nov-2026, todos en verde en el CI:
 |---|---|---|
 | `UnitTest` | 974 | Reglas de los servicios, validadores, configuración |
 | `IntegrationTest` | 216 | Flujos HTTP completos (WebApplicationFactory) |
-| `SecurityTest` | 333 | 401/403, BOLA, JWT, rate limit, CORS, HSTS, errores, compresión |
+| `SecurityTest` | 336 | 401/403, BOLA, JWT, rate limit, CORS, HSTS, encabezados de seguridad, errores, compresión |
 | `ContractTest` | 31 | La forma JSON que consume la app |
 | `DatabaseTest` | 195 | Índices, esquema y repositorios contra MongoDB real (Testcontainers) |
 | `PerformanceTest` | 4 | p95 bajo carga concurrente |
