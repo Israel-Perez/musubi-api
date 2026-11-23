@@ -128,7 +128,7 @@ internal sealed class AgreementService(
                 TranscriptRedactor.Redact(l.Text, names.Buyer, names.Seller))).ToList());
 
         // RN-40: el chat avisa a los dos en cuanto el texto sale hacia la IA, salga bien o no.
-        await notices.PostNoticeAsync(conversation.Id, userId, $"{FirstName(member.FullName)} pidió un resumen con IA", cancellationToken).ConfigureAwait(false);
+        await notices.PostNoticeAsync(conversation.Id, userId, $"{FirstName(member.FullName)} pidió un resumen con IA", "Resumen con IA", cancellationToken).ConfigureAwait(false);
         var extracted = await extractor.ExtractAsync(prompt, cancellationToken).ConfigureAwait(false);
         if (extracted is null)
         {

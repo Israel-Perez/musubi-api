@@ -275,6 +275,14 @@ internal sealed class OrderHandover
     /// <summary>Cuando quien vende marco "Entregue" (UTC), o <c>null</c>.</summary>
     [BsonIgnoreIfNull]
     public DateTime? SellerAt { get; init; }
+
+    /// <summary>HU-62: cuando quien compra aviso "Ya llegue" (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? BuyerArrivedAt { get; init; }
+
+    /// <summary>HU-62: cuando quien vende aviso "Ya llegue" (UTC), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? SellerArrivedAt { get; init; }
 }
 
 /// <summary>Cuando califico cada parte (HU-27, HU-45): una vez por pedido (RN-24).</summary>

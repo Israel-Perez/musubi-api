@@ -214,9 +214,12 @@ internal interface IConversationNotices
     /// <param name="conversationId">Conversacion.</param>
     /// <param name="senderId">Quien lo provoco (uno de los participantes).</param>
     /// <param name="text">El aviso (hasta 120 caracteres).</param>
+    /// <param name="pushTitle">
+    /// El titulo del push de mensaje a la otra persona, o <c>null</c> si quien llama ya le manda su propio aviso (HU-62).
+    /// </param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
-    Task PostNoticeAsync(string conversationId, string senderId, string text, CancellationToken cancellationToken);
+    Task PostNoticeAsync(string conversationId, string senderId, string text, string? pushTitle, CancellationToken cancellationToken);
 
     /// <summary>Avisa a los dos participantes que el acuerdo cambio (evento <c>agreementChanged</c>).</summary>
     /// <param name="participants">Los participantes.</param>
@@ -253,7 +256,7 @@ internal sealed class ConversationNotices(
     }
 
     /// <inheritdoc />
-    public async Task PostNoticeAsync(string conversationId, string senderId, string text, CancellationToken cancellationToken)
+    public async Task PostNoticeAsync(string conversationId, string senderId, string text, string? pushTitle, CancellationToken cancellationToken)
     {
         var conversation = await conversations.FindByIdAsync(conversationId, cancellationToken).ConfigureAwait(false);
         if (conversation is null)
@@ -280,10 +283,15 @@ internal sealed class ConversationNotices(
             recipientRole,
             cancellationToken).ConfigureAwait(false);
         await notifier.MessageCreatedAsync(conversation.Participants, ChatService.ToResponse(message), cancellationToken).ConfigureAwait(false);
+        if (pushTitle is null)
+        {
+            return;
+        }
+
         // HU-31: la otra persona se entera aunque no tenga la app abierta (RN-40).
         var recipientId = string.Equals(conversation.BuyerId, senderId, StringComparison.Ordinal) ? conversation.SellerId : conversation.BuyerId;
         await center.NotifyAsync(
-            new Notice(recipientId, NotificationTypes.Message, "Resumen con IA", notice, NotificationTargets.Conversation, conversation.Id),
+            new Notice(recipientId, NotificationTypes.Message, pushTitle, notice, NotificationTargets.Conversation, conversation.Id),
             cancellationToken).ConfigureAwait(false);
     }
 

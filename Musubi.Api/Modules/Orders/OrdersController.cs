@@ -30,6 +30,8 @@ public sealed class OrdersController : ControllerBase
 
     private OrderPaymentService payments => HttpContext.RequestServices.GetRequiredService<OrderPaymentService>();
 
+    private OrderArrivalService arrivals => HttpContext.RequestServices.GetRequiredService<OrderArrivalService>();
+
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
 
     /// <summary>Los puntos de entrega del campus, con el edificio de mi carrera marcado.</summary>
@@ -160,6 +162,22 @@ public sealed class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Handover(string id, CancellationToken cancellationToken) =>
         this.Respond(await lifecycle.ConfirmHandoverAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
+
+    /// <summary>
+    /// "Ya llegue" (HU-62): avisa a la otra parte con un push y deja un aviso en el chat. Una vez por parte, desde 2 horas
+    /// antes de la entrega.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido.</returns>
+    [HttpPost("{id}/arrived")]
+    [RequestSizeLimit(MaxBodyBytes)]
+    [ProducesResponseType<OrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Arrived(string id, CancellationToken cancellationToken) =>
+        this.Respond(await arrivals.ArriveAsync(userId, id, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 
     /// <summary>
     /// "Paga por transferencia" (HU-55): a quien compra, la cuenta de quien vende con la CLABE completa; a quien vende,

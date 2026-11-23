@@ -71,10 +71,12 @@ public sealed record OrderResponse(
 /// </param>
 public sealed record CancelOrderRequest(string? Reason);
 
-/// <summary>La entrega confirmada por cada parte (HU-24, RN-19).</summary>
+/// <summary>La entrega confirmada por cada parte (HU-24, RN-19) y quien ya llego al punto (HU-62).</summary>
 /// <param name="BuyerConfirmedAt">Cuando quien compra marco "Recibi" (UTC), o <c>null</c>.</param>
 /// <param name="SellerConfirmedAt">Cuando quien vende marco "Entregue" (UTC), o <c>null</c>.</param>
-public sealed record OrderHandoverResponse(DateTime? BuyerConfirmedAt, DateTime? SellerConfirmedAt);
+/// <param name="BuyerArrivedAt">Cuando quien compra aviso "Ya llegue" (UTC), o <c>null</c>.</param>
+/// <param name="SellerArrivedAt">Cuando quien vende aviso "Ya llegue" (UTC), o <c>null</c>.</param>
+public sealed record OrderHandoverResponse(DateTime? BuyerConfirmedAt, DateTime? SellerConfirmedAt, DateTime? BuyerArrivedAt, DateTime? SellerArrivedAt);
 
 /// <summary>La cancelacion (HU-24, RN-20).</summary>
 /// <param name="By"><c>buyer</c>, <c>seller</c> o <c>system</c> (una cuenta borrada).</param>

@@ -36,6 +36,11 @@ internal static class OrdersModuleServiceCollectionExtensions
         services.AddSingleton<IMeetingPointDirectory, MeetingPointDirectory>();
         services.AddSingleton<IAccountDataEraser, OrderAccountEraser>();
 
+        // HU-62: "Ya llegue" y el recordatorio una hora antes de la entrega.
+        services.AddSingleton<OrderArrivalService>();
+        services.AddSingleton<DeliveryReminderJob>();
+        services.AddHostedService<DeliveryReminderWorker>();
+
         // HU-55: la cuenta para recibir pagos (CLABE cifrada) y el pago por transferencia o con codigo de entrega.
         services.AddOptions<PaymentsOptions>().BindConfiguration(PaymentsOptions.Section);
         var payoutAccounts = new InMemoryPayoutAccountRepository();

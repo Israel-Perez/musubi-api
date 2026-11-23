@@ -1,5 +1,20 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-62 (SCRUM-102): recordatorio de la entrega y "Ya llegué"
+
+- **Qué:**
+  - `DeliveryReminderWorker` (cada 5 min) avisa `delivery_reminder` a las dos partes una hora antes de la entrega de un pedido confirmado: "Hoy a la 1:00 p. m. en Biblioteca con Diego".
+  - `POST /orders/{id}/arrived` guarda `handover.*ArrivedAt`, deja el aviso en el chat y avisa `order_arrived` a la otra parte.
+  - `db/032-recordatorio-entrega.js` (esquema 32, índice parcial `ix_confirmed_delivery`). API `0.5.0-alpha.43`.
+- **Decisiones para revisar (23-Nov-2026):** solo una hora antes (no la noche anterior); "Ya llegué" desde 2 h antes y una vez por parte.
+- **Decisiones técnicas:**
+  - La hora se escribe a mano (`CampusClock`): con `InvariantGlobalization` no hay `es-MX`.
+  - `PostNoticeAsync` recibe el título del push; con `null` no manda el de mensaje, para que "Ya llegué" llegue una sola vez (en "Pedidos").
+- **Guard nuevo:** `SchemaVersionTests.TheLastNotificationsValidator_AcceptsEveryTypeAndTargetOfTheCode`. Un tipo de aviso sin su script hacía que MongoDB rechazara el aviso, y solo se notaba en producción.
+- **Errores a evitar:**
+  - En `IntegrationTest`, adelantar el reloj de la fábrica rompe los tokens que se emitan después (JwtBearer valida con la hora real). Si una prueba lo adelanta, va en su propia clase y lo regresa en `finally`.
+  - No uses `git stash` para "probar sin un archivo": guarda todos los cambios. Mueve el archivo a otra carpeta.
+
 ## SCRUM-123: DAST con OWASP ZAP y gitleaks (19-Nov-2026)
 
 - **gitleaks 8.30.1 (job `gitleaks`):** revisa el historial completo de Git. El único hallazgo en 173 commits fue el JWT de ejemplo de `ContractTest/Fixtures/session.json`; se ignora por su huella exacta en `.gitleaksignore`.

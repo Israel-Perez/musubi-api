@@ -37,6 +37,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
         { "POST", "/api/v1/orders/" + AnyId + "/accept" },
         { "POST", "/api/v1/orders/" + AnyId + "/cancel" },
         { "POST", "/api/v1/orders/" + AnyId + "/handover" },
+        { "POST", "/api/v1/orders/" + AnyId + "/arrived" },
         { "POST", "/api/v1/orders/" + AnyId + "/rating" },
     };
 
@@ -186,6 +187,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     [InlineData("PUT", "/api/v1/orders/no-es-un-id/payment", HttpStatusCode.NotFound)]
     [InlineData("POST", "/api/v1/orders/no-es-un-id/accept", HttpStatusCode.NotFound)]
     [InlineData("POST", "/api/v1/orders/no-es-un-id/handover", HttpStatusCode.NotFound)]
+    [InlineData("POST", "/api/v1/orders/no-es-un-id/arrived", HttpStatusCode.NotFound)]
     [InlineData("GET", "/api/v1/orders?conversationId=no-es-un-id", HttpStatusCode.BadRequest)]
     [InlineData("GET", "/api/v1/orders", HttpStatusCode.BadRequest)]
     [InlineData("GET", "/api/v1/orders/mine?cursor=no-es-un-id", HttpStatusCode.BadRequest)]
@@ -268,6 +270,7 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
     [InlineData(nameof(OrdersController.Accept))]
     [InlineData(nameof(OrdersController.Cancel))]
     [InlineData(nameof(OrdersController.Handover))]
+    [InlineData(nameof(OrdersController.Arrived))]
     public void TheBodies_HaveTheirOwnSizeLimit(string action)
     {
         // Kestrel aplica el tope en la nube; TestServer no lo aplica, asi que se verifica el atributo: sin el, se
@@ -277,6 +280,45 @@ public sealed class OrdersAuthTests(ProductionApiFactory production) : IClassFix
 
         Assert.Single(limit);
         Assert.Equal(16 * 1024, OrdersController.MaxBodyBytes);
+    }
+
+    [Fact]
+    public async Task Arrived_OnlyAPartyOfTheOrder_AndNotASuspendedAccount_AndNothingChanges()
+    {
+        // HU-62: un pedido confirmado con la entrega en media hora ("Ya llegue" ya se puede).
+        var buyer = await MemberAsync(UserStatuses.Suspended);
+        var pending = await OrderAsync(buyer, await MemberAsync());
+        var order = new OrderDocument
+        {
+            Id = AuthIds.New(),
+            CommunityId = pending.CommunityId,
+            Number = 1002,
+            BuyerId = pending.BuyerId,
+            SellerId = pending.SellerId,
+            BuyerName = pending.BuyerName,
+            SellerName = pending.SellerName,
+            ConversationId = await ConversationAsync(pending.BuyerId, pending.SellerId),
+            Item = pending.Item,
+            Delivery = new OrderDelivery { PointSlug = "biblioteca", PointName = "Biblioteca", At = DateTime.UtcNow.AddMinutes(30) },
+            Status = OrderStatuses.Confirmed,
+            History = [new OrderTransition { Status = OrderStatuses.Confirmed, At = DateTime.UtcNow }],
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        Assert.True(await Orders.TryInsertAsync(order, Ct));
+        using var outsider = ClientFor(await MemberAsync());
+        using var suspended = ClientFor(buyer);
+        using var byOutsider = Request("POST", $"/api/v1/orders/{order.Id}/arrived");
+        using var bySuspended = Request("POST", $"/api/v1/orders/{order.Id}/arrived");
+
+        var other = await outsider.SendAsync(byOutsider, Ct);
+        var own = await suspended.SendAsync(bySuspended, Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
+        Assert.Contains("orders.not_found", await other.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Forbidden, own.StatusCode);
+        var read = (await Orders.FindByIdAsync(order.Id, Ct))!;
+        Assert.Null(read.Handover);
     }
 
     [Fact]

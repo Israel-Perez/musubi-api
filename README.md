@@ -13,7 +13,7 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps:
 |---|---|
 | API en producción | <https://api.musubiapp.com.mx> (`GET /api/v1/ping`) |
 | App Flutter (repo hermano) | <https://github.com/Israel-Perez/musubi-app> |
-| Contrato entre repos (125 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
+| Contrato entre repos (126 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
 | Historias de usuario ↔ specs ↔ pruebas | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
 | Versiones de la API, la app y la infraestructura | [`docs/versionado.md`](docs/versionado.md) |
 | Lineamientos de la materia (evaluación 02-Dic-2026) | [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) |
@@ -30,7 +30,7 @@ Es un monolito modular, una sola API REST con **14 módulos** (`Musubi.Api/Modul
 | Listings | Publicar con fotos, editar, pausar, piezas, búsqueda con filtros, vitrina, populares, favoritos, búsquedas guardadas, comparar y "Avísame" |
 | PurchaseRequests y Matching | "Se busca", ofertas, coincidencias automáticas |
 | Chat | Chat en tiempo real (SignalR) |
-| Orders | Pedidos, pago en efectivo con código o por transferencia (CLABE cifrada), apartar 24 h con QR |
+| Orders | Pedidos, pago en efectivo con código o por transferencia (CLABE cifrada), apartar 24 h con QR, recordatorio de la entrega y "Ya llegué" |
 | Reputation | Calificaciones, reportes y bloqueos |
 | Notifications | Centro de avisos y push con Firebase |
 | GenAi | Acuerdo de entrega e ideas de publicación con Gemini |
@@ -54,7 +54,7 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 
 - **IaC:** Terraform en [`infra/`](infra/README.md). Los workflows `infra-up` e `infra-down` crean y destruyen todo.
 - **Secretos:** en Parameter Store (`/musubi/prod/*`), nunca en el repo.
-- **Base de datos:** 31 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 83 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
+- **Base de datos:** 32 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 84 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
 
 ## Seguridad (DevSecOps)
 
@@ -78,7 +78,7 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 | Rate limiting | `/auth`, subidas, chat y reportes |
 | Middleware | Encabezados de CloudFront, registro por petición, errores, compresión |
 | Paginación | Por cursor |
-| Índices | 83, en `db/` |
+| Índices | 84, en `db/` |
 | Serialización | JSON camelCase |
 | Compresión | Brotli y Gzip (nivel medido; nunca en `/auth`) |
 
@@ -95,13 +95,13 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 
 ## Pruebas
 
-Conteos al 19-Nov-2026, todos en verde en el CI:
+Conteos al 23-Nov-2026, todos en verde en el CI:
 
 | Suite | Pruebas | Qué cubre |
 |---|---|---|
-| `UnitTest` | 974 | Reglas de los servicios, validadores, configuración |
-| `IntegrationTest` | 216 | Flujos HTTP completos (WebApplicationFactory) |
-| `SecurityTest` | 336 | 401/403, BOLA, JWT, rate limit, CORS, HSTS, encabezados de seguridad, errores, compresión |
+| `UnitTest` | 995 | Reglas de los servicios, validadores, configuración |
+| `IntegrationTest` | 217 | Flujos HTTP completos (WebApplicationFactory) |
+| `SecurityTest` | 340 | 401/403, BOLA, JWT, rate limit, CORS, HSTS, encabezados de seguridad, errores, compresión |
 | `ContractTest` | 31 | La forma JSON que consume la app |
 | `DatabaseTest` | 195 | Índices, esquema y repositorios contra MongoDB real (Testcontainers) |
 | `PerformanceTest` | 4 | p95 bajo carga concurrente |

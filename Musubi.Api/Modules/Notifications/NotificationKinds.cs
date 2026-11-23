@@ -93,6 +93,12 @@ internal static class NotificationTypes
     /// <summary>HU-51: la agotada de la que pedi "Avísame" volvio a tener piezas.</summary>
     public const string BackInStock = "back_in_stock";
 
+    /// <summary>HU-62: "Hoy a la 1:00 p. m. en Biblioteca con Valeria", una hora antes de la entrega (a los dos).</summary>
+    public const string DeliveryReminder = "delivery_reminder";
+
+    /// <summary>HU-62: la otra parte aviso "Ya llegue" al punto de entrega.</summary>
+    public const string OrderArrived = "order_arrived";
+
     /// <summary>"Revisamos tu reporte" a quien reporto (HU-39; solo push: no tiene pestana en el historial).</summary>
     public const string ReportReviewed = "report_reviewed";
 

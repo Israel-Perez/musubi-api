@@ -190,6 +190,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `orders.invalid_code_format` | 400 | Escribe los 4 dígitos del código. | HU-55 (no gasta un intento) |
 | `orders.invalid_code` | 422 | El código no coincide. Pídeselo de nuevo a quien compra. | HU-55 (gasta un intento; `codeAttemptsLeft` dice cuántos quedan) |
 | `orders.code_locked` | 409 | Se acabaron los intentos del código. Confirmen la entrega los dos desde el pedido. | HU-55 (5 intentos; también un pedido aceptado antes de HU-55, sin código) |
+| `orders.arrival_too_early` | 409 | Todavía falta para la entrega. Avisa cuando ya estés en el punto. | HU-62 ("Ya llegué" desde 2 horas antes de la entrega) |
 
 ## M-08 · Apartados (`Modules/Orders/OrdersErrors.cs` → `ReservationsErrors`)
 
