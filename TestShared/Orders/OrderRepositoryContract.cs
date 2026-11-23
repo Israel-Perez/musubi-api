@@ -22,7 +22,8 @@ public abstract class OrderRepositoryContract
         string? productId = null,
         string status = OrderStatuses.Pending,
         bool paid = false,
-        string? method = null) => new()
+        string? method = null,
+        DateTime? deliveryAt = null) => new()
         {
             Id = AuthIds.New(),
             CommunityId = AuthIds.New(),
@@ -42,7 +43,7 @@ public abstract class OrderRepositoryContract
                 Quantity = 1,
                 TotalCents = 50_000,
             },
-            Delivery = new OrderDelivery { PointSlug = "biblioteca", PointName = "Biblioteca", Detail = "Planta baja", At = Now.AddDays(1) },
+            Delivery = new OrderDelivery { PointSlug = "biblioteca", PointName = "Biblioteca", Detail = "Planta baja", At = deliveryAt ?? Now.AddDays(1) },
             Payment = paid || method is not null ? new OrderPayment { Method = method ?? PaymentMethods.Cash, ChosenAt = Now } : null,
             Status = status,
             History = [new OrderTransition { Status = status, At = Now }],
@@ -441,6 +442,54 @@ public abstract class OrderRepositoryContract
         Assert.Equal((Now.AddMinutes(1), Now.AddMinutes(2)), (completed?.Handover?.BuyerAt, completed?.Handover?.SellerAt));
         Assert.Equal(OrderStatuses.Completed, completed!.History[^1].Status);
         Assert.Null(await Orders.CompleteWithCodeAsync(order.Id, seller, Now.AddMinutes(3), Ct));
+    }
+
+    [Fact]
+    public async Task DeliveriesBetween_OnlyConfirmedInsideTheWindow_ClosestFirst()
+    {
+        // HU-62: una ventana propia (2030) para no ver los pedidos de las otras pruebas en la misma base.
+        var from = new DateTime(2030, 3, 4, 18, 0, 0, DateTimeKind.Utc);
+        var later = Order(status: OrderStatuses.Confirmed, deliveryAt: from.AddMinutes(50));
+        var sooner = Order(status: OrderStatuses.Confirmed, deliveryAt: from.AddMinutes(10));
+        var edge = Order(status: OrderStatuses.Confirmed, deliveryAt: from.AddHours(1));
+        var past = Order(status: OrderStatuses.Confirmed, deliveryAt: from);
+        var far = Order(status: OrderStatuses.Confirmed, deliveryAt: from.AddMinutes(61));
+        var pending = Order(deliveryAt: from.AddMinutes(20));
+        var cancelled = Order(status: OrderStatuses.Cancelled, deliveryAt: from.AddMinutes(20));
+        foreach (var order in new[] { later, sooner, edge, past, far, pending, cancelled })
+        {
+            await Orders.TryInsertAsync(order, Ct);
+        }
+
+        var due = await Orders.FindDeliveriesBetweenAsync(from, from.AddHours(1), 10, Ct);
+
+        Assert.Equal([sooner.Id, later.Id, edge.Id], due.Select(o => o.Id));
+        Assert.Single(await Orders.FindDeliveriesBetweenAsync(from, from.AddHours(1), 1, Ct));
+    }
+
+    [Fact]
+    public async Task MarkArrived_OncePerSide_OnlyAConfirmedOrder_OnlyItsParties_AndHandoverKeepsIt()
+    {
+        var buyer = AuthIds.New();
+        var seller = AuthIds.New();
+        var order = Order(buyerId: buyer, sellerId: seller, status: OrderStatuses.Confirmed);
+        var pending = Order(buyerId: buyer, sellerId: seller);
+        await Orders.TryInsertAsync(order, Ct);
+        await Orders.TryInsertAsync(pending, Ct);
+
+        Assert.Null(await Orders.MarkArrivedAsync(pending.Id, buyer, OrderRoles.Buyer, Now, Ct));
+        Assert.Null(await Orders.MarkArrivedAsync(order.Id, seller, OrderRoles.Buyer, Now, Ct));
+        Assert.Null(await Orders.MarkArrivedAsync("no-es-un-id", buyer, OrderRoles.Buyer, Now, Ct));
+        var arrived = await Orders.MarkArrivedAsync(order.Id, buyer, OrderRoles.Buyer, Now, Ct);
+        var twice = await Orders.MarkArrivedAsync(order.Id, buyer, OrderRoles.Buyer, Now.AddMinutes(5), Ct);
+        var seller1 = await Orders.MarkArrivedAsync(order.Id, seller, OrderRoles.Seller, Now.AddMinutes(10), Ct);
+        var delivered = await Orders.ConfirmHandoverAsync(order.Id, seller, OrderRoles.Seller, Now.AddMinutes(20), Ct);
+
+        Assert.Equal(((DateTime?)Now, (DateTime?)null), (arrived!.Handover!.BuyerArrivedAt, arrived.Handover.SellerArrivedAt));
+        Assert.Null(twice);
+        Assert.Equal(((DateTime?)Now, (DateTime?)Now.AddMinutes(10)), (seller1!.Handover!.BuyerArrivedAt, seller1.Handover.SellerArrivedAt));
+        Assert.Equal(((DateTime?)Now, (DateTime?)Now.AddMinutes(10)), (delivered!.Handover!.BuyerArrivedAt, delivered.Handover.SellerArrivedAt));
+        Assert.Equal(Now.AddMinutes(20), delivered.Handover.SellerAt);
     }
 
     [Fact]

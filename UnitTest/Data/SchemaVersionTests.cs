@@ -1,4 +1,6 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
+using Musubi.Api.Modules.Notifications;
 using Musubi.Api.Platform.Data;
 using UnitTest.Common;
 
@@ -30,6 +32,24 @@ public sealed partial class SchemaVersionTests
         Assert.Contains($"const SCHEMA_VERSION = {MongoSchema.ExpectedVersion};", content, StringComparison.Ordinal);
         Assert.Contains($"const SCRIPT_ID = '{Path.GetFileNameWithoutExtension(last)}';", content, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void TheLastNotificationsValidator_AcceptsEveryTypeAndTargetOfTheCode()
+    {
+        // Un tipo nuevo sin su script hace que el aviso no se guarde en MongoDB (el validador lo rechaza) y solo se nota
+        // en produccion. collMod reemplaza el validador completo: manda el ultimo script que lo define.
+        var last = Scripts().Last(name => File.ReadAllText(Path.Combine(RepoPaths.Root, "db", name)).Contains("ensureCollection('notifications'", StringComparison.Ordinal));
+        var content = File.ReadAllText(Path.Combine(RepoPaths.Root, "db", last));
+        var validator = content[content.IndexOf("ensureCollection('notifications'", StringComparison.Ordinal)..];
+
+        Assert.All(Constants(typeof(NotificationTypes)).Where(t => t != NotificationTypes.Message), t => Assert.Contains($"'{t}'", validator, StringComparison.Ordinal));
+        Assert.All(Constants(typeof(NotificationTargets)), t => Assert.Contains($"'{t}'", validator, StringComparison.Ordinal));
+    }
+
+    private static IEnumerable<string> Constants(Type type) =>
+        type.GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+            .Select(f => (string)f.GetRawConstantValue()!);
 
     [GeneratedRegex(@"^\d{3}-[a-z0-9-]+\.js$")]
     private static partial Regex ScriptName();

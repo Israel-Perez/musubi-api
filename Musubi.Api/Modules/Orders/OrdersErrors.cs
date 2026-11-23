@@ -145,6 +145,10 @@ internal static class OrdersErrors
     /// <summary>HU-55: sin intentos; la entrega se confirma como en HU-24 (los dos desde el pedido).</summary>
     public static readonly ApiError CodeLocked = new(
         "orders.code_locked", StatusCodes.Status409Conflict, "Se acabaron los intentos del código. Confirmen la entrega los dos desde el pedido.");
+
+    /// <summary>HU-62: "Ya llegue" se avisa desde 2 horas antes de la entrega.</summary>
+    public static readonly ApiError ArrivalTooEarly = new(
+        "orders.arrival_too_early", StatusCodes.Status409Conflict, "Todavía falta para la entrega. Avisa cuando ya estés en el punto.");
 }
 
 /// <summary>Errores de los apartados (HU-52; catalogo canonico: docs/errores.md).</summary>

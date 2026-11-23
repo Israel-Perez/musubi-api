@@ -125,6 +125,26 @@ internal interface IOrderRepository
     /// <returns>Los pedidos.</returns>
     Task<IReadOnlyList<OrderDocument>> FindTransfersToRemindAsync(DateTime reportedBefore, int limit, CancellationToken cancellationToken);
 
+    /// <summary>HU-62: los pedidos confirmados cuya entrega cae en <c>(after, until]</c>, los mas proximos primero.</summary>
+    /// <param name="after">Desde (UTC, sin incluir).</param>
+    /// <param name="until">Hasta (UTC, incluido).</param>
+    /// <param name="limit">Cuantos como maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los pedidos.</returns>
+    Task<IReadOnlyList<OrderDocument>> FindDeliveriesBetweenAsync(DateTime after, DateTime until, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// HU-62: una de las partes avisa "Ya llegue" en un pedido confirmado. Solo la primera vez cambia algo, para que dos
+    /// toques a la vez no avisen dos veces.
+    /// </summary>
+    /// <param name="id">El pedido.</param>
+    /// <param name="userId">Quien avisa (del token).</param>
+    /// <param name="role">Su papel (<see cref="OrderRoles"/>).</param>
+    /// <param name="now">Ahora (UTC).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El pedido, o <c>null</c> si no es suyo, no esta confirmado o ya lo habia avisado.</returns>
+    Task<OrderDocument?> MarkArrivedAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken);
+
     /// <summary>Una de las partes cancela (o rechaza) un pedido pendiente o confirmado, con su motivo (HU-24, RN-20).</summary>
     /// <param name="id">El pedido.</param>
     /// <param name="userId">Quien cancela (del token).</param>
@@ -396,6 +416,30 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
             .Sort(Builders<OrderDocument>.Sort.Ascending("payment.reportedAt"))
             .Limit(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrderDocument>> FindDeliveriesBetweenAsync(DateTime after, DateTime until, int limit, CancellationToken cancellationToken) =>
+        await orders.Find(
+                Filter.Eq(o => o.Status, OrderStatuses.Confirmed) & Filter.Gt("delivery.at", after) & Filter.Lte("delivery.at", until))
+            .Sort(Builders<OrderDocument>.Sort.Ascending("delivery.at"))
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<OrderDocument?> MarkArrivedAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(id, out _) || !ObjectId.TryParse(userId, out _))
+        {
+            return null;
+        }
+
+        var field = string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal) ? "handover.sellerArrivedAt" : "handover.buyerArrivedAt";
+        return await orders.FindOneAndUpdateAsync(
+            Filter.Eq(o => o.Id, id) & Party(userId, role) & Filter.Eq(o => o.Status, OrderStatuses.Confirmed) & Filter.Exists(field, exists: false),
+            Builders<OrderDocument>.Update.Set(field, now).Set(o => o.UpdatedAt, now),
+            After,
+            cancellationToken).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public async Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken) =>
@@ -743,6 +787,36 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<OrderDocument>> FindDeliveriesBetweenAsync(DateTime after, DateTime until, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<OrderDocument> found = orders
+                .Where(o => o.Status == OrderStatuses.Confirmed && o.Delivery.At > after && o.Delivery.At <= until)
+                .OrderBy(o => o.Delivery.At)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<OrderDocument?> MarkArrivedAsync(string id, string userId, string role, DateTime now, CancellationToken cancellationToken)
+    {
+        var seller = string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal);
+        return Task.FromResult(Change(
+            o => Is(o, id) && IsParty(o, userId, role) && o.Status == OrderStatuses.Confirmed
+                && (seller ? o.Handover?.SellerArrivedAt : o.Handover?.BuyerArrivedAt) is null,
+            o => Copy(o, updatedAt: now, handover: new OrderHandover
+            {
+                BuyerAt = o.Handover?.BuyerAt,
+                SellerAt = o.Handover?.SellerAt,
+                BuyerArrivedAt = seller ? o.Handover?.BuyerArrivedAt : now,
+                SellerArrivedAt = seller ? now : o.Handover?.SellerArrivedAt,
+            })));
+    }
+
+    /// <inheritdoc />
     public Task<OrderDocument?> CancelAsync(string id, string userId, string role, string reason, DateTime now, CancellationToken cancellationToken) =>
         Task.FromResult(Change(
             o => Is(o, id) && IsParty(o, userId, role) && IsOpen(o),
@@ -764,6 +838,8 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
                 {
                     BuyerAt = o.Handover?.BuyerAt ?? (seller ? null : now),
                     SellerAt = o.Handover?.SellerAt ?? (seller ? now : null),
+                    BuyerArrivedAt = o.Handover?.BuyerArrivedAt,
+                    SellerArrivedAt = o.Handover?.SellerArrivedAt,
                 };
                 return Copy(o, updatedAt: now, handover: handover);
             }));

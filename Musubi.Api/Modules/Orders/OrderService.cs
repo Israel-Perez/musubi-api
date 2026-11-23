@@ -456,7 +456,7 @@ internal sealed class OrderService(
         PaymentFor(order, role),
         transferAvailable,
         order.CreatedAt,
-        new OrderHandoverResponse(order.Handover?.BuyerAt, order.Handover?.SellerAt),
+        new OrderHandoverResponse(order.Handover?.BuyerAt, order.Handover?.SellerAt, order.Handover?.BuyerArrivedAt, order.Handover?.SellerArrivedAt),
         order.Cancellation is null ? null : new OrderCancellationResponse(order.Cancellation.By, order.Cancellation.Reason, order.Cancellation.At),
         order.UpdatedAt,
         OrderRatingWindow.Rated(order, role),

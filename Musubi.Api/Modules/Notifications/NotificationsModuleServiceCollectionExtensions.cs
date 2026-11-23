@@ -61,6 +61,12 @@ internal sealed class ReminderOptions
 
     /// <summary>Minutos entre revisiones; 0 las apaga (pruebas).</summary>
     public int ReminderMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// HU-62: minutos entre revisiones del recordatorio de entrega (una hora antes, asi que cada pocos minutos); 0 lo
+    /// apaga. Tambien se apaga con <see cref="ReminderMinutes"/> en 0.
+    /// </summary>
+    public int DeliveryReminderMinutes { get; set; } = 5;
 }
 
 /// <summary>
