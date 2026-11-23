@@ -13,7 +13,7 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps:
 |---|---|
 | API en producción | <https://api.musubiapp.com.mx> (`GET /api/v1/ping`) |
 | App Flutter (repo hermano) | <https://github.com/Israel-Perez/musubi-app> |
-| Contrato entre repos (126 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
+| Contrato entre repos (128 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
 | Historias de usuario ↔ specs ↔ pruebas | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
 | Versiones de la API, la app y la infraestructura | [`docs/versionado.md`](docs/versionado.md) |
 | Lineamientos de la materia (evaluación 02-Dic-2026) | [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) |
@@ -34,7 +34,7 @@ Es un monolito modular, una sola API REST con **14 módulos** (`Musubi.Api/Modul
 | Reputation | Calificaciones, reportes y bloqueos |
 | Notifications | Centro de avisos y push con Firebase |
 | GenAi | Acuerdo de entrega e ideas de publicación con Gemini |
-| Recommendations | "Recomendado para ti" con ML.NET |
+| Recommendations | "Recomendado para ti" y precio sugerido con ML.NET (regresión por campus, medida con MAE) |
 | SellerSupport | Apoyo a vendedores |
 | Admin | Moderación de reportes y cuentas, categorías |
 
@@ -54,7 +54,7 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 
 - **IaC:** Terraform en [`infra/`](infra/README.md). Los workflows `infra-up` e `infra-down` crean y destruyen todo.
 - **Secretos:** en Parameter Store (`/musubi/prod/*`), nunca en el repo.
-- **Base de datos:** 32 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 84 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
+- **Base de datos:** 33 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 85 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
 
 ## Seguridad (DevSecOps)
 
@@ -78,7 +78,7 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 | Rate limiting | `/auth`, subidas, chat y reportes |
 | Middleware | Encabezados de CloudFront, registro por petición, errores, compresión |
 | Paginación | Por cursor |
-| Índices | 84, en `db/` |
+| Índices | 85, en `db/` |
 | Serialización | JSON camelCase |
 | Compresión | Brotli y Gzip (nivel medido; nunca en `/auth`) |
 

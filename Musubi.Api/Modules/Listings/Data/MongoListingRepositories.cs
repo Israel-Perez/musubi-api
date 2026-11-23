@@ -229,6 +229,16 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             : [];
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProductDocument>> FindPricedAsync(string communityId, int limit, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(communityId, out _)
+            // ix_community_status_id resuelve el filtro y el orden.
+            ? await products.Find(Filter.Eq(p => p.CommunityId, communityId) & Filter.In(p => p.Status, ProductStatuses.Priced))
+                .SortByDescending(p => p.Id)
+                .Limit(limit)
+                .ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProductDocument>> FindMatchCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);

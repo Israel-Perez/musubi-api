@@ -32,6 +32,7 @@ internal static class OrdersModuleServiceCollectionExtensions
         services.AddSingleton<OrderService>();
         services.AddSingleton<OrderLifecycleService>();
         services.AddSingleton<IOpenOrders, OpenOrders>();
+        services.AddSingleton<ISoldPrices, SoldPrices>();
         services.AddSingleton<IOrderRatingGate, OrderRatingGate>();
         services.AddSingleton<IMeetingPointDirectory, MeetingPointDirectory>();
         services.AddSingleton<IAccountDataEraser, OrderAccountEraser>();
@@ -110,6 +111,33 @@ internal sealed class OpenOrders(IOrderRepository orders) : IOpenOrders
     /// <inheritdoc />
     public Task<IReadOnlyCollection<string>> SoldProductIdsAsync(string sellerId, CancellationToken cancellationToken) =>
         orders.SoldProductIdsAsync(sellerId, cancellationToken);
+}
+
+/// <summary>Lo que de verdad se pago por una pieza (HU-58).</summary>
+/// <param name="ProductId">La publicacion (las ofertas directas no tienen).</param>
+/// <param name="Title">Nombre al momento del pedido.</param>
+/// <param name="PriceCents">Precio por pieza.</param>
+internal sealed record SoldPrice(string ProductId, string Title, long PriceCents);
+
+/// <summary>Contrato publico de M-08 para M-11 (HU-58): los precios de los pedidos completados de un campus.</summary>
+internal interface ISoldPrices
+{
+    /// <summary>Los mas recientes, solo los que salieron de una publicacion.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="limit">Maximo de pedidos.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los precios.</returns>
+    Task<IReadOnlyList<SoldPrice>> RecentAsync(string communityId, int limit, CancellationToken cancellationToken);
+}
+
+/// <summary>Implementacion sobre el repositorio de pedidos.</summary>
+internal sealed class SoldPrices(IOrderRepository orders) : ISoldPrices
+{
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SoldPrice>> RecentAsync(string communityId, int limit, CancellationToken cancellationToken) =>
+        [.. (await orders.FindCompletedByCommunityAsync(communityId, limit, cancellationToken).ConfigureAwait(false))
+            .Where(o => o.Item.ProductId is not null && o.Item.PriceCents > 0)
+            .Select(o => new SoldPrice(o.Item.ProductId!, o.Item.Title, o.Item.PriceCents))];
 }
 
 /// <summary>Un punto de entrega del campus para otro modulo.</summary>

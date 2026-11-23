@@ -964,6 +964,37 @@ public abstract class ListingRepositoryContract
     }
 
     [Fact]
+    public async Task Priced_AreActiveSoldOutAndSold_OfTheCampus_NewestFirst()
+    {
+        // HU-58: los precios que entrenan el modelo (no las pausadas ni las retiradas).
+        var uttt = await UtttIdAsync();
+        var seller = AuthIds.New();
+        var active = NewProduct(uttt, seller);
+        var soldOut = NewProduct(uttt, seller, status: ProductStatuses.SoldOut);
+        var sold = NewProduct(uttt, seller, status: ProductStatuses.Sold);
+        var hidden = NewProduct(uttt, seller, status: ProductStatuses.Hidden);
+        var removed = NewProduct(uttt, seller, status: ProductStatuses.Removed);
+        var elsewhere = NewProduct(AuthIds.New(), seller);
+        foreach (var product in new[] { active, soldOut, sold, hidden, removed, elsewhere })
+        {
+            await Products.InsertAsync(product, Ct);
+        }
+
+        var priced = (await Products.FindPricedAsync(uttt, 1000, Ct)).Select(p => p.Id).ToList();
+        var one = await Products.FindPricedAsync(uttt, 1, Ct);
+
+        Assert.Contains(active.Id, priced);
+        Assert.Contains(soldOut.Id, priced);
+        Assert.Contains(sold.Id, priced);
+        Assert.DoesNotContain(hidden.Id, priced);
+        Assert.DoesNotContain(removed.Id, priced);
+        Assert.DoesNotContain(elsewhere.Id, priced);
+        Assert.True(priced.IndexOf(sold.Id) < priced.IndexOf(active.Id));
+        Assert.Single(one);
+        Assert.Empty(await Products.FindPricedAsync("no-es-un-id", 10, Ct));
+    }
+
+    [Fact]
     public async Task AvailableListed_AreOnlyActive_ByDate_OldestFirst_OfOneSellerOrOfEveryCampus()
     {
         // HU-36: "Llevan tiempo sin venderse" (de una persona) y el aviso de las 3 semanas (de todos los campus).

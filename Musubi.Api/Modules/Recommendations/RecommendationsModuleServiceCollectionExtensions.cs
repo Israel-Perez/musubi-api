@@ -26,6 +26,9 @@ internal static class RecommendationsModuleServiceCollectionExtensions
         services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<InteractionRecorder>());
         services.AddSingleton<RecommendationModelStore>();
         services.AddSingleton<RecommendationService>();
+        // HU-58: el precio sugerido (regresion de ML.NET por campus).
+        services.AddSingleton<PriceModelStore>();
+        services.AddSingleton<PriceSuggestionService>();
         return services;
     }
 }

@@ -1,5 +1,22 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-58 (SCRUM-98): precio sugerido con ML
+
+- **Qué:**
+  - `PriceModel` es una regresión SDCA de ML.NET sobre el logaritmo del precio, una por campus.
+  - Usa el TF-IDF del nombre (las opciones de HU-35), la categoría y el estado.
+  - Entrena con lo publicado (`IPriceCatalog`) y, con peso 3, con lo pagado (`ISoldPrices`).
+  - `POST /products/price-suggestion` y `GET /products/{id}/price-estimate` (con veredicto).
+  - `db/033-precios.js` (`orders.ix_community_status_id`), esquema 33. API `0.5.0-alpha.44`.
+- **Evidencia de ML (L-16i):** con los precios sintéticos del campus, el MAE fuera de línea es **$87.50** contra **$717.90** de la mediana de la categoría (153 para entrenar, 39 apartados). En producción, cada entrenamiento registra su MAE en los logs ("Precios entrenados: …").
+- **Decisiones para revisar (23-Nov-2026):** al menos 5 precios por categoría y 20 por campus; lo pagado pesa 3 veces lo publicado.
+- **Decisiones técnicas:**
+  - El rango sale del error medido (cuantil 60, de ±10 % a ±60 %), en pesos redondos.
+  - La prueba fuera de línea aparta por el id de la publicación (hash FNV), así su venta y su precio publicado caen del mismo lado.
+  - `Transform` + `GetColumn` en lugar de `PredictionEngine`: es seguro entre hilos y no necesita una clase de predicción (S1144).
+  - Después de 30 min se responde con el modelo vigente y se reentrena en segundo plano.
+- **Errores a evitar:** CA5394 no deja usar `Random` ni en las pruebas; el ruido sintético va con una fórmula fija.
+
 ## Trabajo en curso — HU-62 (SCRUM-102): recordatorio de la entrega y "Ya llegué"
 
 - **Qué:**

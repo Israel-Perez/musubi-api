@@ -180,6 +180,13 @@ internal interface IOrderRepository
     /// <returns>Los pedidos.</returns>
     Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken);
 
+    /// <summary>HU-58: los pedidos completados de un campus, del mas nuevo al mas viejo (lo que de verdad se pago).</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los pedidos.</returns>
+    Task<IReadOnlyList<OrderDocument>> FindCompletedByCommunityAsync(string communityId, int limit, CancellationToken cancellationToken);
+
     /// <summary>
     /// Marca que una parte califico un pedido completado (HU-27, HU-45). Atomico: si ya califico, o el pedido no esta
     /// completado o no es suyo, no cambia nada (RN-24).
@@ -490,6 +497,16 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
                 After,
                 cancellationToken).ConfigureAwait(false)
             : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrderDocument>> FindCompletedByCommunityAsync(string communityId, int limit, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(communityId, out _)
+            // ix_community_status_id (db/033) resuelve el filtro y el orden.
+            ? await orders.Find(Filter.Eq(o => o.CommunityId, communityId) & Filter.Eq(o => o.Status, OrderStatuses.Completed))
+                .SortByDescending(o => o.Id)
+                .Limit(limit)
+                .ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken) =>
@@ -849,6 +866,19 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
         Task.FromResult(Change(
             o => Is(o, id) && o.Status == OrderStatuses.Confirmed && o.Handover is { BuyerAt: not null, SellerAt: not null },
             o => Copy(o, status: OrderStatuses.Completed, transition: new OrderTransition { Status = OrderStatuses.Completed, At = now }, updatedAt: now)));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OrderDocument>> FindCompletedByCommunityAsync(string communityId, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<OrderDocument> found = [.. orders
+                .Where(o => o.CommunityId == communityId && o.Status == OrderStatuses.Completed)
+                .OrderByDescending(o => o.Id, StringComparer.Ordinal)
+                .Take(limit)];
+            return Task.FromResult(found);
+        }
+    }
 
     /// <inheritdoc />
     public Task<IReadOnlyList<OrderDocument>> FindConfirmedByUserAsync(string userId, CancellationToken cancellationToken)

@@ -236,6 +236,12 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `notifications.invalid_cursor` | 400 | No pudimos cargar más avisos. Vuelve a abrir la pantalla. | HU-31 |
 | `notifications.not_found` | 404 | No encontramos este aviso. | HU-31 (id que no es un id) |
 
+## M-11 · Recomendaciones y precios (`Modules/Recommendations/PriceSuggestionService.cs` → `PricingErrors`)
+
+| code | HTTP | Mensaje | HU |
+|---|---|---|---|
+| `recommendations.invalid_price_request` | 400 | Escribe el nombre, la categoría y el estado para sugerirte un precio. | HU-58 (nombre de 3 a 80, categoría y estado `new` o `used`) |
+
 ## M-12 · Apoyo a vendedores (`Modules/SellerSupport/SellerSupportErrors.cs`)
 
 | code | HTTP | Mensaje | HU |
