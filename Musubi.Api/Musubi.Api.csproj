@@ -20,15 +20,15 @@
     <PackageReference Include="AWSSDK.S3" Version="4.0.104.9" />
     <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.106.8" />
     <PackageReference Include="AWSSDK.Translate" Version="4.0.101.6" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.15" />
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.15" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="11.0.0" />
     <!-- Recomendaciones de HU-35 (L-16i): TF-IDF y factorizacion de matrices dentro de la API, sin servicios extra (MIT; constitucion §6). 6.0.0 salio el 11-Nov-2026: se espera el cooldown de 7 dias. -->
-    <PackageReference Include="Microsoft.ML" Version="5.0.1" />
-    <PackageReference Include="Microsoft.ML.Recommender" Version="0.23.1" />
+    <PackageReference Include="Microsoft.ML" Version="6.0.0" />
+    <PackageReference Include="Microsoft.ML.Recommender" Version="0.24.0" />
     <!-- Transitiva de AWSSDK.Translate (CborProtocol): 9.0.5 tiene GHSA-vmv3-wvjp-wqpj. .NET 10 ya la trae (NU1510), pero el auditor ve la del paquete: se fija la corregida. -->
-    <PackageReference Include="System.Formats.Cbor" Version="10.0.15" NoWarn="NU1510" />
+    <PackageReference Include="System.Formats.Cbor" Version="11.0.0" NoWarn="NU1510" />
     <PackageReference Include="MongoDB.Driver" Version="3.13.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.21.0" />
     <!-- Fotos de HU-06: decodificar, enderezar, reducir y volver a codificar a WebP sin metadatos (MIT; excepcion 00-01). -->
