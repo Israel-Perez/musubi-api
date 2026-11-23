@@ -262,6 +262,19 @@ internal sealed class InMemoryProductRepository : IProductRepository
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProductDocument>> FindPricedAsync(string communityId, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            IReadOnlyList<ProductDocument> found = [.. products
+                .Where(p => p.CommunityId == communityId && ProductStatuses.Priced.Contains(p.Status))
+                .OrderByDescending(p => p.Id, StringComparer.Ordinal)
+                .Take(limit)];
+            return Task.FromResult(found);
+        }
+    }
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ProductDocument>> FindMatchCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);

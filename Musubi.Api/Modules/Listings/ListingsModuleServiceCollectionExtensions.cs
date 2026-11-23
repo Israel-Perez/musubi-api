@@ -65,6 +65,7 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<ISellerListings, SellerListings>();
         services.AddSingleton<IProductModeration, ProductModeration>();
         services.AddSingleton<IRecommendationCatalog, RecommendationCatalog>();
+        services.AddSingleton<IPriceCatalog, PriceCatalog>();
         services.AddSingleton<IProductStock, ProductStock>();
         services.AddSingleton<IListingPhotos, ListingPhotos>();
         // HU-12: "Avísame cuando aparezca"; M-06 las lee al publicar y se borran con la cuenta.

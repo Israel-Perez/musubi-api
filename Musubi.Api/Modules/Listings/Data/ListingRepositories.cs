@@ -421,6 +421,16 @@ internal interface IProductRepository
     Task<IReadOnlyList<ProductDocument>> FindAvailableAsync(string communityId, int limit, CancellationToken cancellationToken);
 
     /// <summary>
+    /// HU-58: las publicaciones con un precio que sirve para estimar (disponibles, agotadas y vendidas) de un campus, de la
+    /// mas nueva a la mas vieja.
+    /// </summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="limit">Maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las publicaciones.</returns>
+    Task<IReadOnlyList<ProductDocument>> FindPricedAsync(string communityId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Las disponibles publicadas hasta <paramref name="to"/> (y desde <paramref name="from"/>, si se da), de la mas vieja
     /// a la mas nueva (HU-36): las de una persona o, sin <paramref name="sellerId"/>, las de todos los campus (el aviso
     /// de las 3 semanas).

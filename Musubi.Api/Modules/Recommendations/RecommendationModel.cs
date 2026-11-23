@@ -454,7 +454,9 @@ internal sealed class RecommendationModel
     private static TextRow ToRow(CatalogItem item) =>
         new() { Text = string.Join(' ', item.Title, item.Title, item.Description, item.CategorySlug.Replace('-', ' ')) };
 
-    private static TextFeaturizingEstimator.Options TextOptions() => new()
+    /// <summary>El texto como lo ve el modelo (tambien el de precios, HU-58).</summary>
+    /// <returns>Las opciones.</returns>
+    internal static TextFeaturizingEstimator.Options TextOptions() => new()
     {
         CaseMode = TextNormalizingEstimator.CaseMode.Lower,
         KeepDiacritics = false,

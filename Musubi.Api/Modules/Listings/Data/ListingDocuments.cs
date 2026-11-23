@@ -173,6 +173,9 @@ internal static class ProductStatuses
     public const string Sold = "sold";
 
     // HU-52: un apartado guarda su pieza como un pedido aceptado (resta stock); sin piezas la publicacion queda agotada.
+
+    /// <summary>HU-58: las que tienen un precio que sirve para estimar (no las pausadas ni las retiradas).</summary>
+    public static readonly IReadOnlyList<string> Priced = [Active, SoldOut, Sold];
 }
 
 /// <summary>Pestanas de "Mis productos" (maqueta <c>Mis-productos</c>, HU-08).</summary>

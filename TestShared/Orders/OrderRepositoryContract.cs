@@ -493,6 +493,48 @@ public abstract class OrderRepositoryContract
     }
 
     [Fact]
+    public async Task CompletedByCommunity_OnlyCompleted_OfThatCampus_NewestFirst()
+    {
+        // HU-58: lo que de verdad se pago en el campus.
+        var older = Order(status: OrderStatuses.Completed);
+        var campus = older.CommunityId;
+        var newer = Same(Order(status: OrderStatuses.Completed), campus);
+        var open = Same(Order(status: OrderStatuses.Confirmed), campus);
+        var cancelled = Same(Order(status: OrderStatuses.Cancelled), campus);
+        var elsewhere = Order(status: OrderStatuses.Completed);
+        foreach (var order in new[] { older, newer, open, cancelled, elsewhere })
+        {
+            await Orders.TryInsertAsync(order, Ct);
+        }
+
+        var completed = await Orders.FindCompletedByCommunityAsync(campus, 10, Ct);
+
+        Assert.Equal([newer.Id, older.Id], completed.Select(o => o.Id));
+        Assert.Single(await Orders.FindCompletedByCommunityAsync(campus, 1, Ct));
+        Assert.Empty(await Orders.FindCompletedByCommunityAsync("no-es-un-id", 10, Ct));
+    }
+
+    // El mismo pedido en otro campus (Order() le da uno nuevo a cada uno).
+    private static OrderDocument Same(OrderDocument o, string communityId) => new()
+    {
+        Id = o.Id,
+        CommunityId = communityId,
+        Number = o.Number,
+        BuyerId = o.BuyerId,
+        SellerId = o.SellerId,
+        BuyerName = o.BuyerName,
+        SellerName = o.SellerName,
+        ConversationId = o.ConversationId,
+        Item = o.Item,
+        Delivery = o.Delivery,
+        Payment = o.Payment,
+        Status = o.Status,
+        History = o.History,
+        CreatedAt = o.CreatedAt,
+        UpdatedAt = o.UpdatedAt,
+    };
+
+    [Fact]
     public async Task TransfersToRemind_ArePendingAndReportedBeforeTheCut()
     {
         var old = Order(method: PaymentMethods.Transfer);
