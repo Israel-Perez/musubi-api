@@ -42,12 +42,15 @@ public sealed class ProductMatchTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    private readonly SemanticMatcher semantic = Semantic.Off();
+
     private ProductMatchNotifier Notifier(INotificationCenter notifications, TimeProvider clock) => new(
         new WantedMatchDirectory(requests, clock),
         new SavedSearchService(savedSearches, new MemberDirectory(new InMemoryCommunityRepository(), new InMemoryUserRepository()), clock),
         new BlockDirectory(blocks),
         notifications,
         new MatchLedger(matches, clock, NullLogger<MatchLedger>.Instance),
+        semantic,
         clock);
 
     private ProductPublished Product(

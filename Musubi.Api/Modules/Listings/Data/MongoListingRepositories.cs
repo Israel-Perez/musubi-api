@@ -245,16 +245,20 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
         var byTerm = query.Terms
             .Select(term => Filter.Regex(p => p.SearchWords, new BsonRegularExpression("^" + Regex.Escape(term))))
             .ToList();
-        if (byTerm.Count == 0 || !ObjectId.TryParse(query.CommunityId, out _))
+        if ((byTerm.Count == 0 && !query.AnyWords) || !ObjectId.TryParse(query.CommunityId, out _))
         {
             return [];
         }
 
-        // ix_community_status_search resuelve campus, estado y palabras; lo demas filtra sobre esas.
+        // ix_community_status_search resuelve campus, estado y palabras; lo demas filtra sobre esas. Sin palabras
+        // (HU-60) usa el mismo indice por campus y estado.
         var filter = Filter.Eq(p => p.CommunityId, query.CommunityId)
             & Filter.Eq(p => p.Status, ProductStatuses.Active)
-            & Filter.Or(byTerm)
             & Filter.Lte(p => p.PriceCents, query.MaxPriceCents);
+        if (!query.AnyWords)
+        {
+            filter &= Filter.Or(byTerm);
+        }
         if (query.CategorySlug is { } category)
         {
             filter &= Filter.Eq(p => p.CategorySlug, category);

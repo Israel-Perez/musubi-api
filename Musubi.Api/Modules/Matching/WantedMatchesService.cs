@@ -17,7 +17,10 @@ internal static class WantedMatchKinds
     /// <summary>Cumple las reglas de HU-19 ("Dentro de tu presupuesto").</summary>
     public const string Exact = "exact";
 
-    /// <summary>Parecida: de la categoria, con al menos una palabra y hasta 50 % sobre el presupuesto ("Modelo parecido", RF-24).</summary>
+    /// <summary>
+    /// Parecida: de la categoria, con al menos una palabra (o, con HU-60, un significado cercano) y hasta 50 % sobre el
+    /// presupuesto ("Modelo parecido", RF-24).
+    /// </summary>
     public const string Similar = "similar";
 }
 
@@ -40,7 +43,8 @@ internal sealed class WantedMatchesService(
     IWantedMatchDirectory wanted,
     IProductMatches products,
     IRecommendationCatalog catalog,
-    IBlockDirectory blocks)
+    IBlockDirectory blocks,
+    SemanticMatcher semantic)
 {
     /// <summary>Coincidencias si no se pide otro numero.</summary>
     public const int DefaultLimit = 10;
@@ -65,16 +69,23 @@ internal sealed class WantedMatchesService(
         }
 
         var terms = MatchRules.Terms(request.Title);
-        if (!request.Active || terms.Count == 0)
+        var bySense = semantic.Enabled;
+        if (!request.Active || (terms.Count == 0 && !bySense))
         {
             return Result<WantedMatchPage>.Ok(new WantedMatchPage([], 0));
         }
 
         List<string> excluded = [userId, .. await blocks.HiddenForAsync(userId, cancellationToken).ConfigureAwait(false)];
         var candidates = await products.FindCandidatesAsync(
-            new ProductMatchQuery(request.CommunityId, request.CategorySlug, terms, MaxSimilarPrice(request.BudgetCents), excluded, MatchRules.MaxCandidates),
+            new ProductMatchQuery(request.CommunityId, request.CategorySlug, terms, MaxSimilarPrice(request.BudgetCents), excluded, MatchRules.MaxCandidates, bySense),
             cancellationToken).ConfigureAwait(false);
-        var ranked = Rank(candidates, terms, request.BudgetCents).Take(Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit)).ToList();
+        // HU-60: la app consulta aqui; solo los vectores ya guardados (los calcula el worker al publicar).
+        var similarity = await semantic.SimilaritiesAsync(
+            MatchText.Wanted(request.Id, request.RequesterId, request.CommunityId, request.Title),
+            [.. candidates.Select(p => MatchText.Product(p.Id, p.SellerId, request.CommunityId, p.Title, p.Description))],
+            computeMissing: false,
+            cancellationToken).ConfigureAwait(false);
+        var ranked = Rank(candidates, terms, request.BudgetCents, similarity).Take(Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit)).ToList();
         var kinds = ranked.ToDictionary(m => m.Id, m => m.Kind, StringComparer.Ordinal);
         // Las tarjetas salen en el mismo orden y solo las que siguen disponibles.
         var cards = await catalog.CardsAsync([.. ranked.Select(m => m.Id)], includeSeller: true, cancellationToken).ConfigureAwait(false);
@@ -87,22 +98,29 @@ internal sealed class WantedMatchesService(
     /// <returns>El presupuesto mas el margen de las parecidas.</returns>
     public static long MaxSimilarPrice(long budgetCents) => budgetCents + (budgetCents * SimilarMarginPercent / 100);
 
-    /// <summary>Exactas primero (mas palabras y precio mas cercano al presupuesto); despues las parecidas.</summary>
-    /// <param name="candidates">Las candidatas (ya de la categoria y con al menos una palabra).</param>
+    /// <summary>Exactas primero (las mas parecidas y de precio mas cercano al presupuesto); despues las parecidas.</summary>
+    /// <param name="candidates">Las candidatas (ya de la categoria y el precio).</param>
     /// <param name="terms">Las palabras buscadas.</param>
     /// <param name="budgetCents">Presupuesto.</param>
+    /// <param name="similarity">HU-60: similitud por id (sin ella, solo palabras).</param>
     /// <returns>Id y tipo, en orden.</returns>
-    public static IEnumerable<(string Id, string Kind)> Rank(IReadOnlyList<ProductCandidate> candidates, IReadOnlyList<string> terms, long budgetCents) =>
+    public static IEnumerable<(string Id, string Kind)> Rank(
+        IReadOnlyList<ProductCandidate> candidates,
+        IReadOnlyList<string> terms,
+        long budgetCents,
+        IReadOnlyDictionary<string, double>? similarity = null) =>
         candidates
             .Select(product =>
             {
                 var share = MatchRules.Share(terms, product.Words);
-                var exact = share >= MatchRules.MinShare && product.PriceCents <= MatchRules.MaxPrice(budgetCents);
-                return (product.Id, Share: share, Distance: Math.Abs(product.PriceCents - budgetCents), Kind: exact ? WantedMatchKinds.Exact : WantedMatchKinds.Similar);
+                double? sense = similarity is not null && similarity.TryGetValue(product.Id, out var s) ? s : null;
+                var exact = MatchRules.Compatible(share, sense) && product.PriceCents <= MatchRules.MaxPrice(budgetCents);
+                var near = share > 0 || sense >= MatchRules.SimilarSemanticThreshold;
+                return (product.Id, Near: near, Score: MatchRules.Score(share, sense), Distance: Math.Abs(product.PriceCents - budgetCents), Kind: exact ? WantedMatchKinds.Exact : WantedMatchKinds.Similar);
             })
-            .Where(m => m.Share > 0)
+            .Where(m => m.Near || m.Kind == WantedMatchKinds.Exact)
             .OrderBy(m => m.Kind == WantedMatchKinds.Exact ? 0 : 1)
-            .ThenByDescending(m => m.Share)
+            .ThenByDescending(m => m.Score)
             .ThenBy(m => m.Distance)
             .Select(m => (m.Id, m.Kind));
 }

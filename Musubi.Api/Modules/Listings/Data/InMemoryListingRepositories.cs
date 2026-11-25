@@ -286,7 +286,7 @@ internal sealed class InMemoryProductRepository : IProductRepository
                     && (query.CategorySlug is null || p.CategorySlug == query.CategorySlug)
                     && p.PriceCents <= query.MaxPriceCents
                     && !query.ExcludedSellerIds.Contains(p.SellerId)
-                    && p.SearchWords.Any(word => query.Terms.Any(term => word.StartsWith(term, StringComparison.Ordinal))))
+                    && (query.AnyWords || p.SearchWords.Any(word => query.Terms.Any(term => word.StartsWith(term, StringComparison.Ordinal)))))
                 .OrderByDescending(p => p.Id, StringComparer.Ordinal)
                 .Take(query.Limit)];
             return Task.FromResult(found);

@@ -28,6 +28,7 @@ internal sealed class ProductMatchNotifier(
     IBlockDirectory blocks,
     INotificationCenter center,
     IMatchLedger ledger,
+    SemanticMatcher semantic,
     TimeProvider time)
 {
     /// <summary>Solicitudes candidatas que se leen como maximo.</summary>
@@ -69,8 +70,17 @@ internal sealed class ProductMatchNotifier(
             MaxRequests,
             cancellationToken).ConfigureAwait(false);
 
-        // RN-28: la mitad de las palabras buscadas; RN-29: de cada persona, solo su solicitud que mas se parece.
-        var best = DemandRules.BestRequests(requests, product);
+        // Segundo plano (RNF-11): se calculan y guardan los vectores que falten, incluido el de la publicacion (HU-60).
+        var (text, texts) = DemandRules.Texts(product, requests);
+        var similarity = await semantic.SimilaritiesAsync(text, texts, computeMissing: true, cancellationToken).ConfigureAwait(false);
+        if (requests.Count == 0)
+        {
+            await semantic.RememberAsync(text, cancellationToken).ConfigureAwait(false);
+        }
+
+        // RN-28: la mitad de las palabras buscadas o el mismo significado; RN-29: de cada persona, solo su solicitud
+        // que mas se parece.
+        var best = DemandRules.BestRequests(requests, product, similarity);
 
         var since = MatchRules.CampusDayStart(time.GetUtcNow().UtcDateTime);
         var notified = 0;

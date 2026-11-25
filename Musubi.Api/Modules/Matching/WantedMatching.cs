@@ -47,7 +47,8 @@ internal interface IWantedMatching
 /// <summary>
 /// Reglas de compatibilidad (decisiones de la usuaria, 13-Nov-2026): misma categoria (o cualquiera si la solicitud
 /// es "otro"), la mitad o mas de las palabras del nombre buscado en el nombre o la descripcion de la publicacion
-/// (RN-28) y el precio no mas de 20 % arriba del presupuesto. Un aviso por solicitud y persona (RN-29) y hasta 3 al
+/// (RN-28) o, con HU-60, que signifiquen lo mismo (<see cref="SemanticThreshold"/>), y el precio no mas de 20 % arriba
+/// del presupuesto. Un aviso por solicitud y persona (RN-29) y hasta 3 al
 /// dia por persona (RN-30). Nunca sobre lo propio ni entre personas bloqueadas (RN-31, HU-57).
 /// </summary>
 internal static class MatchRules
@@ -57,6 +58,18 @@ internal static class MatchRules
 
     /// <summary>Lo que el precio puede pasar del presupuesto, en por ciento.</summary>
     public const int BudgetMarginPercent = 20;
+
+    /// <summary>
+    /// HU-60: similitud de los vectores desde la que una publicacion le sirve a una solicitud aunque no compartan
+    /// palabras. Medida el 25-Nov-2026 con 16 solicitudes y 24 publicaciones del campus y Gemini
+    /// (<c>gemini-embedding-001</c>, 256 dimensiones, <c>RETRIEVAL_QUERY</c>/<c>RETRIEVAL_DOCUMENT</c>): dentro de la
+    /// categoria, precision 0.75 y cobertura 0.86, contra 0.67 y 0.19 de las palabras
+    /// (<c>SemanticEvaluationTests</c>).
+    /// </summary>
+    public const double SemanticThreshold = 0.74;
+
+    /// <summary>HU-18: desde aqui una publicacion es "parecida" por significado (RF-24).</summary>
+    public const double SimilarSemanticThreshold = 0.70;
 
     /// <summary>Avisos de solicitud compatible por persona y dia del campus.</summary>
     public const int DailyLimit = 3;
@@ -100,6 +113,19 @@ internal static class MatchRules
             : terms.Count(term => words.Any(word => word.StartsWith(term, StringComparison.Ordinal))) / (double)terms.Count;
     }
 
+    /// <summary>RN-28 con HU-60: la mitad de las palabras o el mismo significado.</summary>
+    /// <param name="share">Parte de las palabras (<see cref="Share"/>).</param>
+    /// <param name="similarity">Similitud de los vectores, o <c>null</c> sin ellos.</param>
+    /// <returns>Si coincide el nombre.</returns>
+    public static bool Compatible(double share, double? similarity) =>
+        share >= MinShare || similarity >= SemanticThreshold;
+
+    /// <summary>Para ordenar: la mas parecida, por palabras o por significado.</summary>
+    /// <param name="share">Parte de las palabras.</param>
+    /// <param name="similarity">Similitud, o <c>null</c>.</param>
+    /// <returns>De 0 a 1.</returns>
+    public static double Score(double share, double? similarity) => Math.Max(share, similarity ?? 0);
+
     /// <summary>Precio maximo para un presupuesto.</summary>
     /// <param name="budgetCents">Presupuesto.</param>
     /// <returns>El presupuesto mas el margen.</returns>
@@ -119,7 +145,13 @@ internal static class MatchRules
 /// "Hay una solicitud compatible con tu producto" (HU-19, RF-39, maqueta <c>Notificaciones</c> → "Coincidencias"):
 /// busca las publicaciones compatibles y avisa a cada persona una vez, con su publicacion mas parecida.
 /// </summary>
-internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirectory blocks, INotificationCenter center, IMatchLedger ledger, TimeProvider time)
+internal sealed class WantedMatchNotifier(
+    IProductMatches products,
+    IBlockDirectory blocks,
+    INotificationCenter center,
+    IMatchLedger ledger,
+    SemanticMatcher semantic,
+    TimeProvider time)
 {
     /// <summary>Busca y avisa.</summary>
     /// <param name="request">La solicitud.</param>
@@ -129,7 +161,9 @@ internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirect
     {
         ArgumentNullException.ThrowIfNull(request);
         var terms = MatchRules.Terms(request.Title);
-        if (terms.Count == 0)
+        // HU-60: con vectores tambien se buscan las que no comparten palabras; sin ellos, solo por palabras (RNF-15).
+        var bySense = semantic.Enabled;
+        if (terms.Count == 0 && !bySense)
         {
             return 0;
         }
@@ -137,19 +171,36 @@ internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirect
         // RN-31 y HU-57: ni lo propio ni lo de quien bloqueo o fue bloqueado.
         List<string> excluded = [request.RequesterId, .. await blocks.HiddenForAsync(request.RequesterId, cancellationToken).ConfigureAwait(false)];
         var candidates = await products.FindCandidatesAsync(
-            new ProductMatchQuery(request.CommunityId, request.CategorySlug, terms, MatchRules.MaxPrice(request.BudgetCents), excluded, MatchRules.MaxCandidates),
+            new ProductMatchQuery(request.CommunityId, request.CategorySlug, terms, MatchRules.MaxPrice(request.BudgetCents), excluded, MatchRules.MaxCandidates, bySense),
             cancellationToken).ConfigureAwait(false);
+        // Segundo plano (RNF-11): aqui se calculan y guardan los vectores que falten, incluido el de la solicitud (lo
+        // usa despues "Ya coinciden con lo que buscas").
+        var text = MatchText.Wanted(request.RequestId, request.RequesterId, request.CommunityId, request.Title);
+        var similarity = await semantic.SimilaritiesAsync(
+            text,
+            [.. candidates.Select(p => MatchText.Product(p.Id, p.SellerId, request.CommunityId, p.Title, p.Description))],
+            computeMissing: true,
+            cancellationToken).ConfigureAwait(false);
+        if (candidates.Count == 0)
+        {
+            await semantic.RememberAsync(text, cancellationToken).ConfigureAwait(false);
+        }
 
         // RN-28 y RN-29: de cada persona, su publicacion mas parecida (y la de precio mas cercano al presupuesto).
         var best = candidates
-            .Select(product => (Product: product, Share: MatchRules.Share(terms, product.Words)))
-            .Where(match => match.Share >= MatchRules.MinShare)
+            .Select(product =>
+            {
+                var share = MatchRules.Share(terms, product.Words);
+                double? sense = similarity.TryGetValue(product.Id, out var s) ? s : null;
+                return (Product: product, Compatible: MatchRules.Compatible(share, sense), Score: MatchRules.Score(share, sense));
+            })
+            .Where(match => match.Compatible)
             .GroupBy(match => match.Product.SellerId, StringComparer.Ordinal)
             .Select(group => group
-                .OrderByDescending(match => match.Share)
+                .OrderByDescending(match => match.Score)
                 .ThenBy(match => Math.Abs(match.Product.PriceCents - request.BudgetCents))
                 .First())
-            .OrderByDescending(match => match.Share)
+            .OrderByDescending(match => match.Score)
             .ThenBy(match => Math.Abs(match.Product.PriceCents - request.BudgetCents))
             .Take(MatchRules.MaxSellers)
             .ToList();
@@ -157,7 +208,7 @@ internal sealed class WantedMatchNotifier(IProductMatches products, IBlockDirect
         var since = MatchRules.CampusDayStart(time.GetUtcNow().UtcDateTime);
         var first = ChatService.FirstName(request.RequesterName);
         var notified = 0;
-        foreach (var (product, _) in best)
+        foreach (var (product, _, _) in best)
         {
             // RN-30: hasta 3 al dia; las demas siguen en el tablero. La coincidencia igual se registra (RF-25).
             var allowed = await center.CountSinceAsync(product.SellerId, NotificationTypes.WantedMatch, since, cancellationToken).ConfigureAwait(false) < MatchRules.DailyLimit;

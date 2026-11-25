@@ -1,5 +1,20 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-60 (SCRUM-100): coincidencias por significado
+
+- **Qué:** cada publicación y solicitud guarda su vector de Gemini (`gemini-embedding-001`, 256, `matchEmbeddings`, `db/035`, esquema 35). `MatchRules.Compatible` = la mitad de las palabras o similitud ≥ 0.74, en HU-18, HU-19, HU-29 y HU-38. API `0.5.0-alpha.47`, sin endpoints nuevos.
+- **Medición (25-Nov-2026, `SemanticEvaluationTests`):** 16 solicitudes y 24 publicaciones del campus, dentro de la categoría. Por palabras: 4 de 21 (precisión 0.67). Por significado: 18 de 21 (precisión 0.75).
+- **Decisiones para revisar:** Gemini y no un modelo local; los textos públicos salen solos (sin contacto); el umbral 0.74.
+- **Decisiones técnicas:**
+  - `RETRIEVAL_QUERY`/`RETRIEVAL_DOCUMENT`: con `SEMANTIC_SIMILARITY` todo queda entre 0.80 y 0.90 y ningún umbral separa bien.
+  - La IA solo en los workers (`computeMissing: true`); HU-18 y HU-38 solo leen los guardados.
+  - Con vectores, las candidatas no se filtran por palabras (`ProductMatchQuery.AnyWords`).
+- **Errores a evitar:**
+  - `dotnet user-secrets list` imprime los valores de varias líneas completos: para ver solo los nombres, `| grep -o "^[A-Za-z:]* ="`, nunca un `sed` por línea.
+  - Un `sed` sobre `"taskType": task,` también cambió la línea con más sangría: usa el número de línea.
+  - Los registros que solo crea `System.Text.Json` disparan CA1812 en las pruebas: se leen con `JsonDocument`.
+  - La IA en memoria junta palabras por grupos: una prueba de integración por significado necesita palabras de un mismo grupo (`InMemoryTextEmbedder.Concepts`).
+
 ## Trabajo en curso — HU-59 (SCRUM-99): publicar desde una foto con IA
 
 - **Qué:** `POST /products/photo-draft` con la llave de una foto propia: Gemini ve la portada y las categorías activas del campus y propone el nombre, la categoría, el estado y la descripción. El texto se modera y no se guarda nada (RN-38). API `0.5.0-alpha.46`, sin cambio de esquema.

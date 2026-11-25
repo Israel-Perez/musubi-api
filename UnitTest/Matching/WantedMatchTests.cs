@@ -36,7 +36,7 @@ public sealed class WantedMatchTests
 
     public WantedMatchTests()
     {
-        notifier = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), center, new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance), time);
+        notifier = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), center, new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance), Semantic.Off(), time);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -206,7 +206,7 @@ public sealed class WantedMatchTests
         // Jueves 12 a las 23:30 en el campus (05:30 UTC del viernes 13): cuentan para el jueves.
         var clock = new ManualTimeProvider(new DateTimeOffset(2026, 11, 13, 5, 30, 0, TimeSpan.Zero));
         var real = new NotificationCenter(new InMemoryNotificationRepository(), new PushQueue(), clock, NullLogger<NotificationCenter>.Instance);
-        var daily = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, new MatchLedger(matches, clock, NullLogger<MatchLedger>.Instance), clock);
+        var daily = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, new MatchLedger(matches, clock, NullLogger<MatchLedger>.Instance), Semantic.Off(), clock);
         await ProductAsync(AuthIds.New());
         for (var i = 0; i < 3; i++)
         {
@@ -225,7 +225,7 @@ public sealed class WantedMatchTests
     {
         var notifications = new InMemoryNotificationRepository();
         var real = new NotificationCenter(notifications, new PushQueue(), time, NullLogger<NotificationCenter>.Instance);
-        var once = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance), time);
+        var once = new WantedMatchNotifier(new ProductMatches(products), new BlockDirectory(blocks), real, new MatchLedger(matches, time, NullLogger<MatchLedger>.Instance), Semantic.Off(), time);
         var diego = AuthIds.New();
         await ProductAsync(diego);
         var request = Request();
