@@ -451,13 +451,15 @@ internal interface IProductRepository
 /// <param name="MaxPriceCents">Precio maximo.</param>
 /// <param name="ExcludedSellerIds">Quien busca y las personas bloqueadas con ella (RN-31, HU-57).</param>
 /// <param name="Limit">Candidatas como maximo.</param>
+/// <param name="AnyWords">HU-60: sin filtrar por palabras (las mas recientes de la categoria y el precio), para comparar por significado.</param>
 internal sealed record ProductMatchQuery(
     string CommunityId,
     string? CategorySlug,
     IReadOnlyList<string> Terms,
     long MaxPriceCents,
     IReadOnlyCollection<string> ExcludedSellerIds,
-    int Limit);
+    int Limit,
+    bool AnyWords = false);
 
 /// <summary>Favoritos de una persona (HU-53).</summary>
 internal interface IFavoriteRepository

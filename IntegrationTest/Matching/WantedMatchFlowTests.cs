@@ -155,7 +155,8 @@ public sealed class WantedMatchFlowTests(AuthApiFactory factory) : IClassFixture
         var ana = await MemberAsync();
         var luis = await MemberAsync();
         var exact = await PublishAsync(diego, "Calculadora Casio fx-991ES Plus", 45_000);
-        var similar = await PublishAsync(diego, "Calculadora científica Sharp", 30_000);
+        // Parecida por precio: pasa el presupuesto en mas de 20 % (con HU-60, el significado ya la haria exacta).
+        var similar = await PublishAsync(diego, "Calculadora Casio fx-570", 85_000);
         var own = await PublishAsync(ana, "Calculadora Casio fx-991ES Plus de Ana", 40_000);
         var requestId = await WantAsync(ana, "Calculadora Casio fx-991ES Plus", 60_000);
 
@@ -217,5 +218,29 @@ public sealed class WantedMatchFlowTests(AuthApiFactory factory) : IClassFixture
         Assert.Equal(1, mine.GetProperty("items").GetArrayLength());
         Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
         Assert.Equal(0, after.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task BySense_ACalculadoraCientifica_FindsTheCasio_InBothDirections()
+    {
+        // HU-60: sin compartir palabras. La API de las pruebas usa la IA en memoria (sin Gemini).
+        var diego = await MemberAsync();
+        var ana = await MemberAsync();
+        var luis = await MemberAsync();
+        var casio = await PublishAsync(diego, "Casio fx-991ES Plus", 45_000);
+
+        var requestId = await WantAsync(ana, "Calculadora científica", 50_000);
+        var toDiego = await NoticeAsync(diego, "matches", "wanted_match");
+        var matches = await AuthFlow.JsonAsync(await ana.Client.GetAsync(new Uri($"/api/v1/wanted/{requestId}/matches", UriKind.Relative), Ct));
+
+        Assert.Equal(("wanted_board", requestId), (toDiego.GetProperty("target").GetProperty("type").GetString(), toDiego.GetProperty("target").GetProperty("id").GetString()));
+        var found = matches.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("product").GetProperty("id").GetString() == casio);
+        Assert.Equal("exact", found.GetProperty("kind").GetString());
+
+        // Al reves (HU-29): Luis publica una graficadora y a Ana le llega "Alguien publicó lo que buscas".
+        var ti = await PublishAsync(luis, "Graficadora Texas Instruments TI-84", 48_000);
+        var toAna = await NoticeAsync(ana, "matches", "product_match");
+
+        Assert.Equal(("product", ti), (toAna.GetProperty("target").GetProperty("type").GetString(), toAna.GetProperty("target").GetProperty("id").GetString()));
     }
 }

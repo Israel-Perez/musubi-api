@@ -54,7 +54,8 @@ public sealed class SellerSupportServiceTests
         var demand = new ProductDemandService(
             new WantedMatchDirectory(requests, time),
             new SavedSearchService(savedSearches, new MemberDirectory(new InMemoryCommunityRepository(), new InMemoryUserRepository()), time),
-            new BlockDirectory(blocks));
+            new BlockDirectory(blocks),
+            UnitTest.Matching.Semantic.Off());
         var openOrders = new OpenOrders(orders);
         service = new SellerSupportService(listings, demand, new ConversationDirectory(conversations), openOrders, new Categories(), copywriter, time);
         job = new SlowListingJob(listings, openOrders, demand, center);

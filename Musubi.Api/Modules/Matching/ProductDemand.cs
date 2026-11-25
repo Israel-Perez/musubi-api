@@ -51,23 +51,46 @@ internal static class DemandRules
         (long)Math.Ceiling(priceCents * 100m / (100 + MatchRules.BudgetMarginPercent));
 
     /// <summary>
-    /// RN-28: la mitad de las palabras buscadas y el precio hasta 20 % arriba del presupuesto; RN-29: de cada persona,
-    /// solo su solicitud que mas se parece. De la mas parecida a la de mayor presupuesto.
+    /// RN-28: la mitad de las palabras buscadas (o, con HU-60, el mismo significado) y el precio hasta 20 % arriba del
+    /// presupuesto; RN-29: de cada persona, solo su solicitud que mas se parece. De la mas parecida a la de mayor
+    /// presupuesto.
     /// </summary>
     /// <param name="requests">Las candidatas.</param>
     /// <param name="product">La publicacion.</param>
+    /// <param name="similarity">HU-60: similitud de cada solicitud con la publicacion, por id (sin ella, solo palabras).</param>
     /// <returns>Las solicitudes que coinciden.</returns>
-    public static IReadOnlyList<WantedForMatch> BestRequests(IEnumerable<WantedForMatch> requests, ProductPublished product)
+    public static IReadOnlyList<WantedForMatch> BestRequests(
+        IEnumerable<WantedForMatch> requests,
+        ProductPublished product,
+        IReadOnlyDictionary<string, double>? similarity = null)
     {
         ArgumentNullException.ThrowIfNull(product);
         return [.. requests
-            .Select(request => (Request: request, Share: MatchRules.Share(MatchRules.Terms(request.Title), product.Words)))
-            .Where(match => match.Share >= MatchRules.MinShare && product.PriceCents <= MatchRules.MaxPrice(match.Request.BudgetCents))
+            .Select(request =>
+            {
+                var share = MatchRules.Share(MatchRules.Terms(request.Title), product.Words);
+                double? sense = similarity is not null && similarity.TryGetValue(request.Id, out var s) ? s : null;
+                return (Request: request, Compatible: MatchRules.Compatible(share, sense), Score: MatchRules.Score(share, sense));
+            })
+            .Where(match => match.Compatible && product.PriceCents <= MatchRules.MaxPrice(match.Request.BudgetCents))
             .GroupBy(match => match.Request.RequesterId, StringComparer.Ordinal)
-            .Select(group => group.OrderByDescending(match => match.Share).First())
-            .OrderByDescending(match => match.Share)
+            .Select(group => group.OrderByDescending(match => match.Score).First())
+            .OrderByDescending(match => match.Score)
             .ThenByDescending(match => match.Request.BudgetCents)
             .Select(match => match.Request)];
+    }
+
+    /// <summary>HU-60: la publicacion y las solicitudes candidatas como se comparan por significado.</summary>
+    /// <param name="product">La publicacion.</param>
+    /// <param name="requests">Las solicitudes.</param>
+    /// <returns>El texto de la publicacion y el de cada solicitud.</returns>
+    public static (MatchText Product, IReadOnlyList<MatchText> Requests) Texts(ProductPublished product, IReadOnlyList<WantedForMatch> requests)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        ArgumentNullException.ThrowIfNull(requests);
+        return (
+            MatchText.Product(product.Id, product.SellerId, product.CommunityId, product.Title, product.Description),
+            [.. requests.Select(r => MatchText.Wanted(r.Id, r.RequesterId, r.CommunityId, r.Title))]);
     }
 
     /// <summary>HU-12: las busquedas guardadas que coinciden (todas las palabras y los filtros), una por persona.</summary>
@@ -82,7 +105,7 @@ internal static class DemandRules
 }
 
 /// <summary>Implementacion con los mismos directorios que los avisos (M-05 y M-04).</summary>
-internal sealed class ProductDemandService(IWantedMatchDirectory wanted, ISavedSearchDirectory savedSearches, IBlockDirectory blocks) : IProductDemand
+internal sealed class ProductDemandService(IWantedMatchDirectory wanted, ISavedSearchDirectory savedSearches, IBlockDirectory blocks, SemanticMatcher semantic) : IProductDemand
 {
     /// <inheritdoc />
     public async Task<ProductDemand> ForAsync(ProductPublished product, CancellationToken cancellationToken)
@@ -97,7 +120,10 @@ internal sealed class ProductDemandService(IWantedMatchDirectory wanted, ISavedS
             excluded,
             DemandRules.MaxRequests,
             cancellationToken).ConfigureAwait(false);
-        var requests = DemandRules.BestRequests(candidates, product);
+        // HU-60: se consulta desde la app (M-12): solo los vectores ya guardados, sin llamar a la IA.
+        var (text, texts) = DemandRules.Texts(product, candidates);
+        var similarity = await semantic.SimilaritiesAsync(text, texts, computeMissing: false, cancellationToken).ConfigureAwait(false);
+        var requests = DemandRules.BestRequests(candidates, product, similarity);
         var requesters = requests.Select(request => request.RequesterId).ToHashSet(StringComparer.Ordinal);
         var searches = await savedSearches.ActiveAsync(product.CommunityId, excluded, DemandRules.MaxSavedSearches, cancellationToken).ConfigureAwait(false);
         var alerts = DemandRules.MatchingSearches(searches, product).Count(search => !requesters.Contains(search.UserId));

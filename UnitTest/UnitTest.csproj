@@ -25,6 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- HU-60: el conjunto de evaluacion de las coincidencias y sus vectores de Gemini. -->
+    <None Include="Matching\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Musubi.Api\Musubi.Api.csproj" />
   </ItemGroup>
 

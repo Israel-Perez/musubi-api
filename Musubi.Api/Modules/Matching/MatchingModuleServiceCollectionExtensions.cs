@@ -23,6 +23,13 @@ internal static class MatchingModuleServiceCollectionExtensions
         services.AddSingleton<IMatchRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? matches
             : new MongoMatchRepository(provider.GetRequiredService<IMongoDatabase>()));
+        // HU-60: los vectores de las coincidencias por significado (se borran con la cuenta, HU-46).
+        var embeddings = new InMemoryEmbeddingRepository();
+        services.AddSingleton<IEmbeddingRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? embeddings
+            : new MongoEmbeddingRepository(provider.GetRequiredService<IMongoDatabase>()));
+        services.AddSingleton<SemanticMatcher>();
+        services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<SemanticMatcher>());
         services.AddSingleton<MatchLedger>();
         services.AddSingleton<IMatchLedger>(provider => provider.GetRequiredService<MatchLedger>());
         services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<MatchLedger>());

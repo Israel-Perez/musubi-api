@@ -56,7 +56,8 @@ internal interface IProductDirectory
 /// <param name="Title">Nombre.</param>
 /// <param name="PriceCents">Precio.</param>
 /// <param name="Words">Palabras normalizadas de su nombre y su descripcion.</param>
-internal sealed record ProductCandidate(string Id, string SellerId, string Title, long PriceCents, IReadOnlyList<string> Words);
+/// <param name="Description">Su descripcion (HU-60: se compara por significado).</param>
+internal sealed record ProductCandidate(string Id, string SellerId, string Title, long PriceCents, IReadOnlyList<string> Words, string Description = "");
 
 /// <summary>Una publicacion recien publicada (HU-29).</summary>
 /// <param name="Id">Publicacion.</param>
@@ -68,6 +69,7 @@ internal sealed record ProductCandidate(string Id, string SellerId, string Title
 /// <param name="Words">Palabras normalizadas de su nombre y su descripcion.</param>
 /// <param name="Condition"><c>new</c> o <c>used</c> (HU-12: filtro de la busqueda guardada).</param>
 /// <param name="SellerName">Nombre corto de quien vende ("Luis M.").</param>
+/// <param name="Description">Su descripcion (HU-60: se compara por significado).</param>
 internal sealed record ProductPublished(
     string Id,
     string CommunityId,
@@ -77,7 +79,8 @@ internal sealed record ProductPublished(
     long PriceCents,
     IReadOnlyList<string> Words,
     string Condition = ProductConditions.Used,
-    string SellerName = "");
+    string SellerName = "",
+    string Description = "");
 
 /// <summary>
 /// Contrato de M-03 hacia M-06 (HU-29): al publicar, las solicitudes "Se busca" que coincidan se revisan en segundo
@@ -107,7 +110,7 @@ internal sealed class ProductMatches(IProductRepository products) : IProductMatc
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProductCandidate>> FindCandidatesAsync(ProductMatchQuery query, CancellationToken cancellationToken) =>
         [.. (await products.FindMatchCandidatesAsync(query, cancellationToken).ConfigureAwait(false))
-            .Select(p => new ProductCandidate(p.Id, p.SellerId, p.Title, p.PriceCents, p.SearchWords))];
+            .Select(p => new ProductCandidate(p.Id, p.SellerId, p.Title, p.PriceCents, p.SearchWords, p.Description))];
 }
 
 /// <summary>Implementacion sobre el repositorio de M-03.</summary>

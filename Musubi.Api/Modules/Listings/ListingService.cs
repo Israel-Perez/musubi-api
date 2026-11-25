@@ -185,7 +185,8 @@ internal sealed partial class ListingService(
             product.PriceCents,
             product.SearchWords,
             product.Condition,
-            product.Seller.Name);
+            product.Seller.Name,
+            product.Description);
     }
 
     /// <summary>

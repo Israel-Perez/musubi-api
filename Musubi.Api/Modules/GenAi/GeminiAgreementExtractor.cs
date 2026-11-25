@@ -44,6 +44,15 @@ internal sealed class GenAiOptions
 
     /// <summary>Ventana del limite, en minutos.</summary>
     public int WindowMinutes { get; set; } = 60;
+
+    /// <summary>HU-60: modelo de embeddings de Gemini (capa gratuita).</summary>
+    public string EmbeddingModel { get; set; } = "gemini-embedding-001";
+
+    /// <summary>
+    /// HU-60: dimensiones del vector. 256 basta para un campus y ocupa 1 KB por texto; con ellas se midio el umbral
+    /// (<c>MatchRules.SemanticThreshold</c>).
+    /// </summary>
+    public int EmbeddingDimensions { get; set; } = 256;
 }
 
 /// <summary>La llave de Gemini (user-secrets en local; Parameter Store <c>/musubi/prod/Gemini/ApiKey</c> en la nube).</summary>

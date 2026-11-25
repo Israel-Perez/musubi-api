@@ -62,6 +62,16 @@ internal static class GenAiModuleServiceCollectionExtensions
             GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiPhotoDraftWriter>(),
             _ => new OffPhotoDraftWriter(),
         });
+        // HU-60: los vectores de las coincidencias. Singleton (lo usan los workers de M-06): pide un cliente por llamada.
+        services.AddHttpClient(GeminiTextEmbedder.ClientName, client => client.BaseAddress = GeminiApi.BaseAddress);
+        services.AddSingleton<GeminiTextEmbedder>();
+        services.AddSingleton<InMemoryTextEmbedder>();
+        services.AddSingleton<ITextEmbedder>(provider => provider.GetRequiredService<IOptions<GenAiOptions>>().Value.Provider switch
+        {
+            GenAiOptions.InMemoryProvider => provider.GetRequiredService<InMemoryTextEmbedder>(),
+            GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiTextEmbedder>(),
+            _ => new OffTextEmbedder(),
+        });
         services.AddTransient<AgreementService>();
         services.AddSingleton<IAgreementDirectory, AgreementDirectory>();
         services.AddSingleton<IAccountDataEraser, AgreementAccountEraser>();
