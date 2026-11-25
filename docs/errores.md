@@ -114,6 +114,7 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `chat.own_product` | 400 | Es tu publicación: aquí te escribirán los compradores. | HU-20 (el vendedor no se escribe a sí mismo) |
 | `chat.conversation_not_found` | 404 | No encontramos esta conversación. | HU-20 (inexistente o de otras personas: no revela cuál, RN-22, OWASP API1) |
 | `chat.blocked` | 403 | No puedes escribirle a esta persona. | HU-57 (bloqueo en cualquier dirección: el mismo mensaje para los dos, no revela quién bloqueó) |
+| `chat.photo_not_found` | 404 | Esta foto ya no está disponible. | HU-65 (de otra conversación, que no existe o un nombre que no es de una foto; no revela cuál) |
 | `chat.invalid_message` | 400 | Escribe un mensaje de hasta 1000 caracteres. | HU-20 (vacío o de más de 1000 caracteres) |
 | `chat.invalid_filter` | 400 | No pudimos aplicar ese filtro. Elige Todos, Compras o Ventas. | HU-22 (`role` que no es `buyer` ni `seller`) |
 | `chat.invalid_cursor` | 400 | No pudimos cargar más. Vuelve a abrir la lista. | HU-20 / HU-22 (cursor que no emitió la API) |

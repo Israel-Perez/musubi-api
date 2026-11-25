@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.Listings;
 using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Errors;
@@ -120,4 +121,46 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Send(string id, SendMessageRequest request, CancellationToken cancellationToken) =>
         this.Respond(await chat.SendAsync(userId, id, request, cancellationToken).ConfigureAwait(false), StatusCodes.Status201Created);
+
+    /// <summary>
+    /// HU-65: envia una foto (camara o galeria). Pasa por la moderacion antes de guardarse; sale en WebP, sin metadatos.
+    /// </summary>
+    /// <param name="id">Conversacion.</param>
+    /// <param name="photo">Imagen (JPG, PNG o WebP; hasta 10 MB).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El mensaje con la ruta de la foto.</returns>
+    [HttpPost("{id}/photos")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(PhotoUploadService.MaxBytes + (64 * 1024))]
+    [EnableRateLimiting(ListingsModuleServiceCollectionExtensions.UploadRateLimit)]
+    [ProducesResponseType<MessageResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status415UnsupportedMediaType)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> SendPhoto(string id, IFormFile photo, CancellationToken cancellationToken) =>
+        this.Respond(await chat.SendPhotoAsync(userId, id, photo, cancellationToken).ConfigureAwait(false), StatusCodes.Status201Created);
+
+    /// <summary>HU-65: una foto del chat, solo para sus participantes (no pasa por CloudFront).</summary>
+    /// <param name="id">Conversacion.</param>
+    /// <param name="name">Archivo (<c>{32 hex}.webp</c>).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La imagen WebP.</returns>
+    [HttpGet("{id}/photos/{name}")]
+    [ProducesResponseType<FileContentResult>(StatusCodes.Status200OK, "image/webp")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Photo(string id, string name, CancellationToken cancellationToken)
+    {
+        var result = await chat.PhotoAsync(userId, id, name, cancellationToken).ConfigureAwait(false);
+        if (result.Error is { } error)
+        {
+            return this.Problem(error);
+        }
+
+        // Privada: el telefono la guarda, pero ningun intermediario (la llave nunca cambia de contenido).
+        Response.Headers.CacheControl = "private, max-age=604800, immutable";
+        return File(result.Value!, Platform.Media.PhotoProcessor.ContentType);
+    }
 }

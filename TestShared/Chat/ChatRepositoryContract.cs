@@ -97,7 +97,7 @@ public abstract class ChatRepositoryContract
     }
 
     [Fact]
-    public async Task MarkRead_ClearsOnlyThatSide()
+    public async Task MarkRead_ClearsOnlyThatSide_AndKeepsWhenItRead()
     {
         var conversation = NewConversation(AuthIds.New(), AuthIds.New(), AuthIds.New());
         await Conversations.InsertOrGetAsync(conversation, Ct);
@@ -105,11 +105,15 @@ public abstract class ChatRepositoryContract
         await Conversations.RecordMessageAsync(conversation.Id, message, "seller", Ct);
         await Conversations.RecordMessageAsync(conversation.Id, message, "buyer", Ct);
 
-        await Conversations.MarkReadAsync(conversation.Id, "seller", Ct);
+        await Conversations.MarkReadAsync(conversation.Id, "seller", Now.AddMinutes(2), Ct);
+        // HU-65: un mensaje despues no borra cuando leyo cada lado.
+        await Conversations.RecordMessageAsync(conversation.Id, message, "seller", Ct);
 
         var saved = (await Conversations.FindByIdAsync(conversation.Id, Ct))!;
-        Assert.Equal(0, saved.SellerUnread);
+        Assert.Equal(1, saved.SellerUnread);
         Assert.Equal(1, saved.BuyerUnread);
+        Assert.Equal(Now.AddMinutes(2), saved.SellerReadAt);
+        Assert.Null(saved.BuyerReadAt);
     }
 
     [Fact]

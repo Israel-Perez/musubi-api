@@ -12,6 +12,7 @@ using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat.Data;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Data;
+using Musubi.Api.Platform.Media;
 
 namespace Musubi.Api.Modules.Chat;
 
@@ -70,13 +71,19 @@ internal static class ChatModuleServiceCollectionExtensions
 /// Borra las conversaciones y los mensajes de una cuenta que se elimina (HU-46, R11): los textos son datos
 /// personales de los dos participantes, asi que la conversacion completa desaparece para ambos.
 /// </summary>
-internal sealed class ChatAccountEraser(IConversationRepository conversations, IMessageRepository messages) : IAccountDataEraser
+internal sealed class ChatAccountEraser(IConversationRepository conversations, IMessageRepository messages, IMediaStorage media) : IAccountDataEraser
 {
     /// <inheritdoc />
     public async Task EraseAsync(string userId, CancellationToken cancellationToken)
     {
-        // Primero los mensajes: si algo falla a medias, la conversacion sigue y el reintento la encuentra.
+        // Primero las fotos y los mensajes: si algo falla a medias, la conversacion sigue y el reintento la encuentra.
         var ids = await conversations.FindIdsByParticipantAsync(userId, cancellationToken).ConfigureAwait(false);
+        foreach (var id in ids)
+        {
+            // HU-65: las fotos del chat se van con la conversacion.
+            await media.DeletePrefixAsync($"chat/{id}/", cancellationToken).ConfigureAwait(false);
+        }
+
         await messages.DeleteByConversationsAsync(ids, cancellationToken).ConfigureAwait(false);
         await conversations.DeleteByParticipantAsync(userId, cancellationToken).ConfigureAwait(false);
     }

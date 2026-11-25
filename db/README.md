@@ -36,6 +36,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `030-moderacion.js` | Revisión de reportes en `reports` (`dismissed`/`upheld`, `subjectId`, quién y cuándo lo revisó; `ix_subject_status`), `moderationLog` (HU-39/40: cada acción de un administrador, RNF-04) y `report_reviewed` / `product_removed` en el validador de `notifications` | 30 |
 | `031-categorias.js` | Las acciones de categorías en el validador de `moderationLog` (HU-41: agregar, renombrar, desactivar y volver a activar; `targetType: category`). `categories` no cambia | 31 |
 | `032-recordatorio-entrega.js` | `orders.handover` con "Ya llegué" de cada parte (`buyerArrivedAt`, `sellerArrivedAt`), `ix_confirmed_delivery` (parcial: los confirmados por hora de entrega, para el recordatorio una hora antes) y los avisos `delivery_reminder` y `order_arrived` (HU-62) | 32 |
+| `034-chat-fotos.js` | `messages` admite `kind: photo` con su llave (`chat/{conversación}/{id}.webp`) y `conversations` guarda `buyerReadAt`/`sellerReadAt` ("Leído", HU-65). "Escribiendo…" no se guarda | 34 |
 | `033-precios.js` | `orders.ix_community_status_id`: los pedidos completados de cada campus, con los que entrena el modelo de precios (HU-58). Sin cambios de validación | 33 |
 
 ## Aplicar

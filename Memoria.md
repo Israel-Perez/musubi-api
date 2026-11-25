@@ -1,5 +1,19 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-65 (SCRUM-105): fotos, "escribiendo…" y "leído" en el chat
+
+- **Qué:** `POST /conversations/{id}/photos` (moderada, WebP, `kind: photo`), `GET /conversations/{id}/photos/{name}` solo para los participantes, el método `Typing` del hub (evento `typing`) y "leído" (`buyerReadAt`/`sellerReadAt`, evento `conversationRead`, `counterpartReadAt`). `db/034-chat-fotos.js`, esquema 34; versión `0.5.0-alpha.45`.
+- **Decisiones técnicas:**
+  - Las fotos van en `chat/` y no en `media/`: CloudFront sirve `media/*` en público y una foto del chat es solo de dos personas. Se entregan con `Cache-Control: private`.
+  - El nombre de la foto se valida con `^[0-9a-f]{32}\.webp$`, así una ruta nunca sale de la conversación.
+  - "Leído" es una fecha por lado (una escritura por apertura), no una por mensaje.
+  - Con un bloqueo no hay foto (`chat.blocked`), ni `typing`, ni `conversationRead`, y `counterpartReadAt` es `null`.
+- **Para revisar:** "Leído" todavía no se puede apagar en Privacidad.
+- **Errores a evitar:**
+  - `ProductionApiFactory` usa S3: la prueba de seguridad de la foto cambia `IMediaStorage` por `InMemoryMediaStorage` con `WithWebHostBuilder`.
+  - El orden de `Cache-Control` no es fijo: la prueba revisa `Private` y que no sea `Public`.
+  - `PhotoUrl` como `string` rompe CA1056: la propiedad se llama `Photo`.
+
 ## Trabajo en curso — HU-58 (SCRUM-98): precio sugerido con ML
 
 - **Qué:**

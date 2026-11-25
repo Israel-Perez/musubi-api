@@ -40,12 +40,14 @@ public sealed class ChatFlowTests(AuthApiFactory factory) : IClassFixture<AuthAp
         return new Member(client, token, me.GetProperty("id").GetString()!, email);
     }
 
-    private static byte[] Png()
+    private static byte[] Png() => Png(SKColors.Teal);
+
+    private static byte[] Png(SKColor color)
     {
         using var bitmap = new SKBitmap(400, 300);
         using (var canvas = new SKCanvas(bitmap))
         {
-            canvas.Clear(SKColors.Teal);
+            canvas.Clear(color);
         }
 
         using var image = SKImage.FromBitmap(bitmap);
@@ -258,6 +260,72 @@ public sealed class ChatFlowTests(AuthApiFactory factory) : IClassFixture<AuthAp
         Assert.Equal(conversation, received.GetProperty("conversationId").GetString());
         Assert.Equal(buyer.Id, received.GetProperty("senderId").GetString());
         Assert.False(toOutsider.Task.IsCompleted);
+    }
+
+    private static async Task<HttpResponseMessage> SendPhotoAsync(Member member, string conversationId, SKColor color)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent(Png(color));
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(file, "photo", "foto.png");
+        return await member.Client.PostAsync(new Uri($"/api/v1/conversations/{conversationId}/photos", UriKind.Relative), form, Ct).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task APhoto_IsModerated_AndOnlyTheParticipantsDownloadIt()
+    {
+        // HU-65: la foto se modera antes de guardarse y no pasa por CloudFront.
+        var (buyer, seller, conversation) = await ConversationAsync();
+        var outsider = await MemberAsync();
+
+        var sent = await SendPhotoAsync(buyer, conversation, SKColors.Teal);
+        var rejected = await SendPhotoAsync(buyer, conversation, new SKColor(255, 0, 255));
+        var message = await AuthFlow.JsonAsync(sent);
+        var path = message.GetProperty("photo").GetString()!;
+        var bySeller = await seller.Client.GetAsync(new Uri(path, UriKind.Relative), Ct);
+        var byOutsider = await outsider.Client.GetAsync(new Uri(path, UriKind.Relative), Ct);
+        var page = await GetJsonAsync(seller.Client, $"/api/v1/conversations/{conversation}/messages");
+
+        Assert.Equal(HttpStatusCode.Created, sent.StatusCode);
+        Assert.Equal("photo", message.GetProperty("kind").GetString());
+        Assert.StartsWith($"/api/v1/conversations/{conversation}/photos/", path, StringComparison.Ordinal);
+        await AuthFlow.AssertCodeAsync(rejected, HttpStatusCode.UnprocessableEntity, "moderation.image_rejected");
+        Assert.Equal(HttpStatusCode.OK, bySeller.StatusCode);
+        Assert.Equal("image/webp", bySeller.Content.Headers.ContentType!.MediaType);
+        Assert.True(bySeller.Headers.CacheControl!.Private);
+        Assert.NotEmpty(await bySeller.Content.ReadAsByteArrayAsync(Ct));
+        await AuthFlow.AssertCodeAsync(byOutsider, HttpStatusCode.NotFound, "chat.photo_not_found");
+        var items = page.GetProperty("items").EnumerateArray().ToList();
+        Assert.Single(items);
+        Assert.Equal(path, items[0].GetProperty("photo").GetString());
+    }
+
+    [Fact]
+    public async Task Typing_AndRead_ArriveInRealTime_AndReadIsKeptForTheOtherSide()
+    {
+        // HU-65: "Escribiendo…" (no se guarda) y "Leido".
+        var (buyer, seller, conversation) = await ConversationAsync();
+        Assert.Equal(HttpStatusCode.Created, (await SendAsync(buyer, conversation, "¿Sigue disponible?")).StatusCode);
+        var typing = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var read = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var sellerHub = Hub(seller);
+        await using var buyerHub = Hub(buyer);
+        sellerHub.On<JsonElement>("typing", e => typing.TrySetResult(e));
+        buyerHub.On<JsonElement>("conversationRead", e => read.TrySetResult(e));
+        await sellerHub.StartAsync(Ct);
+        await buyerHub.StartAsync(Ct);
+        var before = await GetJsonAsync(buyer.Client, $"/api/v1/conversations/{conversation}");
+
+        await buyerHub.InvokeAsync("Typing", conversation, Ct);
+        var typed = await typing.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.Equal(HttpStatusCode.NoContent, (await seller.Client.PostAsync(new Uri($"/api/v1/conversations/{conversation}/read", UriKind.Relative), null, Ct)).StatusCode);
+        var readEvent = await read.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        var after = await GetJsonAsync(buyer.Client, $"/api/v1/conversations/{conversation}");
+
+        Assert.Equal((conversation, buyer.Id), (typed.GetProperty("conversationId").GetString(), typed.GetProperty("userId").GetString()));
+        Assert.Equal(seller.Id, readEvent.GetProperty("readerId").GetString());
+        Assert.Equal(JsonValueKind.Null, before.GetProperty("counterpartReadAt").ValueKind);
+        Assert.Equal(JsonValueKind.String, after.GetProperty("counterpartReadAt").ValueKind);
     }
 
     [Fact]

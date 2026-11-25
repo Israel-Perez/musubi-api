@@ -87,6 +87,14 @@ internal interface IMediaStorage
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantos se borraron.</returns>
     Task<int> DeletePrefixAsync(string prefix, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lee un archivo (HU-65: las fotos del chat no pasan por CloudFront; las entrega la API solo a los participantes).
+    /// </summary>
+    /// <param name="key">Llave.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los bytes, o <c>null</c> si no existe.</returns>
+    Task<byte[]?> GetAsync(string key, CancellationToken cancellationToken);
 }
 
 /// <summary>Archivo guardado en memoria.</summary>
@@ -132,6 +140,12 @@ internal sealed class InMemoryMediaStorage : IMediaStorage
     /// <param name="key">Llave.</param>
     /// <returns>El archivo o <c>null</c>.</returns>
     public StoredMedia? Find(string key) => files.TryGetValue(key, out var file) ? file : null;
+
+    /// <summary>Cuantos archivos hay (pruebas).</summary>
+    public int Count => files.Count;
+
+    /// <inheritdoc />
+    public Task<byte[]?> GetAsync(string key, CancellationToken cancellationToken) => Task.FromResult(Find(key)?.Content);
 }
 
 /// <summary>Imagenes en el bucket privado de S3 (el rol de la instancia solo puede leer, escribir y borrar ahi; 02-05).</summary>
@@ -151,6 +165,22 @@ internal sealed class S3MediaStorage(IAmazonS3 s3, IOptions<MediaOptions> option
         // La llave nunca se reutiliza (id nuevo por foto): CloudFront y el telefono la guardan para siempre.
         request.Headers.CacheControl = "public, max-age=31536000, immutable";
         await s3.PutObjectAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> GetAsync(string key, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await s3.GetObjectAsync(options.Value.Bucket, key, cancellationToken).ConfigureAwait(false);
+            using var buffer = new MemoryStream();
+            await response.ResponseStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+            return buffer.ToArray();
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
     }
 
     /// <inheritdoc />

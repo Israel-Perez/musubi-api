@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -69,10 +70,13 @@ internal sealed class MongoConversationRepository(IMongoDatabase database) : ICo
     }
 
     /// <inheritdoc />
-    public Task MarkReadAsync(string id, string role, CancellationToken cancellationToken) =>
+    public Task MarkReadAsync(string id, string role, DateTime now, CancellationToken cancellationToken) =>
         conversations.UpdateOneAsync(
             c => c.Id == id,
-            Builders<ConversationDocument>.Update.Set(UnreadField(role), 0),
+            Builders<ConversationDocument>.Update
+                .Set(UnreadField(role), 0)
+                // HU-65: "Leido" del otro lado.
+                .Set(string.Equals(role, ChatService.BuyerRole, System.StringComparison.Ordinal) ? "buyerReadAt" : "sellerReadAt", now),
             cancellationToken: cancellationToken);
 
     /// <inheritdoc />

@@ -51,12 +51,13 @@ internal interface IConversationRepository
     /// <returns>Tarea.</returns>
     Task RecordMessageAsync(string id, LastMessage last, string recipientRole, CancellationToken cancellationToken);
 
-    /// <summary>Deja en cero los no leidos de un lado de la conversacion (HU-22).</summary>
+    /// <summary>Deja en cero los no leidos de un lado de la conversacion (HU-22) y guarda cuando leyo ("Leido", HU-65).</summary>
     /// <param name="id">Conversacion.</param>
     /// <param name="role">Quien leyo.</param>
+    /// <param name="now">Ahora (UTC).</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Tarea.</returns>
-    Task MarkReadAsync(string id, string role, CancellationToken cancellationToken);
+    Task MarkReadAsync(string id, string role, DateTime now, CancellationToken cancellationToken);
 
     /// <summary>
     /// Bandeja (HU-22): conversaciones con al menos un mensaje donde participa el usuario, de la mas

@@ -74,7 +74,7 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
     }
 
     /// <inheritdoc />
-    public Task MarkReadAsync(string id, string role, CancellationToken cancellationToken)
+    public Task MarkReadAsync(string id, string role, DateTime now, CancellationToken cancellationToken)
     {
         var buyer = string.Equals(role, ChatService.BuyerRole, StringComparison.Ordinal);
         Replace(id, current => Copy(
@@ -82,7 +82,9 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
             current.LastMessage,
             current.LastMessageAt,
             buyer ? 0 : current.BuyerUnread,
-            buyer ? current.SellerUnread : 0));
+            buyer ? current.SellerUnread : 0,
+            buyer ? now : current.BuyerReadAt,
+            buyer ? current.SellerReadAt : now));
         return Task.CompletedTask;
     }
 
@@ -128,7 +130,14 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
         }
     }
 
-    private static ConversationDocument Copy(ConversationDocument c, LastMessage? last, DateTime lastAt, int buyerUnread, int sellerUnread) => new()
+    private static ConversationDocument Copy(
+        ConversationDocument c,
+        LastMessage? last,
+        DateTime lastAt,
+        int buyerUnread,
+        int sellerUnread,
+        DateTime? buyerReadAt = null,
+        DateTime? sellerReadAt = null) => new()
     {
         Id = c.Id,
         CommunityId = c.CommunityId,
@@ -142,6 +151,8 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
         LastMessageAt = lastAt,
         BuyerUnread = buyerUnread,
         SellerUnread = sellerUnread,
+        BuyerReadAt = buyerReadAt ?? c.BuyerReadAt,
+        SellerReadAt = sellerReadAt ?? c.SellerReadAt,
         CreatedAt = c.CreatedAt,
         SchemaVersion = c.SchemaVersion,
     };
