@@ -18,7 +18,7 @@ namespace Musubi.Api.Modules.GenAi;
 /// <summary>Registro DI del modulo M-10 (IA generativa).</summary>
 internal static class GenAiModuleServiceCollectionExtensions
 {
-    /// <summary>Politica de rate limit de la IA (por usuario): "Resumir acuerdo" e "Ideas con IA" comparten la cuota.</summary>
+    /// <summary>Politica de rate limit de la IA (por usuario): "Resumir acuerdo", "Ideas con IA" y "Llenar con IA" comparten la cuota.</summary>
     public const string SummaryRateLimit = "genai";
 
     /// <summary>Registra el repositorio, el proveedor de IA (lazy, segun <c>GenAi:Provider</c>), el servicio y el borrado.</summary>
@@ -52,6 +52,15 @@ internal static class GenAiModuleServiceCollectionExtensions
             GenAiOptions.InMemoryProvider => provider.GetRequiredService<InMemoryListingCopywriter>(),
             GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiListingCopywriter>(),
             _ => new OffListingCopywriter(),
+        });
+        // HU-59: "Llenar con IA" en Vender-1, con el mismo proveedor y la misma llave.
+        services.AddHttpClient<GeminiPhotoDraftWriter>(client => client.BaseAddress = GeminiApi.BaseAddress);
+        services.AddSingleton<InMemoryPhotoDraftWriter>();
+        services.AddTransient<IPhotoDraftWriter>(provider => provider.GetRequiredService<IOptions<GenAiOptions>>().Value.Provider switch
+        {
+            GenAiOptions.InMemoryProvider => provider.GetRequiredService<InMemoryPhotoDraftWriter>(),
+            GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiPhotoDraftWriter>(),
+            _ => new OffPhotoDraftWriter(),
         });
         services.AddTransient<AgreementService>();
         services.AddSingleton<IAgreementDirectory, AgreementDirectory>();

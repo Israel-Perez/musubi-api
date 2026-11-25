@@ -59,6 +59,8 @@ internal static class ListingsModuleServiceCollectionExtensions
         services.AddSingleton<MyListingsService>();
         services.AddSingleton<FavoriteService>();
         services.AddSingleton<PhotoUploadService>();
+        // HU-59: "Llenar con IA" (el proveedor es IPhotoDraftWriter de M-10).
+        services.AddTransient<PhotoDraftService>();
         services.AddSingleton<IAccountDataEraser, ListingAccountEraser>();
         services.AddSingleton<IProductDirectory, ProductDirectory>();
         services.AddSingleton<IProductMatches, ProductMatches>();

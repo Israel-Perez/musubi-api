@@ -113,4 +113,12 @@ internal static class ListingsErrors
     /// <summary>Foto de mas de 50 megapixeles.</summary>
     public static readonly ApiError PhotoTooLarge = new(
         "listings.photo_too_large", StatusCodes.Status413PayloadTooLarge, "La foto es demasiado grande. Prueba con otra.");
+
+    /// <summary>HU-59: la llave no es de una foto que esta persona subio por <c>POST /products/photos</c> (OWASP API1).</summary>
+    public static readonly ApiError PhotoNotFound = new(
+        "listings.photo_not_found", StatusCodes.Status404NotFound, "No encontramos esa foto. Súbela de nuevo.");
+
+    /// <summary>HU-59 (RNF-15): sin proveedor, sin red, cuota excedida o una propuesta fuera de las reglas. Se llena a mano.</summary>
+    public static readonly ApiError DraftUnavailable = new(
+        "listings.draft_unavailable", StatusCodes.Status503ServiceUnavailable, "La IA no está disponible ahora. Llena los datos a mano o inténtalo más tarde.");
 }

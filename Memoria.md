@@ -1,5 +1,15 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-59 (SCRUM-99): publicar desde una foto con IA
+
+- **Qué:** `POST /products/photo-draft` con la llave de una foto propia: Gemini ve la portada y las categorías activas del campus y propone el nombre, la categoría, el estado y la descripción. El texto se modera y no se guarda nada (RN-38). API `0.5.0-alpha.46`, sin cambio de esquema.
+- **Decisiones para revisar (25-Nov-2026):** solo la portada; el tope `genai` (6 por hora) compartido con "Resumir acuerdo" e "Ideas con IA"; la foto se comparte con Google (aviso y Play en musubi-app).
+- **Decisiones técnicas:**
+  - Se manda la llave y no la foto otra vez: a la IA solo llega lo que ya pasó la moderación al subirse.
+  - Una categoría que no es del campus vuelve como `null`; un usado sin detalle válido queda en `good`.
+  - Sin proveedor, el 503 sale antes de leer S3 (así la prueba en Production no necesita S3).
+- **Errores a evitar:** la palabra "todo" en un comentario dispara S1135 aunque sea español ("todo queda…"). Un ternario anidado es S3358.
+
 ## Trabajo en curso — HU-65 (SCRUM-105): fotos, "escribiendo…" y "leído" en el chat
 
 - **Qué:** `POST /conversations/{id}/photos` (moderada, WebP, `kind: photo`), `GET /conversations/{id}/photos/{name}` solo para los participantes, el método `Typing` del hub (evento `typing`) y "leído" (`buyerReadAt`/`sellerReadAt`, evento `conversationRead`, `counterpartReadAt`). `db/034-chat-fotos.js`, esquema 34; versión `0.5.0-alpha.45`.

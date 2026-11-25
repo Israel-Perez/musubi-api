@@ -105,6 +105,8 @@ La foto de perfil usa los errores `listings.photo_*` de M-03 (mismo procesamient
 | `listings.photo_unsupported` | 415 | No pudimos leer esa foto. Prueba con otra en JPG, PNG o WebP. | HU-06 |
 | `listings.photo_too_small` | 422 | La foto es muy pequeña. Usa una de al menos 200 px. | HU-06 |
 | `listings.photo_too_large` | 413 | La foto es demasiado grande. Prueba con otra. | HU-06 (más de 50 MP o de 10 MB) |
+| `listings.photo_not_found` | 404 | No encontramos esa foto. Súbela de nuevo. | HU-59 ("Llenar con IA" con una llave que no es de una foto que subió esta persona, o que ya no existe) |
+| `listings.draft_unavailable` | 503 | La IA no está disponible ahora. Llena los datos a mano o inténtalo más tarde. | HU-59 (RNF-15: sin proveedor, sin red, cuota excedida, respuesta fuera de las reglas o texto que no pasa la moderación; la app sigue a mano) |
 
 ## M-07 · Chat (`Modules/Chat/ChatErrors.cs`)
 
