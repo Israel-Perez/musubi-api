@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Musubi.Api.Modules.GenAi;
 using Musubi.Api.Modules.Recommendations;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Caching;
@@ -27,6 +28,8 @@ public sealed class ProductsController : ControllerBase
     private ListingService listings => HttpContext.RequestServices.GetRequiredService<ListingService>();
 
     private PhotoUploadService photos => HttpContext.RequestServices.GetRequiredService<PhotoUploadService>();
+
+    private PhotoDraftService drafts => HttpContext.RequestServices.GetRequiredService<PhotoDraftService>();
 
     private string userId => User.FindFirst(MusubiClaims.Subject)?.Value ?? string.Empty;
 
@@ -178,4 +181,19 @@ public sealed class ProductsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> UploadPhoto(IFormFile photo, CancellationToken cancellationToken) =>
         this.Respond(await photos.UploadAsync(userId, photo, cancellationToken).ConfigureAwait(false), StatusCodes.Status201Created);
+
+    /// <summary>"Llenar con IA" (HU-59): la IA propone el nombre, la categoria, el estado y la descripcion de una foto. No guarda nada.</summary>
+    /// <param name="request">La llave de la portada.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La propuesta; sin IA, <c>listings.draft_unavailable</c> (se llena a mano).</returns>
+    [HttpPost("photo-draft")]
+    [EnableRateLimiting(GenAiModuleServiceCollectionExtensions.SummaryRateLimit)]
+    [ProducesResponseType<PhotoDraftResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> PhotoDraft(PhotoDraftRequest request, CancellationToken cancellationToken) =>
+        this.Respond(await drafts.DraftAsync(userId, request, cancellationToken).ConfigureAwait(false), StatusCodes.Status200OK);
 }

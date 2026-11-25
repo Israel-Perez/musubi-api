@@ -109,6 +109,9 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         using var file = Png();
         form.Add(file, "photo", "foto.png");
         var photo = await BodyAsync(await client.PostAsync(new Uri("/api/v1/products/photos", UriKind.Relative), form, Ct));
+        // HU-59: "Llenar con IA" con la foto recien subida.
+        var draft = await BodyAsync(await client.PostAsJsonAsync(
+            new Uri("/api/v1/products/photo-draft", UriKind.Relative), new { photo = photo.GetProperty("key").GetString() }, Ct));
         var product = await BodyAsync(await client.PostAsJsonAsync(
             new Uri("/api/v1/products", UriKind.Relative),
             new
@@ -147,6 +150,7 @@ public sealed class ListingsContractTests(ContractApiFactory factory) : IClassFi
         var favoritesFixture = await FixtureAsync("favorites.json");
 
         Assert.Equal(Shape(await FixtureAsync("photo.json")), Shape(photo));
+        Assert.Equal(Shape(await FixtureAsync("photo-draft.json")), Shape(draft));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(product));
         Assert.Equal(Shape(await FixtureAsync("product-page.json")), Shape(page));
         Assert.Equal(Shape(await FixtureAsync("product.json")), Shape(page.GetProperty("items")[0]));

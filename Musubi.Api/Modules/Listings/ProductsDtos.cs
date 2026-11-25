@@ -17,6 +17,18 @@ public sealed record CategoryResponse(string Slug, string Name);
 /// <param name="Path">Ruta de la imagen, relativa a la URL base de la API (CloudFront sirve <c>/media/*</c>).</param>
 public sealed record PhotoResponse(string Key, string Path);
 
+/// <summary>"Llenar con IA" (HU-59): la foto de la que se propone la publicacion.</summary>
+/// <param name="Photo">Llave de una foto propia subida por <c>POST /products/photos</c> (la portada).</param>
+public sealed record PhotoDraftRequest([Required, MaxLength(120)] string Photo);
+
+/// <summary>Lo que propone la IA para el borrador de <c>Vender-1…4</c> (HU-59). Nada se guarda (RN-38).</summary>
+/// <param name="Title">Nombre (3 a 80).</param>
+/// <param name="Category">Slug de una categoria activa del campus, o <c>null</c> si la IA no reconocio ninguna.</param>
+/// <param name="Condition"><c>new</c> o <c>used</c>.</param>
+/// <param name="ConditionDetail">Solo usado: <c>likeNew</c>, <c>good</c> o <c>fair</c>.</param>
+/// <param name="Description">Descripcion (1 a 500).</param>
+public sealed record PhotoDraftResponse(string Title, string? Category, string Condition, string? ConditionDetail, string Description);
+
 /// <summary>Publicar un producto (maqueta <c>Vender-1…4</c>, HU-06 y HU-50).</summary>
 /// <param name="Title">Nombre del producto (3 a 80).</param>
 /// <param name="Description">Descripcion (hasta 500; opcional).</param>
