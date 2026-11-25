@@ -31,6 +31,12 @@ internal interface ICommunityRepository
     Task<CommunityDocument?> FindBySlugAsync(string slug, CancellationToken cancellationToken);
 }
 
+/// <summary>HU-42: las cuentas de un campus.</summary>
+/// <param name="Registered">Todas las cuentas.</param>
+/// <param name="Validated">Las activas (correo del campus verificado y sin suspender).</param>
+/// <param name="Joined">Las que se registraron en el periodo.</param>
+internal sealed record UserUsage(long Registered, long Validated, long Joined);
+
 /// <summary>Usuarios (identidad y credenciales).</summary>
 internal interface IUserRepository
 {
@@ -103,6 +109,14 @@ internal interface IUserRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns><c>true</c> si el usuario existia.</returns>
     Task<bool> AddRoleAsync(string id, string role, DateTime updatedAt, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (adopcion): cuantas cuentas hay, cuantas estan activas y cuantas llegaron en el periodo.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los conteos.</returns>
+    Task<UserUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }
 
 /// <summary>Codigos de verificacion (uno vigente por usuario y proposito).</summary>
@@ -185,4 +199,11 @@ internal interface IRefreshTokenRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteAllForUserAsync(string userId, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (usuarios activos): quienes empezaron o renovaron una sesion en el periodo (la app la renueva al usarse).</summary>
+    /// <param name="from">Inicio (UTC, inclusivo).</param>
+    /// <param name="to">Fin (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los ids, sin repetir.</returns>
+    Task<IReadOnlyCollection<string>> UsersSignedInAsync(DateTime from, DateTime to, CancellationToken cancellationToken);
 }

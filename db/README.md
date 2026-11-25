@@ -38,6 +38,7 @@ Scripts `mongosh`, numerados e idempotentes, que crean las colecciones, sus vali
 | `032-recordatorio-entrega.js` | `orders.handover` con "Ya llegué" de cada parte (`buyerArrivedAt`, `sellerArrivedAt`), `ix_confirmed_delivery` (parcial: los confirmados por hora de entrega, para el recordatorio una hora antes) y los avisos `delivery_reminder` y `order_arrived` (HU-62) | 32 |
 | `034-chat-fotos.js` | `messages` admite `kind: photo` con su llave (`chat/{conversación}/{id}.webp`) y `conversations` guarda `buyerReadAt`/`sellerReadAt` ("Leído", HU-65). "Escribiendo…" no se guarda | 34 |
 | `035-coincidencias-semanticas.js` | `matchEmbeddings`: el vector de cada publicación y cada solicitud para las coincidencias por significado (HU-60), con `ix_owner` para borrarlos con la cuenta | 35 |
+| `036-indicadores.js` | `aiUsage` (el uso de la IA del acuerdo para los indicadores, sin personas, un año) y `notifications.ix_type_created` (HU-42) | 36 |
 | `033-precios.js` | `orders.ix_community_status_id`: los pedidos completados de cada campus, con los que entrena el modelo de precios (HU-58). Sin cambios de validación | 33 |
 
 ## Aplicar

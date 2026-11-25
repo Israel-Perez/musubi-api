@@ -82,4 +82,16 @@ public abstract class RatingRepositoryContract
         Assert.Empty(await Ratings.FindByRatedAsync(leaving, null, 10, Ct));
         Assert.Equal("Usuario eliminado", Assert.Single(await Ratings.FindByRatedAsync(other, null, 10, Ct)).RaterName);
     }
+
+    [Fact]
+    public async Task Usage_CountsTheRatingsOfThePeriod_AndTheirAverage()
+    {
+        // HU-42 (confianza).
+        var four = Rating(AuthIds.New(), stars: 4);
+        Assert.True(await Ratings.TryInsertAsync(four, Ct));
+
+        Assert.Equal(new RatingUsage(1, 4), await Ratings.UsageAsync(four.CommunityId, Now.AddHours(-1), Now.AddHours(1), Ct));
+        Assert.Equal(new RatingUsage(0, null), await Ratings.UsageAsync(four.CommunityId, Now.AddHours(1), Now.AddHours(2), Ct));
+        Assert.Equal(new RatingUsage(0, null), await Ratings.UsageAsync("no-es-un-id", Now, Now.AddHours(1), Ct));
+    }
 }

@@ -209,6 +209,12 @@ internal interface ICategoryRepository
     Task<CategoryDocument?> UpdateAsync(string communityId, string slug, string name, bool active, CancellationToken cancellationToken);
 }
 
+/// <summary>HU-42 (oferta): las publicaciones de un campus.</summary>
+/// <param name="Created">Las publicadas en el periodo.</param>
+/// <param name="Active">Las que estan a la venta ahora.</param>
+/// <param name="CreatedByCategory">Las publicadas en el periodo, por categoria (slug).</param>
+internal sealed record ProductUsage(long Created, long Active, IReadOnlyDictionary<string, long> CreatedByCategory);
+
 /// <summary>Publicaciones.</summary>
 internal interface IProductRepository
 {
@@ -442,6 +448,14 @@ internal interface IProductRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las publicaciones.</returns>
     Task<IReadOnlyList<ProductDocument>> FindAvailableListedAsync(string? sellerId, DateTime? from, DateTime to, int limit, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (oferta): publicaciones creadas en el periodo (por categoria) y activas ahora.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los conteos.</returns>
+    Task<ProductUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }
 
 /// <summary>Lo que busca una solicitud, para encontrar publicaciones compatibles (HU-19).</summary>

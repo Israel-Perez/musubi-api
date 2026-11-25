@@ -22,5 +22,7 @@ internal static class AdminModuleServiceCollectionExtensions
         services.AddSingleton<AdminGate>();
         services.AddSingleton<ModerationService>();
         services.AddSingleton<CategoryAdminService>();
+        // HU-42: los indicadores de uso; cada modulo da los suyos.
+        services.AddSingleton<UsageIndicatorsService>();
     }
 }

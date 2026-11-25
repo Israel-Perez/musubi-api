@@ -13,7 +13,7 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps:
 |---|---|
 | API en producción | <https://api.musubiapp.com.mx> (`GET /api/v1/ping`) |
 | App Flutter (repo hermano) | <https://github.com/Israel-Perez/musubi-app> |
-| Contrato entre repos (131 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
+| Contrato entre repos (132 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
 | Historias de usuario ↔ specs ↔ pruebas | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
 | Versiones de la API, la app y la infraestructura | [`docs/versionado.md`](docs/versionado.md) |
 | Lineamientos de la materia (evaluación 02-Dic-2026) | [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) |

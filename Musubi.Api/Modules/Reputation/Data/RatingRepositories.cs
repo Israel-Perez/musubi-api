@@ -11,6 +11,11 @@ namespace Musubi.Api.Modules.Reputation.Data;
 
 // Persistencia de las calificaciones (HU-27, HU-45). Mongo e InMemory pasan la misma bateria (TestShared/Reputation).
 
+/// <summary>HU-42 (confianza): las calificaciones de un periodo.</summary>
+/// <param name="Count">Cuantas.</param>
+/// <param name="Average">Estrellas en promedio, o <c>null</c> sin calificaciones.</param>
+internal sealed record RatingUsage(long Count, double? Average);
+
 /// <summary>Calificaciones.</summary>
 internal interface IRatingRepository
 {
@@ -37,6 +42,14 @@ internal interface IRatingRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La tarea.</returns>
     Task ReleaseAccountAsync(string userId, string replacementName, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (confianza): las calificaciones del periodo y su promedio.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantas y el promedio.</returns>
+    Task<RatingUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }
 
 /// <summary>Calificaciones en MongoDB (indices de db/020-calificaciones.js).</summary>
@@ -94,6 +107,20 @@ internal sealed class MongoRatingRepository(IMongoDatabase database) : IRatingRe
             r => r.RaterId == userId,
             Builders<RatingDocument>.Update.Set(r => r.RaterName, replacementName),
             cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<RatingUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new RatingUsage(0, null);
+        }
+
+        var given = await ratings.Find(Filter.Eq(r => r.CommunityId, communityId) & Filter.Gte(r => r.CreatedAt, from) & Filter.Lt(r => r.CreatedAt, to))
+            .Project(r => r.Stars)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return new RatingUsage(given.Count, given.Count == 0 ? null : given.Average());
     }
 }
 
@@ -165,6 +192,16 @@ internal sealed class InMemoryRatingRepository : IRatingRepository
             }
 
             return Task.CompletedTask;
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<RatingUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var given = ratings.Where(r => r.CommunityId == communityId && r.CreatedAt >= from && r.CreatedAt < to).Select(r => r.Stars).ToList();
+            return Task.FromResult(new RatingUsage(given.Count, given.Count == 0 ? null : given.Average()));
         }
     }
 }

@@ -146,4 +146,37 @@ public sealed class AdminContractTests(ContractApiFactory factory) : IClassFixtu
         Assert.Equal(Shape(pageFixture.GetProperty("items")[0]), Shape(list.GetProperty("items")[0]));
         Assert.Equal(Shape(inactiveFixture), Shape(list.GetProperty("items").EnumerateArray().Last()));
     }
+
+    [Fact]
+    public async Task Indicators_MatchTheirFixture()
+    {
+        // HU-42: la forma de los indicadores (un area, un indicador sin desglose y uno con desglose).
+        var emails = new RecordingEmailSender();
+        var adminEmail = $"equipo.{Guid.NewGuid():N}@uttt.edu.mx";
+        using var app = factory.WithWebHostBuilder(b => b
+            .UseSetting("Admin:Emails:0", adminEmail)
+            .ConfigureTestServices(s => s.AddSingleton<IEmailSender>(emails)));
+        var admin = await SignedInAsync(app, emails, adminEmail, "Equipo Musubi");
+        using var adminClient = admin.Client;
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent(Png());
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(file, "photo", "foto.png");
+        var photo = await BodyAsync(await adminClient.PostAsync(new Uri("/api/v1/products/photos", UriKind.Relative), form, Ct));
+        await adminClient.PostAsJsonAsync(
+            new Uri("/api/v1/products", UriKind.Relative),
+            new { title = "Calculadora Casio fx-991", category = "calculadoras", priceCents = 45_000, condition = "used", conditionDetail = "good", stock = 1, photos = new[] { photo.GetProperty("key").GetString() } },
+            Ct);
+
+        var page = await BodyAsync(await adminClient.GetAsync(new Uri("/api/v1/admin/indicators", UriKind.Relative), Ct));
+
+        var fixture = await FixtureAsync("admin-indicators.json");
+        var plain = fixture.GetProperty("areas")[0].GetProperty("items")[0];
+        var withBreakdown = fixture.GetProperty("areas")[1].GetProperty("items")[0];
+        Assert.Equal(Shape(fixture), Shape(page));
+        Assert.Equal(Shape(fixture.GetProperty("areas")[0]), Shape(page.GetProperty("areas")[0]));
+        Assert.Equal(Shape(plain), Shape(page.GetProperty("areas")[0].GetProperty("items")[0]));
+        Assert.Equal(Shape(withBreakdown), Shape(page.GetProperty("areas")[1].GetProperty("items")[0]));
+        Assert.Equal(Shape(withBreakdown.GetProperty("breakdown")[0]), Shape(page.GetProperty("areas")[1].GetProperty("items")[0].GetProperty("breakdown")[0]));
+    }
 }

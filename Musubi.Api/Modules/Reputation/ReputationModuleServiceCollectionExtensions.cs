@@ -41,6 +41,8 @@ internal static class ReputationModuleServiceCollectionExtensions
             : new MongoRatingRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddOptions<ReportOptions>().BindConfiguration(ReportOptions.Section);
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<ITrustIndicators, TrustIndicators>();
         services.AddSingleton<RatingService>();
         services.AddSingleton<IBlockDirectory, BlockDirectory>();
         services.AddSingleton<BlockService>();

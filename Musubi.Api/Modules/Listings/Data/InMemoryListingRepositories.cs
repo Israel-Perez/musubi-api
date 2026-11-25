@@ -583,6 +583,20 @@ internal sealed class InMemoryProductRepository : IProductRepository
         var wanted = SearchWord.Words(search);
         return product.SearchWords.Any(word => wanted.Any(term => word.StartsWith(term, StringComparison.Ordinal)));
     }
+
+    /// <inheritdoc />
+    public Task<ProductUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var mine = products.Where(p => p.CommunityId == communityId).ToList();
+            var created = mine.Where(p => p.CreatedAt >= from && p.CreatedAt < to).ToList();
+            return Task.FromResult(new ProductUsage(
+                created.Count,
+                mine.Count(p => p.Status == ProductStatuses.Active),
+                created.GroupBy(p => p.CategorySlug, StringComparer.Ordinal).ToDictionary(g => g.Key, g => (long)g.Count(), StringComparer.Ordinal)));
+        }
+    }
 }
 
 /// <summary>Favoritos en memoria (HU-53).</summary>

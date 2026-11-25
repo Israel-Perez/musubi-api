@@ -136,6 +136,20 @@ internal sealed class MongoUserRepository(IMongoDatabase database) : IUserReposi
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return result.MatchedCount == 1;
     }
+
+    /// <inheritdoc />
+    public async Task<UserUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new UserUsage(0, 0, 0);
+        }
+
+        var registered = await users.CountDocumentsAsync(u => u.CommunityId == communityId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var validated = await users.CountDocumentsAsync(u => u.CommunityId == communityId && u.Status == UserStatuses.Active, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var joined = await users.CountDocumentsAsync(u => u.CommunityId == communityId && u.CreatedAt >= from && u.CreatedAt < to, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return new UserUsage(registered, validated, joined);
+    }
 }
 
 /// <summary>Codigos de verificacion en MongoDB (indices <c>ux_user_purpose</c> y TTL).</summary>
@@ -234,5 +248,12 @@ internal sealed class MongoRefreshTokenRepository(IMongoDatabase database) : IRe
     {
         var result = await tokens.DeleteManyAsync(t => t.UserId == userId, cancellationToken).ConfigureAwait(false);
         return result.DeletedCount;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<string>> UsersSignedInAsync(DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        using var cursor = await tokens.DistinctAsync(t => t.UserId, t => t.CreatedAt >= from && t.CreatedAt < to, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return await cursor.ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 }

@@ -553,6 +553,23 @@ internal sealed class MongoProductRepository(IMongoDatabase database) : IProduct
             .ToList();
         return byTerm.Count == 0 ? Filter.Empty : Filter.Or(byTerm);
     }
+
+    /// <inheritdoc />
+    public async Task<ProductUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new ProductUsage(0, 0, new Dictionary<string, long>(StringComparer.Ordinal));
+        }
+
+        var active = await products.CountDocumentsAsync(Filter.Eq(p => p.CommunityId, communityId) & Filter.Eq(p => p.Status, ProductStatuses.Active), cancellationToken: cancellationToken).ConfigureAwait(false);
+        var created = await products.Aggregate()
+            .Match(Filter.Eq(p => p.CommunityId, communityId) & Filter.Gte(p => p.CreatedAt, from) & Filter.Lt(p => p.CreatedAt, to))
+            .Group(p => p.CategorySlug, g => new { Slug = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var byCategory = created.ToDictionary(c => c.Slug, c => (long)c.Count, StringComparer.Ordinal);
+        return new ProductUsage(byCategory.Values.Sum(), active, byCategory);
+    }
 }
 
 /// <summary>Favoritos en MongoDB (indices <c>ux_user_product</c> e <c>ix_user_id</c>; HU-53).</summary>

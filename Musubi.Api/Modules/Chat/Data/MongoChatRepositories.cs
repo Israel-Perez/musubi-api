@@ -127,6 +127,15 @@ internal sealed class MongoConversationRepository(IMongoDatabase database) : ICo
 
     private static string UnreadField(string role) =>
         string.Equals(role, ChatService.BuyerRole, System.StringComparison.Ordinal) ? "buyerUnread" : "sellerUnread";
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> StartedBetweenAsync(string communityId, DateTime from, DateTime to, int limit, CancellationToken cancellationToken) =>
+        ObjectId.TryParse(communityId, out _)
+            ? await conversations.Find(c => c.CommunityId == communityId && c.CreatedAt >= from && c.CreatedAt < to)
+                .Project(c => c.Id)
+                .Limit(limit)
+                .ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
 }
 
 /// <summary>Mensajes en MongoDB (indice <c>ix_conversation_id</c>: pagina por cursor).</summary>

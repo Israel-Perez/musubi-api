@@ -187,4 +187,21 @@ public abstract class NotificationRepositoryContract
         Assert.Equal(1, await Notifications.CountSinceAsync(ana, NotificationTypes.OfferReceived, Now, Ct));
         Assert.Equal(0, await Notifications.CountSinceAsync("no-es-un-id", NotificationTypes.OrderCreated, Now, Ct));
     }
+
+    [Fact]
+    public async Task FindSent_GivesTheNoticesOfATypeInThePeriod_WithoutTheirText()
+    {
+        // HU-42: los avisos de busquedas guardadas y de "sin venderse", para los indicadores.
+        var ana = AuthIds.New();
+        var key = $"saved_search:{AuthIds.New()}:{AuthIds.New()}";
+        Assert.True(await Notifications.TryInsertAsync(Notice(ana, NotificationCategories.Matches, key, type: NotificationTypes.SavedSearchMatch, target: NotificationTargets.Product), Ct));
+        Assert.True(await Notifications.TryInsertAsync(Notice(ana), Ct));
+
+        var sent = await Notifications.FindSentAsync(NotificationTypes.SavedSearchMatch, Now.AddMinutes(-1), Now.AddMinutes(1), 10_000, Ct);
+        var later = await Notifications.FindSentAsync(NotificationTypes.SavedSearchMatch, Now.AddMinutes(1), Now.AddMinutes(2), 10_000, Ct);
+
+        Assert.Contains(new NoticeSent(ana, key, Now), sent);
+        Assert.DoesNotContain(sent, n => n.DedupeKey is null && n.UserId == ana);
+        Assert.DoesNotContain(later, n => n.UserId == ana);
+    }
 }

@@ -295,3 +295,4 @@ Sin el rol `admin` (o con el token de una cuenta que ya no lo tiene o está susp
 | `admin.category_exists` | 409 | Ya hay una categoría con ese nombre. Revisa también las desactivadas. | HU-41 (sin acentos ni mayúsculas) |
 | `admin.last_category` | 409 | Debe quedar al menos una categoría activa. | HU-41 |
 | `admin.category_limit` | 409 | Ya hay 30 categorías. Renombra o reactiva una de las que ya existen. | HU-41 |
+| `admin.invalid_period` | 400 | Elige la última semana o el último mes. | HU-42 (`?period=` que no es `week` ni `month`) |

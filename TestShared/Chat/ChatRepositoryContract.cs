@@ -228,4 +228,16 @@ public abstract class ChatRepositoryContract
         Assert.Equal(2, counts.Count);
         Assert.Empty(await Conversations.CountByProductsAsync([], Ct));
     }
+
+    [Fact]
+    public async Task StartedBetween_GivesTheConversationsOfTheCampusInThePeriod()
+    {
+        // HU-42 (chat).
+        var conversation = NewConversation(AuthIds.New(), AuthIds.New(), AuthIds.New());
+        await Conversations.InsertOrGetAsync(conversation, Ct);
+
+        Assert.Equal([conversation.Id], await Conversations.StartedBetweenAsync(conversation.CommunityId, Now.AddHours(-1), Now.AddHours(1), 10, Ct));
+        Assert.Empty(await Conversations.StartedBetweenAsync(conversation.CommunityId, Now.AddHours(1), Now.AddHours(2), 10, Ct));
+        Assert.Empty(await Conversations.StartedBetweenAsync("no-es-un-id", Now.AddHours(-1), Now.AddHours(1), 10, Ct));
+    }
 }

@@ -12,6 +12,12 @@ namespace Musubi.Api.Modules.Orders.Data;
 
 // Persistencia de los pedidos (HU-23). Mongo e InMemory pasan la misma bateria (TestShared/Orders).
 
+/// <summary>HU-42 (operaciones): los pedidos completados en un periodo.</summary>
+/// <param name="Completed">Pedidos completados.</param>
+/// <param name="Units">Piezas vendidas en ellos.</param>
+/// <param name="FromOffers">Los que nacieron de una oferta a una solicitud "Se busca".</param>
+internal sealed record OrderUsage(long Completed, long Units, long FromOffers);
+
 /// <summary>Pedidos.</summary>
 internal interface IOrderRepository
 {
@@ -255,6 +261,26 @@ internal interface IOrderRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantos pedidos abiertos se cancelaron.</returns>
     Task<long> ReleaseAccountAsync(string userId, string replacementName, DateTime now, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (operaciones): los pedidos que se completaron en el periodo.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los conteos.</returns>
+    Task<OrderUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (chat): cuantas de estas conversaciones tienen al menos un pedido.</summary>
+    /// <param name="conversationIds">Las conversaciones.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Cuantas.</returns>
+    Task<long> CountConversationsWithOrdersAsync(IReadOnlyCollection<string> conversationIds, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (vendedores): cuando se completo un pedido de cada una de estas publicaciones.</summary>
+    /// <param name="productIds">Las publicaciones.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Publicacion y fecha de cada pedido completado.</returns>
+    Task<IReadOnlyList<(string ProductId, DateTime CompletedAt)>> CompletedForProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken);
 }
 
 /// <summary>Puntos de entrega del campus.</summary>
@@ -644,6 +670,50 @@ internal sealed class MongoOrderRepository(IMongoDatabase database) : IOrderRepo
         string.Equals(role, OrderRoles.Seller, StringComparison.Ordinal)
             ? Filter.Eq(o => o.SellerId, userId)
             : Filter.Eq(o => o.BuyerId, userId);
+
+    /// <inheritdoc />
+    public async Task<OrderUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new OrderUsage(0, 0, 0);
+        }
+
+        var filter = Builders<OrderDocument>.Filter.Eq(o => o.CommunityId, communityId)
+            & Builders<OrderDocument>.Filter.Eq(o => o.Status, OrderStatuses.Completed)
+            & Builders<OrderDocument>.Filter.ElemMatch(o => o.History, h => h.Status == OrderStatuses.Completed && h.At >= from && h.At < to);
+        var done = await orders.Find(filter).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return new OrderUsage(done.Count, done.Sum(o => (long)o.Item.Quantity), done.Count(o => o.Item.Source == OrderSources.Offer));
+    }
+
+    /// <inheritdoc />
+    public async Task<long> CountConversationsWithOrdersAsync(IReadOnlyCollection<string> conversationIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversationIds);
+        var ids = conversationIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        using var cursor = await orders.DistinctAsync(o => o.ConversationId, Builders<OrderDocument>.Filter.In(o => o.ConversationId, ids), cancellationToken: cancellationToken).ConfigureAwait(false);
+        return (await cursor.ToListAsync(cancellationToken).ConfigureAwait(false)).Count;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<(string ProductId, DateTime CompletedAt)>> CompletedForProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(productIds);
+        var ids = productIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var done = await orders.Find(Builders<OrderDocument>.Filter.Eq(o => o.Status, OrderStatuses.Completed) & Builders<OrderDocument>.Filter.In(o => o.Item.ProductId, ids))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return [.. done.Select(o => (o.Item.ProductId!, OrderUsageRules.CompletedAt(o)))];
+    }
 }
 
 /// <summary>Puntos de entrega en MongoDB (<c>ux_community_slug</c>).</summary>
@@ -1099,6 +1169,36 @@ internal sealed class InMemoryOrderRepository : IOrderRepository
             UpdatedAt = updatedAt ?? o.UpdatedAt,
             SchemaVersion = o.SchemaVersion,
         };
+
+    /// <inheritdoc />
+    public Task<OrderUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var done = orders.Where(o => o.CommunityId == communityId && OrderUsageRules.CompletedIn(o, from, to)).ToList();
+            return Task.FromResult(new OrderUsage(done.Count, done.Sum(o => (long)o.Item.Quantity), done.Count(o => o.Item.Source == OrderSources.Offer)));
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> CountConversationsWithOrdersAsync(IReadOnlyCollection<string> conversationIds, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult((long)orders.Where(o => conversationIds.Contains(o.ConversationId)).Select(o => o.ConversationId).Distinct(StringComparer.Ordinal).Count());
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<(string ProductId, DateTime CompletedAt)>> CompletedForProductsAsync(IReadOnlyCollection<string> productIds, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<(string ProductId, DateTime CompletedAt)>>([.. orders
+                .Where(o => o.Status == OrderStatuses.Completed && o.Item.ProductId is { } id && productIds.Contains(id))
+                .Select(o => (o.Item.ProductId!, OrderUsageRules.CompletedAt(o)))]);
+        }
+    }
 }
 
 /// <summary>Puntos de entrega en memoria, con la misma semilla que db/014-pedidos.js.</summary>
@@ -1142,6 +1242,30 @@ internal sealed class InMemoryMeetingPointRepository : IMeetingPointRepository
 }
 
 /// <summary>El numero visible de los pedidos (<c>MS-NNNN</c>).</summary>
+/// <summary>HU-42: cuando se completo un pedido (su transicion a <c>completed</c>).</summary>
+internal static class OrderUsageRules
+{
+    /// <summary>Si se completo dentro del periodo.</summary>
+    /// <param name="order">El pedido.</param>
+    /// <param name="from">Inicio (UTC, inclusivo).</param>
+    /// <param name="to">Fin (UTC, exclusivo).</param>
+    /// <returns><c>true</c> si se completo en el periodo.</returns>
+    public static bool CompletedIn(OrderDocument order, DateTime from, DateTime to)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        return order.Status == OrderStatuses.Completed && order.History.Any(h => h.Status == OrderStatuses.Completed && h.At >= from && h.At < to);
+    }
+
+    /// <summary>La fecha en que se completo (la ultima vez que paso a <c>completed</c>).</summary>
+    /// <param name="order">El pedido completado.</param>
+    /// <returns>La fecha, o la ultima actualizacion si no hay historia.</returns>
+    public static DateTime CompletedAt(OrderDocument order)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        return order.History.LastOrDefault(h => h.Status == OrderStatuses.Completed)?.At ?? order.UpdatedAt;
+    }
+}
+
 internal static class OrderNumbers
 {
     /// <summary>El primer numero de cada campus.</summary>

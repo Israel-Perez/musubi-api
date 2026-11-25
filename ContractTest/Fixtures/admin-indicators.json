@@ -1,0 +1,35 @@
+{
+  "period": "week",
+  "from": "2026-11-18T18:00:00Z",
+  "to": "2026-11-25T18:00:00Z",
+  "areas": [
+    {
+      "key": "adoption",
+      "title": "Adopción",
+      "items": [
+        {
+          "key": "users_registered",
+          "label": "Usuarios registrados",
+          "value": 12,
+          "unit": "count",
+          "detail": "6 validados · 2 nuevos en el periodo",
+          "breakdown": null
+        }
+      ]
+    },
+    {
+      "key": "supply",
+      "title": "Oferta",
+      "items": [
+        {
+          "key": "products_created",
+          "label": "Publicaciones creadas",
+          "value": 4,
+          "unit": "count",
+          "detail": "En el periodo",
+          "breakdown": [{ "label": "Calculadoras", "value": 3 }]
+        }
+      ]
+    }
+  ]
+}

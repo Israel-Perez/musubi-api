@@ -26,6 +26,8 @@ internal static class PurchaseRequestsModuleServiceCollectionExtensions
             ? requests
             : new MongoWantedRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<WantedService>();
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<IWantedIndicators, WantedIndicators>();
         services.AddSingleton<IAccountDataEraser, WantedAccountEraser>();
 
         // HU-16: ofertas "Yo tengo este producto".

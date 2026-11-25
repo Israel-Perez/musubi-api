@@ -71,4 +71,19 @@ public abstract class MatchRepositoryContract
         Assert.Empty(await Matches.FindByRequestAsync(asSeller, Ct));
         Assert.Single(await Matches.FindByRequestAsync(others, Ct));
     }
+
+    [Fact]
+    public async Task Usage_CountsTheMatchesOfThePeriod_AndTheOnesThatBecameOrders()
+    {
+        // HU-42 (conexion).
+        var campus = AuthIds.New();
+        var (ana, ordered) = (AuthIds.New(), AuthIds.New());
+        await Matches.RecordAsync(new MatchRecord(campus, AuthIds.New(), ordered, ana, AuthIds.New(), NotifiedRequester: true, NotifiedSeller: false), Now, Now.AddDays(90), Ct);
+        await Matches.RecordAsync(new MatchRecord(campus, AuthIds.New(), AuthIds.New(), AuthIds.New(), AuthIds.New(), NotifiedRequester: false, NotifiedSeller: true), Now, Now.AddDays(90), Ct);
+        await Matches.MarkOrderedAsync(ana, ordered, Now.AddHours(1), Ct);
+
+        Assert.Equal(new MatchUsage(2, 1), await Matches.UsageAsync(campus, Now.AddHours(-1), Now.AddHours(1), Ct));
+        Assert.Equal(new MatchUsage(0, 0), await Matches.UsageAsync(campus, Now.AddHours(1), Now.AddHours(2), Ct));
+        Assert.Equal(new MatchUsage(0, 0), await Matches.UsageAsync("no-es-un-id", Now, Now.AddHours(1), Ct));
+    }
 }

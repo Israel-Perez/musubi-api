@@ -53,6 +53,8 @@ internal static class ListingsModuleServiceCollectionExtensions
             : new MongoStockAlertRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddOptions<CatalogOptions>().BindConfiguration(CatalogOptions.Section);
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<IListingIndicators, ListingIndicators>();
         services.AddSingleton<ICategoryDirectory, CategoryDirectory>();
         services.AddSingleton<ICategoryCatalog, CategoryCatalog>();
         services.AddSingleton<ListingService>();

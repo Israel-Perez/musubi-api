@@ -149,4 +149,24 @@ public abstract class OfferRepositoryContract
         Assert.Empty(await Offers.FindPhotoKeysInUseAsync(seller, [], Ct));
         Assert.Empty(await Offers.FindPhotoKeysInUseAsync("no-es-un-id", [cover], Ct));
     }
+
+    [Fact]
+    public async Task Usage_CountsTheOffersOfThePeriod_AndTheDirectOnes_AndFindsThemByRequest()
+    {
+        // HU-42 (demanda): ofertas por solicitud y ofertas directas.
+        var request = AuthIds.New();
+        var direct = Offer(request, AuthIds.New());
+        Assert.True(await Offers.TryInsertAsync(direct, Ct));
+        Assert.True(await Offers.TryInsertAsync(Offer(request, AuthIds.New(), kind: OfferKinds.Listing), Ct));
+        Assert.True(await Offers.TryInsertAsync(Offer(AuthIds.New(), AuthIds.New()), Ct));
+
+        var mine = await Offers.FindByRequestsAsync([request, "no-es-un-id"], Ct);
+        var usage = await Offers.UsageAsync(direct.CommunityId, Now.AddHours(-1), Now.AddHours(1), Ct);
+
+        Assert.Equal(2, mine.Count);
+        Assert.All(mine, o => Assert.Equal(request, o.RequestId));
+        Assert.Equal(new OfferUsage(1, 1), usage);
+        Assert.Equal(new OfferUsage(0, 0), await Offers.UsageAsync(direct.CommunityId, Now.AddHours(1), Now.AddHours(2), Ct));
+        Assert.Empty(await Offers.FindByRequestsAsync([], Ct));
+    }
 }

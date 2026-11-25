@@ -1093,4 +1093,23 @@ public abstract class ListingRepositoryContract
         Assert.Equal(ProductStatuses.Active, (await Products.FindByIdAsync(others.Id, Ct))!.Status);
         Assert.Equal(0, await Products.HideBySellerAsync(seller, Now.AddHours(2), Ct));
     }
+
+    [Fact]
+    public async Task Usage_CountsWhatWasPublishedInThePeriod_ByCategory_AndWhatIsActive()
+    {
+        // HU-42 (oferta).
+        var campus = AuthIds.New();
+        await Products.InsertAsync(NewProduct(campus, AuthIds.New()), Ct);
+        await Products.InsertAsync(NewProduct(campus, AuthIds.New()), Ct);
+        await Products.InsertAsync(NewProduct(campus, AuthIds.New(), category: "libros", status: ProductStatuses.SoldOut), Ct);
+        await Products.InsertAsync(NewProduct(AuthIds.New(), AuthIds.New()), Ct);
+
+        var usage = await Products.UsageAsync(campus, Now.AddHours(-1), Now.AddHours(1), Ct);
+        var before = await Products.UsageAsync(campus, Now.AddDays(-2), Now.AddDays(-1), Ct);
+
+        Assert.Equal((3, 2), (usage.Created, usage.Active));
+        Assert.Equal(new Dictionary<string, long> { ["calculadoras"] = 2, ["libros"] = 1 }, usage.CreatedByCategory);
+        Assert.Equal((0, 2), (before.Created, before.Active));
+        Assert.Empty(before.CreatedByCategory);
+    }
 }

@@ -99,6 +99,12 @@ internal static class WantedSearch
         [.. search.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(Pattern)];
 }
 
+/// <summary>HU-42 (demanda): una solicitud publicada en el periodo.</summary>
+/// <param name="Id">Solicitud.</param>
+/// <param name="CategorySlug">Categoria (<c>otro</c> para cualquiera).</param>
+/// <param name="CreatedAt">Cuando se publico (UTC).</param>
+internal sealed record WantedCreated(string Id, string CategorySlug, DateTime CreatedAt);
+
 /// <summary>Solicitudes de compra.</summary>
 internal interface IWantedRepository
 {
@@ -178,6 +184,15 @@ internal interface IWantedRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Las solicitudes.</returns>
     Task<IReadOnlyList<WantedRequestDocument>> FindExpiringAsync(DateTime from, DateTime to, int limit, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (demanda): las solicitudes publicadas en el periodo.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="limit">Como maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Las solicitudes, de la mas nueva a la mas vieja.</returns>
+    Task<IReadOnlyList<WantedCreated>> CreatedBetweenAsync(string communityId, DateTime from, DateTime to, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>Solicitudes en MongoDB (indices <c>ix_community_status_id</c> e <c>ix_requester_id</c>).</summary>
@@ -337,6 +352,21 @@ internal sealed class MongoWantedRepository(IMongoDatabase database) : IWantedRe
             & f.Eq(r => r.RequesterId, requesterId)
             & f.Eq(r => r.Status, WantedStatuses.Active)
             & f.Gt(r => r.ExpiresAt, now);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<WantedCreated>> CreatedBetweenAsync(string communityId, DateTime from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return [];
+        }
+
+        var found = await requests.Find(r => r.CommunityId == communityId && r.CreatedAt >= from && r.CreatedAt < to)
+            .SortByDescending(r => r.Id)
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return [.. found.Select(r => new WantedCreated(r.Id, r.CategorySlug, r.CreatedAt))];
     }
 }
 
@@ -512,6 +542,19 @@ internal sealed class InMemoryWantedRepository : IWantedRepository
 
             requests[i] = change(requests[i]);
             return requests[i];
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<WantedCreated>> CreatedBetweenAsync(string communityId, DateTime from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<WantedCreated>>([.. requests
+                .Where(r => r.CommunityId == communityId && r.CreatedAt >= from && r.CreatedAt < to)
+                .OrderByDescending(r => r.Id, StringComparer.Ordinal)
+                .Take(limit)
+                .Select(r => new WantedCreated(r.Id, r.CategorySlug, r.CreatedAt))]);
         }
     }
 }

@@ -73,6 +73,9 @@ public sealed class SchemaScriptTests(MongoContainerFixture mongo)
         Assert.Single(meta["applied"].AsBsonArray, v => v == "034-chat-fotos");
         Assert.Single(meta["applied"].AsBsonArray, v => v == "035-coincidencias-semanticas");
         Assert.Contains(await IndexesAsync(db, MongoSchema.MatchEmbeddings), i => i["name"] == "ix_owner");
+        Assert.Single(meta["applied"].AsBsonArray, v => v == "036-indicadores");
+        Assert.Contains(await IndexesAsync(db, MongoSchema.AiUsage), i => i["name"] == "ttl_expires_at");
+        Assert.Contains(await IndexesAsync(db, MongoSchema.Notifications), i => i["name"] == "ix_type_created");
         Assert.Contains(await IndexesAsync(db, MongoSchema.Orders), i => i["name"] == "ix_community_status_id");
         Assert.Contains(await IndexesAsync(db, MongoSchema.Orders), i => i["name"] == "ix_confirmed_delivery" && i.Contains("partialFilterExpression"));
         Assert.Contains(await IndexesAsync(db, MongoSchema.Products), i => i["name"] == "ix_status_created");

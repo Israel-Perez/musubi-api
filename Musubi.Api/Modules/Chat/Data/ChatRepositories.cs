@@ -79,6 +79,15 @@ internal interface IConversationRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteByParticipantAsync(string userId, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (chat): las conversaciones que empezaron en el periodo.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="limit">Como maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Sus ids.</returns>
+    Task<IReadOnlyList<string>> StartedBetweenAsync(string communityId, DateTime from, DateTime to, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>Mensajes.</summary>

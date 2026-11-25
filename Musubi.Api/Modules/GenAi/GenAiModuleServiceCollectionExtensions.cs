@@ -28,12 +28,20 @@ internal static class GenAiModuleServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddOptions<GenAiOptions>().BindConfiguration(GenAiOptions.Section);
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<IAiIndicators, AiIndicators>();
         services.AddOptions<GeminiOptions>().BindConfiguration(GeminiOptions.Section);
 
         var agreements = new InMemoryAgreementRepository();
         services.AddSingleton<IAgreementRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
             ? agreements
             : new MongoAgreementRepository(provider.GetRequiredService<IMongoDatabase>()));
+
+        // HU-42: el uso de la IA (el acuerdo se borra; esto queda para los indicadores).
+        var usage = new InMemoryAiUsageRepository();
+        services.AddSingleton<IAiUsageRepository>(provider => MongoServiceCollectionExtensions.UseInMemory(provider)
+            ? usage
+            : new MongoAiUsageRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddHttpClient<GeminiAgreementExtractor>(client => client.BaseAddress = GeminiAgreementExtractor.BaseAddress);
         services.AddSingleton<InMemoryAgreementExtractor>();

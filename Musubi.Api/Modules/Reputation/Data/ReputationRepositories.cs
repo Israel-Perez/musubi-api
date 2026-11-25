@@ -8,6 +8,11 @@ namespace Musubi.Api.Modules.Reputation.Data;
 // Contratos de persistencia de M-13 (HU-28, HU-57). Mongo* e InMemory* pasan la misma bateria de pruebas
 // (TestShared/Reputation).
 
+/// <summary>HU-42 (confianza): los reportes de un periodo.</summary>
+/// <param name="Created">Los que se hicieron.</param>
+/// <param name="Upheld">Los que el equipo marco como procedentes en el periodo (HU-39).</param>
+internal sealed record ReportUsage(long Created, long Upheld);
+
 /// <summary>Reportes (HU-28).</summary>
 internal interface IReportRepository
 {
@@ -56,6 +61,14 @@ internal interface IReportRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantos.</returns>
     Task<long> CountUpheldAsync(string subjectId, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (confianza): reportes hechos en el periodo y los que resultaron procedentes.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los conteos.</returns>
+    Task<ReportUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }
 
 /// <summary>La revision de un reporte (HU-39).</summary>

@@ -377,4 +377,27 @@ public abstract class AuthRepositoryContract
 
         Assert.Equal([UserRoles.Student, UserRoles.Admin], (await Users.FindByIdAsync(user.Id, Ct))!.Roles);
     }
+
+    [Fact]
+    public async Task Usage_CountsAccounts_Active_AndNewInThePeriod_AndWhoSignedIn()
+    {
+        // HU-42: la base de las pruebas es compartida, asi que se mide lo que cambia.
+        var campus = (await Communities.FindByEmailDomainAsync("uttt.edu.mx", Ct))!.Id;
+        var before = await Users.UsageAsync(campus, Now.AddHours(-1), Now.AddHours(1), Ct);
+        var pending = await NewUserAsync();
+        var active = await NewUserAsync();
+        Assert.True(await Users.TryInsertAsync(pending, Ct));
+        Assert.True(await Users.TryInsertAsync(active, Ct));
+        Assert.True(await Users.ChangeStatusAsync(active.Id, UserStatuses.PendingVerification, UserStatuses.Active, Now, Ct));
+        await Tokens.InsertAsync(NewToken(active.Id, AuthIds.New(), Now.AddDays(30)), Ct);
+
+        var after = await Users.UsageAsync(campus, Now.AddHours(-1), Now.AddHours(1), Ct);
+        var later = await Users.UsageAsync(campus, Now.AddHours(1), Now.AddHours(2), Ct);
+
+        Assert.Equal((2, 1, 2), (after.Registered - before.Registered, after.Validated - before.Validated, after.Joined - before.Joined));
+        Assert.Equal(after.Registered, later.Registered);
+        Assert.Contains(active.Id, await Tokens.UsersSignedInAsync(Now.AddMinutes(-1), Now.AddMinutes(1), Ct));
+        Assert.DoesNotContain(active.Id, await Tokens.UsersSignedInAsync(Now.AddMinutes(1), Now.AddHours(1), Ct));
+        Assert.Equal(new UserUsage(0, 0, 0), await Users.UsageAsync("no-es-un-id", Now, Now.AddHours(1), Ct));
+    }
 }

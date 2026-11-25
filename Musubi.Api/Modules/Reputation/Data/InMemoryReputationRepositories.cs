@@ -120,6 +120,18 @@ internal sealed class InMemoryReportRepository : IReportRepository
                 string.Equals(r.SubjectId, subjectId, StringComparison.Ordinal) && r.Status == ReportStatuses.Upheld));
         }
     }
+
+    /// <inheritdoc />
+    public Task<ReportUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var mine = reports.Where(r => r.CommunityId == communityId).ToList();
+            return Task.FromResult(new ReportUsage(
+                mine.Count(r => r.CreatedAt >= from && r.CreatedAt < to),
+                mine.Count(r => r.Status == ReportStatuses.Upheld && r.ReviewedAt >= from && r.ReviewedAt < to)));
+        }
+    }
 }
 
 /// <summary>Bloqueos en memoria.</summary>

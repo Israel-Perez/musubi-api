@@ -24,6 +24,8 @@ internal static class NotificationsModuleServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddOptions<FirebaseOptions>().BindConfiguration(FirebaseOptions.Section);
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<INotificationIndicators, NotificationIndicators>();
         services.AddOptions<ReminderOptions>().BindConfiguration(ReminderOptions.Section);
 
         var notifications = new InMemoryNotificationRepository();

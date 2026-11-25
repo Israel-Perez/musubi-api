@@ -130,3 +130,30 @@ public sealed record CreateCategoryRequest([MaxLength(200)] string? Name);
 /// <param name="Name">Nombre nuevo (2 a 40 caracteres).</param>
 /// <param name="Active">Estado nuevo.</param>
 public sealed record UpdateCategoryRequest([MaxLength(200)] string? Name, bool? Active);
+
+/// <summary>"Indicadores de uso" (HU-42): los del apartado 19 de la propuesta, por area.</summary>
+/// <param name="Period"><c>week</c> o <c>month</c>.</param>
+/// <param name="From">Inicio del periodo (UTC).</param>
+/// <param name="To">Fin del periodo (UTC, ahora).</param>
+/// <param name="Areas">Adopcion, oferta, demanda, conexion, operaciones, chat, IA, vendedores y confianza, en ese orden.</param>
+public sealed record UsageIndicatorsResponse(string Period, DateTime From, DateTime To, IReadOnlyList<IndicatorArea> Areas);
+
+/// <summary>Un area de indicadores.</summary>
+/// <param name="Key">Identificador estable (<c>adoption</c>, <c>supply</c>…).</param>
+/// <param name="Title">Titulo visible.</param>
+/// <param name="Items">Sus indicadores.</param>
+public sealed record IndicatorArea(string Key, string Title, IReadOnlyList<Indicator> Items);
+
+/// <summary>Un indicador.</summary>
+/// <param name="Key">Identificador estable.</param>
+/// <param name="Label">Nombre visible.</param>
+/// <param name="Value">El valor, o <c>null</c> si no hay datos para calcularlo (un porcentaje sin base).</param>
+/// <param name="Unit"><c>count</c>, <c>percent</c> (0 a 100), <c>average</c>, <c>hours</c> o <c>stars</c>.</param>
+/// <param name="Detail">Como se lee ("3 validados · 1 nuevo en el periodo").</param>
+/// <param name="Breakdown">Desglose por categoria, cuando aplica.</param>
+public sealed record Indicator(string Key, string Label, double? Value, string Unit, string Detail, IReadOnlyList<IndicatorBreakdown>? Breakdown);
+
+/// <summary>Una parte del desglose.</summary>
+/// <param name="Label">Categoria.</param>
+/// <param name="Value">Cuantas.</param>
+public sealed record IndicatorBreakdown(string Label, long Value);
