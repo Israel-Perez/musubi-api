@@ -32,6 +32,10 @@ internal static class ChatErrors
     public static readonly ApiError InvalidMessage = new(
         "chat.invalid_message", StatusCodes.Status400BadRequest, "Escribe un mensaje de hasta 1000 caracteres.");
 
+    /// <summary>HU-65: la foto pedida no es de esta conversacion (o ya no existe).</summary>
+    public static readonly ApiError PhotoNotFound = new(
+        "chat.photo_not_found", StatusCodes.Status404NotFound, "Esta foto ya no está disponible.");
+
     /// <summary>Filtro de la bandeja que no es <c>buyer</c> ni <c>seller</c> (HU-22).</summary>
     public static readonly ApiError InvalidFilter = new(
         "chat.invalid_filter", StatusCodes.Status400BadRequest, "No pudimos aplicar ese filtro. Elige Todos, Compras o Ventas.");

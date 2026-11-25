@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Musubi.Api.Modules.Auth;
@@ -9,8 +10,10 @@ using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Profiles.Data;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Modules.Reputation.Data;
+using Musubi.Api.Platform.Media;
 using Musubi.Api.Platform.Moderation;
 using Musubi.TestShared;
+using SkiaSharp;
 using StackExchange.Redis;
 using UnitTest.Common;
 
@@ -32,6 +35,7 @@ public sealed class ChatServiceTests
     private readonly FakeHub hub = new();
     private readonly InMemoryProfileRepository profiles = new();
     private readonly InMemoryBlockRepository blocks = new();
+    private readonly InMemoryMediaStorage media = new();
     private readonly ManualTimeProvider time = new(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero));
     private readonly ChatService service;
 
@@ -49,6 +53,7 @@ public sealed class ChatServiceTests
             new ChatNotifier(hub, NullLogger<ChatNotifier>.Instance),
             center,
             new ProfileResponses(profiles),
+            media,
             time);
     }
 
@@ -79,6 +84,130 @@ public sealed class ChatServiceTests
         var product = new ProductSummary(AuthIds.New(), communityId, sellerId, "Calculadora Casio fx-991ES Plus", 45_000, "used", "good", "/media/products/x.webp", visible);
         products.Items[product.Id] = product;
         return product;
+    }
+
+    // HU-65: una conversacion de Ana (compra) con Diego (vende).
+    private async Task<(string Buyer, string Seller, string Conversation)> ConversationAsync()
+    {
+        var seller = await MemberAsync(name: "Diego Hernández").ConfigureAwait(false);
+        var buyer = await MemberAsync().ConfigureAwait(false);
+        var started = await service.StartFromProductAsync(buyer, new StartConversationRequest(Product(seller).Id), Ct).ConfigureAwait(false);
+        return (buyer, seller, started.Value!.Conversation.Id);
+    }
+
+    private static FormFile Photo(SKColor color)
+    {
+        using var bitmap = new SKBitmap(400, 300);
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(color);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        var bytes = png.ToArray();
+        return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "photo", "foto.png")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/png",
+        };
+    }
+
+    [Fact]
+    public async Task SendPhoto_IsModerated_SavedOutsideTheCdn_AndDeliveredLikeAMessage()
+    {
+        var (buyer, seller, conversation) = await ConversationAsync();
+
+        var sent = await service.SendPhotoAsync(buyer, conversation, Photo(SKColors.Teal), Ct);
+
+        Assert.Null(sent.Error);
+        var message = sent.Value!;
+        Assert.Equal(("photo", ChatService.PhotoText), (message.Kind, message.Text));
+        Assert.Matches($"^/api/v1/conversations/{conversation}/photos/[0-9a-f]{{32}}\\.webp$", message.Photo);
+        var key = $"chat/{conversation}/{message.Photo![^37..]}";
+        Assert.Equal("image/webp", media.Find(key)!.ContentType);
+        Assert.Equal(ChatHub.MessageCreated, hub.LastMethod);
+        var push = Assert.Single(center.Sent);
+        Assert.Equal((seller, ChatService.PhotoText), (push.UserId, push.Body));
+        var inbox = await service.InboxAsync(seller, null, null, null, Ct);
+        Assert.Equal(ChatService.PhotoText, inbox.Value!.Items.Single().LastMessage.Text);
+    }
+
+    [Fact]
+    public async Task SendPhoto_Rejected_NeverReachesStorage_AndABlockOrAStrangerCannotSend()
+    {
+        var (buyer, seller, conversation) = await ConversationAsync();
+        var stranger = await MemberAsync();
+
+        var rejected = await service.SendPhotoAsync(buyer, conversation, Photo(new SKColor(255, 0, 255)), Ct);
+        var notMine = await service.SendPhotoAsync(stranger, conversation, Photo(SKColors.Teal), Ct);
+        var empty = await service.SendPhotoAsync(buyer, conversation, null, Ct);
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), BlockerId = seller, BlockedId = buyer, CreatedAt = time.GetUtcNow().UtcDateTime }, Ct);
+        var blocked = await service.SendPhotoAsync(buyer, conversation, Photo(SKColors.Teal), Ct);
+
+        Assert.Equal("moderation.image_rejected", rejected.Error!.Code);
+        Assert.Equal(ChatErrors.ConversationNotFound, notMine.Error);
+        Assert.Equal("listings.photo_unsupported", empty.Error!.Code);
+        Assert.Equal(ChatErrors.Blocked, blocked.Error);
+        Assert.Equal(0, media.Count);
+        Assert.Empty(center.Sent);
+    }
+
+    [Fact]
+    public async Task APhoto_OnlyItsParticipantsGetIt_AndANameThatIsNotAPhotoIsNotFound()
+    {
+        var (buyer, seller, conversation) = await ConversationAsync();
+        var stranger = await MemberAsync();
+        var name = (await service.SendPhotoAsync(buyer, conversation, Photo(SKColors.Teal), Ct)).Value!.Photo![^37..];
+
+        var mine = await service.PhotoAsync(buyer, conversation, name, Ct);
+        var theirs = await service.PhotoAsync(seller, conversation, name, Ct);
+        var other = await service.PhotoAsync(stranger, conversation, name, Ct);
+        var traversal = await service.PhotoAsync(buyer, conversation, "../products/x.webp", Ct);
+        var missing = await service.PhotoAsync(buyer, conversation, new string('a', 32) + ".webp", Ct);
+
+        Assert.NotEmpty(mine.Value!);
+        Assert.Equal(mine.Value, theirs.Value);
+        Assert.Equal(ChatErrors.PhotoNotFound, other.Error);
+        Assert.Equal(ChatErrors.PhotoNotFound, traversal.Error);
+        Assert.Equal(ChatErrors.PhotoNotFound, missing.Error);
+    }
+
+    [Fact]
+    public async Task Typing_ReachesOnlyTheOtherPerson_AndNotWithABlock()
+    {
+        var (buyer, seller, conversation) = await ConversationAsync();
+        var stranger = await MemberAsync();
+
+        Assert.True(await service.TypingAsync(buyer, conversation, Ct));
+        Assert.Equal((seller, ChatHub.TypingEventName), (hub.LastUser, hub.LastMethod));
+        Assert.Equal(new TypingEvent(conversation, buyer), hub.LastArgs![0]);
+        Assert.False(await service.TypingAsync(stranger, conversation, Ct));
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), BlockerId = buyer, BlockedId = seller, CreatedAt = time.GetUtcNow().UtcDateTime }, Ct);
+        Assert.False(await service.TypingAsync(seller, conversation, Ct));
+    }
+
+    [Fact]
+    public async Task Reading_SavesWhen_TellsBothInRealTime_AndTheOtherSeesItUnlessBlocked()
+    {
+        var (buyer, seller, conversation) = await ConversationAsync();
+        time.Advance(TimeSpan.FromMinutes(3));
+        var readAt = time.GetUtcNow().UtcDateTime;
+
+        await service.MarkReadAsync(seller, conversation, Ct);
+        var event_ = hub.LastArgs![0];
+        var forBuyer = (await service.GetAsync(buyer, conversation, Ct)).Value!;
+        var forSeller = (await service.GetAsync(seller, conversation, Ct)).Value!;
+        await blocks.InsertIfAbsentAsync(new BlockDocument { Id = AuthIds.New(), BlockerId = seller, BlockedId = buyer, CreatedAt = readAt }, Ct);
+        var blocked = (await service.GetAsync(buyer, conversation, Ct)).Value!;
+        hub.Reset();
+        await service.MarkReadAsync(seller, conversation, Ct);
+
+        Assert.Equal(new ConversationReadEvent(conversation, seller, readAt), event_);
+        Assert.Equal(readAt, forBuyer.CounterpartReadAt);
+        Assert.Null(forSeller.CounterpartReadAt);
+        Assert.Null(blocked.CounterpartReadAt);
+        Assert.Null(hub.LastMethod);
     }
 
     [Fact]
@@ -274,6 +403,13 @@ public sealed class ChatServiceTests
     {
         public Exception? Failure { get; set; }
 
+        public void Reset()
+        {
+            LastMethod = null;
+            LastArgs = null;
+            LastUser = null;
+        }
+
         public IReadOnlyList<string>? LastUsers { get; private set; }
 
         public string? LastMethod { get; private set; }
@@ -296,7 +432,15 @@ public sealed class ChatServiceTests
 
         public IClientProxy Groups(IReadOnlyList<string> groupNames) => throw new NotSupportedException();
 
-        public IClientProxy User(string userId) => throw new NotSupportedException();
+        public string? LastUser { get; private set; }
+
+        public object?[]? LastArgs { get; private set; }
+
+        public IClientProxy User(string userId)
+        {
+            LastUser = userId;
+            return this;
+        }
 
         public IClientProxy Users(IReadOnlyList<string> userIds)
         {
@@ -307,6 +451,7 @@ public sealed class ChatServiceTests
         public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
         {
             LastMethod = method;
+            LastArgs = args;
             return Failure is null ? Task.CompletedTask : Task.FromException(Failure);
         }
     }

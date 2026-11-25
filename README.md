@@ -13,7 +13,7 @@ Se desarrolla con **Spec Driven Development (SDD)** y DevSecOps:
 |---|---|
 | API en producción | <https://api.musubiapp.com.mx> (`GET /api/v1/ping`) |
 | App Flutter (repo hermano) | <https://github.com/Israel-Perez/musubi-app> |
-| Contrato entre repos (128 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
+| Contrato entre repos (130 endpoints) | [`docs/endpoints.md`](docs/endpoints.md) |
 | Historias de usuario ↔ specs ↔ pruebas | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
 | Versiones de la API, la app y la infraestructura | [`docs/versionado.md`](docs/versionado.md) |
 | Lineamientos de la materia (evaluación 02-Dic-2026) | [`docs/bitacora/lineamientos-materia.md`](docs/bitacora/lineamientos-materia.md) |
@@ -29,7 +29,7 @@ Es un monolito modular, una sola API REST con **14 módulos** (`Musubi.Api/Modul
 | Profiles | Perfil, privacidad, intereses, insignias de confianza |
 | Listings | Publicar con fotos, editar, pausar, piezas, búsqueda con filtros, vitrina, populares, favoritos, búsquedas guardadas, comparar y "Avísame" |
 | PurchaseRequests y Matching | "Se busca", ofertas, coincidencias automáticas |
-| Chat | Chat en tiempo real (SignalR) |
+| Chat | Chat en tiempo real (SignalR), con fotos moderadas, "escribiendo…" y "leído" |
 | Orders | Pedidos, pago en efectivo con código o por transferencia (CLABE cifrada), apartar 24 h con QR, recordatorio de la entrega y "Ya llegué" |
 | Reputation | Calificaciones, reportes y bloqueos |
 | Notifications | Centro de avisos y push con Firebase |
@@ -54,7 +54,7 @@ App Flutter ──HTTPS──▶ CloudFront (api.musubiapp.com.mx, ACM, TLS 1.2)
 
 - **IaC:** Terraform en [`infra/`](infra/README.md). Los workflows `infra-up` e `infra-down` crean y destruyen todo.
 - **Secretos:** en Parameter Store (`/musubi/prod/*`), nunca en el repo.
-- **Base de datos:** 33 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 85 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
+- **Base de datos:** 34 scripts `mongosh` numerados e idempotentes en [`db/`](db/). Tienen 85 índices (únicos, parciales y TTL) y validación de esquema; el modelo está en [`docs/modelo-datos.md`](docs/modelo-datos.md).
 
 ## Seguridad (DevSecOps)
 

@@ -46,6 +46,14 @@ internal sealed class ConversationDocument
     /// <summary>Mensajes que el comprador no ha leido (HU-22).</summary>
     public int BuyerUnread { get; init; }
 
+    /// <summary>HU-65: la ultima vez que quien compra abrio la conversacion ("Leido"), o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? BuyerReadAt { get; init; }
+
+    /// <summary>HU-65: la ultima vez que quien vende abrio la conversacion, o <c>null</c>.</summary>
+    [BsonIgnoreIfNull]
+    public DateTime? SellerReadAt { get; init; }
+
     /// <summary>Mensajes que el vendedor no ha leido (HU-22).</summary>
     public int SellerUnread { get; init; }
 
@@ -128,6 +136,10 @@ internal sealed class MessageDocument
     /// </summary>
     public string? Kind { get; init; }
 
+    /// <summary>HU-65: la llave de la foto (<c>chat/{conversacion}/{id}.webp</c>), solo en <see cref="MessageKinds.Photo"/>.</summary>
+    [BsonIgnoreIfNull]
+    public string? Photo { get; init; }
+
     /// <summary>Envio (UTC).</summary>
     public DateTime CreatedAt { get; init; }
 
@@ -143,6 +155,9 @@ internal static class MessageKinds
 
     /// <summary>Aviso de la app dentro de la conversacion (HU-32, RN-40).</summary>
     public const string Notice = "notice";
+
+    /// <summary>HU-65: una foto (moderada antes de guardarse).</summary>
+    public const string Photo = "photo";
 }
 
 /// <summary>Tipos de contexto de una conversacion (RN-21).</summary>

@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using MongoDB.Bson;
 using Musubi.Api.Modules.Auth;
 using Musubi.Api.Modules.Chat.Data;
@@ -13,6 +16,7 @@ using Musubi.Api.Modules.Profiles;
 using Musubi.Api.Modules.Reputation;
 using Musubi.Api.Platform.Data;
 using Musubi.Api.Platform.Errors;
+using Musubi.Api.Platform.Media;
 using Musubi.Api.Platform.Moderation;
 
 namespace Musubi.Api.Modules.Chat;
@@ -29,7 +33,7 @@ internal sealed record ConversationStart(ConversationResponse Conversation, bool
 /// modera antes de guardarlo) y HU-57 (con un bloqueo entre los dos nadie escribe). La persona del otro lado
 /// lleva su foto de perfil (M-02). Se reporta a la persona desde el chat (HU-28, M-13).
 /// </summary>
-internal sealed class ChatService(
+internal sealed partial class ChatService(
     IConversationRepository conversations,
     IMessageRepository messages,
     IProductDirectory products,
@@ -40,8 +44,12 @@ internal sealed class ChatService(
     ChatNotifier notifier,
     INotificationCenter center,
     IProfileResponses responses,
+    IMediaStorage media,
     TimeProvider time)
 {
+    /// <summary>HU-65: lo que dice una foto en la bandeja y en el push.</summary>
+    public const string PhotoText = "📷 Foto";
+
     /// <summary>Largo maximo de un mensaje.</summary>
     public const int MaxMessageLength = 1000;
 
@@ -221,6 +229,123 @@ internal sealed class ChatService(
             Text = text,
             CreatedAt = time.GetUtcNow().UtcDateTime,
         };
+        return Result<MessageResponse>.Ok(await DeliverAsync(conversation, member, message, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// HU-65: envia una foto. Pasa por la moderacion (02-07) antes de guardarse, como las de los productos, y se guarda
+    /// fuera de <c>media/</c>: CloudFront no la sirve, solo la API a los participantes.
+    /// </summary>
+    /// <param name="userId">Remitente (del token).</param>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="file">La imagen (JPG, PNG o WebP; hasta 10 MB).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>El mensaje guardado o el error.</returns>
+    public async Task<Result<MessageResponse>> SendPhotoAsync(string userId, string conversationId, IFormFile? file, CancellationToken cancellationToken)
+    {
+        var conversation = await FindForParticipantAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is null)
+        {
+            return ChatErrors.ConversationNotFound;
+        }
+
+        var member = await members.FindMemberAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (member is not { Active: true })
+        {
+            return ApiErrors.Forbidden;
+        }
+
+        if (await blocks.BetweenAsync(conversation.BuyerId, conversation.SellerId, cancellationToken).ConfigureAwait(false))
+        {
+            return ChatErrors.Blocked;
+        }
+
+        var read = await PhotoUploadService.ReadAsync(file, square: false, cancellationToken).ConfigureAwait(false);
+        if (read.Error is { } invalid)
+        {
+            return invalid;
+        }
+
+        // 02-07: una foto rechazada nunca llega a S3.
+        var verdict = await moderator.CheckImageAsync(read.Value!.ModerationCopy, cancellationToken).ConfigureAwait(false);
+        if (ModerationErrors.For(verdict, ModerationErrors.ImageRejected) is { } rejected)
+        {
+            return rejected;
+        }
+
+        var key = PhotoKey(conversation.Id, Guid.NewGuid().ToString("N"));
+        await media.PutAsync(key, read.Value.Content, PhotoProcessor.ContentType, cancellationToken).ConfigureAwait(false);
+        var message = new MessageDocument
+        {
+            Id = MongoConventions.NewId(),
+            ConversationId = conversation.Id,
+            CommunityId = conversation.CommunityId,
+            SenderId = userId,
+            Text = PhotoText,
+            Kind = MessageKinds.Photo,
+            Photo = key,
+            CreatedAt = time.GetUtcNow().UtcDateTime,
+        };
+        return Result<MessageResponse>.Ok(await DeliverAsync(conversation, member, message, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>HU-65: los bytes de una foto del chat, solo para sus participantes (RN-22).</summary>
+    /// <param name="userId">Quien la pide (del token).</param>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="name">El archivo (<c>{32 hex}.webp</c>).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La imagen o <c>chat.photo_not_found</c>.</returns>
+    public async Task<Result<byte[]>> PhotoAsync(string userId, string conversationId, string name, CancellationToken cancellationToken)
+    {
+        if (!PhotoName().IsMatch(name ?? string.Empty))
+        {
+            return ChatErrors.PhotoNotFound;
+        }
+
+        var conversation = await FindForParticipantAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is null)
+        {
+            return ChatErrors.PhotoNotFound;
+        }
+
+        var bytes = await media.GetAsync(PhotoKey(conversation.Id, name![..^5]), cancellationToken).ConfigureAwait(false);
+        return bytes is null ? ChatErrors.PhotoNotFound : Result<byte[]>.Ok(bytes);
+    }
+
+    /// <summary>
+    /// HU-65: "Escribiendo…" a la otra persona (por el hub, sin guardarse). Nada si no participa, si su cuenta no esta
+    /// activa o si hay un bloqueo (HU-57).
+    /// </summary>
+    /// <param name="userId">Quien escribe (del token del hub).</param>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns><c>true</c> si se aviso.</returns>
+    public async Task<bool> TypingAsync(string userId, string conversationId, CancellationToken cancellationToken)
+    {
+        var conversation = await FindForParticipantAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is null
+            || await members.FindMemberAsync(userId, cancellationToken).ConfigureAwait(false) is not { Active: true }
+            || await blocks.BetweenAsync(conversation.BuyerId, conversation.SellerId, cancellationToken).ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        var other = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal) ? conversation.SellerId : conversation.BuyerId;
+        await notifier.TypingAsync(other, new TypingEvent(conversation.Id, userId), cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>La llave de una foto del chat (fuera de <c>media/</c>: CloudFront no la sirve).</summary>
+    /// <param name="conversationId">Conversacion.</param>
+    /// <param name="id">32 hex.</param>
+    /// <returns>La llave.</returns>
+    internal static string PhotoKey(string conversationId, string id) => $"chat/{conversationId}/{id}.webp";
+
+    // Guarda, cuenta la respuesta de quien vende (HU-64), actualiza la bandeja, entrega por el hub y avisa por push.
+    private async Task<MessageResponse> DeliverAsync(ConversationDocument conversation, MemberSummary member, MessageDocument message, CancellationToken cancellationToken)
+    {
+        var userId = message.SenderId;
+        var text = message.Text;
         await messages.InsertAsync(message, cancellationToken).ConfigureAwait(false);
         // HU-64: si quien vende contesta un mensaje de la otra persona, cuenta para "Responde en ~N".
         if (string.Equals(conversation.SellerId, userId, StringComparison.Ordinal)
@@ -250,7 +375,7 @@ internal sealed class ChatService(
         await center.NotifyAsync(
             new Notice(recipientId, NotificationTypes.Message, FirstName(member.FullName), text, NotificationTargets.Conversation, conversation.Id),
             cancellationToken).ConfigureAwait(false);
-        return Result<MessageResponse>.Ok(response);
+        return response;
     }
 
     /// <summary>Bandeja (HU-22): mis conversaciones con mensajes, de la mas reciente a la mas vieja.</summary>
@@ -322,7 +447,14 @@ internal sealed class ChatService(
         }
 
         var role = string.Equals(conversation.BuyerId, userId, StringComparison.Ordinal) ? BuyerRole : SellerRole;
-        await conversations.MarkReadAsync(conversation.Id, role, cancellationToken).ConfigureAwait(false);
+        var now = time.GetUtcNow().UtcDateTime;
+        await conversations.MarkReadAsync(conversation.Id, role, now, cancellationToken).ConfigureAwait(false);
+        // HU-65: "Leido" del otro lado en tiempo real; con un bloqueo no se avisa (HU-57).
+        if (!await blocks.BetweenAsync(conversation.BuyerId, conversation.SellerId, cancellationToken).ConfigureAwait(false))
+        {
+            await notifier.ConversationReadAsync(conversation.Participants, new ConversationReadEvent(conversation.Id, userId, now), cancellationToken).ConfigureAwait(false);
+        }
+
         return Result<bool>.Ok(true);
     }
 
@@ -356,7 +488,14 @@ internal sealed class ChatService(
     internal static string FirstName(string fullName) =>
         fullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) is [var first, ..] ? first : fullName;
 
-    internal static MessageResponse ToResponse(MessageDocument m) => new(m.Id, m.ConversationId, m.SenderId, m.Text, m.CreatedAt, m.Kind ?? MessageKinds.Text);
+    internal static MessageResponse ToResponse(MessageDocument m) => new(
+        m.Id,
+        m.ConversationId,
+        m.SenderId,
+        m.Text,
+        m.CreatedAt,
+        m.Kind ?? MessageKinds.Text,
+        m.Photo is { } key ? $"/api/v1/conversations/{m.ConversationId}/photos/{Path.GetFileName(key)}" : null);
 
     private async Task<ConversationDocument?> FindForParticipantAsync(string userId, string conversationId, CancellationToken cancellationToken)
     {
@@ -398,6 +537,9 @@ internal sealed class ChatService(
         var photos = await profiles.FindPhotosAsync([counterpartId], cancellationToken).ConfigureAwait(false);
         var blocked = await blocks.BetweenAsync(userId, counterpartId, cancellationToken).ConfigureAwait(false);
         // NOTE (HU-21): "En linea" / "Activa hace 5 min" segun visibility.online del perfil.
+        // HU-65: con un bloqueo no se ve "Leido".
+        var readAt = isBuyer ? conversation.SellerReadAt : conversation.BuyerReadAt;
+        var counterpartReadAt = blocked ? null : readAt;
         var context = conversation.Context.Type == ConversationContextTypes.Offer
             ? OfferContext(conversation.Context)
             : ProductContext(conversation.Context, product);
@@ -407,6 +549,10 @@ internal sealed class ChatService(
             new CounterpartResponse(counterpartId, name, photos.GetValueOrDefault(counterpartId)),
             context,
             conversation.CreatedAt,
-            !blocked);
+            !blocked,
+            counterpartReadAt);
     }
+
+    [GeneratedRegex("^[0-9a-f]{32}\\.webp$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 200)]
+    private static partial Regex PhotoName();
 }

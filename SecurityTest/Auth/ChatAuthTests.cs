@@ -4,9 +4,12 @@ using System.Net.Http.Json;
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Musubi.Api.Modules.Auth.Data;
+using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.Chat.Data;
+using Musubi.Api.Platform.Media;
 using Musubi.Api.Platform.Auth;
 using SecurityTest.Common;
 
@@ -30,6 +33,8 @@ public sealed class ChatAuthTests(ProductionApiFactory production) : IClassFixtu
         { "GET", $"/api/v1/conversations/{AnyId}" },
         { "GET", $"/api/v1/conversations/{AnyId}/messages" },
         { "POST", $"/api/v1/conversations/{AnyId}/messages" },
+        { "POST", $"/api/v1/conversations/{AnyId}/photos" },
+        { "GET", $"/api/v1/conversations/{AnyId}/photos/0123456789abcdef0123456789abcdef.webp" },
         { "GET", "/hubs/chat" },
     };
 
@@ -108,6 +113,66 @@ public sealed class ChatAuthTests(ProductionApiFactory production) : IClassFixtu
         Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, read.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
+    }
+
+    [Fact]
+    public async Task APhotoOfOthers_IsNotFound_ForSendingOrDownloading_AndANameIsNeverAPath()
+    {
+        // HU-65 (OWASP API1): las fotos del chat solo son de sus participantes; el nombre no puede salir de chat/.
+        // Production guarda en S3: aqui, en memoria.
+        var media = new InMemoryMediaStorage();
+        using var app = production.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IMediaStorage>(media)));
+        string Token(string userId) =>
+            app.Services.GetRequiredService<AccessTokenIssuer>().Issue(userId, InMemoryCommunityRepository.UtttId, ["student"]).Token;
+        var buyer = AuthIds.New();
+        var seller = AuthIds.New();
+        var conversation = AuthIds.New();
+        await app.Services.GetRequiredService<IConversationRepository>().InsertOrGetAsync(
+            new ConversationDocument
+            {
+                Id = conversation,
+                CommunityId = InMemoryCommunityRepository.UtttId,
+                BuyerId = buyer,
+                SellerId = seller,
+                Participants = [buyer, seller],
+                Context = new ConversationContext { Type = ConversationContextTypes.Product, Id = AuthIds.New(), Title = "Calculadora" },
+                LastMessageAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+            },
+            Ct);
+        var name = new string('a', 32);
+        await media.PutAsync(ChatService.PhotoKey(conversation, name), [1, 2, 3], "image/webp", Ct);
+        using var outsider = app.CreateClient();
+        outsider.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(AuthIds.New()));
+        using var member = app.CreateClient();
+        member.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(buyer));
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent([1, 2, 3]);
+        form.Add(file, "photo", "foto.png");
+
+        var download = await outsider.GetAsync(new Uri($"/api/v1/conversations/{conversation}/photos/{name}.webp", UriKind.Relative), Ct);
+        var send = await outsider.PostAsync(new Uri($"/api/v1/conversations/{conversation}/photos", UriKind.Relative), form, Ct);
+        var traversal = await member.GetAsync(new Uri($"/api/v1/conversations/{conversation}/photos/..%2F..%2Fmedia%2Fx.webp", UriKind.Relative), Ct);
+        var mine = await member.GetAsync(new Uri($"/api/v1/conversations/{conversation}/photos/{name}.webp", UriKind.Relative), Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
+        Assert.Contains("chat.photo_not_found", await download.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NotFound, send.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, traversal.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, mine.StatusCode);
+        // Privada: ningun intermediario (CloudFront ni un proxy) la guarda.
+        Assert.True(mine.Headers.CacheControl!.Private);
+        Assert.False(mine.Headers.CacheControl.Public);
+    }
+
+    [Fact]
+    public void APhoto_HasItsOwnSizeLimit_AndTheUploadRateLimit()
+    {
+        // Kestrel aplica el tope en la nube; TestServer no, asi que se verifican los atributos (OWASP API4).
+        var method = typeof(ConversationsController).GetMethod(nameof(ConversationsController.SendPhoto))!;
+
+        Assert.Single(method.GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute), inherit: false));
+        Assert.Single(method.GetCustomAttributes(typeof(Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute), inherit: false));
     }
 
     [Fact]

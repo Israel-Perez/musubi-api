@@ -1,0 +1,9 @@
+{
+  "id": "6716a0000000000000000021",
+  "conversationId": "6716a0000000000000000010",
+  "senderId": "6716a0000000000000000003",
+  "text": "📷 Foto",
+  "sentAt": "2026-11-03T12:02:00Z",
+  "kind": "photo",
+  "photo": "/api/v1/conversations/6716a0000000000000000010/photos/0123456789abcdef0123456789abcdef.webp"
+}

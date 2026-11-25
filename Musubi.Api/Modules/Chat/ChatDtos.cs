@@ -23,13 +23,18 @@ public sealed record SendMessageRequest(string Text);
 /// <c>false</c> si hay un bloqueo entre los dos (HU-57): la app cambia la caja de texto por un aviso. No dice
 /// quien bloqueo a quien.
 /// </param>
+/// <param name="CounterpartReadAt">
+/// HU-65: la ultima vez que la otra persona abrio la conversacion; mis mensajes de antes salen "Leido". <c>null</c> si
+/// nunca la abrio o hay un bloqueo.
+/// </param>
 public sealed record ConversationResponse(
     string Id,
     string Role,
     CounterpartResponse Counterpart,
     ConversationContextResponse Context,
     DateTime CreatedAt,
-    bool CanReply);
+    bool CanReply,
+    DateTime? CounterpartReadAt = null);
 
 /// <summary>La otra persona de la conversacion (su reputacion: <c>GET /profiles/{id}</c>).</summary>
 /// <param name="Id">Id del usuario.</param>
@@ -66,10 +71,25 @@ public sealed record ConversationContextResponse(
 /// <param name="Text">Texto.</param>
 /// <param name="SentAt">Envio (UTC).</param>
 /// <param name="Kind">
-/// <c>text</c> o <c>notice</c> (HU-32): un aviso de la app ("Ana pidio un resumen con IA") que se pinta centrado; su
-/// <c>senderId</c> es quien lo provoco.
+/// <c>text</c>, <c>notice</c> (HU-32): un aviso de la app ("Ana pidio un resumen con IA") que se pinta centrado; su
+/// <c>senderId</c> es quien lo provoco; o <c>photo</c> (HU-65).
 /// </param>
-public sealed record MessageResponse(string Id, string ConversationId, string SenderId, string Text, DateTime SentAt, string Kind = "text");
+/// <param name="Photo">
+/// HU-65: la ruta de la foto (<c>/api/v1/conversations/{id}/photos/{archivo}</c>; con sesion y solo para los
+/// participantes), o <c>null</c>.
+/// </param>
+public sealed record MessageResponse(string Id, string ConversationId, string SenderId, string Text, DateTime SentAt, string Kind = "text", string? Photo = null);
+
+/// <summary>HU-65: "Escribiendo…" de la otra persona (evento <c>typing</c> del hub; no se guarda).</summary>
+/// <param name="ConversationId">Conversacion.</param>
+/// <param name="UserId">Quien escribe.</param>
+public sealed record TypingEvent(string ConversationId, string UserId);
+
+/// <summary>HU-65: la otra persona abrio la conversacion (evento <c>conversationRead</c> del hub; "Leido").</summary>
+/// <param name="ConversationId">Conversacion.</param>
+/// <param name="ReaderId">Quien la abrio.</param>
+/// <param name="ReadAt">Cuando (UTC).</param>
+public sealed record ConversationReadEvent(string ConversationId, string ReaderId, DateTime ReadAt);
 
 /// <summary>Pagina de mensajes, del mas nuevo al mas viejo.</summary>
 /// <param name="Items">Mensajes.</param>

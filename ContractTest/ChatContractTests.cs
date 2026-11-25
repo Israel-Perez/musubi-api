@@ -101,6 +101,11 @@ public sealed class ChatContractTests(ContractApiFactory factory) : IClassFixtur
         var id = conversation.GetProperty("id").GetString();
         var sent = await buyer.PostAsJsonAsync(
             new Uri($"/api/v1/conversations/{id}/messages", UriKind.Relative), new { text = "¡Hola, Valeria! ¿Sigue disponible la calculadora?" }, Ct);
+        // HU-65: una foto (su forma tiene "photo" con la ruta).
+        using var chatForm = new MultipartFormDataContent();
+        using var chatFile = Png();
+        chatForm.Add(chatFile, "photo", "foto.png");
+        var chatPhoto = await BodyAsync(await buyer.PostAsync(new Uri($"/api/v1/conversations/{id}/photos", UriKind.Relative), chatForm, Ct));
         var page = await BodyAsync(await seller.GetAsync(new Uri($"/api/v1/conversations/{id}/messages", UriKind.Relative), Ct));
         var pageFixture = await FixtureAsync("message-page.json");
         var inbox = await BodyAsync(await seller.GetAsync(new Uri("/api/v1/conversations", UriKind.Relative), Ct));
@@ -110,8 +115,9 @@ public sealed class ChatContractTests(ContractApiFactory factory) : IClassFixtur
         Assert.Equal(HttpStatusCode.Created, sent.StatusCode);
         Assert.Equal(Shape(await FixtureAsync("conversation.json")), Shape(conversation));
         Assert.Equal(Shape(await FixtureAsync("message.json")), Shape(await BodyAsync(sent)));
+        Assert.Equal(Shape(await FixtureAsync("message-photo.json")), Shape(chatPhoto));
         Assert.Equal(Shape(pageFixture), Shape(page));
-        Assert.Equal(Shape(pageFixture.GetProperty("items")[0]), Shape(page.GetProperty("items")[0]));
+        Assert.Equal(Shape(pageFixture.GetProperty("items")[0]), Shape(page.GetProperty("items")[1]));
         Assert.Equal(Shape(inboxFixture), Shape(inbox));
         Assert.Equal(Shape(inboxFixture.GetProperty("items")[0]), Shape(inbox.GetProperty("items")[0]));
     }
