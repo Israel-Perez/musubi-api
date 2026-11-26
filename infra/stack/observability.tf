@@ -1,6 +1,9 @@
 # 02-06: alarmas con aviso por correo y dashboard de CloudWatch. Dentro de la capa gratuita de
 # CloudWatch (10 alarmas, 3 dashboards) y de SNS (1,000 correos al mes).
 
+# Trivy AWS-0095: las alarmas de CloudWatch no pueden publicar en un tema cifrado con la llave de AWS de SNS, y una
+# llave KMS propia cuesta ~1 USD al mes (costo cero). Solo lleva avisos de alarmas, sin datos personales (SCRUM-125).
+#trivy:ignore:AWS-0095
 resource "aws_sns_topic" "alerts" { # nosemgrep: terraform.aws.security.aws-sns-topic-unencrypted.aws-sns-topic-unencrypted
   name = "musubi-alertas"
 }

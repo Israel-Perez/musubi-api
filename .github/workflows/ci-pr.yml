@@ -190,10 +190,18 @@ jobs:
 
   terraform:
     # 02-05: formato y validacion de infra/ (sin credenciales ni estado remoto).
+    # SCRUM-125: y escaneo de seguridad del IaC con Trivy (misma imagen fijada que docker-build).
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Falla con hallazgos HIGH o CRITICAL. Una excepcion va junto al recurso con
+      # "#trivy:ignore:<ID>" y su motivo (como los nosemgrep). Antes del init: sin .terraform/.
+      - name: Trivy (IaC)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src \
+            aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+            config --exit-code 1 --severity HIGH,CRITICAL infra
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: 1.16.6

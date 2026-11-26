@@ -112,6 +112,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Access token revocable (02-10): `jti` y "revocado desde" por persona en Redis, consultados en `OnTokenValidated`; si Redis no responde se acepta hasta que venza (RNF-15). Compresión Brotli/Gzip, nunca en `/auth` (BREACH).
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
 - Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy escanea la imagen en el job `docker-build`.
+- IaC (SCRUM-125): Trivy `config` revisa `infra/` en el job `terraform` y falla con hallazgos HIGH o CRITICAL. Una excepción va junto al recurso con `#trivy:ignore:<ID>` y su motivo, como los `nosemgrep`.
 - DAST (SCRUM-123): OWASP ZAP 2.17.0 en `dast.yml`.
   - Escanea la API levantada en el job, en modo Production y en memoria, con y sin sesión (token de `scripts/dast/mint_token.py`).
   - Falla con riesgo Alto (`scripts/dast/zap_gate.py`); las excepciones van en `.zap/rules.tsv`.

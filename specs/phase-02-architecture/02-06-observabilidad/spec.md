@@ -45,6 +45,7 @@ Hoy:
   - 4 alarmas: errores de la API, 5xx, instancias sanas y latencia p95;
   - dashboard `musubi-api`.
 - **CI:** Trivy `0.76.1` (fijado por digest) escanea la imagen en `docker-build` y falla con vulnerabilidades críticas que ya tienen arreglo.
+- **CI (SCRUM-125):** la misma imagen de Trivy escanea el IaC (`trivy config infra`) en el job `terraform` y falla con hallazgos HIGH o CRITICAL. Las excepciones van junto al recurso (`#trivy:ignore:<ID>`) con su motivo.
 
 ## Contratos
 - **Configuración:** `Logging:LogLevel:Musubi` y `Logging:LogLevel:Microsoft.AspNetCore.HttpLogging` (`appsettings.Production.json`); variable de Terraform `alert_email`.
@@ -60,6 +61,7 @@ Hoy:
 - [x] Alarmas y dashboard en Terraform (`terraform validate`).
 - [ ] Después de `infra-up`: el correo de suscripción confirmado y el dashboard con datos.
 - [x] Trivy en el CI.
+- [x] Escaneo del IaC con Trivy en el job `terraform` (SCRUM-125).
 
 ## Límites
 - **`NOTE (02-06)`:**
