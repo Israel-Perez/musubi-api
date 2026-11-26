@@ -65,4 +65,8 @@ internal static class AdminErrors
     /// <summary>El campus ya tiene el maximo de categorias.</summary>
     public static readonly ApiError CategoryLimit = new(
         "admin.category_limit", StatusCodes.Status409Conflict, "Ya hay 30 categorías. Renombra o reactiva una de las que ya existen.");
+
+    /// <summary>HU-42: un periodo que no es <c>week</c> ni <c>month</c>.</summary>
+    public static readonly ApiError InvalidPeriod = new(
+        "admin.invalid_period", StatusCodes.Status400BadRequest, "Elige la última semana o el último mes.");
 }

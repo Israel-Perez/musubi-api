@@ -208,4 +208,17 @@ public abstract class ReputationRepositoryContract
         Assert.Equal(0, await Reports.CountUpheldAsync(AuthIds.New(), Ct));
         Assert.Null(await Reports.CloseAsync(new ReportReview(AuthIds.New(), ReportStatuses.Upheld, admin, null, null, Now), Ct));
     }
+
+    [Fact]
+    public async Task Usage_CountsTheReportsOfThePeriod_AndTheUpheldOnes()
+    {
+        // HU-42 (confianza): reportes hechos y procedentes.
+        var report = Report(AuthIds.New(), new ReportTarget { Type = ReportTargetTypes.User, Id = AuthIds.New() });
+        await Reports.InsertAsync(report, Ct);
+        await Reports.CloseAsync(new ReportReview(report.Id, ReportStatuses.Upheld, AuthIds.New(), report.Target.Id, "Procede.", Now.AddMinutes(5)), Ct);
+
+        Assert.Equal(new ReportUsage(1, 1), await Reports.UsageAsync(report.CommunityId, Now.AddHours(-1), Now.AddHours(1), Ct));
+        Assert.Equal(new ReportUsage(0, 0), await Reports.UsageAsync(report.CommunityId, Now.AddHours(1), Now.AddHours(2), Ct));
+        Assert.Equal(new ReportUsage(0, 0), await Reports.UsageAsync("no-es-un-id", Now, Now.AddHours(1), Ct));
+    }
 }

@@ -1,5 +1,14 @@
 # Memoria del proyecto — musubi-api
 
+## Trabajo en curso — HU-42 (SCRUM-65): indicadores de uso
+
+- **Qué:** `GET /admin/indicators?period=week|month` con los 15 indicadores del apartado 19 de la propuesta en 9 áreas. Cada módulo tiene su `I…Indicators` y un método por repositorio; `UsageIndicatorsService` junta y cruza. `aiUsage` (`db/036`, esquema 36) anota los resúmenes y las confirmaciones con o sin correcciones. API `0.5.0-alpha.48`, 132 endpoints.
+- **Decisiones para revisar (25-Nov-2026):** usuarios activos = sesiones nuevas o renovadas en el periodo; conversión de solicitudes = compras completadas desde una oferta ÷ solicitudes (aproximada); tiempo hasta la primera oferta y hasta aceptarla (no hasta el pedido).
+- **Errores a evitar:**
+  - Con el reloj fijo de las pruebas, lo publicado queda justo en `to` y un rango `[from, to)` lo excluye: el servicio pasa `ahora + 1 tick`.
+  - `Math.Round(5.25, 1)` da 5.2 (redondeo al par): para mostrar usa `MidpointRounding.AwayFromZero`.
+  - Un `|` dentro de una celda de una tabla Markdown la rompe (`week|month` en el versionado).
+
 ## Trabajo en curso — HU-60 (SCRUM-100): coincidencias por significado
 
 - **Qué:** cada publicación y solicitud guarda su vector de Gemini (`gemini-embedding-001`, 256, `matchEmbeddings`, `db/035`, esquema 35). `MatchRules.Compatible` = la mitad de las palabras o similitud ≥ 0.74, en HU-18, HU-19, HU-29 y HU-38. API `0.5.0-alpha.47`, sin endpoints nuevos.

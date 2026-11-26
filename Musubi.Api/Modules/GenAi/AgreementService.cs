@@ -41,8 +41,12 @@ internal sealed class AgreementService(
     IContentModerator moderator,
     IOptions<GenAiOptions> options,
     INotificationCenter center,
+    IAiUsageRepository usage,
     TimeProvider time)
 {
+    /// <summary>HU-42: cuanto se guarda el registro del uso de la IA.</summary>
+    public static readonly TimeSpan UsageRetention = TimeSpan.FromDays(365);
+
     /// <summary>Caracteres del producto (como el pedido).</summary>
     public const int MaxTitleLength = 80;
 
@@ -129,6 +133,7 @@ internal sealed class AgreementService(
 
         // RN-40: el chat avisa a los dos en cuanto el texto sale hacia la IA, salga bien o no.
         await notices.PostNoticeAsync(conversation.Id, userId, $"{FirstName(member.FullName)} pidió un resumen con IA", "Resumen con IA", cancellationToken).ConfigureAwait(false);
+        await RecordAsync(conversation.CommunityId, AiUsageKinds.Summary, corrected: false, cancellationToken).ConfigureAwait(false);
         var extracted = await extractor.ExtractAsync(prompt, cancellationToken).ConfigureAwait(false);
         if (extracted is null)
         {
@@ -372,6 +377,8 @@ internal sealed class AgreementService(
         var body = $"{agreement.Proposal.Title}. Revísalo y confírmalo tú también.";
         if (agreement.Status == AgreementStatuses.Confirmed)
         {
+            // HU-42: sin correcciones si se confirmo la primera propuesta de la IA.
+            await RecordAsync(agreement.CommunityId, AiUsageKinds.Confirmed, agreement.Revision > 1, cancellationToken).ConfigureAwait(false);
             title = "Acuerdo confirmado";
             var next = byBuyer ? $"{name} creará el pedido." : "Ya puedes crear el pedido.";
             body = $"{name} y tú confirmaron el acuerdo de {agreement.Proposal.Title}. {next}";
@@ -387,6 +394,14 @@ internal sealed class AgreementService(
                 agreement.ConversationId,
                 NotificationCategories.Orders),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task RecordAsync(string communityId, string kind, bool corrected, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow().UtcDateTime;
+        return usage.RecordAsync(
+            new AiUsageDocument { Id = MongoConventions.NewId(), CommunityId = communityId, Kind = kind, Corrected = corrected, At = now, ExpiresAt = now + UsageRetention },
+            cancellationToken);
     }
 
     private Task ChangedAsync(AgreementDocument agreement, CancellationToken cancellationToken) =>

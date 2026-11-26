@@ -31,6 +31,8 @@ public sealed class AdminAuthTests(ProductionApiFactory production) : IClassFixt
         { "GET", "/api/v1/admin/categories" },
         { "POST", "/api/v1/admin/categories" },
         { "PATCH", "/api/v1/admin/categories/libros" },
+        { "GET", "/api/v1/admin/indicators" },
+        { "GET", "/api/v1/admin/indicators?period=month" },
     };
 
     private static HttpRequestMessage Request(string method, string path, string? token)
@@ -114,6 +116,26 @@ public sealed class AdminAuthTests(ProductionApiFactory production) : IClassFixt
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("auth.forbidden", await CodeAsync(response));
+    }
+
+    [Fact]
+    public async Task Indicators_ForTheAdmin_AreAggregates_WithoutPeople_AndOnlyAKnownPeriod()
+    {
+        // HU-42: solo conteos del campus; nunca correos ni nombres (RNF-06).
+        var admin = await UserAsync(UserStatuses.Active, UserRoles.Student, UserRoles.Admin);
+        using var client = production.CreateClient();
+        using var week = Request("GET", "/api/v1/admin/indicators", Token(admin, UserRoles.Student, UserRoles.Admin));
+        using var year = Request("GET", "/api/v1/admin/indicators?period=year", Token(admin, UserRoles.Student, UserRoles.Admin));
+
+        var ok = await client.SendAsync(week, Ct);
+        var bad = await client.SendAsync(year, Ct);
+        var body = await ok.Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        Assert.DoesNotContain("@", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Persona de Prueba", body, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Equal("admin.invalid_period", await CodeAsync(bad));
     }
 
     [Fact]

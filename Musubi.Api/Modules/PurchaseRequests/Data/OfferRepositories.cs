@@ -11,6 +11,11 @@ namespace Musubi.Api.Modules.PurchaseRequests.Data;
 
 // Persistencia de las ofertas (HU-16). Mongo e InMemory pasan la misma bateria (TestShared/PurchaseRequests).
 
+/// <summary>HU-42 (demanda): las ofertas hechas en un periodo.</summary>
+/// <param name="Total">Todas.</param>
+/// <param name="Direct">Las directas: con un producto que no estaba publicado (HU-16).</param>
+internal sealed record OfferUsage(long Total, long Direct);
+
 /// <summary>Ofertas a las solicitudes.</summary>
 internal interface IOfferRepository
 {
@@ -66,6 +71,20 @@ internal interface IOfferRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteByPersonAsync(string userId, CancellationToken cancellationToken);
+
+    /// <summary>HU-42: las ofertas de varias solicitudes.</summary>
+    /// <param name="requestIds">Las solicitudes.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Sus ofertas.</returns>
+    Task<IReadOnlyList<OfferDocument>> FindByRequestsAsync(IReadOnlyCollection<string> requestIds, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (ofertas directas): las ofertas hechas en el periodo y cuantas son directas.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los conteos.</returns>
+    Task<OfferUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }
 
 /// <summary>Ofertas en MongoDB (indices <c>ux_request_seller</c>, <c>ix_request_id</c> e <c>ix_seller</c>).</summary>
@@ -143,6 +162,29 @@ internal sealed class MongoOfferRepository(IMongoDatabase database) : IOfferRepo
     {
         var result = await offers.DeleteManyAsync(o => o.SellerId == userId || o.RequesterId == userId, cancellationToken).ConfigureAwait(false);
         return result.DeletedCount;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OfferDocument>> FindByRequestsAsync(IReadOnlyCollection<string> requestIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(requestIds);
+        var ids = requestIds.Where(id => ObjectId.TryParse(id, out _)).ToList();
+        return ids.Count == 0
+            ? []
+            : await offers.Find(Builders<OfferDocument>.Filter.In(o => o.RequestId, ids)).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<OfferUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new OfferUsage(0, 0);
+        }
+
+        var total = await offers.CountDocumentsAsync(o => o.CommunityId == communityId && o.CreatedAt >= from && o.CreatedAt < to, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var direct = await offers.CountDocumentsAsync(o => o.CommunityId == communityId && o.CreatedAt >= from && o.CreatedAt < to && o.Kind == OfferKinds.Direct, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return new OfferUsage(total, direct);
     }
 }
 
@@ -273,6 +315,25 @@ internal sealed class InMemoryOfferRepository : IOfferRepository
         lock (gate)
         {
             return offers.ToList();
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OfferDocument>> FindByRequestsAsync(IReadOnlyCollection<string> requestIds, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<OfferDocument>>([.. offers.Where(o => requestIds.Contains(o.RequestId))]);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<OfferUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var made = offers.Where(o => o.CommunityId == communityId && o.CreatedAt >= from && o.CreatedAt < to).ToList();
+            return Task.FromResult(new OfferUsage(made.Count, made.Count(o => o.Kind == OfferKinds.Direct)));
         }
     }
 }

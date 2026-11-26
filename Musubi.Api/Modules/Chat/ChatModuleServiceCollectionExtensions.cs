@@ -38,6 +38,8 @@ internal static class ChatModuleServiceCollectionExtensions
             : new MongoMessageRepository(provider.GetRequiredService<IMongoDatabase>()));
 
         services.AddSingleton<IConversationDirectory, ConversationDirectory>();
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<IChatIndicators, ChatIndicators>();
         services.AddSingleton<IConversationOpener, ConversationOpener>();
         services.AddSingleton<IConversationNotices, ConversationNotices>();
         services.AddSingleton<ChatNotifier>();

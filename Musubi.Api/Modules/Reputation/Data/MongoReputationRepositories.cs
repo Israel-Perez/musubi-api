@@ -84,6 +84,21 @@ internal sealed class MongoReportRepository(IMongoDatabase database) : IReportRe
     /// <inheritdoc />
     public Task<long> CountUpheldAsync(string subjectId, CancellationToken cancellationToken) =>
         reports.CountDocumentsAsync(r => r.SubjectId == subjectId && r.Status == ReportStatuses.Upheld, cancellationToken: cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<ReportUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new ReportUsage(0, 0);
+        }
+
+        var created = await reports.CountDocumentsAsync(r => r.CommunityId == communityId && r.CreatedAt >= from && r.CreatedAt < to, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var upheld = await reports.CountDocumentsAsync(
+            r => r.CommunityId == communityId && r.Status == ReportStatuses.Upheld && r.ReviewedAt >= from && r.ReviewedAt < to,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return new ReportUsage(created, upheld);
+    }
 }
 
 /// <summary>Bloqueos en MongoDB (indices <c>ux_blocker_blocked</c> e <c>ix_blocked</c>).</summary>

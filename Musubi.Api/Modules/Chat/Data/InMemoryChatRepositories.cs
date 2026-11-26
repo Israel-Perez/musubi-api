@@ -168,6 +168,18 @@ internal sealed class InMemoryConversationRepository : IConversationRepository
             }
         }
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<string>> StartedBetweenAsync(string communityId, DateTime from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<string>>([.. conversations
+                .Where(c => c.CommunityId == communityId && c.CreatedAt >= from && c.CreatedAt < to)
+                .Select(c => c.Id)
+                .Take(limit)]);
+        }
+    }
 }
 
 /// <summary>Mensajes en memoria (el id es un ObjectId nuevo: ordena por tiempo como en Mongo).</summary>

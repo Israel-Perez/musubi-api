@@ -558,4 +558,25 @@ public abstract class OrderRepositoryContract
         Assert.DoesNotContain(silent.Id, due.Select(o => o.Id));
         Assert.DoesNotContain(done.Id, due.Select(o => o.Id));
     }
+
+    [Fact]
+    public async Task Usage_CountsTheOrdersCompletedInThePeriod_ItsPieces_AndTheConversationsWithAnOrder()
+    {
+        // HU-42 (operaciones, chat y vendedores).
+        var product = AuthIds.New();
+        var conversation = AuthIds.New();
+        var done = Order(conversationId: conversation, productId: product, status: OrderStatuses.Completed);
+        Assert.True(await Orders.TryInsertAsync(done, Ct));
+        Assert.True(await Orders.TryInsertAsync(Order(status: OrderStatuses.Pending), Ct));
+
+        var usage = await Orders.UsageAsync(done.CommunityId, Now.AddHours(-1), Now.AddHours(1), Ct);
+        var withOrders = await Orders.CountConversationsWithOrdersAsync([conversation, AuthIds.New(), "no-es-un-id"], Ct);
+        var sold = await Orders.CompletedForProductsAsync([product, AuthIds.New()], Ct);
+
+        Assert.Equal(new OrderUsage(1, 1, 0), usage);
+        Assert.Equal(new OrderUsage(0, 0, 0), await Orders.UsageAsync(done.CommunityId, Now.AddHours(1), Now.AddHours(2), Ct));
+        Assert.Equal(1, withOrders);
+        Assert.Equal((product, Now), Assert.Single(sold));
+        Assert.Empty(await Orders.CompletedForProductsAsync([], Ct));
+    }
 }

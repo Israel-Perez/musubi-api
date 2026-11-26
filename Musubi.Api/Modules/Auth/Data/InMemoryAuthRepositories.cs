@@ -234,6 +234,19 @@ internal sealed class InMemoryUserRepository : IUserRepository
             return Task.FromResult(users.Remove(id));
         }
     }
+
+    /// <inheritdoc />
+    public Task<UserUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var mine = users.Values.Where(u => string.Equals(u.CommunityId, communityId, StringComparison.Ordinal)).ToList();
+            return Task.FromResult(new UserUsage(
+                mine.Count,
+                mine.Count(u => u.Status == UserStatuses.Active),
+                mine.Count(u => u.CreatedAt >= from && u.CreatedAt < to)));
+        }
+    }
 }
 
 /// <summary>Codigos de verificacion en memoria (uno por usuario y proposito).</summary>
@@ -428,6 +441,15 @@ internal sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
         SchemaVersion = token.SchemaVersion,
         CreatedAt = token.CreatedAt,
     };
+
+    /// <inheritdoc />
+    public Task<IReadOnlyCollection<string>> UsersSignedInAsync(DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyCollection<string>>([.. tokens.Values.Where(t => t.CreatedAt >= from && t.CreatedAt < to).Select(t => t.UserId).Distinct(StringComparer.Ordinal)]);
+        }
+    }
 }
 
 /// <summary>Ids para documentos nuevos (mismo formato en memoria y en Mongo).</summary>

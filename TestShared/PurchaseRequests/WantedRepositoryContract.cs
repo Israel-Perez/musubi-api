@@ -299,4 +299,19 @@ public abstract class WantedRepositoryContract
         Assert.Equal(WantedStatuses.Cancelled, (await Requests.SetStatusAsync(other.Id, me, WantedStatuses.Cancelled, Now, Ct))!.Status);
         Assert.Equal(0, await Requests.CountActiveAsync(me, Now, Ct));
     }
+
+    [Fact]
+    public async Task CreatedBetween_GivesTheRequestsOfTheCampusInThePeriod()
+    {
+        // HU-42 (demanda).
+        var request = Request(AuthIds.New());
+        await Requests.InsertAsync(request, Ct);
+        await Requests.InsertAsync(Request(AuthIds.New()), Ct);
+
+        var found = await Requests.CreatedBetweenAsync(request.CommunityId, Now.AddHours(-1), Now.AddHours(1), 10, Ct);
+
+        Assert.Equal(new WantedCreated(request.Id, "calculadoras", Now), Assert.Single(found));
+        Assert.Empty(await Requests.CreatedBetweenAsync(request.CommunityId, Now.AddHours(1), Now.AddHours(2), 10, Ct));
+        Assert.Empty(await Requests.CreatedBetweenAsync("no-es-un-id", Now.AddHours(-1), Now.AddHours(1), 10, Ct));
+    }
 }

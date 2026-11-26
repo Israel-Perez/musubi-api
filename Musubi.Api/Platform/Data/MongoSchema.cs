@@ -4,7 +4,7 @@ namespace Musubi.Api.Platform.Data;
 internal static class MongoSchema
 {
     /// <summary>Version que esta API necesita; debe ser igual al numero del ultimo script de db/ (SchemaVersionTests).</summary>
-    public const int ExpectedVersion = 35;
+    public const int ExpectedVersion = 36;
 
     /// <summary>Coleccion de metadatos (documento "schema").</summary>
     public const string Meta = "_meta";
@@ -85,6 +85,9 @@ internal static class MongoSchema
 
     /// <summary>Coincidencias entre solicitudes y publicaciones (RF-25, db/024): a quien se aviso y si termino en pedido.</summary>
     public const string Matches = "matches";
+
+    /// <summary>Uso de la IA del acuerdo para los indicadores (HU-42, db/036): sin personas ni textos, un ano.</summary>
+    public const string AiUsage = "aiUsage";
 
     /// <summary>Vectores de las publicaciones y las solicitudes para las coincidencias por significado (HU-60, db/035).</summary>
     public const string MatchEmbeddings = "matchEmbeddings";

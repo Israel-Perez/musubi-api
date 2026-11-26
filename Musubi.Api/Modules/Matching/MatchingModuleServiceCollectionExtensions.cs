@@ -29,6 +29,8 @@ internal static class MatchingModuleServiceCollectionExtensions
             ? embeddings
             : new MongoEmbeddingRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<SemanticMatcher>();
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<IMatchIndicators, MatchIndicators>();
         services.AddSingleton<IAccountDataEraser>(provider => provider.GetRequiredService<SemanticMatcher>());
         services.AddSingleton<MatchLedger>();
         services.AddSingleton<IMatchLedger>(provider => provider.GetRequiredService<MatchLedger>());

@@ -12,6 +12,12 @@ namespace Musubi.Api.Modules.Notifications.Data;
 // Contratos de persistencia de M-09 (HU-31). Mongo* (nube y local) e InMemory* (UseInMemoryDatabase=true) pasan la
 // misma bateria de pruebas (TestShared/Notifications).
 
+/// <summary>HU-42: un aviso enviado (sin su texto).</summary>
+/// <param name="UserId">A quien.</param>
+/// <param name="DedupeKey">Su clave (dice de que publicacion o busqueda fue).</param>
+/// <param name="CreatedAt">Cuando (UTC).</param>
+internal sealed record NoticeSent(string UserId, string? DedupeKey, DateTime CreatedAt);
+
 /// <summary>Avisos del centro de notificaciones.</summary>
 internal interface INotificationRepository
 {
@@ -57,6 +63,15 @@ internal interface INotificationRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantos se borraron.</returns>
     Task<long> DeleteByUserAsync(string userId, CancellationToken cancellationToken);
+
+    /// <summary>HU-42: los avisos de un tipo enviados en el periodo.</summary>
+    /// <param name="type">El tipo.</param>
+    /// <param name="from">Inicio (UTC, inclusivo).</param>
+    /// <param name="to">Fin (UTC, exclusivo).</param>
+    /// <param name="limit">Como maximo.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>A quien, con que clave y cuando.</returns>
+    Task<IReadOnlyList<NoticeSent>> FindSentAsync(string type, DateTime from, DateTime to, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>Tokens de FCM de los dispositivos.</summary>
@@ -173,6 +188,15 @@ internal sealed class MongoNotificationRepository(IMongoDatabase database) : INo
         ObjectId.TryParse(userId, out _)
             ? (await notifications.DeleteManyAsync(n => n.UserId == userId, cancellationToken).ConfigureAwait(false)).DeletedCount
             : 0;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<NoticeSent>> FindSentAsync(string type, DateTime from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        var found = await notifications.Find(Filter.Eq(n => n.Type, type) & Filter.Gte(n => n.CreatedAt, from) & Filter.Lt(n => n.CreatedAt, to))
+            .Limit(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return [.. found.Select(n => new NoticeSent(n.UserId, n.DedupeKey, n.CreatedAt))];
+    }
 }
 
 /// <summary>Tokens en MongoDB (coleccion <c>deviceTokens</c>, db/017).</summary>
@@ -327,6 +351,18 @@ internal sealed class InMemoryNotificationRepository : INotificationRepository
         lock (gate)
         {
             return Task.FromResult((long)notifications.RemoveAll(n => n.UserId == userId));
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<NoticeSent>> FindSentAsync(string type, DateTime from, DateTime to, int limit, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            return Task.FromResult<IReadOnlyList<NoticeSent>>([.. notifications
+                .Where(n => n.Type == type && n.CreatedAt >= from && n.CreatedAt < to)
+                .Take(limit)
+                .Select(n => new NoticeSent(n.UserId, n.DedupeKey, n.CreatedAt))]);
         }
     }
 }

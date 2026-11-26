@@ -83,6 +83,11 @@ internal sealed record MatchRecord(
     public string Key => $"{RequestId}:{ProductId}";
 }
 
+/// <summary>HU-42 (conexion): las coincidencias de un periodo.</summary>
+/// <param name="Found">Las que se encontraron.</param>
+/// <param name="Ordered">Las que terminaron en pedido.</param>
+internal sealed record MatchUsage(long Found, long Ordered);
+
 /// <summary>Coincidencias registradas.</summary>
 internal interface IMatchRepository
 {
@@ -116,6 +121,14 @@ internal interface IMatchRepository
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>Cuantas se borraron.</returns>
     Task<long> DeleteByUserAsync(string userId, CancellationToken cancellationToken);
+
+    /// <summary>HU-42 (conexion): coincidencias encontradas en el periodo y cuantas terminaron en pedido.</summary>
+    /// <param name="communityId">Campus.</param>
+    /// <param name="from">Inicio del periodo (UTC, inclusivo).</param>
+    /// <param name="to">Fin del periodo (UTC, exclusivo).</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Los conteos.</returns>
+    Task<MatchUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }
 
 /// <summary>Coincidencias en MongoDB (coleccion <c>matches</c>, db/024).</summary>
@@ -178,6 +191,20 @@ internal sealed class MongoMatchRepository(IMongoDatabase database) : IMatchRepo
         ObjectId.TryParse(userId, out _)
             ? (await matches.DeleteManyAsync(Filter.Eq(m => m.RequesterId, userId) | Filter.Eq(m => m.SellerId, userId), cancellationToken).ConfigureAwait(false)).DeletedCount
             : 0;
+
+    /// <inheritdoc />
+    public async Task<MatchUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(communityId, out _))
+        {
+            return new MatchUsage(0, 0);
+        }
+
+        var inPeriod = Filter.Eq(m => m.CommunityId, communityId) & Filter.Gte(m => m.CreatedAt, from) & Filter.Lt(m => m.CreatedAt, to);
+        var found = await matches.CountDocumentsAsync(inPeriod, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var ordered = await matches.CountDocumentsAsync(inPeriod & Filter.Ne(m => m.OrderedAt, null), cancellationToken: cancellationToken).ConfigureAwait(false);
+        return new MatchUsage(found, ordered);
+    }
 }
 
 /// <summary>Coincidencias en memoria (Development y pruebas).</summary>
@@ -268,4 +295,14 @@ internal sealed class InMemoryMatchRepository : IMatchRepository
         ExpiresAt = match.ExpiresAt,
         SchemaVersion = match.SchemaVersion,
     };
+
+    /// <inheritdoc />
+    public Task<MatchUsage> UsageAsync(string communityId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var found = matches.Values.Where(m => m.CommunityId == communityId && m.CreatedAt >= from && m.CreatedAt < to).ToList();
+            return Task.FromResult(new MatchUsage(found.Count, found.Count(m => m.OrderedAt is not null)));
+        }
+    }
 }

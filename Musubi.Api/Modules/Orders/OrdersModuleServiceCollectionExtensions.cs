@@ -30,6 +30,8 @@ internal static class OrdersModuleServiceCollectionExtensions
             ? points
             : new MongoMeetingPointRepository(provider.GetRequiredService<IMongoDatabase>()));
         services.AddSingleton<OrderService>();
+        // HU-42: los indicadores de uso de este modulo para M-14.
+        services.AddSingleton<IOrderIndicators, OrderIndicators>();
         services.AddSingleton<OrderLifecycleService>();
         services.AddSingleton<IOpenOrders, OpenOrders>();
         services.AddSingleton<ISoldPrices, SoldPrices>();

@@ -44,6 +44,7 @@ public sealed class AgreementServiceTests
     private readonly InMemoryBlockRepository blocks = new();
     private readonly InMemoryOrderRepository orders = new();
     private readonly InMemoryAgreementRepository agreements = new();
+    private readonly InMemoryAiUsageRepository usage = new();
     private readonly RecordingHub hub = new();
     private readonly ScriptedExtractor ai = new();
     private readonly ManualTimeProvider time = new(Now);
@@ -66,6 +67,7 @@ public sealed class AgreementServiceTests
             new InMemoryContentModerator(),
             Options.Create(new GenAiOptions()),
             center,
+            usage,
             time);
     }
 
@@ -380,6 +382,27 @@ public sealed class AgreementServiceTests
         Assert.Equal(AgreementStatuses.Proposed, one.Value!.Status);
         Assert.Equal(AgreementStatuses.Confirmed, both.Value!.Status);
         Assert.Equal(Now.UtcDateTime, both.Value.SellerConfirmedAt);
+    }
+
+    [Fact]
+    public async Task EachSummary_AndEachConfirmation_IsRecordedForTheIndicators_WithoutPeople()
+    {
+        // HU-42: el acuerdo se borra al crear el pedido; el uso de la IA queda anotado aparte, solo con el campus.
+        var (ana, diego, conversation) = await TalkedAsync();
+        ai.Next = Found();
+        var asIs = await RequestedAsync(ana, conversation);
+        await service.ConfirmAsync(ana, asIs.Id, new ConfirmAgreementRequest(1), Ct);
+        await service.ConfirmAsync(diego, asIs.Id, new ConfirmAgreementRequest(1), Ct);
+        ai.Next = Found();
+        var fixedOne = await RequestedAsync(diego, conversation);
+        await service.UpdateAsync(ana, fixedOne.Id, new UpdateAgreementRequest(1, null, 40_000, null, null, null, null, null), Ct);
+        await service.ConfirmAsync(ana, fixedOne.Id, new ConfirmAgreementRequest(2), Ct);
+        await service.ConfirmAsync(diego, fixedOne.Id, new ConfirmAgreementRequest(2), Ct);
+
+        var recorded = await usage.UsageAsync(Uttt, Now.UtcDateTime.AddDays(-1), Now.UtcDateTime.AddDays(1), Ct);
+
+        Assert.Equal(new AiUsage(2, 2, 1), recorded);
+        Assert.Equal(new AiUsage(0, 0, 0), await usage.UsageAsync(AuthIds.New(), Now.UtcDateTime.AddDays(-1), Now.UtcDateTime.AddDays(1), Ct));
     }
 
     [Fact]
