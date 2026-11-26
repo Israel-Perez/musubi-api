@@ -1,5 +1,11 @@
 # Memoria del proyecto — musubi-api
 
+## SCRUM-109 (26-Nov-2026): trazabilidad y lineamientos al día
+
+- La trazabilidad de los dos repos refleja lo que ya está en Google Play: HU-07, 08, 11, 20, 22, 49 y 50 pasan a "Borrador con evidencia" con la versión de Play en que salieron. HU-48 en la API dice que no tiene rutas propias (usa el catálogo público). Están las specs técnicas que faltaban: 02-08 a 02-10 en la API y 02-05, 02-06 y 02-10 en la app.
+- Checklist de lineamientos (`musubi-api/docs/bitacora/lineamientos-materia.md`): todo ✅ con su evidencia menos **L-01** (falta pasar Google Play a producción) y **L-19** (falta armar el `.rar` de la entrega).
+- **Para revisar:** L-15c queda ✅ con la excepción documentada de Gemini, y 02-04 usa topes por ruta en lugar de un rate limit global.
+
 ## Trabajo en curso — HU-42 (SCRUM-65): indicadores de uso
 
 - **Qué:** `GET /admin/indicators?period=week|month` con los 15 indicadores del apartado 19 de la propuesta en 9 áreas. Cada módulo tiene su `I…Indicators` y un método por repositorio; `UsageIndicatorsService` junta y cruza. `aiUsage` (`db/036`, esquema 36) anota los resúmenes y las confirmaciones con o sin correcciones. API `0.5.0-alpha.48`, 132 endpoints.

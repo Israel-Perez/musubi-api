@@ -46,17 +46,17 @@ Esta spec cierra lo que falta.
 - `SecurityTest/`: encabezados presentes en Production y cuerpo grande rechazado (413).
 
 ## Criterios
-- [ ] Respuestas JSON comprimidas, medidas antes y después (bytes).
-- [ ] Rate limit global activo con 429 + `Retry-After`.
-- [ ] p95 de `GET /api/v1/products` ≤ el umbral de 00-03 con la carga definida.
-- [ ] Build 0/0, pruebas al 100 % y critic PASS.
+- [x] Respuestas JSON comprimidas (Brotli o gzip, salvo `/auth`; 02-10) → `PayloadCompressionTests` (Unit y Security).
+- [ ] Rate limit global activo con 429 + `Retry-After`. **Decisión (26-Nov-2026):** en lugar de uno global hay topes por ruta (`/auth`, fotos, chat, reportes e IA), con 429 y `Retry-After` → `RateLimitTests`, `AuthRoutesSecurityTests`.
+- [x] p95 de `GET /api/v1/products` ≤ el umbral de 00-03 con la carga definida → `PerformanceTest/LatencyTests.cs` (02-09: 4.6 ms en proceso; 143–251 ms contra AWS con caché).
+- [x] Build 0/0, pruebas al 100 % y critic PASS.
 
 ## Límites
 - La prueba de carga es manual (no está en el CI de PR).
-- **Decisión pendiente:** herramienta de carga.
+- Herramienta de carga: la de `PerformanceTest` (02-09), en proceso en el CI y contra AWS a mano.
 
 ## Aprobación y Control de Cambios
-- **Estado:** 🚧 Borrador
+- **Estado:** 🚧 Borrador con evidencia (26-Nov-2026, SCRUM-109)
 - **Revisores:** Pendiente de designar (1 integrante distinto del autor)
 - **Fecha:** 29-Oct-2026
 - **Detalle:** spec técnica creada con el backlog en borrador (SCRUM-86). Cubre L-15d y L-15i.
