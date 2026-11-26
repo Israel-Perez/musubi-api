@@ -1,5 +1,9 @@
 # Memoria del proyecto — musubi-api
 
+## Lote 1.0.0+14 a Google Play (26-Nov-2026, SCRUM-87)
+
+- Fila de la matriz (sección compartida) para el lote `1.0.0+14` de la app; la API queda en `0.5.0-alpha.48`.
+
 ## SCRUM-109 (26-Nov-2026): trazabilidad y lineamientos al día
 
 - La trazabilidad de los dos repos refleja lo que ya está en Google Play: HU-07, 08, 11, 20, 22, 49 y 50 pasan a "Borrador con evidencia" con la versión de Play en que salieron. HU-48 en la API dice que no tiene rutas propias (usa el catálogo público). Están las specs técnicas que faltaban: 02-08 a 02-10 en la API y 02-05, 02-06 y 02-10 en la app.
