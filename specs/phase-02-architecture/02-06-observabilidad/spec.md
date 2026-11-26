@@ -46,6 +46,7 @@ Hoy:
   - dashboard `musubi-api`.
 - **CI:** Trivy `0.76.1` (fijado por digest) escanea la imagen en `docker-build` y falla con vulnerabilidades críticas que ya tienen arreglo.
 - **CI (SCRUM-125):** la misma imagen de Trivy escanea el IaC (`trivy config infra`) en el job `terraform` y falla con hallazgos HIGH o CRITICAL. Las excepciones van junto al recurso (`#trivy:ignore:<ID>`) con su motivo.
+- **CD (SCRUM-125):** `infra-up` genera el SBOM (CycloneDX) de la imagen a desplegar, la escanea con la misma compuerta y solo entonces la publica en ECR. El SBOM queda como artefacto del run por 90 días.
 
 ## Contratos
 - **Configuración:** `Logging:LogLevel:Musubi` y `Logging:LogLevel:Microsoft.AspNetCore.HttpLogging` (`appsettings.Production.json`); variable de Terraform `alert_email`.
@@ -62,6 +63,7 @@ Hoy:
 - [ ] Después de `infra-up`: el correo de suscripción confirmado y el dashboard con datos.
 - [x] Trivy en el CI.
 - [x] Escaneo del IaC con Trivy en el job `terraform` (SCRUM-125).
+- [ ] SBOM y Trivy en `infra-up` antes de publicar la imagen (SCRUM-125): se verifica en el siguiente despliegue (artefacto `sbom-musubi-api-<versión>`).
 
 ## Límites
 - **`NOTE (02-06)`:**
