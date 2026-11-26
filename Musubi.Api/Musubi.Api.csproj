@@ -29,7 +29,7 @@
     <PackageReference Include="Microsoft.ML.Recommender" Version="0.24.0" />
     <!-- Transitiva de AWSSDK.Translate (CborProtocol): 9.0.5 tiene GHSA-vmv3-wvjp-wqpj. .NET 10 ya la trae (NU1510), pero el auditor ve la del paquete: se fija la corregida. -->
     <PackageReference Include="System.Formats.Cbor" Version="11.0.0" NoWarn="NU1510" />
-    <PackageReference Include="MongoDB.Driver" Version="3.13.0" />
+    <PackageReference Include="MongoDB.Driver" Version="3.14.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.21.0" />
     <!-- Fotos de HU-06: decodificar, enderezar, reducir y volver a codificar a WebP sin metadatos (MIT; excepcion 00-01). -->
     <PackageReference Include="SkiaSharp" Version="4.156.0" />
