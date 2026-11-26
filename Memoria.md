@@ -23,6 +23,12 @@
 - Checklist de lineamientos (`musubi-api/docs/bitacora/lineamientos-materia.md`): todo ✅ con su evidencia menos **L-01** (falta pasar Google Play a producción) y **L-19** (falta armar el `.rar` de la entrega).
 - **Para revisar:** L-15c queda ✅ con la excepción documentada de Gemini, y 02-04 usa topes por ruta en lugar de un rate limit global.
 
+## SCRUM-125 (26-Nov-2026): SBOM en el despliegue
+
+- `infra-up` construye la imagen, genera su SBOM (CycloneDX, artefacto `sbom-musubi-api-<versión>` por 90 días), la escanea con Trivy (CRITICAL con arreglo) y **solo entonces** la publica en ECR. Como los tags son inmutables, una imagen rechazada no gasta la versión. Una imagen reutilizada también se escanea antes de desplegarla.
+- **Errores a evitar:** en un heredoc de la herramienta Bash, una `\` al final de la línea se pierde y junta los renglones. Para editar YAML con continuaciones, escribe el script en un archivo.
+- Se verifica en el siguiente `infra-up` (no corre en los PR).
+
 ## Trabajo en curso — HU-42 (SCRUM-65): indicadores de uso
 
 - **Qué:** `GET /admin/indicators?period=week|month` con los 15 indicadores del apartado 19 de la propuesta en 9 áreas. Cada módulo tiene su `I…Indicators` y un método por repositorio; `UsageIndicatorsService` junta y cruza. `aiUsage` (`db/036`, esquema 36) anota los resúmenes y las confirmaciones con o sin correcciones. API `0.5.0-alpha.48`, 132 endpoints.

@@ -126,7 +126,7 @@ Cada fila de `docs/endpoints.md` tiene prueba unitaria, de integración y de seg
 
 | CD | Qué hace |
 |---|---|
-| `infra-up` | OIDC hacia AWS sin llaves, imagen a ECR (escaneo al subir, tags inmutables), scripts de la base, `terraform apply`, reemplazo de instancias, prueba de humo y tag `api-vX.Y.Z` |
+| `infra-up` | OIDC hacia AWS sin llaves, imagen con **SBOM (CycloneDX)** y compuerta de **Trivy** antes de publicarla en ECR (escaneo al subir, tags inmutables), scripts de la base, `terraform apply`, reemplazo de instancias, prueba de humo y tag `api-vX.Y.Z` |
 | `infra-down` | Destruye la infraestructura (costo cero fuera de uso) |
 
 Las actions están fijadas por SHA y Dependabot mantiene al día NuGet, actions y Docker.

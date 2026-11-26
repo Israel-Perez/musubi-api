@@ -62,6 +62,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Imagen musubi-api:${{ steps.version.outputs.version }}
+        id: image
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/musubi-api:${{ steps.version.outputs.version }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -77,13 +78,42 @@ jobs:
               exit 1
             fi
             echo "Imagen $VERSION reutilizada (publicada desde $revision)"
+            echo "push=false" >> "$GITHUB_OUTPUT"
           else
             docker build --pull \
               --label "org.opencontainers.image.revision=$GITHUB_SHA" \
               --label "org.opencontainers.image.version=$VERSION" \
               -t "$IMAGE" .
-            docker push "$IMAGE"
+            echo "push=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # SCRUM-125: la imagen que se va a desplegar, antes de publicarla (los tags son inmutables).
+      # SBOM en CycloneDX como artefacto del run y la misma compuerta que docker-build: falla con
+      # vulnerabilidades CRITICAL que ya tienen arreglo.
+      - name: SBOM y Trivy (imagen a desplegar)
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/musubi-api:${{ steps.version.outputs.version }}
+          TRIVY: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+        run: |
+          mkdir -p sbom
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/out" "$TRIVY" \
+            image --format cyclonedx --output /out/musubi-api.cdx.json --no-progress "$IMAGE"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY" \
+            image --exit-code 1 --severity CRITICAL --ignore-unfixed --no-progress "$IMAGE"
+          echo "SBOM: $(grep -o '"bom-ref"' sbom/musubi-api.cdx.json | wc -l) componentes" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-musubi-api-${{ steps.version.outputs.version }}
+          path: sbom/musubi-api.cdx.json
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publicar la imagen
+        if: steps.image.outputs.push == 'true'
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/musubi-api:${{ steps.version.outputs.version }}
+        run: docker push "$IMAGE"
 
       - name: Esquema de la base (db/*.js, idempotentes)
         run: |
