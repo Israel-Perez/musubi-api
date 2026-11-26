@@ -4,6 +4,12 @@
 
 - Fila de la matriz (sección compartida) para el lote `1.0.0+14` de la app; la API queda en `0.5.0-alpha.48`.
 
+## SCRUM-125 (26-Nov-2026): escaneo del IaC con Trivy
+
+- El job `terraform` corre `trivy config infra` (la imagen `0.76.1` fijada por digest de `docker-build`) y falla con HIGH o CRITICAL.
+- El primer escaneo dio 10 hallazgos, todos decisiones ya tomadas por costo cero o por la arquitectura: ALB público detrás de CloudFront (AWS-0053), listener HTTP solo para CloudFront (AWS-0054), sin WAF (AWS-0011), S3 y SNS sin llave KMS propia (AWS-0132, AWS-0095), salida abierta sin NAT (AWS-0104 ×4) e IP pública en la subred (AWS-0164). Cada uno queda con `#trivy:ignore:<ID>` y su motivo encima del recurso, como los `nosemgrep`.
+- **Errores a evitar:** `trivy config` no acepta `--no-progress` (solo `trivy image`); el escaneo va antes de `terraform init`, para no revisar `.terraform/`. En esta PC no hay Docker ni Trivy: el escaneo se ve en el log del job.
+
 ## SCRUM-109 (26-Nov-2026): trazabilidad y lineamientos al día
 
 - La trazabilidad de los dos repos refleja lo que ya está en Google Play: HU-07, 08, 11, 20, 22, 49 y 50 pasan a "Borrador con evidencia" con la versión de Play en que salieron. HU-48 en la API dice que no tiene rutas propias (usa el catálogo público). Están las specs técnicas que faltaban: 02-08 a 02-10 en la API y 02-05, 02-06 y 02-10 en la app.

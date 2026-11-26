@@ -43,6 +43,8 @@ resource "aws_s3_bucket_public_access_block" "media" {
   restrict_public_buckets = true
 }
 
+# Trivy AWS-0132: cifrado con la llave de S3 (AES256). Una llave KMS propia cuesta ~1 USD al mes (costo cero, SCRUM-125).
+#trivy:ignore:AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "media" {
   bucket = aws_s3_bucket.media.id
 
@@ -71,6 +73,9 @@ data "aws_acm_certificate" "api" {
 }
 
 # Con dominio, TLS 1.2 como minimo; sin dominio (api_domain vacio) CloudFront no permite fijarlo.
+# Trivy AWS-0011: sin WAF por costo (~5 USD al mes mas reglas; costo cero). Lo cubren los topes de la API
+# (global y por ruta, 429) y AWS Shield Standard, que CloudFront trae sin costo (SCRUM-125).
+#trivy:ignore:AWS-0011
 resource "aws_cloudfront_distribution" "main" { # nosemgrep: terraform.aws.security.aws-cloudfront-insecure-tls.aws-insecure-cloudfront-distribution-tls-version
   enabled         = true
   comment         = "musubi-api + imagenes"

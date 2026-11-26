@@ -23,6 +23,8 @@ resource "aws_internet_gateway" "main" {
 }
 
 # IP publica en lugar de NAT Gateway (~32 USD/mes); el grupo de seguridad solo acepta al ALB.
+# Trivy AWS-0164: misma razon (SCRUM-125).
+#trivy:ignore:AWS-0164
 resource "aws_subnet" "public" { # nosemgrep: terraform.aws.security.aws-subnet-has-public-ip-address.aws-subnet-has-public-ip-address
   count                   = length(local.azs)
   vpc_id                  = aws_vpc.main.id
@@ -95,6 +97,8 @@ resource "aws_vpc_security_group_ingress_rule" "api_from_alb" {
 }
 
 # Salida: Atlas, SES, ECR, SSM y CloudWatch (todo por HTTPS) y el resolvedor DNS de la VPC.
+# Trivy AWS-0104: sin NAT Gateway ni endpoints de VPC (costo cero), y Atlas y Redis Cloud no tienen IP fija; la entrada sigue cerrada (SCRUM-125).
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "api_https" {
   security_group_id = aws_security_group.api.id
   description       = "HTTPS (servicios de AWS y Atlas)"
@@ -104,6 +108,8 @@ resource "aws_vpc_security_group_egress_rule" "api_https" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+# Trivy AWS-0104: sin NAT Gateway ni endpoints de VPC (costo cero), y Atlas y Redis Cloud no tienen IP fija; la entrada sigue cerrada (SCRUM-125).
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "api_mongo" {
   security_group_id = aws_security_group.api.id
   description       = "MongoDB Atlas (TLS)"
@@ -115,6 +121,8 @@ resource "aws_vpc_security_group_egress_rule" "api_mongo" {
 
 # HU-20 / 02-02: Redis Cloud (cache compartida y backplane de SignalR). Sin esta salida la conexion
 # se queda en "UnableToConnect (0-read, 0-sent)" y cada instancia cae a su memoria.
+# Trivy AWS-0104: sin NAT Gateway ni endpoints de VPC (costo cero), y Atlas y Redis Cloud no tienen IP fija; la entrada sigue cerrada (SCRUM-125).
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "api_redis" {
   security_group_id = aws_security_group.api.id
   description       = "Redis Cloud (cache y backplane de SignalR)"
@@ -124,6 +132,8 @@ resource "aws_vpc_security_group_egress_rule" "api_redis" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+# Trivy AWS-0104: sin NAT Gateway ni endpoints de VPC (costo cero), y Atlas y Redis Cloud no tienen IP fija; la entrada sigue cerrada (SCRUM-125).
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "api_http" {
   security_group_id = aws_security_group.api.id
   description       = "HTTP (repositorios de paquetes de Amazon Linux)"

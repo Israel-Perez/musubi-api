@@ -18,6 +18,9 @@ resource "random_password" "origin_secret" {
 }
 
 # Logs de acceso del ALB: NOTE (02-06). Hoy los logs de la API van a CloudWatch.
+# Trivy AWS-0053: publico porque CloudFront llega por internet; el grupo de seguridad solo acepta la lista
+# de CloudFront y el listener exige la cabecera secreta X-Origin-Verify (SCRUM-125).
+#trivy:ignore:AWS-0053
 resource "aws_lb" "api" { # nosemgrep: terraform.aws.security.aws-elb-access-logs-not-enabled.aws-elb-access-logs-not-enabled
   name                       = "musubi-api"
   load_balancer_type         = "application"
@@ -47,6 +50,10 @@ resource "aws_lb_target_group" "api" {
   }
 }
 
+# Trivy AWS-0054: el TLS termina en CloudFront con el certificado de ACM. Hasta el ALB va por HTTP dentro de
+# AWS, solo desde CloudFront y con la cabecera secreta. HTTPS de punta a punta es NOTE (02-06): pide un
+# certificado para el dominio del origen (SCRUM-125).
+#trivy:ignore:AWS-0054
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.api.arn
   port              = 80
