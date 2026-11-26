@@ -1,5 +1,12 @@
 # Memoria del proyecto — musubi-api
 
+## SCRUM-125 (26-Nov-2026): endurecimiento tras la auditoría v2
+
+- **Rate limit global (API `0.5.0-alpha.49`):** `Platform/Hosting/GlobalRateLimit.cs` es el `GlobalLimiter`: 300 por minuto por persona con sesión (`sub`) y 600 por IP sin sesión; `/health` no cuenta. Va detrás de `UseAuthentication` y de las cabeceras de CloudFront, así la IP es la real. Se suma a los topes por ruta.
+- **Decisión para revisar:** por persona y no solo por IP, porque el wifi del campus sale con una sola IP y un tope por IP dejaría sin servicio a todos el día de la evaluación. Un token inválido cuenta contra la IP, así inventar tokens no abre particiones nuevas.
+- **Errores a evitar:** las fábricas de pruebas en Production (`SecurityApiFactory`) y el DAST suben `RateLimiting:Global:*` (una clase hace cientos de peticiones desde la "IP" de TestServer); Development ya lo trae en `100000` para las pruebas de la app. `await using` de una fábrica en una prueba dispara CA2007: usa `using`.
+- La fila `0.5.0-alpha.49` de `docs/versionado.md` es sección compartida: va también en musubi-app (PR de SCRUM-125 en la app).
+
 ## Lote 1.0.0+14 a Google Play (26-Nov-2026, SCRUM-87)
 
 - Fila de la matriz (sección compartida) para el lote `1.0.0+14` de la app; la API queda en `0.5.0-alpha.48`.

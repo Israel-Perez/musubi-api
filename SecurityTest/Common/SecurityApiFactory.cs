@@ -31,6 +31,9 @@ public abstract class SecurityApiFactory(string environment) : WebApplicationFac
             ["Email:From"] = "Musubi <no-reply@musubi.example>",
             ["Media:Bucket"] = "musubi-media-pruebas",
             ["RateLimiting:Auth:PermitLimit"] = AuthPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            // El tope global (SCRUM-125) se prueba con su propia fabrica: aqui una clase hace cientos de peticiones desde una IP.
+            [Musubi.Api.Platform.Hosting.GlobalRateLimit.UserPermitLimitKey] = "100000",
+            [Musubi.Api.Platform.Hosting.GlobalRateLimit.AnonymousPermitLimitKey] = "100000",
         }));
         if (environment == "Development")
         {

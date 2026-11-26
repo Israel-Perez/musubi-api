@@ -110,6 +110,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 - Sesión obligatoria por defecto (FallbackPolicy), JWT solo HS256, llave fuera del repo (fail-fast sin `Jwt:SigningKey` fuera de Development); contraseñas PBKDF2-SHA512 de 210 000 iteraciones.
 - Auth explícita por controller (critic B3 + `SecurityTest/Auth/ExplicitAuthTests.cs`). Referencia: OWASP API Security Top 10 – 2023 (checks del agente `security-reviewer`).
 - Access token revocable (02-10): `jti` y "revocado desde" por persona en Redis, consultados en `OnTokenValidated`; si Redis no responde se acepta hasta que venza (RNF-15). Compresión Brotli/Gzip, nunca en `/auth` (BREACH).
+- Rate limit (SCRUM-125): tope global de 300 peticiones por minuto por persona con sesión y 600 por IP sin sesión (`GlobalRateLimit`, `/health` no cuenta), más los topes por ruta de `/auth`, fotos, chat, reportes e IA. Todos responden 429 con `Retry-After` y `rate_limit.exceeded`. Una fábrica de pruebas que hace muchas peticiones sube `RateLimiting:Global:*`.
 - SAST: Semgrep (`--config=auto` + 5 reglas propias). Dependencias: NuGetAudit (incluidas las transitivas) + Dependabot con `cooldown` de 7 días.
 - Contenedor: multi-stage con usuario no root; ECR con escaneo al subir y tags inmutables (02-05); Trivy escanea la imagen en el job `docker-build`.
 - IaC (SCRUM-125): Trivy `config` revisa `infra/` en el job `terraform` y falla con hallazgos HIGH o CRITICAL. Una excepción va junto al recurso con `#trivy:ignore:<ID>` y su motivo, como los `nosemgrep`.

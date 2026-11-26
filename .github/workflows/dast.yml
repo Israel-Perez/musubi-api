@@ -67,6 +67,8 @@ jobs:
           Media__Region=us-east-1 \
           AWS_REGION=us-east-1 \
           AWS_EC2_METADATA_DISABLED=true \
+          RateLimiting__Global__UserPermitLimit=100000 \
+          RateLimiting__Global__AnonymousPermitLimit=100000 \
           RateLimiting__Auth__PermitLimit=100000 \
           RateLimiting__Uploads__PermitLimit=100000 \
           RateLimiting__Chat__PermitLimit=100000 \
