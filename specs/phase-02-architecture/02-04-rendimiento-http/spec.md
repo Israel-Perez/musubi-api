@@ -16,7 +16,7 @@ Esta spec cierra lo que falta.
 
 ## Requisitos
 1. **Compresión** Brotli y Gzip de las respuestas JSON (con el nivel medido). CloudFront comprime también: se evita comprimir dos veces. ✅ Hecho en `02-10` (SCRUM-120): `Compression:Level` = `Optimal` medido, sin `/auth` (BREACH); CloudFront no recomprime lo que ya trae `Content-Encoding`.
-2. **Rate limit global por usuario o IP**, con respuesta 429 + `Retry-After` en `problem+json` (`rate_limit.exceeded`) y límites por grupo:
+2. ✅ (SCRUM-125) **Rate limit global por usuario o IP**, con respuesta 429 + `Retry-After` en `problem+json` (`rate_limit.exceeded`) y límites por grupo:
    - lectura;
    - escritura;
    - `auth`;
@@ -47,7 +47,7 @@ Esta spec cierra lo que falta.
 
 ## Criterios
 - [x] Respuestas JSON comprimidas (Brotli o gzip, salvo `/auth`; 02-10) → `PayloadCompressionTests` (Unit y Security).
-- [ ] Rate limit global activo con 429 + `Retry-After`. **Decisión (26-Nov-2026):** en lugar de uno global hay topes por ruta (`/auth`, fotos, chat, reportes e IA), con 429 y `Retry-After` → `RateLimitTests`, `AuthRoutesSecurityTests`.
+- [x] Rate limit global activo con 429 + `Retry-After` (SCRUM-125, `Platform/Hosting/GlobalRateLimit.cs`): 300 por minuto por persona con sesión y 600 por IP sin sesión (el campus comparte IP); `/health` no cuenta. Se suma a los topes por ruta (`/auth`, fotos, chat, reportes e IA) → `GlobalRateLimitTests` (Unit y Security), `RateLimitTests`, `AuthRoutesSecurityTests`.
 - [x] p95 de `GET /api/v1/products` ≤ el umbral de 00-03 con la carga definida → `PerformanceTest/LatencyTests.cs` (02-09: 4.6 ms en proceso; 143–251 ms contra AWS con caché).
 - [x] Build 0/0, pruebas al 100 % y critic PASS.
 
