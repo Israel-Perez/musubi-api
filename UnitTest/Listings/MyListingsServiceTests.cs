@@ -455,6 +455,9 @@ public sealed class MyListingsServiceTests
             Checked.AddRange(texts);
             return inner.CheckTextsAsync(texts, cancellationToken);
         }
+
+        public Task<IReadOnlyList<ModerationVerdict>> CheckPublicTextsAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken) =>
+            CheckTextsAsync(texts, cancellationToken);
     }
 
     /// <summary>Fotos que "otro modulo" sigue mostrando.</summary>

@@ -61,9 +61,11 @@ Después de cambiar un secreto hay que reemplazar las instancias: correr `infra-
 
 ## Moderación (02-07)
 
-Cada foto subida pasa por Rekognition (`DetectModerationLabels`). Cada texto (publicaciones y mensajes del chat) pasa por el léxico local de la API, sin costo: **el plan gratuito de AWS no incluye Translate ni Comprehend** (responden `SubscriptionRequiredException`).
+Cada foto subida pasa por Rekognition (`DetectModerationLabels`). Cada texto pasa por el léxico local de la API, sin costo. **El plan gratuito de AWS no incluye Translate ni Comprehend** (responden `SubscriptionRequiredException`).
 
-Si la cuenta pasa al plan de pago, `/musubi/prod/Moderation/TextProvider = Aws` agrega Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés) después del léxico. El rol de las instancias ya tiene los tres permisos (`Moderar` en `stack/iam.tf`).
+Desde la API `0.5.0-alpha.50` (SCRUM-127), el texto público (publicaciones, solicitudes, ofertas y reseñas) pasa además por Gemini, en la capa gratuita y con la misma llave `/musubi/prod/Gemini/ApiKey`. Lo configura `appsettings.Production.json` (`Moderation:TextProvider = Gemini`), así que no hay parámetro nuevo. El chat sigue solo con el léxico.
+
+Si la cuenta pasa al plan de pago, `/musubi/prod/Moderation/TextProvider = Aws` cambia Gemini por Translate (español → inglés) y Comprehend (`DetectToxicContent`, que solo acepta inglés) después del léxico, para todo el texto. El rol de las instancias ya tiene los tres permisos (`Moderar` en `stack/iam.tf`).
 
 Costo del piloto: ~0.50 USD/mes con 500 fotos (solo Rekognition). Precios de us-east-1:
 - Rekognition: 0.001 USD por imagen;

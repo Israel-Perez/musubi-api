@@ -127,6 +127,11 @@ internal sealed partial class AwsContentModerator(
         }
     }
 
+    /// <inheritdoc />
+    /// <remarks>Igual que el texto privado: Gemini lo agrega <see cref="PublicTextModerator"/> (SCRUM-127).</remarks>
+    public Task<IReadOnlyList<ModerationVerdict>> CheckPublicTextsAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken) =>
+        CheckTextsAsync(texts, cancellationToken);
+
     /// <summary>La primera etiqueta prohibida (por nombre o por su padre), o <c>null</c>.</summary>
     /// <param name="labels">Etiquetas de Rekognition (ya filtradas por confianza).</param>
     /// <param name="options">Configuracion.</param>

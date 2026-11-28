@@ -1,5 +1,16 @@
 # Memoria del proyecto — musubi-api
 
+## SCRUM-127 (27-Nov-2026): moderación de texto con IA en la nube
+
+- **Qué (API `0.5.0-alpha.50`):** `IContentModerator.CheckPublicTextsAsync` para el texto que verá el campus (publicaciones, solicitudes, ofertas, reseñas y "Llenar con IA"). En producción (`Moderation:TextProvider=Gemini` en `appsettings.Production.json`), `PublicTextModerator` pasa ese texto por el léxico y lo que este deja pasar por `ITextSafetyClassifier` (M-10: `GeminiTextSafetyClassifier`, una llamada por petición, temperatura 0, sin los filtros de Gemini, sin datos de contacto con `TranscriptRedactor`). El texto privado (chat, acuerdo, pedido) sigue con `CheckTextsAsync`, solo con el léxico.
+- **Decisiones de la usuaria (27-Nov-2026):**
+  - Gemini y no el plan de pago de AWS (Comprehend) ni OpenAI: es gratis y ya estaba integrado.
+  - Solo el texto público: en la capa gratuita, Google puede usar lo que recibe para mejorar sus productos, así que el chat no sale.
+- **Si Gemini no responde** (cuota, red o más de `Moderation:TextTimeoutSeconds`, 6 s), decide el léxico y se publica (RNF-15). Si Gemini bloquea por seguridad, se rechaza.
+- **Medido con Gemini real** (`ModerationEvaluationTests`, omitida en el CI sin `GEMINI_API_KEY`): el léxico solo detiene 0 de 15; con Gemini, 14 de 15, y deja pasar las 15 ventas normales. La que se escapa es "pasar las respuestas del examen".
+- La fila de L-16d decía `/aviso-de-privacidad`, pero la landing lo publica en `/privacidad` (la otra ruta da 404). Corregido.
+- **Errores a evitar:** la llave de Gemini para una prueba local se lee de `secrets.json` con un script que solo dice "encontrada"; nunca con `user-secrets list`.
+
 ## SCRUM-125 (26-Nov-2026): endurecimiento tras la auditoría v2
 
 - **Rate limit global (API `0.5.0-alpha.49`):** `Platform/Hosting/GlobalRateLimit.cs` es el `GlobalLimiter`: 300 por minuto por persona con sesión (`sub`) y 600 por IP sin sesión; `/health` no cuenta. Va detrás de `UseAuthentication` y de las cabeceras de CloudFront, así la IP es la real. Se suma a los topes por ruta.

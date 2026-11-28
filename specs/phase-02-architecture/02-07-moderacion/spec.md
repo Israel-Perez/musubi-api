@@ -38,11 +38,18 @@ Después llegarán solicitudes (HU-13), ofertas (HU-16), mensajes (HU-20) y repo
   - `Moderation:ExtraBlockedTerms` suma palabras o frases sin desplegar.
   - `Moderation:TextProvider=Aws` vuelve a usar Translate (`es` → `en`) + Comprehend `DetectToxicContent` después del léxico (la toxicidad de Comprehend solo acepta inglés). Sirve si la cuenta pasa al plan de pago.
   - El moderador en memoria también aplica el léxico, como producción.
+- **Texto público con IA en la nube: Gemini desde el 27-Nov-2026 (SCRUM-127, lineamiento 16).**
+  - `IContentModerator.CheckPublicTextsAsync` revisa lo que verá cualquiera del campus: publicaciones (alta y edición), solicitudes, ofertas, reseñas y lo que propone "Llenar con IA". `CheckTextsAsync` queda para el texto privado: chat, acuerdo y detalles del pedido.
+  - Con `Moderation:TextProvider=Gemini` (producción), `PublicTextModerator` pasa el texto público por el léxico y lo que este deja pasar por `ITextSafetyClassifier`. M-10 lo implementa en `GeminiTextSafetyClassifier`: una sola llamada por petición, temperatura 0, sin los filtros de seguridad de Gemini (clasifica en vez de negarse) y los textos como datos (JSON).
+  - Si Gemini bloquea la petición por seguridad (`SAFETY`, `PROHIBITED_CONTENT`, `BLOCKLIST`), el texto se rechaza. Si no responde (cuota, red o más de `Moderation:TextTimeoutSeconds`, 6 s), decide el léxico y la app sigue (RNF-15).
+  - **El texto privado nunca sale a Gemini:** en la capa gratuita, Google puede usar lo que recibe para mejorar sus productos. Decisión de la usuaria, 27-Nov-2026.
+  - Medido el 27-Nov-2026 con Gemini real (`ModerationEvaluationTests`, 15 inapropiados y 15 ventas normales del campus): el léxico solo detiene 0 de 15; con Gemini, 14 de 15, sin rechazar ninguna venta normal.
 - **Fotos:** Rekognition no acepta WebP. `PhotoProcessor` agrega una copia JPEG (`ProcessedPhoto.ModerationCopy`) que se modera y nunca se guarda.
 - **Integración:**
   - `PhotoUploadService` (productos) y `ProfilePhotoService` (perfil): moderan antes de `PutAsync`;
   - `ListingService.PublishAsync`: modera el título y la descripción antes de insertar;
-  - `ChatService` (HU-20): modera cada mensaje antes de guardarlo.
+  - `ChatService` (HU-20): modera cada mensaje antes de guardarlo (texto privado: solo el léxico);
+  - texto público con `CheckPublicTextsAsync` (SCRUM-127): `ListingService`, `MyListingsService`, `PhotoDraftService`, `WantedService`, `OfferService` y `RatingService`.
 - **Permisos:** el rol de las instancias tiene `rekognition:DetectModerationLabels`, `comprehend:DetectToxicContent` y `translate:TranslateText` (statement `Moderar`; estas acciones no admiten restringir el recurso). Infra `0.3.3`.
 
 ## Contratos
@@ -52,7 +59,7 @@ Después llegarán solicitudes (HU-13), ofertas (HU-16), mensajes (HU-20) y repo
   - `moderation.unavailable` (503).
 - **Filas afectadas** en [`docs/endpoints.md`](../../../docs/endpoints.md): `POST /products`, `POST /products/photos` y `PUT /profiles/me/photo`.
 - **Configuración:** `Moderation:*` (`01-04`).
-- **Paquetes:** `AWSSDK.Rekognition`, `AWSSDK.Comprehend` y `AWSSDK.Translate` (constitución §6; patrón `AWSSDK.*` ya mapeado). Comprehend y Translate solo se llaman con `TextProvider=Aws`.
+- **Paquetes:** `AWSSDK.Rekognition`, `AWSSDK.Comprehend` y `AWSSDK.Translate` (constitución §6; patrón `AWSSDK.*` ya mapeado). Comprehend y Translate solo se llaman con `TextProvider=Aws`. Gemini usa la llamada REST de M-10 (`GeminiApi`), sin paquetes nuevos.
 
 ## Tests
 - **`UnitTest/Platform/ModerationTests.cs` (21):**
@@ -66,6 +73,9 @@ Después llegarán solicitudes (HU-13), ofertas (HU-16), mensajes (HU-20) y repo
   - lo inocente que contiene una palabra prohibida pasa;
   - la normalización y los términos extra;
   - con `TextProvider=Lexicon` no se llama a AWS, y con `Aws` caído se conserva el rechazo del léxico.
+- **`UnitTest/Platform/PublicTextModeratorTests.cs` (13, SCRUM-127):** el texto público pasa por el léxico y después por la IA; lo que el léxico rechaza nunca sale; el privado nunca va a la IA; sin respuesta decide el léxico; la validación de `TextProvider` y `TextTimeoutSeconds`.
+- **`UnitTest/GenAi/TextSafetyTests.cs` (14, SCRUM-127):** un resultado por texto; el cuerpo (temperatura 0, sin bloqueo de Gemini, textos como datos); lo bloqueado por seguridad se rechaza; 429 o 503 caen al léxico; sin llave no llama.
+- **`UnitTest/Platform/ModerationEvaluationTests.cs` (SCRUM-127):** contra Gemini real con `GEMINI_API_KEY` (omitida en el CI).
 - **`IntegrationTest/Moderation/ModerationFlowTests.cs` (4):**
   - una foto inapropiada responde 422 en productos y en perfil, y no se guarda;
   - un texto inapropiado responde 422 nombrando el campo, y no se publica;

@@ -12,6 +12,7 @@ using Musubi.Api.Modules.Chat;
 using Musubi.Api.Modules.GenAi.Data;
 using Musubi.Api.Platform.Auth;
 using Musubi.Api.Platform.Data;
+using Musubi.Api.Platform.Moderation;
 
 namespace Musubi.Api.Modules.GenAi;
 
@@ -70,6 +71,9 @@ internal static class GenAiModuleServiceCollectionExtensions
             GenAiOptions.GeminiProvider => provider.GetRequiredService<GeminiPhotoDraftWriter>(),
             _ => new OffPhotoDraftWriter(),
         });
+        // SCRUM-127: la moderacion del texto publico (Platform/Moderation la usa con Moderation:TextProvider=Gemini).
+        services.AddHttpClient(GeminiTextSafetyClassifier.ClientName, client => client.BaseAddress = GeminiApi.BaseAddress);
+        services.AddSingleton<ITextSafetyClassifier, GeminiTextSafetyClassifier>();
         // HU-60: los vectores de las coincidencias. Singleton (lo usan los workers de M-06): pide un cliente por llamada.
         services.AddHttpClient(GeminiTextEmbedder.ClientName, client => client.BaseAddress = GeminiApi.BaseAddress);
         services.AddSingleton<GeminiTextEmbedder>();

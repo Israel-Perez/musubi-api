@@ -86,7 +86,7 @@ internal sealed class RatingService(
 
         if (comment is not null)
         {
-            var verdicts = await moderator.CheckTextsAsync([comment], cancellationToken).ConfigureAwait(false);
+            var verdicts = await moderator.CheckPublicTextsAsync([comment], cancellationToken).ConfigureAwait(false);
             if (ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("el comentario")) is { } rejected)
             {
                 return rejected;

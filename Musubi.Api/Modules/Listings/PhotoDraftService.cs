@@ -62,7 +62,7 @@ internal sealed class PhotoDraftService(
         }
 
         // 02-07: lo que propone la IA se modera como si lo hubiera escrito quien vende; si no pasa, se llena a mano.
-        var verdicts = await moderator.CheckTextsAsync([draft.Title, draft.Description], cancellationToken).ConfigureAwait(false);
+        var verdicts = await moderator.CheckPublicTextsAsync([draft.Title, draft.Description], cancellationToken).ConfigureAwait(false);
         if (verdicts.Any(v => v != ModerationVerdict.Allowed))
         {
             return ListingsErrors.DraftUnavailable;

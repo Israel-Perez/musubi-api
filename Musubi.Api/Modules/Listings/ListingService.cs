@@ -132,7 +132,7 @@ internal sealed partial class ListingService(
         }
 
         // 02-07: nombre y descripcion se moderan antes de guardar (las fotos, al subirlas).
-        var verdicts = await moderator.CheckTextsAsync([details.Title, details.Description], cancellationToken).ConfigureAwait(false);
+        var verdicts = await moderator.CheckPublicTextsAsync([details.Title, details.Description], cancellationToken).ConfigureAwait(false);
         if (ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("el nombre del producto")) is { } badTitle)
         {
             return badTitle;
