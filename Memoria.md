@@ -1,5 +1,10 @@
 # Memoria del proyecto — musubi-api
 
+## Lote 1.0.0+15 y entrega (27-Nov-2026)
+
+- Fila de la matriz (sección compartida) para la app `1.0.0+15` en la prueba cerrada, con la API `0.5.0-alpha.50` e infra `0.3.6` ya desplegadas.
+- L-19 ✅: el docente aceptó la entrega en `.zip` (`MUSUBI-Entrega-02-Dic-2026.zip`, armado con `git archive` de los tres repos más el script único de la base). Solo queda L-01 (Google Play a producción, SCRUM-124).
+
 ## SCRUM-127 (27-Nov-2026): moderación de texto con IA en la nube
 
 - **Qué (API `0.5.0-alpha.50`):** `IContentModerator.CheckPublicTextsAsync` para el texto que verá el campus (publicaciones, solicitudes, ofertas, reseñas y "Llenar con IA"). En producción (`Moderation:TextProvider=Gemini` en `appsettings.Production.json`), `PublicTextModerator` pasa ese texto por el léxico y lo que este deja pasar por `ITextSafetyClassifier` (M-10: `GeminiTextSafetyClassifier`, una llamada por petición, temperatura 0, sin los filtros de Gemini, sin datos de contacto con `TranscriptRedactor`). El texto privado (chat, acuerdo, pedido) sigue con `CheckTextsAsync`, solo con el léxico.
