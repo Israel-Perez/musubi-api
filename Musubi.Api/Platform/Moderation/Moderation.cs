@@ -26,14 +26,24 @@ internal sealed class ModerationOptions
     /// <summary>Texto solo con el lexico local (<see cref="SpanishLexicon"/>), sin costo.</summary>
     public const string LexiconTextProvider = "Lexicon";
 
+    /// <summary>
+    /// SCRUM-127: el lexico y despues Gemini (<see cref="ITextSafetyClassifier"/>), solo para el texto publico
+    /// (<see cref="IContentModerator.CheckPublicTextsAsync"/>). El chat sigue con el lexico.
+    /// </summary>
+    public const string GeminiTextProvider = "Gemini";
+
     /// <summary><c>InMemory</c> o <c>Aws</c>.</summary>
     public string Provider { get; set; } = AwsProvider;
 
     /// <summary>
-    /// Texto con el proveedor <c>Aws</c>: <c>Lexicon</c> (por defecto) o <c>Aws</c> (el lexico y despues
-    /// Translate + Comprehend). El plan gratuito de AWS no incluye Translate ni Comprehend (08-Nov-2026).
+    /// Texto con el proveedor <c>Aws</c>: <c>Lexicon</c> (por defecto), <c>Aws</c> (el lexico y despues
+    /// Translate + Comprehend; el plan gratuito de AWS no los incluye, 08-Nov-2026) o <c>Gemini</c> (el lexico y
+    /// despues Gemini para el texto publico, SCRUM-127).
     /// </summary>
     public string TextProvider { get; set; } = LexiconTextProvider;
+
+    /// <summary>Espera maxima de la revision del texto con Gemini; si se pasa, decide el lexico (SCRUM-127).</summary>
+    public int TextTimeoutSeconds { get; set; } = 6;
 
     /// <summary>Palabras o frases que se suman al lexico sin desplegar (una frase lleva espacios).</summary>
     public IReadOnlyList<string> ExtraBlockedTerms { get; set; } = [];
@@ -72,9 +82,14 @@ internal sealed class ModerationOptionsValidator(IHostEnvironment environment) :
     public ValidateOptionsResult Validate(string? name, ModerationOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (options.TextProvider is not (ModerationOptions.LexiconTextProvider or ModerationOptions.AwsProvider))
+        if (options.TextProvider is not (ModerationOptions.LexiconTextProvider or ModerationOptions.AwsProvider or ModerationOptions.GeminiTextProvider))
         {
-            return ValidateOptionsResult.Fail("Moderation:TextProvider debe ser Lexicon o Aws.");
+            return ValidateOptionsResult.Fail("Moderation:TextProvider debe ser Lexicon, Aws o Gemini.");
+        }
+
+        if (options.TextTimeoutSeconds is < 1 or > 30)
+        {
+            return ValidateOptionsResult.Fail("Moderation:TextTimeoutSeconds debe estar entre 1 y 30.");
         }
 
         return options.Provider switch
@@ -112,11 +127,36 @@ internal interface IContentModerator
     /// <returns>La decision.</returns>
     Task<ModerationVerdict> CheckImageAsync(byte[] image, CancellationToken cancellationToken);
 
-    /// <summary>Revisa textos en espanol (titulo, descripcion, mensajes).</summary>
+    /// <summary>
+    /// Revisa textos privados en espanol (el chat, el acuerdo, los detalles de un pedido). Nunca salen a un
+    /// servicio de IA de terceros: solo el lexico (o Comprehend, dentro de AWS, con <c>TextProvider=Aws</c>).
+    /// </summary>
     /// <param name="texts">Textos; los vacios se ignoran.</param>
     /// <param name="cancellationToken">Cancelacion.</param>
     /// <returns>La decision para cada texto, en el mismo orden.</returns>
     Task<IReadOnlyList<ModerationVerdict>> CheckTextsAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revisa texto que vera cualquiera del campus (publicaciones, solicitudes, ofertas, resenas y lo que propone
+    /// la IA). Con <c>TextProvider=Gemini</c> pasa por el lexico y despues por Gemini (SCRUM-127, lineamiento 16).
+    /// </summary>
+    /// <param name="texts">Textos; los vacios se ignoran.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>La decision para cada texto, en el mismo orden.</returns>
+    Task<IReadOnlyList<ModerationVerdict>> CheckPublicTextsAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Clasifica texto publico con un servicio de IA en la nube (SCRUM-127). Lo implementa M-10 (Gemini); la
+/// plataforma solo conoce este contrato.
+/// </summary>
+internal interface ITextSafetyClassifier
+{
+    /// <summary>Decide, para cada texto, si es inapropiado.</summary>
+    /// <param name="texts">Textos no vacios, ya revisados por el lexico.</param>
+    /// <param name="cancellationToken">Cancelacion.</param>
+    /// <returns>Un valor por texto en el mismo orden, o <c>null</c> si el servicio no respondio.</returns>
+    Task<IReadOnlyList<bool>?> FindInappropriateAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -152,6 +192,10 @@ internal sealed class InMemoryContentModerator(SpanishLexicon? lexicon = null) :
                 : ModerationVerdict.Allowed)
             .ToList());
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ModerationVerdict>> CheckPublicTextsAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken) =>
+        CheckTextsAsync(texts, cancellationToken);
 }
 
 /// <summary>Errores de la moderacion (catalogo canonico: docs/errores.md).</summary>

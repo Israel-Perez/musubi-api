@@ -557,7 +557,7 @@ internal sealed class WantedService(
             return null;
         }
 
-        var verdicts = await moderator.CheckTextsAsync([.. checks.Select(c => c.Text)], cancellationToken).ConfigureAwait(false);
+        var verdicts = await moderator.CheckPublicTextsAsync([.. checks.Select(c => c.Text)], cancellationToken).ConfigureAwait(false);
         for (var i = 0; i < checks.Count; i++)
         {
             if (ModerationErrors.For(verdicts[i], ModerationErrors.TextRejected(checks[i].Field)) is { } rejected)

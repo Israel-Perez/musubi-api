@@ -293,7 +293,7 @@ internal sealed class MyListingsService(
             return null;
         }
 
-        var verdicts = await moderator.CheckTextsAsync(texts, cancellationToken).ConfigureAwait(false);
+        var verdicts = await moderator.CheckPublicTextsAsync(texts, cancellationToken).ConfigureAwait(false);
         for (var i = 0; i < texts.Count; i++)
         {
             if (ModerationErrors.For(verdicts[i], ModerationErrors.TextRejected(fields[i])) is { } rejected)

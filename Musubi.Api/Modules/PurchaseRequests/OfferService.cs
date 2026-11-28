@@ -296,7 +296,7 @@ internal sealed class OfferService(
         var (kind, productId, title, priceCents, condition, photoKey, detail) = draft.Value!;
 
         // 02-07: se modera lo que escribio la persona (la publicacion vinculada ya se modero al publicarla).
-        var verdicts = await moderator.CheckTextsAsync([kind == OfferKinds.Direct ? title : string.Empty, message ?? string.Empty], cancellationToken)
+        var verdicts = await moderator.CheckPublicTextsAsync([kind == OfferKinds.Direct ? title : string.Empty, message ?? string.Empty], cancellationToken)
             .ConfigureAwait(false);
         var rejected = ModerationErrors.For(verdicts[0], ModerationErrors.TextRejected("la descripción"))
             ?? ModerationErrors.For(verdicts[1], ModerationErrors.TextRejected("el mensaje"));

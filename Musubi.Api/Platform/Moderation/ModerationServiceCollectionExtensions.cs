@@ -33,13 +33,19 @@ internal static class ModerationServiceCollectionExtensions
 
             // Crear los clientes no llama a AWS: Translate y Comprehend solo se usan con TextProvider=Aws.
             var region = RegionEndpoint.GetBySystemName(options.Value.Region);
-            return new AwsContentModerator(
+            var aws = new AwsContentModerator(
                 new AmazonRekognitionClient(region),
                 new AmazonTranslateClient(region),
                 new AmazonComprehendClient(region),
                 lexicon,
                 options,
                 provider.GetRequiredService<ILogger<AwsContentModerator>>());
+
+            // SCRUM-127: con TextProvider=Gemini, el texto publico pasa ademas por el clasificador de M-10.
+            return options.Value.TextProvider == ModerationOptions.GeminiTextProvider
+                && provider.GetService<ITextSafetyClassifier>() is { } classifier
+                ? new PublicTextModerator(aws, classifier, provider.GetRequiredService<ILogger<PublicTextModerator>>())
+                : aws;
         });
     }
 }
