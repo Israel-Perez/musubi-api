@@ -69,7 +69,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-16i | Al menos una función de ML y una de IA generativa | ML: "Recomendado para ti" y "Ver parecidos" con ML.NET (TF-IDF aprendido del catálogo, perfil de la persona y factorización de matrices de una clase), evaluado con leave-one-out (`RecommendationModelTests.Evaluation_LeaveOneOut_BeatsRandomByFar`; hit@5 en los logs de cada entrenamiento) (HU-35). Coincidencias por significado con embeddings de Gemini, evaluadas contra las de palabras con ejemplos del campus: cobertura 0.86 contra 0.19 (`SemanticEvaluationTests`, HU-60). IA: el acuerdo con IA desde el chat (HU-32/33/34, Gemini) y "Llenar con IA" desde la foto al publicar (HU-59, Gemini con la imagen) | HU-32 · HU-35 · HU-59 · HU-60 | ✅ |
 | L-17 | Landing con enlace a la tienda y aviso de privacidad | `musubi-landing` en `https://musubiapp.com.mx`: qué es Musubi, cómo funciona, botón de Google Play, aviso de privacidad, términos, eliminar cuenta y la vista previa de un producto compartido (HU-61) | SCRUM-84 · SCRUM-110 | ✅ |
 | L-18 | Una sola cuenta de GitHub | `Israel-Perez/musubi-api` y `Israel-Perez/musubi-app` | — | ✅ |
-| L-19 | Evaluación el 02-Dic-2026; entrega en `.rar` + script de BD | Script de la base: `db/*.js` (idempotentes, en orden, `db/README.md`). Falta armar el `.rar` al cierre | 02-01 · equipo | 🟡 |
+| L-19 | Evaluación el 02-Dic-2026; entrega en `.rar` + script de BD | `MUSUBI-Entrega-02-Dic-2026.zip`: los tres repos desde `main` (`git archive`, sin secretos), `base-de-datos/musubi-base-de-datos.js` (los 36 scripts de `db/` en orden, idempotentes) y `LEEME.md`. El docente aceptó `.zip` en lugar de `.rar` (27-Nov-2026) | 02-01 · equipo | ✅ |
 
 ## 3. Cambios que provocó
 
