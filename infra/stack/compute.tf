@@ -150,10 +150,16 @@ resource "aws_launch_template" "api" {
 }
 
 resource "aws_autoscaling_group" "api" {
-  name                      = "musubi-api"
-  min_size                  = var.instance_count
-  max_size                  = var.instance_count
-  desired_capacity          = var.instance_count
+  name     = "musubi-api"
+  min_size = var.instance_count
+  # SCRUM-127: crece por CPU (aws_autoscaling_policy.cpu) hasta max_instance_count y regresa a instance_count.
+  max_size         = max(var.max_instance_count, var.instance_count)
+  desired_capacity = var.instance_count
+
+  # La politica de escalado mueve desired_capacity: un apply no la regresa a instance_count en plena carga.
+  lifecycle {
+    ignore_changes = [desired_capacity]
+  }
   vpc_zone_identifier       = aws_subnet.public[*].id
   target_group_arns         = [aws_lb_target_group.api.arn]
   health_check_type         = "ELB"
@@ -178,5 +184,22 @@ resource "aws_autoscaling_group" "api" {
     key                 = "Name"
     value               = "musubi-api"
     propagate_at_launch = true
+  }
+}
+
+# SCRUM-127 (lineamiento 15: backend escalable): target tracking por CPU. Con la CPU promedio sobre
+# target_cpu_percent agrega instancias (hasta max_instance_count) y, al bajar la carga, las quita sin pasar de
+# instance_count. En reposo se queda en 2: el costo extra solo existe mientras hay carga.
+resource "aws_autoscaling_policy" "cpu" {
+  name                      = "musubi-api-cpu"
+  autoscaling_group_name    = aws_autoscaling_group.api.name
+  policy_type               = "TargetTrackingScaling"
+  estimated_instance_warmup = 300
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = var.target_cpu_percent
   }
 }

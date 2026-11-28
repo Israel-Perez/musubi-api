@@ -144,7 +144,7 @@ La tabla canónica de claves y su estado por fase vive en `specs/phase-01-founda
 ## 9. Despliegue y operación
 
 - **02-05 (Borrador con evidencia):** `infra/` (Terraform) + workflows `infra-up` / `infra-down` (OIDC, entorno `produccion` solo para `main`). Guía, secretos y costo en [`infra/README.md`](infra/README.md).
-- CloudFront (HTTPS) → ALB → Auto Scaling Group de 2 EC2 con Docker; secretos en Parameter Store `/musubi/prod/*`; logs en CloudWatch `/musubi/prod/api`.
+- CloudFront (HTTPS) → ALB → Auto Scaling Group de 2 EC2 con Docker, que crece por CPU (target tracking al 60 %) hasta 4 y regresa a 2 (SCRUM-127; `max_instance_count`, `target_cpu_percent`); secretos en Parameter Store `/musubi/prod/*`; logs en CloudWatch `/musubi/prod/api`.
 - Para desplegar: subir `<Version>` y agregar su fila en `docs/versionado.md`, fusionar y correr `infra-up`. Si el tag `api-vX.Y.Z` ya existe en otro commit, falla.
 - No guardes secretos en Terraform: viven en Parameter Store y entran como variables de entorno.
 - Dominio: `api.musubiapp.com.mx` en CloudFront con certificado ACM (TLS 1.2).

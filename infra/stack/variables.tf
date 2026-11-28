@@ -26,6 +26,29 @@ variable "instance_count" {
   }
 }
 
+# SCRUM-127 (lineamiento 15: backend escalable): el grupo crece por CPU hasta este tope y vuelve a instance_count.
+variable "max_instance_count" {
+  description = "Tope de instancias cuando el Auto Scaling Group crece por CPU."
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = var.max_instance_count >= 2 && var.max_instance_count <= 6
+    error_message = "El tope va de 2 a 6 instancias (costo: solo se pagan mientras hay carga)."
+  }
+}
+
+variable "target_cpu_percent" {
+  description = "CPU promedio del grupo que mantiene la politica de escalado (target tracking)."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.target_cpu_percent >= 20 && var.target_cpu_percent <= 90
+    error_message = "La CPU objetivo va de 20 a 90 %."
+  }
+}
+
 variable "ssm_prefix" {
   description = "Prefijo de Parameter Store con la configuracion secreta (cada parametro se vuelve una variable de entorno)."
   type        = string

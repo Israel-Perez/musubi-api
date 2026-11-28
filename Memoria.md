@@ -8,6 +8,7 @@
   - Solo el texto público: en la capa gratuita, Google puede usar lo que recibe para mejorar sus productos, así que el chat no sale.
 - **Si Gemini no responde** (cuota, red o más de `Moderation:TextTimeoutSeconds`, 6 s), decide el léxico y se publica (RNF-15). Si Gemini bloquea por seguridad, se rechaza.
 - **Medido con Gemini real** (`ModerationEvaluationTests`, omitida en el CI sin `GEMINI_API_KEY`): el léxico solo detiene 0 de 15; con Gemini, 14 de 15, y deja pasar las 15 ventas normales. La que se escapa es "pasar las respuestas del examen".
+- **Backend escalable (L-15, infra `0.3.6`):** `aws_autoscaling_policy.cpu` (target tracking, CPU promedio 60 %) lleva el grupo de 2 hasta `max_instance_count` (4) y lo regresa a 2. `desired_capacity` va en `ignore_changes`: si no, cada `infra-up` regresaría el grupo a 2 en plena carga. En reposo sigue en 2, así que el costo no cambia.
 - La fila de L-16d decía `/aviso-de-privacidad`, pero la landing lo publica en `/privacidad` (la otra ruta da 404). Corregido.
 - **Errores a evitar:** la llave de Gemini para una prueba local se lee de `secrets.json` con un script que solo dice "encontrada"; nunca con `user-secrets list`.
 

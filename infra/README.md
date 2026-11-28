@@ -3,7 +3,7 @@
 | Carpeta | Qué crea | Cuándo se aplica |
 |---|---|---|
 | `bootstrap/` | ECR `musubi-api`, proveedor OIDC de GitHub, rol `musubi-github-deploy`, presupuesto con alertas | **Una vez**, desde la PC de un administrador |
-| `stack/` | Red (2 zonas), ALB, Auto Scaling Group (2 EC2), CloudFront, S3 de imágenes, IAM de las instancias, CloudWatch | Workflow `infra-up` (y `infra-down` para eliminar) |
+| `stack/` | Red (2 zonas), ALB, Auto Scaling Group (2 EC2 que crecen por CPU hasta 4, SCRUM-127), CloudFront, S3 de imágenes, IAM de las instancias, CloudWatch | Workflow `infra-up` (y `infra-down` para eliminar) |
 
 `VERSION` es la versión de la infraestructura (tag `infra-vX.Y.Z`, `docs/versionado.md`).
 

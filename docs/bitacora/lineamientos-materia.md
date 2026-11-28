@@ -47,7 +47,7 @@ Estados: ✅ Cumplido · 🟡 Parcial · ⏳ Pendiente. "Dueño" es la spec o HU
 | L-13c | IaC con Terraform (crear y eliminar) | `infra/bootstrap` + `infra/stack`; `infra-up` crea y `infra-down` elimina | 02-05 | ✅ |
 | L-13d | Salida con SSL/HTTPS | `https://api.musubiapp.com.mx`: CloudFront solo HTTPS con certificado de ACM y TLS 1.2 (`infra/stack/edge.tf`), HSTS; la landing en `https://musubiapp.com.mx` (Cloudflare) | 02-05 | ✅ |
 | L-14 | Base de datos NoSQL | MongoDB: modelo, validadores e índices en `db/001`…`db/036` (esquema 36), `DatabaseTest` contra MongoDB real | 02-01 | ✅ |
-| L-15a | Al menos 2 instancias | Auto Scaling Group con 2 EC2 en 2 zonas (validación en Terraform: mínimo 2) | 02-05 | ✅ |
+| L-15a | Al menos 2 instancias (backend escalable) | Auto Scaling Group con 2 EC2 en 2 zonas (validación en Terraform: mínimo 2) y política de escalado por CPU (target tracking al 60 %) que crece hasta 4 y regresa a 2 (`aws_autoscaling_policy.cpu`, SCRUM-127) | 02-05 · SCRUM-127 | ✅ |
 | L-15b | AWS/Azure/GCP con costo cero | AWS con créditos (100 USD, vencen el 20-Abr-2027) + Atlas M0 gratis; se enciende solo para usarse (`infra-up`/`infra-down`) y hay alertas de costo (`infra/README.md`) | 02-05 | ✅ |
 | L-15c | Todas las funciones de la API en la nube | El monolito modular completo corre en AWS. Solo la llamada al modelo de IA sale a Gemini (ver §3, HU-32/33): decisión documentada | 02-05 | ✅ |
 | L-15d | Endpoints eficientes | Índices en cada consulta (`db/`), paginación por cursor, compresión, caché y p95 medido (02-09: 143–251 ms contra AWS con caché) | 02-04 · 02-09 | ✅ |
